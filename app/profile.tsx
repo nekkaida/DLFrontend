@@ -224,12 +224,6 @@ export default function ProfileAdaptedScreen() {
     }, [loadData])
   );
   
-  // Update activeTab to user's first sport when userData is loaded
-  useEffect(() => {
-    if (userData?.sports && userData.sports.length > 0 && userData.sports[0] !== 'No sports yet') {
-      setActiveTab(userData.sports[0]);
-    }
-  }, [userData?.sports, setActiveTab]);
   
   // Fallback data using team lead's original mock data for when API is not available
   // const { mockEloData, userData, gameTypeOptions } = require('../src/features/profile/data/mockData');
@@ -267,6 +261,13 @@ export default function ProfileAdaptedScreen() {
   };
   
   console.log('Final userData:', userData);
+  
+  // Update activeTab to user's first sport when userData is loaded
+  useEffect(() => {
+    if (userData?.sports && userData.sports.length > 0 && userData.sports[0] !== 'No sports yet') {
+      setActiveTab(userData.sports[0]);
+    }
+  }, [userData?.sports, setActiveTab]);
   
   // Helper function to get rating values from skillRatings
   const getRatingForType = (sport: string, type: 'singles' | 'doubles') => {
@@ -998,10 +999,10 @@ const styles = StyleSheet.create({
     fontFamily: theme.typography.fontFamily.primary,
   },
   skillLabel: {
-    color: theme.colors.neutral.gray[600],
-    fontSize: theme.typography.fontSize.xl,
+    color: theme.colors.neutral.gray[900],
+    fontSize: theme.typography.fontSize.lg,
     fontFamily: theme.typography.fontFamily.primary,
-    fontWeight: '500' as any,
+    fontWeight: theme.typography.fontWeight.bold as any,
   },
   dmrLabel: {
     textAlign: 'center',
