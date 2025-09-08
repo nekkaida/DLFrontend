@@ -824,7 +824,7 @@ const styles = StyleSheet.create({
     fontFamily: theme.typography.fontFamily.primary,
   },
   achievementContainer: {
-    backgroundColor: theme.colors.neutral.gray[50],
+    backgroundColor: theme.colors.neutral.white,
     padding: theme.spacing.md,
     borderRadius: theme.borderRadius.lg,
     borderWidth: 1,
@@ -911,7 +911,7 @@ const styles = StyleSheet.create({
     fontWeight: 'bold' as any,
   },
   skillContainer: {
-    backgroundColor: theme.colors.neutral.gray[50],
+    backgroundColor: theme.colors.neutral.white,
     padding: theme.spacing.lg,
     borderRadius: theme.borderRadius.lg,
     borderWidth: 1,
@@ -922,7 +922,7 @@ const styles = StyleSheet.create({
     gap: theme.spacing.xl * 3,
   },
   dmrContainer: {
-    backgroundColor: theme.colors.neutral.gray[50],
+    backgroundColor: theme.colors.neutral.white,
     padding: theme.spacing.lg,
     paddingBottom: theme.spacing.lg,
     borderRadius: theme.borderRadius.lg,
@@ -1091,7 +1091,7 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.neutral.gray[200],
   },
   matchHistoryContainer: {
-    backgroundColor: theme.colors.neutral.gray[50],
+    backgroundColor: theme.colors.neutral.white,
     padding: theme.spacing.lg,
     borderRadius: theme.borderRadius.lg,
     borderWidth: 1,
@@ -1352,8 +1352,9 @@ const styles = StyleSheet.create({
   },
   // League Stats Styles  
   leagueStatsContainer: {
-    backgroundColor: theme.colors.neutral.gray[50],
+    backgroundColor: theme.colors.neutral.white,
     padding: theme.spacing.lg,
+    paddingBottom: theme.spacing.xl * 2,
     borderRadius: theme.borderRadius.lg,
     borderWidth: 1,
     borderColor: theme.colors.neutral.gray[100],

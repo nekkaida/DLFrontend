@@ -31,7 +31,7 @@ const styles = StyleSheet.create({
     marginTop: theme.spacing.lg,
   },
   matchHistoryContainer: {
-    backgroundColor: theme.colors.neutral.gray[50],
+    backgroundColor: theme.colors.neutral.white,
     padding: theme.spacing.lg,
     borderRadius: theme.borderRadius.lg,
     borderWidth: 1,
