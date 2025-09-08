@@ -3,8 +3,6 @@ import * as Haptics from 'expo-haptics';
 import type { GameData } from '../types';
 
 interface ProfileHandlersProps {
-  setEloDropdownVisible: (visible: boolean) => void;
-  setLeagueDropdownVisible: (visible: boolean) => void;
   setSelectedGameType: (gameType: string) => void;
   setActiveTab: (tab: string) => void;
   setSelectedGame: (game: GameData | null) => void;
@@ -12,8 +10,6 @@ interface ProfileHandlersProps {
 }
 
 export const useProfileHandlers = ({
-  setEloDropdownVisible,
-  setLeagueDropdownVisible,
   setSelectedGameType,
   setActiveTab,
   setSelectedGame,
@@ -31,13 +27,10 @@ export const useProfileHandlers = ({
 
   const handleGameTypeSelect = (gameType: string) => {
     setSelectedGameType(gameType);
-    setEloDropdownVisible(false);
-    setLeagueDropdownVisible(false);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   };
 
   const handleLeagueSelect = (league: string) => {
-    setLeagueDropdownVisible(false);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   };
 

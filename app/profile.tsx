@@ -17,7 +17,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { theme } from '@core/theme/theme';
 import { router, useFocusEffect } from 'expo-router';
 import * as Haptics from 'expo-haptics';
-import { DropdownModal, WinRateCircle, MatchDetailsModal, EloProgressGraph, EditIcon, MatchHistoryButton, AchievementIcon } from '../src/features/profile/components';
+import { DropdownModal, InlineDropdown, WinRateCircle, MatchDetailsModal, EloProgressGraph, EditIcon, MatchHistoryButton, AchievementIcon } from '../src/features/profile/components';
 import type { GameData, UserData } from '../src/features/profile/types';
 // import { mockEloData, userData, gameTypeOptions } from '../src/features/profile/data/mockData'; // Team lead's original mock data - commented for API implementation
 import { useProfileState } from '../src/features/profile/hooks/useProfileState';
@@ -67,14 +67,10 @@ export default function ProfileAdaptedScreen() {
     activeTab,
     selectedGame,
     modalVisible,
-    eloDropdownVisible,
-    leagueDropdownVisible,
     selectedGameType,
     setActiveTab,
     setSelectedGame,
     setModalVisible,
-    setEloDropdownVisible,
-    setLeagueDropdownVisible,
     setSelectedGameType,
   } = useProfileState();
 
@@ -88,8 +84,6 @@ export default function ProfileAdaptedScreen() {
     handleModalClose,
     handleMatchHistoryPress,
   } = useProfileHandlers({
-    setEloDropdownVisible,
-    setLeagueDropdownVisible,
     setSelectedGameType,
     setActiveTab,
     setSelectedGame,
@@ -562,16 +556,14 @@ export default function ProfileAdaptedScreen() {
               
               {/* Dropdown above graph */}
               <View style={styles.dropdownSection}>
-                <Pressable 
-                  style={styles.dropdownHorizontal}
-                  onPress={() => {
+                <InlineDropdown
+                  options={gameTypeOptions}
+                  selectedValue={selectedGameType}
+                  onSelect={(value) => {
                     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                    setEloDropdownVisible(true);
+                    handleGameTypeSelect(value);
                   }}
-                >
-                  <Text style={styles.dropdownText}>{selectedGameType}</Text>
-                  <Ionicons name="chevron-down" size={16} color={theme.colors.neutral.gray[600]} />
-                </Pressable>
+                />
               </View>
               
               {/* ELO Progress Graph */}
@@ -594,16 +586,14 @@ export default function ProfileAdaptedScreen() {
             <View style={styles.leagueStatsContainer}>
               <View style={styles.statsHeader}>
                 <Text style={styles.skillLabel}>League Stats</Text>
-                <Pressable 
-                  style={styles.dropdownHorizontal}
-                  onPress={() => {
+                <InlineDropdown
+                  options={gameTypeOptions}
+                  selectedValue={selectedGameType}
+                  onSelect={(value) => {
                     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                    setLeagueDropdownVisible(true);
+                    handleGameTypeSelect(value);
                   }}
-                >
-                  <Text style={styles.dropdownText}>{selectedGameType}</Text>
-                  <Ionicons name="chevron-down" size={16} color={theme.colors.neutral.gray[600]} />
-                </Pressable>
+                />
               </View>
               
               {/* Win Rate Circle Chart */}
@@ -633,25 +623,6 @@ export default function ProfileAdaptedScreen() {
         />
       )}
       
-      {/* ELO Dropdown Modal */}
-      <DropdownModal
-        visible={eloDropdownVisible}
-        onClose={() => setEloDropdownVisible(false)}
-        options={gameTypeOptions}
-        selectedValue={selectedGameType}
-        onSelect={handleGameTypeSelect}
-        title="Game Type"
-      />
-      
-      {/* League Stats Dropdown Modal */}
-      <DropdownModal
-        visible={leagueDropdownVisible}
-        onClose={() => setLeagueDropdownVisible(false)}
-        options={gameTypeOptions}
-        selectedValue={selectedGameType}
-        onSelect={handleGameTypeSelect}
-        title="Game Type"
-      />
     </View>
   );
 }
@@ -963,12 +934,6 @@ const styles = StyleSheet.create({
     bottom: theme.spacing.md,
     left: theme.spacing.xl,
   },
-  dropdownText: {
-    color: theme.colors.neutral.gray[600],
-    fontSize: theme.typography.fontSize.sm,
-    fontFamily: theme.typography.fontFamily.primary,
-    fontWeight: '500' as any,
-  },
   dmrHeader: {
     flexDirection: 'row',
     alignItems: 'flex-start',
@@ -1015,17 +980,6 @@ const styles = StyleSheet.create({
   },
   dropdownSection: {
     marginBottom: theme.spacing.md,
-  },
-  dropdownHorizontal: {
-    backgroundColor: theme.colors.neutral.white,
-    padding: theme.spacing.sm,
-    borderRadius: theme.borderRadius.md,
-    borderWidth: 1,
-    borderColor: theme.colors.neutral.gray[300],
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    width: 100,
   },
   ratingCircle: {
     width: 80,
