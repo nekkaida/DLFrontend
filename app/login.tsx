@@ -11,6 +11,7 @@ import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import { authClient } from '@/lib/auth-client';
 import { getBackendBaseURL } from '@/config/network';
+import { navigateAndClearStack, clearAuthPagesFromHistory } from '@core/navigation';
 
 export default function LoginScreen() {
   const router = useRouter();
@@ -146,26 +147,31 @@ export default function LoginScreen() {
               
               if (assessmentData?.hasCompletedAssessment) {
                 console.log('User completed assessment, redirecting to dashboard');
-                router.push('/user-dashboard');
+                clearAuthPagesFromHistory();
+                navigateAndClearStack('/user-dashboard');
               } else {
                 console.log('User needs to complete assessment, redirecting to game select');
-                router.push('/onboarding/game-select');
+                clearAuthPagesFromHistory();
+                navigateAndClearStack('/onboarding/game-select');
               }
             } catch (assessmentError) {
               console.error('Error checking assessment status:', assessmentError);
               // If assessment check fails, go to dashboard anyway
               console.log('Assessment check failed, redirecting to dashboard');
-              router.push('/user-dashboard');
+              clearAuthPagesFromHistory();
+              navigateAndClearStack('/user-dashboard');
             }
           } else {
             console.log('User needs onboarding, redirecting to onboarding');
-            router.push('/onboarding/personal-info');
+            clearAuthPagesFromHistory();
+            navigateAndClearStack('/onboarding/personal-info');
           }
         } catch (error) {
           console.error('Error checking onboarding status:', error);
           // If onboarding check fails, assume needs onboarding
           console.log('Onboarding check failed, redirecting to onboarding');
-          router.push('/onboarding/personal-info');
+          clearAuthPagesFromHistory();
+          navigateAndClearStack('/onboarding/personal-info');
         }
       }
     } catch (error) {

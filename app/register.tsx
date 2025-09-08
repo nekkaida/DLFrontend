@@ -10,6 +10,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import { authClient } from '../lib/auth-client';
+import { navigateAndClearStack, clearAuthPagesFromHistory } from '@core/navigation';
 
 export default function RegisterScreen() {
   const router = useRouter();
@@ -48,7 +49,8 @@ export default function RegisterScreen() {
         console.log('Registration response data:', data);
         console.log('User emailVerified:', data.user?.emailVerified);
         console.log('About to navigate to verifyEmail page...');
-        router.replace({ pathname: '/verifyEmail', params: { email: email } });
+        clearAuthPagesFromHistory();
+        navigateAndClearStack('/verifyEmail');
         console.log('Navigation to verifyEmail completed');
       }
     } catch (error) {

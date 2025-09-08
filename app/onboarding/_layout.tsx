@@ -6,7 +6,13 @@ export default function OnboardingLayout() {
   return (
     <ErrorBoundary>
       <OnboardingProvider>
-        <Stack screenOptions={{ headerShown: false }}>
+        <Stack 
+          screenOptions={{ 
+            headerShown: false,
+            gestureEnabled: true, // Re-enable swipe-back gesture
+            animationEnabled: true,
+          }}
+        >
           <Stack.Screen name="personal-info" />
           <Stack.Screen name="location" />
           <Stack.Screen name="game-select" />

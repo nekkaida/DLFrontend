@@ -4,6 +4,7 @@ import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import 'react-native-reanimated';
 import { useColorScheme } from '@/hooks/useColorScheme';
+import { NavigationInterceptor } from '@core/navigation/NavigationInterceptor';
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
@@ -18,21 +19,102 @@ export default function RootLayout() {
 
   return (
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <Stack>
-        <Stack.Screen name="index" options={{ headerShown: false }} />
-        <Stack.Screen name="dev" options={{ headerShown: false }} />
-        <Stack.Screen name="login" options={{ headerShown: false }} />
-        <Stack.Screen name="register" options={{ headerShown: false }} />
-        <Stack.Screen name="resetPassword" options={{ headerShown: false }} />
-        <Stack.Screen name="verifyEmail" options={{ headerShown: false }} />
-        <Stack.Screen name="onboarding" options={{ headerShown: false }} />
-        <Stack.Screen name="user-dashboard" options={{ headerShown: false }} />
-        <Stack.Screen name="profile" options={{ headerShown: false }} />
-        <Stack.Screen name="edit-profile" options={{ headerShown: false }} />
-        <Stack.Screen name="settings" options={{ headerShown: false }} />
-        <Stack.Screen name="match-history" options={{ headerShown: false }} />
+      <NavigationInterceptor>
+        <Stack
+          screenOptions={{
+            gestureEnabled: true, // Re-enable swipe-back gesture
+            animationEnabled: true,
+            headerShown: false,
+            presentation: 'card', // Ensure consistent presentation
+          }}
+        >
+        <Stack.Screen 
+          name="index" 
+          options={{ 
+            headerShown: false,
+            gestureEnabled: true,
+          }} 
+        />
+        <Stack.Screen 
+          name="dev" 
+          options={{ 
+            headerShown: false,
+            gestureEnabled: true,
+          }} 
+        />
+        <Stack.Screen 
+          name="login" 
+          options={{ 
+            headerShown: false,
+            gestureEnabled: true,
+          }} 
+        />
+        <Stack.Screen 
+          name="register" 
+          options={{ 
+            headerShown: false,
+            gestureEnabled: true,
+          }} 
+        />
+        <Stack.Screen 
+          name="resetPassword" 
+          options={{ 
+            headerShown: false,
+            gestureEnabled: true,
+          }} 
+        />
+        <Stack.Screen 
+          name="verifyEmail" 
+          options={{ 
+            headerShown: false,
+            gestureEnabled: true,
+          }} 
+        />
+        <Stack.Screen 
+          name="onboarding" 
+          options={{ 
+            headerShown: false,
+            gestureEnabled: true,
+          }} 
+        />
+        <Stack.Screen 
+          name="user-dashboard" 
+          options={{ 
+            headerShown: false,
+            gestureEnabled: true,
+          }} 
+        />
+        <Stack.Screen 
+          name="profile" 
+          options={{ 
+            headerShown: false,
+            gestureEnabled: true,
+          }} 
+        />
+        <Stack.Screen 
+          name="edit-profile" 
+          options={{ 
+            headerShown: false,
+            gestureEnabled: true,
+          }} 
+        />
+        <Stack.Screen 
+          name="settings" 
+          options={{ 
+            headerShown: false,
+            gestureEnabled: true,
+          }} 
+        />
+        <Stack.Screen 
+          name="match-history" 
+          options={{ 
+            headerShown: false,
+            gestureEnabled: true,
+          }} 
+        />
         <Stack.Screen name="+not-found" />
-      </Stack>
+        </Stack>
+      </NavigationInterceptor>
       <StatusBar style="auto" />
     </ThemeProvider>
   );

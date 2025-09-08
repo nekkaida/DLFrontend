@@ -7,6 +7,7 @@ import { Colors } from '@/constants/Colors';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { authClient } from '@/lib/auth-client';
+import { navigateAndClearStack, clearAuthPagesFromHistory } from '@core/navigation';
 
 export default function VerifyEmailScreen() {
   const router = useRouter();
@@ -53,7 +54,10 @@ export default function VerifyEmailScreen() {
         Alert.alert(
           'Success',
           'Your email has been verified successfully.',
-          [{ text: 'OK', onPress: () => router.replace('/') }]
+          [{ text: 'OK', onPress: () => {
+            clearAuthPagesFromHistory();
+            navigateAndClearStack('/');
+          }}]
         );
       }
     } catch (err) {

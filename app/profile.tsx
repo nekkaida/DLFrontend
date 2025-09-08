@@ -16,6 +16,7 @@ import Svg, { Path, Defs, LinearGradient as SvgLinearGradient, Stop, Line, Circl
 import { Ionicons } from '@expo/vector-icons';
 import { theme } from '@core/theme/theme';
 import { router, useFocusEffect } from 'expo-router';
+import { useNavigationManager } from '@core/navigation';
 import * as Haptics from 'expo-haptics';
 import { DropdownModal, InlineDropdown, WinRateCircle, MatchDetailsModal, EloProgressGraph, EditIcon, MatchHistoryButton, AchievementIcon } from '../src/features/profile/components';
 import type { GameData, UserData } from '../src/features/profile/types';
@@ -51,13 +52,11 @@ const generateCurvePath = (width: number): string => {
 
 // ELO Progress Graph Component
 
-
 // Custom Edit Icon SVG Component
-
-
 
 export default function ProfileAdaptedScreen() {
   const { data: session } = useSession();
+  const { navigateTo } = useNavigationManager();
   const [profileData, setProfileData] = useState(null);
   const [matchHistory, setMatchHistory] = useState([]);
   const [achievements, setAchievements] = useState([]);
@@ -349,7 +348,18 @@ export default function ProfileAdaptedScreen() {
           >
             <SafeAreaView edges={['top']} style={styles.safeHeader}>
               <View style={styles.header}>
-                <View style={styles.headerLeft} />
+                <Pressable 
+                  style={styles.backButton}
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    navigateTo('/user-dashboard');
+                  }}
+                  accessible={true}
+                  accessibilityLabel="Back to dashboard"
+                  accessibilityRole="button"
+                >
+                  <Ionicons name="arrow-back" size={24} color="#fff" />
+                </Pressable>
                 <Pressable 
                   style={styles.settingsIcon}
                   onPress={handleSettingsPress}
@@ -578,7 +588,7 @@ export default function ProfileAdaptedScreen() {
           <MatchHistoryButton
             onPress={() => {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              router.push('/match-history');
+              navigateTo('/match-history');
             }}
           />
 
@@ -655,8 +665,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: theme.spacing.lg,
     paddingTop: theme.spacing.md,
   },
-  headerLeft: {
+  backButton: {
+    backgroundColor: 'rgba(255,255,255,0.3)',
+    borderRadius: 20,
+    padding: theme.spacing.sm,
     width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   settingsIcon: {
     backgroundColor: 'rgba(255,255,255,0.3)',
