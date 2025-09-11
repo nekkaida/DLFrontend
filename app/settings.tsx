@@ -131,7 +131,7 @@ export default function SettingsScreen() {
           subtitle: 'Manage your account security',
           type: 'navigate',
           icon: 'shield-outline',
-          action: () => router.push('/privacy'),
+          action: () => router.push('/privacyPolicy'),
         },
       ],
     },

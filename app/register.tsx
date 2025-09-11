@@ -50,7 +50,7 @@ export default function RegisterScreen() {
         console.log('User emailVerified:', data.user?.emailVerified);
         console.log('About to navigate to verifyEmail page...');
         clearAuthPagesFromHistory();
-        navigateAndClearStack('/verifyEmail');
+        navigateAndClearStack(`/verifyEmail?email=${encodeURIComponent(email)}`);
         console.log('Navigation to verifyEmail completed');
       }
     } catch (error) {

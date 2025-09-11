@@ -507,8 +507,10 @@ const LocationScreen = () => {
       
       // Mark basic onboarding as completed (personal info + location)
       try {
-        await questionnaireAPI.completeOnboarding(session.user.id);
-        console.log('Basic onboarding completed (personal info + location)');
+        if (session?.user?.id) {
+          await questionnaireAPI.completeOnboarding(session.user.id);
+          console.log('Basic onboarding completed (personal info + location)');
+        }
       } catch (error) {
         console.error('Error completing basic onboarding:', error);
       }
@@ -534,7 +536,6 @@ const LocationScreen = () => {
     if (locationResult.components && session?.user?.id) {
       questionnaireAPI
         .saveUserLocation(session.user.id, {
-          country: locationResult.components.country || '',
           state: locationResult.components.state || '',
           city: locationResult.components.city || '',
           latitude: locationResult.geometry.location.lat,
@@ -758,38 +759,38 @@ const styles = StyleSheet.create({
     marginBottom: 40,
   },
   logo: {
-    fontSize: 24,
-    fontWeight: '700',
+    fontSize: 24, // theme.typography.fontSize['2xl']
+    fontWeight: '700', // theme.typography.fontWeight.heavy
     fontStyle: 'italic',
     color: '#FE9F4D',
-    fontFamily: Platform.OS === 'ios' ? 'System' : 'sans-serif',
+    fontFamily: 'Inter',
   },
   headerContainer: {
     paddingHorizontal: 37,
     marginBottom: 40,
   },
   title: {
-    fontSize: 32,
-    fontWeight: '700',
-    color: '#000000',
-    lineHeight: 40,
-    marginBottom: 10,
+    fontSize: 32, // theme.typography.fontSize['3xl']
+    fontWeight: '700', // theme.typography.fontWeight.heavy
+    color: '#111827',
+    lineHeight: 40, // theme.typography.lineHeight.loose
+    marginBottom: 12,
     fontFamily: 'Inter',
   },
   subtitle: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#6C7278',
-    lineHeight: 20,
+    fontSize: 14, // theme.typography.fontSize.base
+    fontWeight: '400', // theme.typography.fontWeight.regular
+    color: '#4B5563',
+    lineHeight: 20, // theme.typography.lineHeight.normal
     letterSpacing: -0.01,
     fontFamily: 'Inter',
   },
   helpText: {
-    fontSize: 12,
-    fontWeight: '400',
+    fontSize: 12, // theme.typography.fontSize.sm
+    fontWeight: '400', // theme.typography.fontWeight.regular
     color: '#FE9F4D',
-    lineHeight: 16,
-    marginTop: 8,
+    lineHeight: 20, // theme.typography.lineHeight.normal
+    marginTop: 10,
     fontStyle: 'italic',
     fontFamily: 'Inter',
   },
@@ -803,39 +804,44 @@ const styles = StyleSheet.create({
   currentLocationButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    height: 46,
+    height: 50,
     borderWidth: 1,
     borderColor: '#EDF1F3',
-    borderRadius: 10,
-    paddingLeft: 14,
-    paddingRight: 14,
+    borderRadius: 12,
+    paddingLeft: 16,
+    paddingRight: 16,
     backgroundColor: '#FFFFFF',
-    shadowColor: '#E4E5E7',
-    shadowOffset: {
-      width: 0,
-      height: 1,
-    },
-    shadowOpacity: 0.24,
-    shadowRadius: 2,
-    elevation: 2,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 8,
+      },
+      android: {
+        elevation: 4,
+      },
+    }),
     marginBottom: 20,
   },
   currentLocationButtonSelected: {
     borderColor: '#FE9F4D',
     backgroundColor: '#FFF7F0',
+    borderWidth: 2,
   },
   currentLocationButtonLoading: {
     opacity: 0.7,
   },
   currentLocationText: {
-    fontSize: 14,
-    fontWeight: '500',
+    fontSize: 14, // theme.typography.fontSize.base
+    fontWeight: '600', // theme.typography.fontWeight.semibold (RN compatible)
     color: '#1A1C1E',
     marginLeft: 14,
+    fontFamily: 'Inter',
   },
   currentLocationTextSelected: {
     color: '#FE9F4D',
-    fontWeight: '600',
+    fontWeight: '600', // theme.typography.fontWeight.semibold (RN compatible)
   },
   inputWrapper: {
     position: 'relative',
@@ -844,47 +850,58 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   label: {
-    fontSize: 12,
-    fontWeight: '500',
-    color: '#6C7278',
-    marginBottom: 8,
-    letterSpacing: -0.02,
-    fontFamily: 'Roboto',
+    fontSize: 12, // theme.typography.fontSize.sm
+    fontWeight: '500', // theme.typography.fontWeight.medium
+    color: '#4B5563',
+    marginBottom: 10,
+    letterSpacing: -0.01,
+    fontFamily: 'Inter',
   },
   inputWithIcon: {
     flexDirection: 'row',
     alignItems: 'center',
-    height: 46,
+    height: 50,
     borderWidth: 1,
     borderColor: '#EDF1F3',
-    borderRadius: 10,
-    paddingHorizontal: 14,
+    borderRadius: 12,
+    paddingHorizontal: 16,
     backgroundColor: '#FFFFFF',
-    shadowColor: '#E4E5E7',
-    shadowOffset: {
-      width: 0,
-      height: 1,
-    },
-    shadowOpacity: 0.24,
-    shadowRadius: 2,
-    elevation: 2,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 8,
+      },
+      android: {
+        elevation: 4,
+      },
+    }),
   },
   inputWithIconFocused: {
     borderColor: '#FE9F4D',
-    shadowColor: '#FE9F4D',
-    shadowOpacity: 0.15,
-    shadowRadius: 4,
-    elevation: 4,
+    borderWidth: 2,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#FE9F4D',
+        shadowOpacity: 0.2,
+        shadowRadius: 8,
+      },
+      android: {
+        elevation: 6,
+      },
+    }),
   },
   inputWithIconFilled: {
     borderColor: '#E0E0E0',
   },
   input: {
     flex: 1,
-    fontSize: 14,
+    fontSize: 14, // theme.typography.fontSize.base
     color: '#1A1C1E',
-    marginLeft: 8,
-    fontWeight: '600',
+    marginLeft: 10,
+    fontWeight: '400', // theme.typography.fontWeight.regular
+    fontFamily: 'Inter',
   },
   clearButton: {
     padding: 4,
@@ -894,17 +911,20 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
     borderColor: '#EDF1F3',
-    borderRadius: 10,
-    maxHeight: 200,
-    marginTop: 4,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 4,
-    },
-    shadowOpacity: 0.12,
-    shadowRadius: 8,
-    elevation: 6,
+    borderRadius: 12,
+    maxHeight: 240,
+    marginTop: 8,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.15,
+        shadowRadius: 12,
+      },
+      android: {
+        elevation: 8,
+      },
+    }),
   },
   suggestionsList: {
     maxHeight: 200,
@@ -912,11 +932,11 @@ const styles = StyleSheet.create({
   suggestionItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 14,
-    paddingVertical: 14,
+    paddingHorizontal: 16,
+    paddingVertical: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#F5F5F5',
-    minHeight: 56,
+    borderBottomColor: '#F3F4F6',
+    minHeight: 60,
   },
   suggestionItemLast: {
     borderBottomWidth: 0,
@@ -926,47 +946,63 @@ const styles = StyleSheet.create({
     marginLeft: 12,
   },
   suggestionText: {
-    fontSize: 15,
-    color: '#1A1C1E',
-    fontWeight: '600',
-    lineHeight: 20,
+    fontSize: 14, // theme.typography.fontSize.base
+    color: '#111827',
+    fontWeight: '600', // theme.typography.fontWeight.semibold (RN compatible)
+    lineHeight: 20, // theme.typography.lineHeight.normal
+    fontFamily: 'Inter',
   },
   suggestionSubtext: {
-    fontSize: 13,
-    color: '#6C7278',
-    fontWeight: '400',
-    marginTop: 2,
-    lineHeight: 18,
+    fontSize: 12, // theme.typography.fontSize.sm
+    color: '#6B7280',
+    fontWeight: '400', // theme.typography.fontWeight.regular
+    marginTop: 3,
+    lineHeight: 20, // theme.typography.lineHeight.normal
+    fontFamily: 'Inter',
   },
   noResultsText: {
-    fontSize: 14,
-    color: '#6C7278',
-    fontWeight: '500',
+    fontSize: 14, // theme.typography.fontSize.base
+    color: '#6B7280',
+    fontWeight: '600', // theme.typography.fontWeight.semibold (RN compatible)
     textAlign: 'center',
-    paddingVertical: 8,
+    paddingVertical: 10,
+    fontFamily: 'Inter',
   },
   noResultsSubtext: {
-    fontSize: 12,
+    fontSize: 12, // theme.typography.fontSize.sm
     color: '#9CA3AF',
-    fontWeight: '400',
+    fontWeight: '400', // theme.typography.fontWeight.regular
     textAlign: 'center',
-    marginTop: 2,
+    marginTop: 4,
+    fontFamily: 'Inter',
   },
   button: {
-    height: 40,
+    height: 48,
     backgroundColor: '#FE9F4D',
-    borderRadius: 8,
+    borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#FE9F4D',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.3,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 3,
+      },
+    }),
   },
   buttonDisabled: {
     opacity: 0.5,
   },
   buttonText: {
     color: '#FFFFFF',
-    fontSize: 14,
-    fontWeight: '600',
-    lineHeight: 24,
+    fontSize: 14, // theme.typography.fontSize.base
+    fontWeight: '600', // theme.typography.fontWeight.semibold (RN compatible)
+    lineHeight: 24, // theme.typography.lineHeight.relaxed
+    fontFamily: 'Inter',
   },
 });
 
