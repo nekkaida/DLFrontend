@@ -8,11 +8,11 @@ import {
   TouchableOpacity,
   SafeAreaView,
   Image,
-  Alert,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { Svg, Path } from 'react-native-svg';
 import { BackgroundGradient } from '../components';
+import { toast } from 'sonner-native';
 
 const DefaultProfileIcon = () => (
   <Svg width="167" height="167" viewBox="0 0 167 167" fill="none">
@@ -32,7 +32,9 @@ const ProfilePictureScreen = () => {
     const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
     
     if (permissionResult.granted === false) {
-      Alert.alert('Permission Required', 'Permission to access camera roll is required!');
+      toast.error('Permission Required', {
+        description: 'Permission to access camera roll is required!',
+      });
       return;
     }
 
@@ -50,12 +52,16 @@ const ProfilePictureScreen = () => {
 
   const handleComplete = () => {
     // Save profile data and navigate to main app
-    Alert.alert('Success!', 'Onboarding completed! This would navigate to the main app.');
+    toast.success('Success!', {
+      description: 'Onboarding completed! This would navigate to the main app.',
+    });
   };
 
   const handleSkip = () => {
     // Skip photo and navigate to main app
-    Alert.alert('Success!', 'Onboarding completed! This would navigate to the main app.');
+    toast.success('Success!', {
+      description: 'Onboarding completed! This would navigate to the main app.',
+    });
     useRouter().push('/user-dashboard');
   };
 

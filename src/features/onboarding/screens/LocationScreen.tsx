@@ -8,7 +8,6 @@ import {
   SafeAreaView,
   Platform,
   ScrollView,
-  Alert,
   ActivityIndicator,
   Animated,
 } from 'react-native';
@@ -19,6 +18,7 @@ import { BackgroundGradient } from '../components';
 import * as Location from 'expo-location';
 import { questionnaireAPI, LocationSearchResult } from '../services/api';
 import { useSession } from '@/lib/auth-client';
+import { toast } from 'sonner-native';
 
 const LocationIcon = ({ color = "#6C7278" }: { color?: string }) => (
   <Svg width="18" height="18" viewBox="0 0 18 18" fill="none">
@@ -210,27 +210,11 @@ const LocationScreen = () => {
       const servicesEnabled = await checkLocationServices();
       if (!servicesEnabled) {
         console.log('❌ Location services are disabled');
-        Alert.alert(
-          'Location Services Disabled',
-          'Please enable location services in your device settings to use your current location.',
-          [
-            { 
-              text: 'Enter Manually', 
-              style: 'cancel',
-              onPress: () => {
-                setUseCurrentLocation(false);
-                setIsLoadingLocation(false);
-              }
-            },
-            { 
-              text: 'Try Again', 
-              onPress: () => {
-                setIsLoadingLocation(false);
-                setTimeout(() => getCurrentLocation(), 1000);
-              }
-            }
-          ]
-        );
+        toast.error('Location Services Disabled', {
+          description: 'Please enable location services in your device settings to use your current location.',
+        });
+        setUseCurrentLocation(false);
+        setIsLoadingLocation(false);
         return;
       }
       
@@ -250,27 +234,11 @@ const LocationScreen = () => {
       
       if (finalStatus !== 'granted') {
         console.log('❌ Location permission denied');
-        Alert.alert(
-          'Permission Required',
-          'Location permission is required to use your current location. Please enable location access in your device settings.',
-          [
-            { 
-              text: 'Cancel', 
-              style: 'cancel',
-              onPress: () => {
-                setUseCurrentLocation(false);
-                setIsLoadingLocation(false);
-              }
-            },
-            { 
-              text: 'Try Again', 
-              onPress: async () => {
-                setIsLoadingLocation(false);
-                setTimeout(() => getCurrentLocation(), 500);
-              }
-            }
-          ]
-        );
+        toast.error('Permission Required', {
+          description: 'Location permission is required to use your current location. Please enable location access in your device settings.',
+        });
+        setUseCurrentLocation(false);
+        setIsLoadingLocation(false);
         return;
       }
       
@@ -347,27 +315,9 @@ const LocationScreen = () => {
         errorMessage = 'Network error while getting location. Please check your internet connection.';
       }
       
-      Alert.alert(
-        errorTitle,
-        errorMessage,
-        [
-          { 
-            text: 'Enter Manually', 
-            style: 'cancel',
-            onPress: () => {
-              setUseCurrentLocation(false);
-              setIsLoadingLocation(false);
-            }
-          },
-          { 
-            text: 'Try Again', 
-            onPress: () => {
-              setIsLoadingLocation(false);
-              setTimeout(() => getCurrentLocation(), 1000);
-            }
-          }
-        ]
-      );
+      toast.error(errorTitle, {
+        description: errorMessage,
+      });
       setUseCurrentLocation(false);
     } finally {
       setIsLoadingLocation(false);
@@ -507,8 +457,10 @@ const LocationScreen = () => {
       
       // Mark basic onboarding as completed (personal info + location)
       try {
-        await questionnaireAPI.completeOnboarding(session.user.id);
-        console.log('Basic onboarding completed (personal info + location)');
+        if (session?.user?.id) {
+          await questionnaireAPI.completeOnboarding(session.user.id);
+          console.log('Basic onboarding completed (personal info + location)');
+        }
       } catch (error) {
         console.error('Error completing basic onboarding:', error);
       }
@@ -534,7 +486,6 @@ const LocationScreen = () => {
     if (locationResult.components && session?.user?.id) {
       questionnaireAPI
         .saveUserLocation(session.user.id, {
-          country: locationResult.components.country || '',
           state: locationResult.components.state || '',
           city: locationResult.components.city || '',
           latitude: locationResult.geometry.location.lat,

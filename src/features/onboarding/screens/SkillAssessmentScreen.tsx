@@ -8,7 +8,6 @@ import {
   ScrollView,
   Modal,
   FlatList,
-  Alert,
 } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useOnboarding } from '../OnboardingContext';
@@ -20,6 +19,7 @@ import { OptionButton, NumberInput, QuestionContainer, BackgroundGradient } from
 import { LoadingSpinner } from '@/shared/components/ui';
 import { useSession } from '@/lib/auth-client';
 import type { SportType } from '../types';
+import { toast } from 'sonner-native';
 
 const ChevronDown = () => (
   <Svg width="24" height="24" viewBox="0 0 24 24" fill="none">
@@ -343,7 +343,9 @@ const SkillAssessmentScreen = () => {
     } catch (error) {
       console.error('Error in completePickleballAssessment:', error);
       setIsSubmittingAssessment(false);
-      Alert.alert('Error', 'There was an issue calculating your rating. Using default assessment.');
+      toast.error('Error', {
+        description: 'There was an issue calculating your rating. Using default assessment.',
+      });
       proceedToNext();
     }
   };
@@ -379,7 +381,9 @@ const SkillAssessmentScreen = () => {
     } catch (error) {
       console.error('Error in completeTennisAssessment:', error);
       setIsSubmittingAssessment(false);
-      Alert.alert('Error', 'There was an issue calculating your rating. Using default assessment.');
+      toast.error('Error', {
+        description: 'There was an issue calculating your rating. Using default assessment.',
+      });
       proceedToNext();
     }
   };
@@ -415,7 +419,9 @@ const SkillAssessmentScreen = () => {
     } catch (error) {
       console.error('Error in completePadelAssessment:', error);
       setIsSubmittingAssessment(false);
-      Alert.alert('Error', 'There was an issue calculating your rating. Using default assessment.');
+      toast.error('Error', {
+        description: 'There was an issue calculating your rating. Using default assessment.',
+      });
       proceedToNext();
     }
   };
@@ -639,6 +645,12 @@ const SkillAssessmentScreen = () => {
         [sport as SportType]: 'answer_later'
       };
       await updateData({ skillAssessments: updatedSkillLevels });
+      
+      // Show toast notification
+      toast.success('Assessment Skipped', {
+        description: 'You can complete your skill assessment later in your profile settings.',
+      });
+      
       proceedToNext();
     } catch (error) {
       console.error('Error skipping assessment:', error);
@@ -809,8 +821,9 @@ const SkillAssessmentScreen = () => {
                     (!question.max_value || numValue <= question.max_value)) {
                   handleQuestionnaireResponse(question.key, numValue);
                 } else {
-                  Alert.alert('Invalid Input', 
-                    `Please enter a valid number ${question.min_value ? `between ${question.min_value} and ${question.max_value}` : ''}`);
+                  toast.error('Invalid Input', {
+                    description: `Please enter a valid number ${question.min_value ? `between ${question.min_value} and ${question.max_value}` : ''}`,
+                  });
                 }
               }}
               onSkip={question.optional ? () => handleQuestionnaireResponse(question.key, '') : undefined}
@@ -838,7 +851,9 @@ const SkillAssessmentScreen = () => {
                     {skill.tooltip && (
                       <TouchableOpacity 
                         style={styles.skillTooltipButton} 
-                        onPress={() => Alert.alert('Info', skill.tooltip)}
+                        onPress={() => toast.info('Info', {
+                          description: skill.tooltip,
+                        })}
                       >
                         <Text style={styles.skillTooltipIcon}>ⓘ</Text>
                       </TouchableOpacity>

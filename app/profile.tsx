@@ -26,6 +26,7 @@ import { useProfileHandlers } from '../src/features/profile/hooks/useProfileHand
 import { useSession, authClient } from '@/lib/auth-client';
 import { getBackendBaseURL } from '@/config/network';
 import * as SecureStore from 'expo-secure-store';
+import { toast } from 'sonner-native';
 
 const { width } = Dimensions.get('window');
 
@@ -61,6 +62,7 @@ export default function ProfileAdaptedScreen() {
   const [matchHistory, setMatchHistory] = useState([]);
   const [achievements, setAchievements] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [hasLoadedBefore, setHasLoadedBefore] = useState(false);
   
   const {
     activeTab,
@@ -116,6 +118,9 @@ export default function ProfileAdaptedScreen() {
     } catch (error) {
       console.error('Error fetching achievements:', error);
       setAchievements([]); // Set empty array on error
+      toast.error('Error', {
+        description: 'Failed to load achievements. Please try again.',
+      });
     }
   };
 
@@ -149,6 +154,9 @@ export default function ProfileAdaptedScreen() {
       }
     } catch (error) {
       console.error('Error fetching profile data:', error);
+      toast.error('Error', {
+        description: 'Failed to load profile data. Please try again.',
+      });
     }
   };
 
@@ -177,6 +185,9 @@ export default function ProfileAdaptedScreen() {
       }
     } catch (error) {
       console.error('Error fetching match history:', error);
+      toast.error('Error', {
+        description: 'Failed to load match history. Please try again.',
+      });
       
       // Fallback to regular fetch with proper headers if authClient.$fetch fails
       try {
@@ -209,13 +220,30 @@ export default function ProfileAdaptedScreen() {
   const loadData = useCallback(async () => {
     if (session?.user?.id) {
       setIsLoading(true);
-      // Fetch profile data and achievements
-      await fetchProfileData();
-      await fetchAchievements();
-      // await fetchMatchHistory(); // Commented until match system is ready
-      setIsLoading(false);
+      try {
+        // Fetch profile data and achievements
+        await fetchProfileData();
+        await fetchAchievements();
+        // await fetchMatchHistory(); // Commented until match system is ready
+        
+        // Show success toast only if this is a refresh (not initial load)
+        if (hasLoadedBefore) {
+          toast.success('Profile Updated', {
+            description: 'Your profile data has been refreshed.',
+          });
+        } else {
+          setHasLoadedBefore(true);
+        }
+      } catch (error) {
+        console.error('Error loading profile data:', error);
+        toast.error('Error', {
+          description: 'Failed to load profile data. Please try again.',
+        });
+      } finally {
+        setIsLoading(false);
+      }
     }
-  }, [session?.user?.id]);
+  }, [session?.user?.id, hasLoadedBefore]);
 
   useFocusEffect(
     useCallback(() => {
