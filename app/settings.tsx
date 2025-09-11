@@ -17,6 +17,7 @@ import { router } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { authClient } from '@/lib/auth-client';
 import * as SecureStore from 'expo-secure-store';
+import { toast } from 'sonner-native';
 
 // BackgroundGradient Component (consistent with profile)
 const BackgroundGradient = () => {
@@ -77,6 +78,11 @@ export default function SettingsScreen() {
             try {
               console.log('User signing out...');
               
+              // Show loading toast
+              toast.loading('Signing out...', {
+                description: 'Please wait while we sign you out.',
+              });
+              
               // Sign out from better-auth
               await authClient.signOut();
               console.log('Sign out completed, clearing local storage...');
@@ -96,6 +102,11 @@ export default function SettingsScreen() {
               // Add a longer delay to ensure complete cleanup
               await new Promise(resolve => setTimeout(resolve, 500));
               
+              // Show success toast
+              toast.success('Signed Out', {
+                description: 'You have been successfully signed out.',
+              });
+              
               console.log('Navigating to home page...');
               // Navigate to home page after logout to avoid double redirection
               router.replace('/');
@@ -104,7 +115,9 @@ export default function SettingsScreen() {
               
             } catch (error) {
               console.error('Logout error:', error);
-              Alert.alert('Error', 'Failed to sign out. Please try again.');
+              toast.error('Error', {
+                description: 'Failed to sign out. Please try again.',
+              });
             }
           },
         },

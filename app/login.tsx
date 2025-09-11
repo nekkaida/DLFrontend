@@ -1,5 +1,5 @@
 import React from 'react';
-import { StyleSheet, View, TextInput, Pressable, Alert, TouchableWithoutFeedback, Keyboard, ScrollView, ActivityIndicator } from 'react-native';
+import { StyleSheet, View, TextInput, Pressable, TouchableWithoutFeedback, Keyboard, ScrollView, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { ThemedText } from '@/components/ThemedText';
@@ -12,6 +12,7 @@ import { useRouter } from 'expo-router';
 import { authClient } from '@/lib/auth-client';
 import { getBackendBaseURL } from '@/config/network';
 import { navigateAndClearStack, clearAuthPagesFromHistory } from '@core/navigation';
+import { toast } from 'sonner-native';
 
 export default function LoginScreen() {
   const router = useRouter();
@@ -70,6 +71,9 @@ export default function LoginScreen() {
         if (error.status === 403) {
           // Use the email from the input field, or the stored email state
           const emailToUse = username.includes('@') ? username.trim() : email;
+          toast.info('Email Verification Required', {
+            description: 'Please check your email for verification code.',
+          });
           authClient.emailOtp.sendVerificationOtp({
             email: emailToUse,
             type: "email-verification",
@@ -78,7 +82,9 @@ export default function LoginScreen() {
           return;
         }
           console.error('API Error:', error.message);
-          Alert.alert('Sign In Failed', error.message || 'Invalid credentials.');
+          toast.error('Sign In Failed', {
+            description: error.message || 'Invalid credentials.',
+          });
         return;
       }
 
@@ -89,6 +95,9 @@ export default function LoginScreen() {
         
         if (!data.user.emailVerified) {
           console.log('Email not verified, redirecting to verification screen');
+          toast.info('Email Verification Required', {
+            description: 'Please check your email for verification code.',
+          });
           // Send OTP and redirect to verification screen
           await authClient.emailOtp.sendVerificationOtp({
             email: data.user.email,
@@ -100,6 +109,9 @@ export default function LoginScreen() {
 
         // Check onboarding status and redirect appropriately  
         console.log('Login successful, email verified, checking onboarding status...');
+        toast.success('Login Successful!', {
+          description: 'Welcome back!',
+        });
         
         try {
           const statusUrl = '/api/onboarding/status/' + data.user.id;
@@ -176,7 +188,9 @@ export default function LoginScreen() {
       }
     } catch (error) {
       console.error('Sign In Error:', error);
-      Alert.alert('Sign In Failed', error.message || 'Invalid credentials.');
+      toast.error('Sign In Failed', {
+        description: error instanceof Error ? error.message : 'Invalid credentials.',
+      });
     } finally {
       setIsLoading(false);
     }
@@ -199,7 +213,9 @@ export default function LoginScreen() {
 
       if (error) {
         console.error('Facebook login error:', error);
-        Alert.alert('Login Failed', 'Facebook login failed');
+        toast.error('Login Failed', {
+          description: 'Facebook login failed',
+        });
         return;
       }
 
@@ -216,7 +232,9 @@ export default function LoginScreen() {
       // }
     } catch (error) {
       console.error('Facebook login error:', error);
-      Alert.alert('Login Failed', 'Facebook login failed');
+      toast.error('Login Failed', {
+        description: 'Facebook login failed',
+      });
     } finally {
       setIsLoading(false);
     }
@@ -232,7 +250,9 @@ export default function LoginScreen() {
 
       if (error) {
         console.error('Google login error:', error);
-        Alert.alert('Login Failed', 'Google login failed');
+        toast.error('Login Failed', {
+          description: 'Google login failed',
+        });
         return;
       }
 
@@ -249,7 +269,9 @@ export default function LoginScreen() {
       // }
     } catch (error) {
       console.error('Google login error:', error);
-      Alert.alert('Login Failed', 'Google login failed');
+      toast.error('Login Failed', {
+        description: 'Google login failed',
+      });
     } finally {
       setIsLoading(false);
     }

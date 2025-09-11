@@ -5,6 +5,8 @@ import { StatusBar } from 'expo-status-bar';
 import 'react-native-reanimated';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { NavigationInterceptor } from '@core/navigation/NavigationInterceptor';
+import { Toaster } from 'sonner-native';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
@@ -18,16 +20,16 @@ export default function RootLayout() {
   }
 
   return (
-    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <NavigationInterceptor>
-        <Stack
-          screenOptions={{
-            gestureEnabled: true, // Re-enable swipe-back gesture
-            animationEnabled: true,
-            headerShown: false,
-            presentation: 'card', // Ensure consistent presentation
-          }}
-        >
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+        <NavigationInterceptor>
+          <Stack
+            screenOptions={{
+              gestureEnabled: true, // Re-enable swipe-back gesture
+              headerShown: false,
+              presentation: 'card', // Ensure consistent presentation
+            }}
+          >
         <Stack.Screen 
           name="index" 
           options={{ 
@@ -114,8 +116,10 @@ export default function RootLayout() {
         />
         <Stack.Screen name="+not-found" />
         </Stack>
-      </NavigationInterceptor>
-      <StatusBar style="auto" />
-    </ThemeProvider>
+        </NavigationInterceptor>
+        <StatusBar style="auto" />
+        <Toaster />
+      </ThemeProvider>
+    </GestureHandlerRootView>
   );
 }

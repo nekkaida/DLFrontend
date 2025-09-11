@@ -21,6 +21,7 @@ import * as Haptics from 'expo-haptics';
 import * as ImagePicker from 'expo-image-picker';
 import { useSession, authClient } from '@/lib/auth-client';
 import { getBackendBaseURL } from '@/config/network';
+import { toast } from 'sonner-native';
 
 // BackgroundGradient Component (consistent with profile and settings)
 const BackgroundGradient = () => {
@@ -87,7 +88,9 @@ export default function EditProfileScreen() {
         }
       } catch (error) {
         console.error('Error fetching profile data:', error);
-        Alert.alert('Error', 'Failed to load profile data');
+        toast.error('Error', {
+          description: 'Failed to load profile data. Please try again.',
+        });
       } finally {
         setIsDataLoading(false);
       }
@@ -105,7 +108,9 @@ export default function EditProfileScreen() {
     
     const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (permissionResult.granted === false) {
-      Alert.alert('Permission Required', 'Permission to access camera roll is required!');
+      toast.error('Permission Required', {
+        description: 'Permission to access camera roll is required!',
+      });
       return;
     }
 
@@ -125,13 +130,17 @@ export default function EditProfileScreen() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     
     if (!session?.user?.id) {
-      Alert.alert('Error', 'You must be logged in to update your profile');
+      toast.error('Error', {
+        description: 'You must be logged in to update your profile',
+      });
       return;
     }
 
     // Basic validation
     if (!formData.fullName.trim() || !formData.username.trim() || !formData.email.trim()) {
-      Alert.alert('Error', 'Please fill in all required fields (Name, Username, Email)');
+      toast.error('Error', {
+        description: 'Please fill in all required fields (Name, Username, Email)',
+      });
       return;
     }
 
@@ -157,17 +166,15 @@ export default function EditProfileScreen() {
 
       if (response && response.data && response.data.success) {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-        Alert.alert(
-          'Profile Updated',
-          'Your profile has been successfully updated.',
-          [{ 
-            text: 'OK', 
-            onPress: () => {
-              router.dismiss();
-              router.push('/profile');
-            }
-          }]
-        );
+        toast.success('Profile Updated', {
+          description: 'Your profile has been successfully updated.',
+        });
+        
+        // Navigate back after a short delay to let user see the toast
+        setTimeout(() => {
+          router.dismiss();
+          router.push('/profile');
+        }, 1500);
       } else {
         // Check if it's a successful HTTP response but with success: false
         const errorMessage = response?.data?.message || response?.message || 'Failed to update profile';
@@ -178,7 +185,9 @@ export default function EditProfileScreen() {
       console.error('Error updating profile:', error);
       
       const errorMessage = error?.message || 'Failed to update profile. Please try again.';
-      Alert.alert('Error', errorMessage);
+      toast.error('Error', {
+        description: errorMessage,
+      });
     } finally {
       setIsLoading(false);
     }

@@ -1,5 +1,5 @@
 import React from 'react';
-import { StyleSheet, View, TextInput, Pressable, Alert, TouchableWithoutFeedback, Keyboard, ScrollView } from 'react-native';
+import { StyleSheet, View, TextInput, Pressable, TouchableWithoutFeedback, Keyboard, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { ThemedText } from '@/components/ThemedText';
@@ -9,6 +9,7 @@ import { useState } from 'react';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { authClient } from '@/lib/auth-client';
+import { toast } from 'sonner-native';
 
 export default function ResetPasswordScreen() {
   const router = useRouter();
@@ -30,12 +31,16 @@ export default function ResetPasswordScreen() {
 
   const handleSendOtp = async () => {
     if (!email.trim()) {
-      Alert.alert('Error', 'Please enter your email address.');
+      toast.error('Error Resetting Password', {
+        description: 'Please enter your email address.'
+      });
       return;
     }
 
     if (!email.includes('@')) {
-      Alert.alert('Error', 'Please enter a valid email address.');
+      toast.error('Error Resetting Password', {
+        description: 'Please enter a valid email address.'
+      });
       return;
     }
 
@@ -49,23 +54,24 @@ export default function ResetPasswordScreen() {
       });
       console.log('data', data, 'error', error);
       if (error) {
-        console.error('Error sending reset password email:', error);
-        Alert.alert(
-          'Error', 
-          error.message || 'Failed to send reset password email. Please try again.'
-        );
+        toast.error('Failed to send reset password email', {
+          description: error.message || 'Failed to send reset password email. Please try again.',
+        });
       } else if (data) {
-        Alert.alert(
-          'OTP Sent', 
-          `We've sent a one-time code to ${email}. Please check your email and enter the code.`
-        );
+        toast.success('OTP Sent', {
+          description: `We've sent a one-time code to ${email}. Please check your email and enter the code.`,
+        });
         setOtpSent(true);
       } else {
-        Alert.alert('Error', 'Failed to send reset password email. Please try again.');
+        toast.error('Error', {
+          description: 'Failed to send reset password email. Please try again.',
+        });
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : 'An unknown error occurred.';
-      Alert.alert('Error', message);
+      toast.error('Error', {
+        description: message,
+      });
     } finally {
       setIsLoading(false);
     }
@@ -73,17 +79,23 @@ export default function ResetPasswordScreen() {
 
   const handleResetPassword = async () => {
     if (!otp.trim() || !newPassword.trim() || !confirmPassword.trim()) {
-      Alert.alert('Error', 'Please fill in all fields.');
+      toast.error('Error', {
+        description: 'Please fill in all fields.',
+      });
       return;
     }
 
     if (newPassword !== confirmPassword) {
-      Alert.alert('Error', 'Passwords do not match.');
+      toast.error('Error', {
+        description: 'Passwords do not match.',
+      });
       return;
     }
 
     if (newPassword.length < 8) {
-      Alert.alert('Error', 'Password must be at least 8 characters long.');
+      toast.error('Error', {
+        description: 'Password must be at least 8 characters long.',
+      });
       return;
     }
 
@@ -98,22 +110,23 @@ export default function ResetPasswordScreen() {
       });
 
       if (error) {
-        Alert.alert('Error', error.message || 'Failed to reset password.');
+        toast.error('Error', {
+          description: error.message || 'Failed to reset password.',
+        });
       } else {
-        Alert.alert(
-          'Success',
-          'Your password has been reset successfully.',
-          [
-            {
-              text: 'Back to Login',
-              onPress: () => router.replace('/login'),
-            },
-          ]
-        );
+        toast.success('Success', {
+          description: 'Your password has been reset successfully.',
+        });
+        // Navigate back to login after a short delay
+        setTimeout(() => {
+          router.replace('/login');
+        }, 2000);
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : 'An unknown error occurred.';
-      Alert.alert('Error', message);
+      toast.error('Error', {
+        description: message,
+      });
     } finally {
       setIsLoading(false);
     }

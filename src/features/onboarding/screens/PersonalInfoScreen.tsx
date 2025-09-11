@@ -8,7 +8,6 @@ import {
   Platform,
   ScrollView,
   SafeAreaView,
-  Alert,
 } from 'react-native';
 import { router } from 'expo-router';
 import { useOnboarding } from '../OnboardingContext';
@@ -18,6 +17,7 @@ import { LoadingSpinner } from '@shared/components/ui';
 import { validateFullName, validateGender, validateDateOfBirth } from '../utils/validation';
 import { questionnaireAPI } from '../services/api';
 import { useSession } from '../../../../lib/auth-client';
+import { toast } from 'sonner-native';
 
 const PersonalInfoScreen = () => {
   const { data, updateData, isLoading } = useOnboarding();
@@ -65,7 +65,9 @@ const PersonalInfoScreen = () => {
     }
 
     if (!session?.user?.id) {
-      Alert.alert('Error', 'Please log in to continue.');
+      toast.error('Error', {
+        description: 'Please log in to continue.',
+      });
       return;
     }
 
@@ -90,11 +92,9 @@ const PersonalInfoScreen = () => {
       router.push('/onboarding/location');
     } catch (error) {
       console.error('Error saving profile:', error);
-      Alert.alert(
-        'Error', 
-        'Failed to save your profile information. Please try again.',
-        [{ text: 'OK' }]
-      );
+      toast.error('Error', {
+        description: 'Failed to save your profile information. Please try again.',
+      });
     } finally {
       setIsSaving(false);
     }
