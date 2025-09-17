@@ -24,7 +24,7 @@ const { width } = Dimensions.get('window');
 
 export const EloProgressGraph: React.FC<EloProgressGraphProps> = ({ data, onPointPress }) => {
   const graphWidth = width - 80; // Account for padding
-  const graphHeight = 150;
+  const graphHeight = 200; // Increased from 150 to 200
   const padding = { top: 20, bottom: 30, left: 30, right: 30 };
   
   // Calculate graph dimensions
@@ -122,31 +122,35 @@ export const EloProgressGraph: React.FC<EloProgressGraphProps> = ({ data, onPoin
               cx={xScale(index)}
               cy={yScale(point.rating)}
               r="8"
-              fill={point.result === 'W' ? '#34C759' : '#FF3B30'}
+              fill="#FE9F4D"
               opacity="0.2"
             />
             <Circle
               cx={xScale(index)}
               cy={yScale(point.rating)}
               r="5"
-              fill={point.result === 'W' ? '#34C759' : '#FF3B30'}
+              fill="#FE9F4D"
             />
           </G>
         ))}
         
         {/* Month labels */}
-        {data.filter((_, i) => i % 2 === 0).map((point, index) => (
-          <SvgText
-            key={`label-${index}`}
-            x={xScale(index * 2)}
-            y={graphHeight - 5}
-            fontSize="9"
-            fill={theme.colors.neutral.gray[500]}
-            textAnchor="middle"
-          >
-            {point.date.split(' ')[0]}
-          </SvgText>
-        ))}
+        {data.filter((_, i) => i % 2 === 0).map((point, index) => {
+          // Handle special case for no data
+          const labelText = point.date === 'No matches yet' ? 'No Data' : point.date.split(' ')[0];
+          return (
+            <SvgText
+              key={`label-${index}`}
+              x={xScale(index * 2)}
+              y={graphHeight - 5}
+              fontSize="9"
+              fill={theme.colors.neutral.gray[500]}
+              textAnchor="middle"
+            >
+              {labelText}
+            </SvgText>
+          );
+        })}
       </Svg>
       
       {/* Clickable overlays for data points */}
@@ -168,18 +172,6 @@ export const EloProgressGraph: React.FC<EloProgressGraphProps> = ({ data, onPoin
         />
       ))}
       </View>
-      
-      {/* Legend */}
-      <View style={styles.graphLegend}>
-        <View style={styles.legendItem}>
-          <View style={[styles.legendDot, { backgroundColor: '#34C759' }]} />
-          <Text style={styles.legendText}>Win</Text>
-        </View>
-        <View style={styles.legendItem}>
-          <View style={[styles.legendDot, { backgroundColor: '#FF3B30' }]} />
-          <Text style={styles.legendText}>Loss</Text>
-        </View>
-      </View>
     </View>
   );
 };
@@ -192,26 +184,5 @@ const styles = StyleSheet.create({
   },
   graph: {
     backgroundColor: 'transparent',
-  },
-  graphLegend: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    gap: theme.spacing.lg,
-    marginTop: theme.spacing.sm,
-  },
-  legendItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: theme.spacing.xs,
-  },
-  legendDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-  },
-  legendText: {
-    fontSize: theme.typography.fontSize.xs,
-    color: theme.colors.neutral.gray[500],
-    fontFamily: theme.typography.fontFamily.primary,
   },
 });

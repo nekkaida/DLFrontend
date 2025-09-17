@@ -12,6 +12,7 @@ import {
   KeyboardAvoidingView,
   ActivityIndicator,
 } from 'react-native';
+import Svg, { Path } from 'react-native-svg';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -284,11 +285,24 @@ export default function EditProfileScreen() {
             <View style={styles.profileSection}>
               <View style={styles.profileImageContainer}>
                 <View style={styles.profileImageWrapper}>
-                  <Image
-                    source={{ uri: formData.profilePicture || 'https://i.pravatar.cc/150?img=1' }}
-                    style={styles.profileImage}
-                    onError={() => console.log('Profile image failed to load')}
-                  />
+                  {formData.profilePicture ? (
+                    <Image
+                      source={{ uri: formData.profilePicture }}
+                      style={styles.profileImage}
+                      onError={() => console.log('Profile image failed to load')}
+                    />
+                  ) : (
+                    <View style={styles.defaultProfileImage}>
+                      <Svg width="60" height="60" viewBox="0 0 24 24">
+                        <Path 
+                          fill="#FFFFFF" 
+                          fillRule="evenodd" 
+                          d="M8 7a4 4 0 1 1 8 0a4 4 0 0 1-8 0m0 6a5 5 0 0 0-5 5a3 3 0 0 0 3 3h12a3 3 0 0 0 3-3a5 5 0 0 0-5-5z" 
+                          clipRule="evenodd" 
+                        />
+                      </Svg>
+                    </View>
+                  )}
                 </View>
                 <Pressable
                   style={styles.editImageButton}
@@ -438,7 +452,7 @@ const styles = StyleSheet.create({
   profileName: {
     fontSize: theme.typography.fontSize['2xl'],
     fontWeight: theme.typography.fontWeight.heavy,
-    color: theme.colors.neutral.white,
+    color: theme.colors.neutral.gray[700],
     marginBottom: theme.spacing.xs,
     fontFamily: theme.typography.fontFamily.primary,
     textAlign: 'center',
@@ -446,7 +460,7 @@ const styles = StyleSheet.create({
   profileUsername: {
     fontSize: theme.typography.fontSize.lg,
     fontWeight: theme.typography.fontWeight.medium,
-    color: 'rgba(255, 255, 255, 0.8)',
+    color: theme.colors.neutral.gray[600],
     fontFamily: theme.typography.fontFamily.primary,
     textAlign: 'center',
   },
@@ -473,6 +487,16 @@ const styles = StyleSheet.create({
     borderRadius: 60,
     borderWidth: 4,
     borderColor: theme.colors.neutral.white,
+  },
+  defaultProfileImage: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    borderWidth: 4,
+    borderColor: theme.colors.neutral.white,
+    backgroundColor: '#e7e7e7',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   editImageButton: {
     position: 'absolute',
