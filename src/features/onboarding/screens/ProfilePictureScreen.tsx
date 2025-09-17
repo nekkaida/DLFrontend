@@ -27,6 +27,7 @@ const DefaultProfileIcon = () => (
 
 const ProfilePictureScreen = () => {
   const [profileImage, setProfileImage] = useState<string | null>(null);
+  const router = useRouter();
 
   const pickImage = async () => {
     const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -55,6 +56,7 @@ const ProfilePictureScreen = () => {
     toast.success('Success!', {
       description: 'Onboarding completed! This would navigate to the main app.',
     });
+    router.push('/user-dashboard');
   };
 
   const handleSkip = () => {
@@ -62,7 +64,7 @@ const ProfilePictureScreen = () => {
     toast.success('Success!', {
       description: 'Onboarding completed! This would navigate to the main app.',
     });
-    useRouter().push('/user-dashboard');
+    router.push('/user-dashboard');
   };
 
   return (
