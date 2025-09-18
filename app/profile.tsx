@@ -9,6 +9,8 @@ import {
   Dimensions,
   Platform,
   Modal,
+  Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -18,6 +20,7 @@ import { theme } from '@core/theme/theme';
 import { router, useFocusEffect } from 'expo-router';
 import { useNavigationManager } from '@core/navigation';
 import * as Haptics from 'expo-haptics';
+import * as ImagePicker from 'expo-image-picker';
 import { DropdownModal, InlineDropdown, WinRateCircle, MatchDetailsModal, EloProgressGraph, EditIcon, MatchHistoryButton, AchievementIcon } from '../src/features/profile/components';
 import type { GameData, UserData } from '../src/features/profile/types';
 // import { mockEloData, userData, gameTypeOptions } from '../src/features/profile/data/mockData'; // Team lead's original mock data - commented for API implementation
@@ -58,11 +61,12 @@ const generateCurvePath = (width: number): string => {
 export default function ProfileAdaptedScreen() {
   const { data: session } = useSession();
   const { navigateTo } = useNavigationManager();
-  const [profileData, setProfileData] = useState(null);
-  const [matchHistory, setMatchHistory] = useState([]);
-  const [achievements, setAchievements] = useState([]);
+  const [profileData, setProfileData] = useState<any>(null);
+  const [matchHistory, setMatchHistory] = useState<any[]>([]);
+  const [achievements, setAchievements] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [hasLoadedBefore, setHasLoadedBefore] = useState(false);
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
   
   const {
     activeTab,
@@ -108,9 +112,9 @@ export default function ProfileAdaptedScreen() {
       
       console.log('Achievements API response:', response);
       
-      if (response && response.data && response.data.achievements) {
-        console.log('Setting achievements data:', response.data.achievements);
-        setAchievements(response.data.achievements);
+      if (response && (response as any).data && (response as any).data.achievements) {
+        console.log('Setting achievements data:', (response as any).data.achievements);
+        setAchievements((response as any).data.achievements);
       } else {
         console.log('No achievements data found, setting empty array');
         setAchievements([]);
@@ -143,12 +147,12 @@ export default function ProfileAdaptedScreen() {
       
       console.log('Profile API response:', authResponse);
       
-      if (authResponse && authResponse.data && authResponse.data.data) {
-        console.log('Setting profile data:', authResponse.data.data);
-        setProfileData(authResponse.data.data);
-      } else if (authResponse && authResponse.data) {
-        console.log('Setting profile data (direct):', authResponse.data);
-        setProfileData(authResponse.data);
+      if (authResponse && (authResponse as any).data && (authResponse as any).data.data) {
+        console.log('Setting profile data:', (authResponse as any).data.data);
+        setProfileData((authResponse as any).data.data);
+      } else if (authResponse && (authResponse as any).data) {
+        console.log('Setting profile data (direct):', (authResponse as any).data);
+        setProfileData((authResponse as any).data);
       } else {
         console.error('No profile data received from authClient');
       }
@@ -174,9 +178,9 @@ export default function ProfileAdaptedScreen() {
       
       console.log('Match history data received:', response);
       
-      if (response && response.data) {
-        setMatchHistory(response.data);
-      } else if (response && response.error && response.error.status === 404) {
+      if (response && (response as any).data) {
+        setMatchHistory((response as any).data);
+      } else if (response && (response as any).error && (response as any).error.status === 404) {
         console.log('No match history found for user (404) - this is normal for new users');
         setMatchHistory([]);
       } else {
@@ -216,6 +220,144 @@ export default function ProfileAdaptedScreen() {
     }
   };
 
+  // Image upload functions
+  const uploadProfileImage = async (imageUri: string) => {
+    try {
+      setIsUploadingImage(true);
+      
+      const backendUrl = getBackendBaseURL();
+      const formData = new FormData();
+      
+      // Create file object for upload
+      const file = {
+        uri: imageUri,
+        type: 'image/jpeg',
+        name: `profile-${Date.now()}.jpg`,
+      } as any;
+      
+      formData.append('image', file);
+      
+      const response = await authClient.$fetch(`${backendUrl}/api/player/profile/upload-image`, {
+        method: 'POST',
+        body: formData,
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+      
+      if (response && (response as any).data && (response as any).data.imageUrl) {
+        // Update profile data with new image URL
+        setProfileData((prev: any) => ({
+          ...prev,
+          image: (response as any).data.imageUrl
+        }));
+        
+        toast.success('Success', {
+          description: 'Profile picture updated successfully!',
+        });
+      }
+    } catch (error) {
+      console.error('Error uploading profile image:', error);
+      toast.error('Error', {
+        description: 'Failed to upload profile picture. Please try again.',
+      });
+    } finally {
+      setIsUploadingImage(false);
+    }
+  };
+
+  const pickImage = async () => {
+    try {
+      // Request permission
+      const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      
+      if (permissionResult.granted === false) {
+        Alert.alert(
+          'Permission Required',
+          'Please grant permission to access your photo library to upload a profile picture.',
+          [{ text: 'OK' }]
+        );
+        return;
+      }
+
+      // Show action sheet
+      Alert.alert(
+        'Select Profile Picture',
+        'Choose how you want to select your profile picture',
+        [
+          {
+            text: 'Camera',
+            onPress: () => openCamera(),
+          },
+          {
+            text: 'Photo Library',
+            onPress: () => openImageLibrary(),
+          },
+          {
+            text: 'Cancel',
+            style: 'cancel',
+          },
+        ]
+      );
+    } catch (error) {
+      console.error('Error picking image:', error);
+      toast.error('Error', {
+        description: 'Failed to open image picker. Please try again.',
+      });
+    }
+  };
+
+  const openCamera = async () => {
+    try {
+      const permissionResult = await ImagePicker.requestCameraPermissionsAsync();
+      
+      if (permissionResult.granted === false) {
+        Alert.alert(
+          'Permission Required',
+          'Please grant permission to access your camera to take a profile picture.',
+          [{ text: 'OK' }]
+        );
+        return;
+      }
+
+      const result = await ImagePicker.launchCameraAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.8,
+      });
+
+      if (!result.canceled && result.assets[0]) {
+        await uploadProfileImage(result.assets[0].uri);
+      }
+    } catch (error) {
+      console.error('Error opening camera:', error);
+      toast.error('Error', {
+        description: 'Failed to open camera. Please try again.',
+      });
+    }
+  };
+
+  const openImageLibrary = async () => {
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.8,
+      });
+
+      if (!result.canceled && result.assets[0]) {
+        await uploadProfileImage(result.assets[0].uri);
+      }
+    } catch (error) {
+      console.error('Error opening image library:', error);
+      toast.error('Error', {
+        description: 'Failed to open photo library. Please try again.',
+      });
+    }
+  };
+
   // Use useFocusEffect to refresh data every time the screen comes into focus
   const loadData = useCallback(async () => {
     if (session?.user?.id) {
@@ -228,9 +370,9 @@ export default function ProfileAdaptedScreen() {
         
         // Show success toast only if this is a refresh (not initial load)
         if (hasLoadedBefore) {
-          toast.success('Profile Updated', {
-            description: 'Your profile data has been refreshed.',
-          });
+          // toast.success('Profile Updated', {
+          //   description: 'Your profile data has been refreshed.',
+          // });
         } else {
           setHasLoadedBefore(true);
         }
@@ -259,7 +401,7 @@ export default function ProfileAdaptedScreen() {
   console.log('Transforming profile data:', profileData);
   console.log('Skill ratings:', profileData?.skillRatings);
   
-  const userData = profileData ? {
+  const userData: any = profileData ? {
     name: profileData.name || 'No name available',
     username: profileData.username || profileData.displayUsername || 'No username',
     bio: profileData.bio || 'No bio added yet.',
@@ -330,13 +472,13 @@ export default function ProfileAdaptedScreen() {
   };
   
   // Placeholder ELO data until match system is implemented
-  const mockEloData = [
+  const mockEloData: any[] = [
     {
       date: 'No matches yet',
       time: '',
       rating: 1400,
       opponent: 'No data available',
-      result: '-',
+      result: '-' as any,
       score: '-',
       ratingChange: 0,
       league: 'Play your first match to see data here!',
@@ -419,22 +561,51 @@ export default function ProfileAdaptedScreen() {
         <View style={styles.whiteBackground}>
           {/* Avatar Section */}
           <View style={styles.avatarContainer}>
-            <View style={styles.avatar}>
-              <Svg width="60" height="60" viewBox="0 0 24 24">
-                <Path 
-                  fill="#FFFFFF" 
-                  fillRule="evenodd" 
-                  d="M8 7a4 4 0 1 1 8 0a4 4 0 0 1-8 0m0 6a5 5 0 0 0-5 5a3 3 0 0 0 3 3h12a3 3 0 0 0 3-3a5 5 0 0 0-5-5z" 
-                  clipRule="evenodd" 
+            <Pressable 
+              style={styles.avatar}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                pickImage();
+              }}
+              accessible={true}
+              accessibilityLabel="Change profile picture"
+              accessibilityRole="button"
+              disabled={isUploadingImage}
+            >
+              {isUploadingImage ? (
+                <View style={styles.uploadingContainer}>
+                  <ActivityIndicator size="large" color="#6de9a0" />
+                </View>
+              ) : profileData?.image ? (
+                <Image
+                  source={{ uri: profileData.image }}
+                  style={styles.profileImage}
+                  onError={() => {
+                    console.log('Profile image failed to load:', profileData.image);
+                    // Could set a state here to fallback to default avatar
+                  }}
                 />
-              </Svg>
-            </View>
+              ) : (
+                <Svg width="60" height="60" viewBox="0 0 24 24">
+                  <Path 
+                    fill="#FFFFFF" 
+                    fillRule="evenodd" 
+                    d="M8 7a4 4 0 1 1 8 0a4 4 0 0 1-8 0m0 6a5 5 0 0 0-5 5a3 3 0 0 0 3 3h12a3 3 0 0 0 3-3a5 5 0 0 0-5-5z" 
+                    clipRule="evenodd" 
+                  />
+                </Svg>
+              )}
+            </Pressable>
             <Pressable 
               style={styles.editIcon}
-              onPress={handleEditPress}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                pickImage();
+              }}
               accessible={true}
-              accessibilityLabel="Edit profile"
+              accessibilityLabel="Change profile picture"
               accessibilityRole="button"
+              disabled={isUploadingImage}
             >
               <EditIcon color="#6de9a0" />
             </Pressable>
@@ -738,6 +909,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     // Removed shadow styling
+  },
+  profileImage: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
   },
   editIcon: {
     position: 'absolute',
@@ -1396,5 +1572,13 @@ const styles = StyleSheet.create({
     fontSize: theme.typography.fontSize.lg,
     color: theme.colors.neutral.gray[600],
     fontFamily: theme.typography.fontFamily.primary,
+  },
+  uploadingContainer: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 });
