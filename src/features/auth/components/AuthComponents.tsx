@@ -216,10 +216,15 @@ export const PhoneInputField: React.FC<PhoneInputProps> = ({
           flagButtonStyle={{
             width: 50,
             marginLeft: 0,
+            marginRight: 8, // Add space between flag and country code
           }}
           countryPickerButtonStyle={{
             backgroundColor: 'transparent',
+            paddingRight: 8, // Add padding to the right of country code
           }}
+          // Minimal props for reliable functionality
+          disableArrowIcon={true}
+          renderDropdownImage={<Ionicons name="chevron-down" size={12} color={AuthColors.gray[400]} />}
         />
       </View>
     </View>
