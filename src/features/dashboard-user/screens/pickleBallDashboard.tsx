@@ -1,6 +1,6 @@
 import React from 'react';
 import { ScrollView, Text, View, StyleSheet, Dimensions, Platform, Image, TouchableOpacity, ImageBackground, Animated } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useDashboard } from '../DashboardContext';
 import { NavBar } from '@/shared/components/layout';
@@ -11,6 +11,7 @@ const { width, height } = Dimensions.get('window');
 
 export default function DashboardScreen() {
   const { userName } = useDashboard();
+  const insets = useSafeAreaInsets();
   const [activeTab, setActiveTab] = React.useState(2);
   const [locationFilterOpen, setLocationFilterOpen] = React.useState(false);
   const [isLoading, setIsLoading] = React.useState(true);
@@ -18,7 +19,27 @@ export default function DashboardScreen() {
   const [isHeaderMenuOpen, setIsHeaderMenuOpen] = React.useState(false);
   const [headerTitleLayout, setHeaderTitleLayout] = React.useState<{ x: number; y: number; width: number; height: number } | null>(null);
 
-  console.log(`DashboardScreen: Current activeTab is ${activeTab}`);
+  console.log(`PickleballDashboard: Current activeTab is ${activeTab}`);
+  
+  // Debug logging for safe area insets in pickleball dashboard
+  React.useEffect(() => {
+    console.log('=== Pickleball Dashboard Safe Area Debug Info ===');
+    console.log(`Platform: ${Platform.OS}`);
+    console.log(`Screen dimensions:`, {
+      width: width,
+      height: height
+    });
+    console.log(`Safe area insets:`, {
+      top: insets.top,
+      bottom: insets.bottom,
+      left: insets.left,
+      right: insets.right
+    });
+    console.log(`Available content height: ${height - insets.top - insets.bottom}px`);
+    console.log(`NavBar will be positioned at bottom: ${height - insets.bottom}px`);
+    console.log(`Content should end at: ${height - insets.bottom - 83}px (NavBar height: 83px)`);
+    console.log('===============================================');
+  }, [insets, width, height]);
 
   const handleTabPress = (tabIndex: number) => {
     console.log(`Tab ${tabIndex} pressed - ${['Favourite', 'Friendly', 'Leagues', 'My Games', 'Chat'][tabIndex]}`);
@@ -32,7 +53,25 @@ export default function DashboardScreen() {
   }, []);
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView 
+      style={styles.container}
+      onLayout={(event) => {
+        const { x, y, width: layoutWidth, height: layoutHeight } = event.nativeEvent.layout;
+        console.log('=== Pickleball SafeAreaView Layout Debug ===');
+        console.log(`SafeAreaView layout:`, {
+          x,
+          y,
+          width: layoutWidth,
+          height: layoutHeight
+        });
+        console.log(`SafeAreaView top position: ${y}px`);
+        console.log(`SafeAreaView bottom position: ${y + layoutHeight}px`);
+        console.log(`Available space for content: ${layoutHeight}px`);
+        console.log(`NavBar space reserved: 83px`);
+        console.log(`Actual content space: ${layoutHeight - 83}px`);
+        console.log('==========================================');
+      }}
+    >
               <LinearGradient
           colors={['#B98FAF', '#FFFFFF']}
           locations={[0, 1]}

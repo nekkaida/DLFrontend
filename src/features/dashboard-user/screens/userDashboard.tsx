@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
 import { ScrollView, Text, View, StyleSheet, Dimensions, Platform, Image, TouchableOpacity } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { useDashboard } from '../DashboardContext';
@@ -14,11 +14,54 @@ const { width, height } = Dimensions.get('window');
 export default function DashboardScreen() {
   const { userName } = useDashboard();
   const { data: session } = useSession();
+  const insets = useSafeAreaInsets();
   const [activeTab, setActiveTab] = React.useState(2);
   const [pickleballButtonLabel, setPickleballButtonLabel] = React.useState<'Enter League' | 'Complete Questionnaire'>('Enter League');
   const [tennisButtonLabel, setTennisButtonLabel] = React.useState<'Enter League' | 'Complete Questionnaire'>('Complete Questionnaire');
 
   console.log(`DashboardScreen: Current activeTab is ${activeTab}`);
+  
+  // Debug logging for safe area insets in parent component
+  useEffect(() => {
+    console.log('=== Dashboard Safe Area Debug Info ===');
+    console.log(`Platform: ${Platform.OS}`);
+    console.log(`Screen dimensions:`, {
+      width: width,
+      height: height
+    });
+    console.log(`Safe area insets:`, {
+      top: insets.top,
+      bottom: insets.bottom,
+      left: insets.left,
+      right: insets.right
+    });
+    console.log(`Available content height: ${height - insets.top - insets.bottom}px`);
+    console.log(`NavBar will be positioned at bottom: ${height - insets.bottom}px`);
+    console.log(`Content should end at: ${height - insets.bottom - 83}px (NavBar height: 83px)`);
+    console.log('====================================');
+  }, [insets, width, height]);
+
+  // Debug logging for screen dimension changes
+  useEffect(() => {
+    const subscription = Dimensions.addEventListener('change', ({ window }) => {
+      console.log('=== Screen Dimension Change Debug ===');
+      console.log(`New screen dimensions:`, {
+        width: window.width,
+        height: window.height
+      });
+      console.log(`Safe area insets (unchanged):`, {
+        top: insets.top,
+        bottom: insets.bottom,
+        left: insets.left,
+        right: insets.right
+      });
+      console.log(`New available content height: ${window.height - insets.top - insets.bottom}px`);
+      console.log(`New NavBar position: bottom ${window.height - insets.bottom}px`);
+      console.log('====================================');
+    });
+
+    return () => subscription?.remove();
+  }, [insets]);
 
   // Basic session protection only - let login.tsx handle onboarding flow
   useEffect(() => {
@@ -48,7 +91,25 @@ export default function DashboardScreen() {
   // handleLogout removed - logout functionality moved to settings page
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView 
+      style={styles.container}
+      onLayout={(event) => {
+        const { x, y, width: layoutWidth, height: layoutHeight } = event.nativeEvent.layout;
+        console.log('=== SafeAreaView Layout Debug ===');
+        console.log(`SafeAreaView layout:`, {
+          x,
+          y,
+          width: layoutWidth,
+          height: layoutHeight
+        });
+        console.log(`SafeAreaView top position: ${y}px`);
+        console.log(`SafeAreaView bottom position: ${y + layoutHeight}px`);
+        console.log(`Available space for content: ${layoutHeight}px`);
+        console.log(`NavBar space reserved: 83px`);
+        console.log(`Actual content space: ${layoutHeight - 83}px`);
+        console.log('==============================');
+      }}
+    >
               <LinearGradient
           colors={['#FDEDE0', '#FFFFFF']}
           locations={[0, 1]}

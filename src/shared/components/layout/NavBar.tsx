@@ -1,6 +1,7 @@
-import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Dimensions } from 'react-native';
+import React, { useEffect } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, Dimensions, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const { width } = Dimensions.get('window');
 
@@ -10,8 +11,48 @@ interface NavBarProps {
 }
 
 export default function NavBar({ activeTab = 2, onTabPress }: NavBarProps) {
+  // Get safe area insets for debug logging
+  const insets = useSafeAreaInsets();
+  
+  // Detect if Android device has gesture navigation
+  // Gesture navigation typically has bottom insets > 0 on Android
+  // Button navigation typically has bottom insets = 0 on Android
+  const hasAndroidGestureNav = Platform.OS === 'android' && insets.bottom > 0;
+  
+  // Only apply safe area adjustments if Android has gesture navigation
+  const shouldApplySafeArea = hasAndroidGestureNav;
+  
   // Debug log to show what activeTab prop is received
   console.log(`NavBar: Received activeTab prop: ${activeTab}`);
+  
+  // Debug logging for safe area insets and positioning
+  useEffect(() => {
+    console.log('=== NavBar Safe Area Debug Info ===');
+    console.log(`Platform: ${Platform.OS}`);
+    console.log(`Screen width: ${width}`);
+    console.log(`Safe area insets:`, {
+      top: insets.top,
+      bottom: insets.bottom,
+      left: insets.left,
+      right: insets.right
+    });
+    console.log(`Android gesture navigation detected: ${hasAndroidGestureNav}`);
+    console.log(`Should apply safe area: ${shouldApplySafeArea}`);
+    console.log(`NavBar positioning:`, {
+      position: 'absolute',
+      bottom: 0,
+      height: shouldApplySafeArea ? 83 + insets.bottom : 83,
+      width: width,
+      zIndex: 9999
+    });
+    if (shouldApplySafeArea) {
+      console.log(`NavBar bottom offset (including safe area): ${insets.bottom}px`);
+      console.log(`Total NavBar height with safe area: ${83 + insets.bottom}px`);
+    } else {
+      console.log(`NavBar height: 83px (no safe area applied)`);
+    }
+    console.log('================================');
+  }, [insets, width, hasAndroidGestureNav, shouldApplySafeArea]);
   
   const tabs = [
     { icon: 'heart-outline', iconFilled: 'heart', label: 'Favourite', index: 0 },
@@ -32,10 +73,49 @@ export default function NavBar({ activeTab = 2, onTabPress }: NavBarProps) {
     }
   };
 
+  // Debug logging for render
+  console.log(`NavBar: Rendering with activeTab: ${activeTab}, safe area bottom: ${insets.bottom}px, gesture nav: ${hasAndroidGestureNav}`);
+
   return (
-    <View style={styles.navBar}>
+    <View 
+      style={[
+        styles.navBar,
+        shouldApplySafeArea && {
+          // Apply safe area adjustments only for Android gesture navigation
+          height: 50 + insets.bottom,
+          paddingBottom: insets.bottom,
+        }
+      ]}
+      onLayout={(event) => {
+        const { x, y, width: layoutWidth, height: layoutHeight } = event.nativeEvent.layout;
+        console.log('=== NavBar Layout Debug ===');
+        console.log(`NavBar layout:`, {
+          x,
+          y,
+          width: layoutWidth,
+          height: layoutHeight
+        });
+        console.log(`NavBar actual bottom position: ${y + layoutHeight}px`);
+        console.log(`Screen height: ${Dimensions.get('window').height}px`);
+        console.log(`Distance from screen bottom: ${Dimensions.get('window').height - (y + layoutHeight)}px`);
+        console.log('========================');
+      }}
+    >
       {/* Tabs Container */}
-      <View style={styles.tabsContainer}>
+      <View 
+        style={styles.tabsContainer}
+        onLayout={(event) => {
+          const { x, y, width: tabsWidth, height: tabsHeight } = event.nativeEvent.layout;
+          console.log('=== Tabs Container Layout Debug ===');
+          console.log(`Tabs container layout:`, {
+            x,
+            y,
+            width: tabsWidth,
+            height: tabsHeight
+          });
+          console.log('==================================');
+        }}
+      >
                  {tabs.map((tab) => {
            const isActive = tab.index === activeTab;
            // console.log(`NavBar: Tab ${tab.index} (${tab.label}) isActive: ${isActive}`); // Commented out to reduce console spam
