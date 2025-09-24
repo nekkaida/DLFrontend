@@ -35,16 +35,31 @@ export const EloProgressGraph: React.FC<EloProgressGraphProps> = ({ data, onPoin
   const ratings = data.map(d => d.rating).filter(r => !isNaN(r) && typeof r === 'number');
   
   // Safety checks to prevent NaN issues
-  let minRating = 1350; // Default minimum
-  let maxRating = 1450; // Default maximum
+  let minRating = 1000; // Default minimum
+  let maxRating = 2000; // Default maximum
   
   if (ratings.length > 0) {
-    minRating = Math.min(...ratings) - 50;
-    maxRating = Math.max(...ratings) + 50;
+    const actualMin = Math.min(...ratings);
+    const actualMax = Math.max(...ratings);
+    
+    // For single data point, create a reasonable range around it
+    if (ratings.length === 1) {
+      const singleRating = actualMin;
+      const padding = Math.max(200, singleRating * 0.15); // 15% padding or minimum 200 points
+      minRating = Math.max(500, singleRating - padding);
+      maxRating = Math.min(5000, singleRating + padding);
+    } else {
+      // For multiple points, create a reasonable range around the actual values
+      const range = actualMax - actualMin;
+      const padding = Math.max(100, range * 0.1); // At least 100 points padding or 10% of range
+      
+      minRating = Math.max(500, actualMin - padding);
+      maxRating = Math.min(5000, actualMax + padding);
+    }
     
     // Additional safety check
-    if (isNaN(minRating)) minRating = 1350;
-    if (isNaN(maxRating)) maxRating = 1450;
+    if (isNaN(minRating)) minRating = 1000;
+    if (isNaN(maxRating)) maxRating = 2000;
   }
   
   // Scale functions with safety checks
@@ -91,7 +106,7 @@ export const EloProgressGraph: React.FC<EloProgressGraphProps> = ({ data, onPoin
                 fill={theme.colors.neutral.gray[500]}
                 textAnchor="end"
               >
-                {Math.round(rating)}
+                {Math.round(rating) >= 1000 ? `${Math.round(rating / 1000)}k` : Math.round(rating)}
               </SvgText>
             </G>
           );
@@ -136,8 +151,16 @@ export const EloProgressGraph: React.FC<EloProgressGraphProps> = ({ data, onPoin
         
         {/* Month labels */}
         {data.filter((_, i) => i % 2 === 0).map((point, index) => {
-          // Handle special case for no data
-          const labelText = point.date === 'No matches yet' ? 'No Data' : point.date.split(' ')[0];
+          // Handle special cases for labels
+          let labelText;
+          if (point.date === 'No matches yet') {
+            labelText = 'No Data';
+          } else if (point.date === 'Current Rating') {
+            labelText = 'Current';
+          } else {
+            labelText = point.date.split(' ')[0];
+          }
+          
           return (
             <SvgText
               key={`label-${index}`}

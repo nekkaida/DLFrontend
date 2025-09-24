@@ -1,12 +1,8 @@
 import type { GameData, UserData } from '../types';
+import { getPrimarySkillLevel } from '../utils/skillLevelUtils';
 
-/**
- * ProfileDataTransformer - Handles data transformation logic
- *
- * CRITICAL: This transformer preserves the exact data transformation logic
- * from the original profile.tsx implementation. DO NOT modify the conditional
- * logic, fallback patterns, or data structure mappings.
- */
+// ProfileDataTransformer - Handles data transformation logic
+
 export class ProfileDataTransformer {
   /**
    * Transform API profile data to UI-compatible userData format
@@ -25,7 +21,7 @@ export class ProfileDataTransformer {
       bio: profileData.bio || 'No bio added yet.',
       location: profileData.area || 'Location not set',
       gender: profileData.gender || 'Gender not set',
-      skillLevel: 'Intermediate', // This would come from skillRatings
+      skillLevel: getPrimarySkillLevel(profileData.skillRatings), // Calculate from actual skill ratings
       skillRatings: profileData.skillRatings || {}, // Pass through the actual skill ratings for DMR section
       sports: profileData.skillRatings && typeof profileData.skillRatings === 'object' && Object.keys(profileData.skillRatings).length > 0
         ? Object.keys(profileData.skillRatings).map(sport => sport.charAt(0).toUpperCase() + sport.slice(1))

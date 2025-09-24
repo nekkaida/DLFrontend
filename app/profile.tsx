@@ -27,6 +27,7 @@ import type { GameData, UserData } from '../src/features/profile/types';
 // import { mockEloData, userData, gameTypeOptions } from '../src/features/profile/data/mockData'; // Team lead's original mock data - commented for API implementation
 import { useProfileState } from '../src/features/profile/hooks/useProfileState';
 import { useProfileHandlers } from '../src/features/profile/hooks/useProfileHandlers';
+import { ProfileDataTransformer } from '../src/features/profile/services/ProfileDataTransformer';
 import { useSession, authClient } from '@/lib/auth-client';
 import { getBackendBaseURL } from '@/config/network';
 import * as SecureStore from 'expo-secure-store';
@@ -457,49 +458,21 @@ export default function ProfileAdaptedScreen() {
   // Fallback data using team lead's original mock data for when API is not available
   // const { mockEloData, userData, gameTypeOptions } = require('../src/features/profile/data/mockData');
   
-  // Transform API data to match frontend expectations
+  // Transform API data to match frontend expectations using ProfileDataTransformer
   console.log('Transforming profile data:', profileData);
   console.log('Sports from API:', profileData?.sports);
   console.log('Skill ratings:', profileData?.skillRatings);
   
-  const userData: any = profileData ? {
-    name: profileData.name || 'No name available',
-    username: profileData.username || profileData.displayUsername || 'No username',
-    bio: profileData.bio || 'No bio added yet.',
-    location: profileData.area || 'Location not set',
-    gender: profileData.gender || 'Gender not set',
-    skillLevel: 'Intermediate', // This would come from skillRatings
-    skillRatings: profileData.skillRatings || {}, // Pass through the actual skill ratings for DMR section
-    // Use the sports array from API response (includes both completed and placeholder sports)
-    sports: profileData.sports && profileData.sports.length > 0
-      ? profileData.sports.map(sport => sport.charAt(0).toUpperCase() + sport.slice(1))
-      : ['No sports yet'],
-    // Active sports are those with completed skill ratings
-    activeSports: profileData.skillRatings && typeof profileData.skillRatings === 'object' && Object.keys(profileData.skillRatings).length > 0
-      ? Object.keys(profileData.skillRatings).map(sport => sport.charAt(0).toUpperCase() + sport.slice(1)) 
-      : [],
-    achievements: achievements || [],
-  } : {
-    name: 'Loading...',
-    username: 'loading',
-    bio: 'Loading...',
-    location: 'Loading...',
-    gender: 'Loading...',
-    skillLevel: 'Loading...',
-    skillRatings: {},
-    sports: [],
-    activeSports: [],
-    achievements: [],
-  };
+  const userData: any = ProfileDataTransformer.transformProfileToUserData(profileData, achievements);
   
   console.log('Final userData:', userData);
   
-  // Update activeTab to user's first sport when userData is loaded
+  // Update activeTab to user's first sport when userData is loaded (only on initial load)
   useEffect(() => {
-    if (userData?.sports && userData.sports.length > 0 && userData.sports[0] !== 'No sports yet') {
+    if (userData?.sports && userData.sports.length > 0 && userData.sports[0] !== 'No sports yet' && !hasLoadedBefore) {
       setActiveTab(userData.sports[0]);
     }
-  }, [userData?.sports, setActiveTab]);
+  }, [userData?.sports, hasLoadedBefore]);
   
   // Helper function to get rating values from skillRatings
   const getRatingForType = (sport: string, type: 'singles' | 'doubles') => {
@@ -534,17 +507,22 @@ export default function ProfileAdaptedScreen() {
     return 0; // No matches yet
   };
   
-  // Placeholder ELO data until match system is implemented
-  const mockEloData: any[] = [
-    {
-      date: 'No matches yet',
+  // Create ELO data based on actual rating values only
+  const createEloData = () => {
+    const currentSport = activeTab || userData.sports?.[0] || 'pickleball';
+    const currentGameType = selectedGameType.toLowerCase();
+    const currentRating = getRatingForType(currentSport, currentGameType as 'singles' | 'doubles');
+    
+    // Return single point with current rating if no matches played
+    return [{
+      date: 'Current Rating',
       time: '',
-      rating: 1400,
-      opponent: 'No data available',
+      rating: currentRating || 1400, // Use actual rating or default
+      opponent: 'No matches played',
       result: '-' as any,
       score: '-',
       ratingChange: 0,
-      league: 'Play your first match to see data here!',
+      league: `${currentSport} ${currentGameType}`,
       player1: userData.name || 'You',
       player2: 'No opponent',
       scores: { 
@@ -553,8 +531,10 @@ export default function ProfileAdaptedScreen() {
         set3: { player1: null, player2: null } 
       },
       status: 'pending'
-    }
-  ];
+    }];
+  };
+  
+  const mockEloData = createEloData();
   
   // Using real API data instead of mock data
 
@@ -680,72 +660,76 @@ export default function ProfileAdaptedScreen() {
             </View>
           </View>
 
-          {/* Name and Username */}
-          <View style={styles.nameContainer}>
-            <View style={styles.nameWithGender}>
-              <Text style={styles.name}>{userData.name}</Text>
-              {userData.gender && userData.gender !== 'Gender not set' && (
-                <Ionicons 
-                  name={userData.gender.toLowerCase() === 'male' ? 'male' : 'female'} 
-                  size={20} 
-                  color={userData.gender.toLowerCase() === 'male' ? '#4A90E2' : '#E91E63'} 
-                />
-              )}
+          {/* Compact Profile Info Card */}
+          <View style={styles.profileInfoCard}>
+            {/* Name and Gender Row */}
+            <View style={styles.nameRow}>
+              <View style={styles.nameContainer}>
+                <Text style={styles.name}>{userData.name}</Text>
+                {userData.gender && userData.gender !== 'Gender not set' && (
+                  <Ionicons 
+                    name={userData.gender.toLowerCase() === 'male' ? 'male' : 'female'} 
+                    size={16} 
+                    color={userData.gender.toLowerCase() === 'male' ? '#4A90E2' : '#E91E63'} 
+                    style={styles.genderIcon}
+                  />
+                )}
+              </View>
+              <View style={styles.actionIconsRow}>
+                <Pressable style={[styles.actionIcon, styles.addFriendIcon]}>
+                  <Ionicons name="person-add" size={14} color="#20659d" />
+                </Pressable>
+                <Pressable style={styles.actionIcon}>
+                  <Ionicons name="chatbubble" size={14} color={theme.colors.neutral.gray[600]} />
+                </Pressable>
+              </View>
             </View>
-          </View>
-          <Text style={styles.username}>@{userData.username}</Text>
-          <Text style={styles.bio}>{userData.bio}</Text>
 
-          {/* Action Icons */}
-          <View style={styles.actionIconsContainer}>
-            <Pressable style={[styles.actionIcon, styles.addFriendIcon]}>
-              <Ionicons name="person-add" size={16} color="#20659d" />
-            </Pressable>
-            <Pressable style={styles.actionIcon}>
-              <Ionicons name="chatbubble" size={16} color={theme.colors.neutral.gray[600]} />
-            </Pressable>
-          </View>
+            {/* Username */}
+            <Text style={styles.username}>@{userData.username}</Text>
 
-          {/* Location Section */}
-          <View style={styles.locationSection}>
-            <View style={styles.locationContainer}>
-              <Ionicons name="location-sharp" size={18} color="#6de9a0" />
-              <Text style={styles.locationText}>{userData.location}</Text>
-            </View>
-          </View>
+            {/* Bio */}
+            <Text style={styles.bio}>{userData.bio}</Text>
 
-          {/* Sports Section */}
-          <View style={styles.sportsSection}>
-            <Text style={styles.sportsSectionTitle}>Sports</Text>
-            <View style={styles.sportsPills}>
-              {userData.sports?.map((sport) => {
-                const isActive = userData.activeSports?.includes(sport);
-                
-                return (
-                  <Pressable 
-                    key={sport}
-                    style={[
-                      styles.sportPill,
-                      { 
-                        backgroundColor: SPORT_COLORS[sport as keyof typeof SPORT_COLORS] || '#6de9a0',
-                        opacity: isActive ? 1 : 0.7,
-                        transform: [{ scale: isActive ? 1.05 : 1 }],
-                      }
-                    ]}
-                    onPress={() => {
-                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                      // Handle sport selection
-                    }}
-                  >
-                    <Text style={[
-                      styles.sportPillText,
-                      isActive && styles.sportPillTextActive
-                    ]}>
-                      {sport}
-                    </Text>
-                  </Pressable>
-                );
-              })}
+            {/* Location and Sports Row */}
+            <View style={styles.locationSportsRow}>
+              <View style={styles.locationContainer}>
+                <Ionicons name="location-sharp" size={14} color="#6de9a0" />
+                <Text style={styles.locationText}>{userData.location}</Text>
+              </View>
+              
+              <View style={styles.sportsContainer}>
+                <Text style={styles.sportsLabel}>Sports</Text>
+                <View style={styles.sportsPills}>
+                  {userData.sports?.slice(0, 3).map((sport) => {
+                    const isActive = userData.activeSports?.includes(sport);
+                    
+                    return (
+                      <Pressable 
+                        key={sport}
+                        style={[
+                          styles.sportPill,
+                          { 
+                            backgroundColor: SPORT_COLORS[sport as keyof typeof SPORT_COLORS] || '#6de9a0',
+                            opacity: isActive ? 1 : 0.7,
+                          }
+                        ]}
+                        onPress={() => {
+                          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                          // Handle sport selection
+                        }}
+                      >
+                        <Text style={styles.sportPillText}>
+                          {sport}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
+                  {userData.sports && userData.sports.length > 3 && (
+                    <Text style={styles.moreSportsText}>+{userData.sports.length - 3}</Text>
+                  )}
+                </View>
+              </View>
             </View>
           </View>
 
@@ -821,13 +805,13 @@ export default function ProfileAdaptedScreen() {
             <View style={styles.dmrContainer}>
               {/* DMR Label and Ratings */}
               <View style={styles.dmrHeader}>
-                <Text style={styles.skillLabel}>DMR</Text>
+                <Text style={styles.skillLabel}>DMR - {activeTab}</Text>
                 <View style={styles.dmrRatingsRow}>
                   <View style={styles.dmrItemVertical}>
                     <Text style={styles.dmrTypeLabel}>Singles</Text>
                     <View style={styles.ratingCircleSmall}>
                       <Text style={styles.ratingTextSmall}>
-                        {getRatingForType(activeTab || userData.sports?.[0] || 'pickleball', 'singles') || 'N/A'}
+                        {getRatingForType(activeTab || 'pickleball', 'singles') || 'N/A'}
                       </Text>
                     </View>
                   </View>
@@ -835,7 +819,7 @@ export default function ProfileAdaptedScreen() {
                     <Text style={styles.dmrTypeLabel}>Doubles</Text>
                     <View style={styles.ratingCircleSmall}>
                       <Text style={styles.ratingTextSmall}>
-                        {getRatingForType(activeTab || userData.sports?.[0] || 'pickleball', 'doubles') || 'N/A'}
+                        {getRatingForType(activeTab || 'pickleball', 'doubles') || 'N/A'}
                       </Text>
                     </View>
                   </View>
@@ -873,7 +857,7 @@ export default function ProfileAdaptedScreen() {
           <View style={styles.skillLevelSection}>
             <View style={styles.leagueStatsContainer}>
               <View style={styles.statsHeader}>
-                <Text style={styles.skillLabel}>League Stats</Text>
+                <Text style={styles.skillLabel}>League Stats - {activeTab}</Text>
                 <InlineDropdown
                   options={gameTypeOptions}
                   selectedValue={selectedGameType}
@@ -966,18 +950,18 @@ const styles = StyleSheet.create({
     left: 0,
   },
   whiteBackground: {
-    backgroundColor: '#f0f0f0', // Background color
+    backgroundColor: theme.colors.neutral.gray[50], // Original gray background
     flex: 1,
-    paddingHorizontal: theme.spacing.lg,
-    paddingBottom: theme.spacing.lg,
+    paddingHorizontal: theme.spacing.md,
+    paddingBottom: theme.spacing.xl,
     marginTop: -1, // Slight overlap to ensure no gap
   },
   profileSection: {
     alignItems: 'center',
-    marginTop: -200, // Position profile section - more negative = higher up
+    marginTop: -180, // Position profile section higher for modern look
     position: 'relative',
     zIndex: 15,
-    marginBottom: theme.spacing.sm, // Reduced spacing to bring content closer
+    marginBottom: theme.spacing.lg,
   },
   profileImageContainer: {
     position: 'relative',
@@ -997,171 +981,212 @@ const styles = StyleSheet.create({
     }),
   },
   profileImage: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    borderWidth: 4,
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    borderWidth: 3,
     borderColor: theme.colors.neutral.white,
+    shadowColor: theme.colors.neutral.black,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.15,
+    shadowRadius: 16,
+    elevation: 8,
   },
   defaultProfileImage: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    borderWidth: 4,
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    borderWidth: 3,
     borderColor: theme.colors.neutral.white,
-    backgroundColor: '#e7e7e7',
+    backgroundColor: '#f5f5f5',
     justifyContent: 'center',
     alignItems: 'center',
+    shadowColor: theme.colors.neutral.black,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.15,
+    shadowRadius: 16,
+    elevation: 8,
   },
   editImageButton: {
     position: 'absolute',
-    bottom: 0,
-    right: 0,
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    bottom: -2,
+    right: -2,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     backgroundColor: theme.colors.primary,
     justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 3,
+    borderWidth: 2,
     borderColor: theme.colors.neutral.white,
     ...Platform.select({
       ios: {
         shadowColor: theme.colors.neutral.black,
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.2,
-        shadowRadius: 4,
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.25,
+        shadowRadius: 8,
       },
       android: {
-        elevation: 4,
+        elevation: 6,
       },
     }),
   },
-  nameWithGender: {
+  profileInfoCard: {
+    backgroundColor: '#ffffff',
+    borderRadius: 16,
+    padding: theme.spacing.lg,
+    marginTop: theme.spacing.md,
+    marginBottom: theme.spacing.lg,
+    borderWidth: 1,
+    borderColor: '#f1f5f9',
+    ...Platform.select({
+      ios: {
+        shadowColor: theme.colors.neutral.black,
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.05,
+        shadowRadius: 8,
+      },
+      android: {
+        elevation: 2,
+      },
+    }),
+  },
+  nameRow: {
     flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    justifyContent: 'center',
-    gap: theme.spacing.sm,
+    marginBottom: theme.spacing.sm,
   },
   nameContainer: {
-    alignItems: 'center',
-    marginTop: theme.spacing.xs, // Reduced spacing to bring name closer
-  },
-  actionIconsContainer: {
     flexDirection: 'row',
-    justifyContent: 'center',
+    alignItems: 'center',
+    gap: theme.spacing.xs,
+    flex: 1,
+  },
+  genderIcon: {
+    marginLeft: theme.spacing.xs,
+  },
+  actionIconsRow: {
+    flexDirection: 'row',
     gap: theme.spacing.sm,
-    marginTop: theme.spacing.md,
   },
   actionIcon: {
     padding: theme.spacing.sm,
-    borderRadius: 12,
-    backgroundColor: '#ffffff',
-    borderWidth: 2,
-    borderColor: theme.colors.neutral.gray[400],
+    borderRadius: 8,
+    backgroundColor: '#f8fafc',
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
   },
   addFriendIcon: {
     borderColor: '#20659d',
+    backgroundColor: '#f0f8ff',
   },
   name: {
-    fontSize: theme.typography.fontSize['2xl'],
-    fontWeight: 'bold' as any,
-    color: theme.colors.neutral.gray[900],
+    fontSize: 20,
+    fontWeight: '700' as any,
+    color: '#1a1a1a',
     fontFamily: theme.typography.fontFamily.primary,
+    letterSpacing: -0.3,
   },
   username: {
-    textAlign: 'center',
-    color: theme.colors.neutral.gray[600],
-    marginTop: theme.spacing.xs,
-    fontSize: theme.typography.fontSize.base,
+    color: '#6b7280',
+    marginBottom: theme.spacing.sm,
+    fontSize: 14,
     fontFamily: theme.typography.fontFamily.primary,
+    fontWeight: '500' as any,
   },
   bio: {
-    textAlign: 'center',
-    color: theme.colors.neutral.gray[500],
-    marginTop: theme.spacing.sm,
-    fontStyle: 'italic',
-    fontSize: theme.typography.fontSize.sm,
-    fontFamily: theme.typography.fontFamily.primary,
-    paddingHorizontal: theme.spacing.md,
-  },
-  locationSection: {
-    alignItems: 'center',
-    marginTop: theme.spacing.lg,
+    color: '#9ca3af',
     marginBottom: theme.spacing.md,
+    fontSize: 13,
+    fontFamily: theme.typography.fontFamily.primary,
+    lineHeight: 18,
+    fontWeight: '400' as any,
+  },
+  locationSportsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    gap: theme.spacing.md,
   },
   locationContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(109, 233, 160, 0.1)',
-    paddingHorizontal: theme.spacing.lg,
-    paddingVertical: theme.spacing.sm,
-    borderRadius: theme.borderRadius.full,
-    borderWidth: 1,
-    borderColor: 'rgba(109, 233, 160, 0.3)',
-    gap: theme.spacing.sm,
+    gap: theme.spacing.xs,
+    flex: 1,
   },
   locationText: {
-    color: theme.colors.neutral.gray[700],
-    fontSize: theme.typography.fontSize.base,
+    color: '#9ca3af',
+    fontSize: 13,
     fontFamily: theme.typography.fontFamily.primary,
-    fontWeight: theme.typography.fontWeight.medium as any,
+    fontWeight: '400' as any,
   },
-  sportsSection: {
-    alignItems: 'center',
-    marginTop: theme.spacing.md,
-    marginBottom: theme.spacing.lg,
+  sportsContainer: {
+    flex: 1,
+    alignItems: 'flex-end',
   },
-  sportsSectionTitle: {
-    fontSize: theme.typography.fontSize.sm,
-    fontWeight: theme.typography.fontWeight.semibold as any,
-    color: theme.colors.neutral.gray[600],
-    marginBottom: theme.spacing.sm,
+  sportsLabel: {
+    fontSize: 11,
+    fontWeight: '600' as any,
+    color: theme.colors.neutral.gray[500],
+    marginBottom: theme.spacing.xs,
     fontFamily: theme.typography.fontFamily.primary,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
   sportsPills: {
     flexDirection: 'row',
-    justifyContent: 'center',
     flexWrap: 'wrap',
-    gap: theme.spacing.sm,
+    gap: theme.spacing.xs,
+    justifyContent: 'flex-end',
   },
   sportPill: {
-    paddingHorizontal: theme.spacing.lg,
-    paddingVertical: theme.spacing.sm,
-    borderRadius: theme.borderRadius.full,
-    minWidth: 80,
+    paddingHorizontal: theme.spacing.sm,
+    paddingVertical: theme.spacing.xs,
+    borderRadius: 6,
     alignItems: 'center',
   },
   sportPillText: {
     color: theme.colors.neutral.white,
-    fontSize: theme.typography.fontSize.sm,
+    fontSize: 10,
     fontFamily: theme.typography.fontFamily.primary,
-    fontWeight: theme.typography.fontWeight.medium as any,
-    opacity: 0.9,
+    fontWeight: '600' as any,
+    opacity: 0.95,
   },
-  sportPillTextActive: {
-    fontWeight: theme.typography.fontWeight.bold as any,
-    opacity: 1,
+  moreSportsText: {
+    color: theme.colors.neutral.gray[500],
+    fontSize: 10,
+    fontFamily: theme.typography.fontFamily.primary,
+    fontWeight: '500' as any,
+    marginLeft: theme.spacing.xs,
+    alignSelf: 'center',
   },
   section: {
     marginTop: theme.spacing.xl,
+    marginBottom: theme.spacing.md,
   },
   sectionTitle: {
-    fontSize: theme.typography.fontSize.lg,
-    fontWeight: 'bold' as any,
-    color: theme.colors.neutral.gray[900],
+    fontSize: 18,
+    fontWeight: '700' as any,
+    color: '#111827',
     marginBottom: theme.spacing.md,
     fontFamily: theme.typography.fontFamily.primary,
+    letterSpacing: -0.3,
   },
   achievementContainer: {
-    backgroundColor: theme.colors.neutral.white,
+    backgroundColor: '#ffffff',
     padding: theme.spacing.md,
-    borderRadius: theme.borderRadius.lg,
+    borderRadius: 16,
     borderWidth: 1,
-    borderColor: theme.colors.neutral.gray[100],
+    borderColor: '#f1f5f9',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    shadowColor: theme.colors.neutral.black,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.03,
+    shadowRadius: 4,
+    elevation: 1,
   },
   achievementsContent: {
     flex: 1,
@@ -1218,49 +1243,61 @@ const styles = StyleSheet.create({
   },
   tabs: {
     flexDirection: 'row',
-    gap: theme.spacing.xl,
+    gap: theme.spacing.lg,
     marginLeft: theme.spacing.md,
   },
   tab: {
-    paddingVertical: 2,
-    paddingHorizontal: 0,
+    paddingVertical: theme.spacing.xs,
+    paddingHorizontal: theme.spacing.sm,
     position: 'relative',
+    borderRadius: theme.borderRadius.sm,
   },
   tabActive: {
     borderBottomWidth: 2,
     borderBottomColor: theme.colors.primary,
   },
   tabText: {
-    color: '#b0b1bb',
-    fontSize: theme.typography.fontSize.base,
+    color: '#9ca3af',
+    fontSize: 14,
     fontFamily: theme.typography.fontFamily.primary,
-    fontWeight: 'bold' as any,
+    fontWeight: '500' as any,
   },
   tabTextActive: {
     color: theme.colors.primary,
-    fontWeight: 'bold' as any,
+    fontWeight: '600' as any,
   },
   skillContainer: {
-    backgroundColor: theme.colors.neutral.white,
+    backgroundColor: '#ffffff',
     padding: theme.spacing.lg,
-    borderRadius: theme.borderRadius.lg,
+    borderRadius: 16,
     borderWidth: 1,
-    borderColor: theme.colors.neutral.gray[100],
+    borderColor: '#f1f5f9',
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
     gap: theme.spacing.xl * 3,
+    shadowColor: theme.colors.neutral.black,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.03,
+    shadowRadius: 4,
+    elevation: 1,
   },
   dmrContainer: {
-    backgroundColor: theme.colors.neutral.white,
+    backgroundColor: '#ffffff',
     padding: theme.spacing.lg,
     paddingBottom: theme.spacing.lg,
-    borderRadius: theme.borderRadius.lg,
+    borderRadius: 16,
     borderWidth: 1,
-    borderColor: theme.colors.neutral.gray[100],
+    borderColor: '#f1f5f9',
+    shadowColor: theme.colors.neutral.black,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.03,
+    shadowRadius: 4,
+    elevation: 1,
   },
   skillLevelSection: {
-    marginTop: theme.spacing.md,
+    marginTop: theme.spacing.lg,
+    marginBottom: theme.spacing.sm,
   },
   dmrValues: {
     flexDirection: 'row',
@@ -1322,19 +1359,24 @@ const styles = StyleSheet.create({
     gap: theme.spacing.sm,
   },
   ratingCircleSmall: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: theme.colors.neutral.gray[50],
-    borderWidth: 3,
+    width: 70,
+    height: 70,
+    borderRadius: 35,
+    backgroundColor: '#fef7f0',
+    borderWidth: 2,
     borderColor: '#fea04d',
     justifyContent: 'center',
     alignItems: 'center',
+    shadowColor: '#fea04d',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.08,
+    shadowRadius: 2,
+    elevation: 1,
   },
   ratingTextSmall: {
-    color: theme.colors.neutral.gray[900],
-    fontSize: theme.typography.fontSize.base,
-    fontWeight: 'bold' as any,
+    color: '#111827',
+    fontSize: 14,
+    fontWeight: '700' as any,
     fontFamily: theme.typography.fontFamily.primary,
   },
   dropdownSection: {
@@ -1357,19 +1399,20 @@ const styles = StyleSheet.create({
     fontFamily: theme.typography.fontFamily.primary,
   },
   skillLabel: {
-    color: theme.colors.neutral.gray[900],
-    fontSize: theme.typography.fontSize.lg,
+    color: '#111827',
+    fontSize: 16,
     fontFamily: theme.typography.fontFamily.primary,
-    fontWeight: theme.typography.fontWeight.bold as any,
+    fontWeight: '600' as any,
   },
   dmrLabel: {
     textAlign: 'center',
     marginBottom: theme.spacing.md,
   },
   skillValue: {
-    color: theme.colors.neutral.gray[500],
-    fontSize: theme.typography.fontSize.base,
+    color: '#6b7280',
+    fontSize: 14,
     fontFamily: theme.typography.fontFamily.primary,
+    fontWeight: '500' as any,
   },
   statsSection: {
     marginTop: theme.spacing.xl,
@@ -1665,12 +1708,17 @@ const styles = StyleSheet.create({
   },
   // League Stats Styles  
   leagueStatsContainer: {
-    backgroundColor: theme.colors.neutral.white,
+    backgroundColor: '#ffffff',
     padding: theme.spacing.lg,
     paddingBottom: theme.spacing.xl * 2,
-    borderRadius: theme.borderRadius.lg,
+    borderRadius: 16,
     borderWidth: 1,
-    borderColor: theme.colors.neutral.gray[100],
+    borderColor: '#f1f5f9',
+    shadowColor: theme.colors.neutral.black,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.03,
+    shadowRadius: 4,
+    elevation: 1,
   },
   statsHeader: {
     flexDirection: 'row',

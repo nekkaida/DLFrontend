@@ -7,6 +7,7 @@ import { useColorScheme } from '@/hooks/useColorScheme';
 import { NavigationInterceptor } from '@core/navigation/NavigationInterceptor';
 import { Toaster } from 'sonner-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
@@ -21,8 +22,9 @@ export default function RootLayout() {
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
-      <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-        <NavigationInterceptor>
+      <BottomSheetModalProvider>
+        <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+          <NavigationInterceptor>
           <Stack
             screenOptions={{
               gestureEnabled: true, // Re-enable swipe-back gesture
@@ -116,10 +118,11 @@ export default function RootLayout() {
         />
         <Stack.Screen name="+not-found" />
         </Stack>
-        </NavigationInterceptor>
-        <StatusBar style="auto" />
-        <Toaster />
-      </ThemeProvider>
+          </NavigationInterceptor>
+          <StatusBar style="auto" />
+          <Toaster />
+        </ThemeProvider>
+      </BottomSheetModalProvider>
     </GestureHandlerRootView>
   );
 }

@@ -1,14 +1,18 @@
-import React from 'react';
+import React, { useCallback, useMemo, useRef, useEffect } from 'react';
 import {
-  Modal,
   View,
   Text,
-  Pressable,
   StyleSheet,
   Platform,
 } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 import { Ionicons } from '@expo/vector-icons';
+import { 
+  BottomSheetModal, 
+  BottomSheetView,
+  BottomSheetBackdrop,
+  BottomSheetHandle
+} from '@gorhom/bottom-sheet';
 import { theme } from '@core/theme/theme';
 import type { MatchDetailsModalProps } from '../types';
 
@@ -27,6 +31,39 @@ const DefaultProfileIcon = () => (
 );
 
 export const MatchDetailsModal: React.FC<MatchDetailsModalProps> = ({ match, onClose }) => {
+  const bottomSheetModalRef = useRef<BottomSheetModal>(null);
+
+  // Define snap points for the bottom sheet
+  const snapPoints = useMemo(() => ['60%', '85%'], []);
+
+  // Handle sheet changes
+  const handleSheetChanges = useCallback((index: number) => {
+    if (index === -1) {
+      onClose();
+    }
+  }, [onClose]);
+
+  // Present modal when match is available
+  useEffect(() => {
+    if (match) {
+      bottomSheetModalRef.current?.present();
+    }
+  }, [match]);
+
+  // Backdrop component
+  const renderBackdrop = useCallback(
+    (props: any) => (
+      <BottomSheetBackdrop
+        {...props}
+        disappearsOnIndex={-1}
+        appearsOnIndex={0}
+        opacity={0.5}
+        onPress={onClose}
+      />
+    ),
+    [onClose]
+  );
+
   if (!match) return null;
 
   const getStatusColor = (status: string) => {
@@ -56,20 +93,24 @@ export const MatchDetailsModal: React.FC<MatchDetailsModalProps> = ({ match, onC
   };
 
   return (
-    <Modal
-      visible={true}
-      transparent={true}
-      animationType="fade"
-      onRequestClose={onClose}
+    <BottomSheetModal
+      ref={bottomSheetModalRef}
+      snapPoints={snapPoints}
+      onChange={handleSheetChanges}
+      backdropComponent={renderBackdrop}
+      handleComponent={(props) => (
+        <View style={styles.handleContainer}>
+          <BottomSheetHandle {...props} />
+        </View>
+      )}
+      backgroundStyle={styles.bottomSheetBackground}
+      style={styles.bottomSheetContainer}
     >
-      <Pressable style={styles.modalOverlay} onPress={onClose}>
-        <View style={styles.modalContentLarge}>
-          <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>Match Details</Text>
-            <Pressable onPress={onClose} style={styles.modalCloseButton}>
-              <Ionicons name="close" size={24} color={theme.colors.neutral.gray[600]} />
-            </Pressable>
-          </View>
+      <BottomSheetView style={styles.contentContainer}>
+        {/* Header */}
+        <View style={styles.modalHeader}>
+          <Text style={styles.modalTitle}>Match Details</Text>
+        </View>
           
           <View style={styles.matchDetailsCard}>
               {/* League Name with Container */}
@@ -152,80 +193,82 @@ export const MatchDetailsModal: React.FC<MatchDetailsModalProps> = ({ match, onC
                 </Text>
               </View>
             </View>
-        </View>
-      </Pressable>
-    </Modal>
+        </BottomSheetView>
+      </BottomSheetModal>
   );
 };
 
 const styles = StyleSheet.create({
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  modalContentLarge: {
-    backgroundColor: theme.colors.neutral.white,
-    borderRadius: theme.borderRadius.lg,
-    width: '90%',
-    maxWidth: 500,
-    maxHeight: '80%',
+  bottomSheetContainer: {
     ...Platform.select({
       ios: {
         shadowColor: theme.colors.neutral.black,
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.3,
-        shadowRadius: 8,
+        shadowOffset: { width: 0, height: -4 },
+        shadowOpacity: 0.1,
+        shadowRadius: 12,
       },
       android: {
-        elevation: 8,
+        elevation: 12,
       },
     }),
   },
+  bottomSheetBackground: {
+    backgroundColor: theme.colors.neutral.white,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+  },
+  handleContainer: {
+    paddingTop: theme.spacing.sm,
+    paddingBottom: theme.spacing.xs,
+  },
+  contentContainer: {
+    flex: 1,
+    paddingHorizontal: theme.spacing.lg,
+    paddingBottom: theme.spacing.xl,
+  },
   modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    padding: theme.spacing.lg,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.colors.neutral.gray[100],
+    paddingBottom: theme.spacing.md,
+    marginBottom: theme.spacing.xs,
   },
   modalTitle: {
-    fontSize: theme.typography.fontSize.lg,
-    fontWeight: theme.typography.fontWeight.bold as any,
-    color: theme.colors.neutral.gray[900],
+    fontSize: 18,
+    fontWeight: '600',
+    color: theme.colors.neutral.gray[700],
     fontFamily: theme.typography.fontFamily.primary,
-  },
-  modalCloseButton: {
-    padding: theme.spacing.xs,
   },
   matchDetailsCard: {
-    backgroundColor: 'rgba(255, 255, 255, 1)',
-    padding: theme.spacing.md,
-    paddingBottom: theme.spacing.md,
-    borderBottomLeftRadius: theme.borderRadius.lg,
-    borderBottomRightRadius: theme.borderRadius.lg,
+    backgroundColor: 'transparent',
+    padding: 0,
   },
   leagueNameContainer: {
-    backgroundColor: '#feecdb',
+    backgroundColor: '#f8fafc',
     paddingHorizontal: theme.spacing.md,
     paddingVertical: theme.spacing.sm,
-    borderRadius: theme.borderRadius.full,
+    borderRadius: 12,
     marginBottom: theme.spacing.md,
-    alignSelf: 'flex-start',
+    alignSelf: 'center',
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
   },
   leagueName: {
-    fontSize: theme.typography.fontSize.sm,
-    fontWeight: theme.typography.fontWeight.semibold as any,
-    color: theme.colors.primary,
+    fontSize: 14,
+    fontWeight: '500',
+    color: theme.colors.neutral.gray[600],
     fontFamily: theme.typography.fontFamily.primary,
+    textAlign: 'center',
+    textTransform: 'capitalize',
   },
   scoreboardContainer: {
+    backgroundColor: '#f8fafc',
+    borderRadius: 12,
+    padding: theme.spacing.md,
+    marginBottom: theme.spacing.md,
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: theme.spacing.sm,
-    marginBottom: theme.spacing.md,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
   },
   playerColumn: {
     flex: 1,
@@ -238,9 +281,9 @@ const styles = StyleSheet.create({
     paddingVertical: theme.spacing.xs,
   },
   playerName: {
-    fontSize: theme.typography.fontSize.sm,
-    fontWeight: theme.typography.fontWeight.medium as any,
-    color: theme.colors.neutral.gray[900],
+    fontSize: 14,
+    fontWeight: '500',
+    color: theme.colors.neutral.gray[700],
     fontFamily: theme.typography.fontFamily.primary,
   },
   setColumn: {
@@ -249,20 +292,26 @@ const styles = StyleSheet.create({
     minWidth: 50,
   },
   setHeader: {
-    fontSize: theme.typography.fontSize.xs,
-    fontWeight: theme.typography.fontWeight.bold as any,
+    fontSize: 11,
+    fontWeight: '500',
     color: theme.colors.neutral.gray[600],
     fontFamily: theme.typography.fontFamily.primary,
-    marginBottom: 2,
+    marginBottom: theme.spacing.xs,
+    textTransform: 'uppercase',
   },
   score: {
-    fontSize: theme.typography.fontSize.base,
-    fontWeight: theme.typography.fontWeight.semibold as any,
-    color: theme.colors.neutral.gray[900],
+    fontSize: 16,
+    fontWeight: '600',
+    color: theme.colors.neutral.gray[700],
     fontFamily: theme.typography.fontFamily.primary,
     textAlign: 'center',
     minHeight: 20,
-    paddingVertical: 2,
+    paddingVertical: theme.spacing.xs,
+    backgroundColor: theme.colors.neutral.white,
+    borderRadius: 6,
+    minWidth: 36,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
   },
   divider: {
     height: 1,
@@ -274,54 +323,68 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: theme.spacing.md,
+    backgroundColor: '#f8fafc',
+    padding: theme.spacing.md,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
   },
   dateTimeContainer: {
-    gap: 2,
+    gap: theme.spacing.xs,
   },
   dateText: {
-    fontSize: theme.typography.fontSize.sm,
-    fontWeight: theme.typography.fontWeight.medium as any,
-    color: theme.colors.neutral.gray[900],
+    fontSize: 14,
+    fontWeight: '500',
+    color: theme.colors.neutral.gray[700],
     fontFamily: theme.typography.fontFamily.primary,
   },
   timeText: {
-    fontSize: theme.typography.fontSize.xs,
+    fontSize: 12,
     color: theme.colors.neutral.gray[500],
     fontFamily: theme.typography.fontFamily.primary,
+    fontWeight: '400',
   },
   statusContainer: {
-    paddingHorizontal: theme.spacing.sm,
+    paddingHorizontal: theme.spacing.md,
     paddingVertical: theme.spacing.xs,
-    borderRadius: theme.borderRadius.base,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.1)',
   },
   statusText: {
-    fontSize: theme.typography.fontSize.xs,
-    fontWeight: theme.typography.fontWeight.semibold as any,
+    fontSize: 11,
+    fontWeight: '500',
     fontFamily: theme.typography.fontFamily.primary,
+    textTransform: 'uppercase',
   },
   ratingChangeSection: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingTop: theme.spacing.sm,
-    borderTopWidth: 1,
-    borderTopColor: theme.colors.neutral.gray[100],
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: theme.spacing.sm,
+    backgroundColor: '#f8fafc',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    marginTop: theme.spacing.md,
   },
   ratingChangeLabel: {
-    fontSize: theme.typography.fontSize.sm,
+    fontSize: 14,
     color: theme.colors.neutral.gray[600],
     fontFamily: theme.typography.fontFamily.primary,
+    fontWeight: '500',
   },
   ratingChangeValue: {
-    fontSize: theme.typography.fontSize.base,
-    fontWeight: theme.typography.fontWeight.bold as any,
+    fontSize: 15,
+    fontWeight: '600',
     fontFamily: theme.typography.fontFamily.primary,
   },
   profileIcon: {
     width: 24,
     height: 24,
     borderRadius: 12,
-    backgroundColor: theme.colors.neutral.gray[400],
+    backgroundColor: theme.colors.neutral.gray[300],
     justifyContent: 'center',
     alignItems: 'center',
   },

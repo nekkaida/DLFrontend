@@ -29,9 +29,9 @@ export const useProfileHandlers = ({
   const handleGameTypeSelect = (gameType: string) => {
     setSelectedGameType(gameType);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    toast.success('Game Type Changed', {
-      description: `Switched to ${gameType} view`,
-    });
+    // toast.success('Game Type Changed', {
+    //   description: `Switched to ${gameType} view`,
+    // });
   };
 
   const handleLeagueSelect = (league: string) => {
@@ -41,9 +41,9 @@ export const useProfileHandlers = ({
   const handleTabPress = (sport: string) => {
     setActiveTab(sport);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    toast.success('Sport Changed', {
-      description: `Switched to ${sport} profile`,
-    });
+    // toast.success('Sport Changed', {
+    //   description: `Switched to ${sport} profile`,
+    // });
   };
 
   const handleGamePointPress = (game: GameData) => {
