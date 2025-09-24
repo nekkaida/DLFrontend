@@ -79,9 +79,9 @@ export default function SettingsScreen() {
               console.log('User signing out...');
               
               // Show loading toast
-              toast.loading('Signing out...', {
-                description: 'Please wait while we sign you out.',
-              });
+              // toast.loading('Signing out...', {
+              //   description: 'Please wait while we sign you out.',
+              // });
               
               // Sign out from better-auth
               await authClient.signOut();
