@@ -19,6 +19,10 @@ expo-env.d.ts
 *.key
 *.mobileprovision
 
+# Android
+android/
+ios/
+
 # Metro
 .metro-health-check*
 
@@ -41,7 +45,6 @@ yarn-error.*
 *.tsbuildinfo
 
 app-example
-
 
 # Logs
 logs/
@@ -75,3 +78,9 @@ ios/DerivedData/
 
 # Coverage
 coverage/
+
+# Archive directories (should not be bundled)
+app/archive/
+
+package-lock.json
+package.json
