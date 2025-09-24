@@ -1,4 +1,4 @@
-import React, { useRef } from 'react';
+import React, { useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -171,6 +171,7 @@ export const PhoneInputField: React.FC<PhoneInputProps> = ({
   onChangeCountryCode,
 }) => {
   const phoneInput = useRef<PhoneInput>(null);
+  const [selectedCountryCode, setSelectedCountryCode] = React.useState('+60'); // Default to Malaysia
 
   return (
     <View style={AuthStyles.inputFieldContainer}>
@@ -178,53 +179,50 @@ export const PhoneInputField: React.FC<PhoneInputProps> = ({
       <View style={[AuthStyles.inputArea, value ? AuthStyles.inputAreaActive : {}]}>
         {/* Phone Icon */}
         <View style={AuthStyles.inputIcon}>
-          <Ionicons name="call-outline" size={16} color={AuthColors.gray[300]} />
+          <Ionicons name="call-outline" size={16} color="#9CA3AF" />
         </View>
-        <PhoneInput
-          ref={phoneInput}
-          defaultValue={value}
-          defaultCode="US"
-          layout="first"
+        
+        {/* Country Code Display */}
+        <View style={styles.countryCodeDisplay}>
+          <Text style={styles.countryCodeText}>{selectedCountryCode}</Text>
+        </View>
+
+        {/* Country Code Dropdown */}
+        <View style={styles.countryCodeDropdown}>
+          <PhoneInput
+            ref={phoneInput}
+            defaultValue=""
+            defaultCode="MY"
+            layout="first"
+            onChangeText={() => {}} // Don't handle phone input here
+            onChangeFormattedText={() => {}} // Don't handle formatted text here
+            onChangeCountry={(country) => {
+              const countryCode = `+${country.callingCode[0]}`;
+              setSelectedCountryCode(countryCode);
+              onChangeCountryCode?.(country.callingCode[0]);
+            }}
+            withDarkTheme={false}
+            withShadow={false}
+            autoFocus={false}
+            containerStyle={styles.compactPhoneContainer}
+            textContainerStyle={styles.compactPhoneTextContainer}
+            textInputStyle={styles.compactPhoneTextInput}
+            codeTextStyle={styles.compactPhoneCodeText}
+            flagButtonStyle={styles.compactPhoneFlagButton}
+            countryPickerButtonStyle={styles.compactPhoneCountryPicker}
+            disableArrowIcon={false}
+            renderDropdownImage={<Ionicons name="chevron-down" size={12} color="#6B7280" />}
+          />
+        </View>
+
+        {/* Phone Number Input */}
+        <TextInput
+          style={styles.phoneNumberInput}
+          value={value}
           onChangeText={onChangeText}
-          onChangeFormattedText={onChangeFormattedText}
-          onChangeCountryCode={onChangeCountryCode}
-          withDarkTheme={false}
-          withShadow={false}
-          autoFocus={false}
-          containerStyle={{
-            backgroundColor: 'transparent',
-            width: '100%',
-            height: 48,
-            paddingLeft: 0,
-          }}
-          textContainerStyle={{
-            backgroundColor: 'transparent',
-            paddingVertical: 0,
-            paddingHorizontal: 0
-          }}
-          textInputStyle={{
-            fontSize: 14,
-            color: AuthColors.black,
-            height: 48,
-            paddingVertical: 12,
-          }}
-          codeTextStyle={{
-            fontSize: 14,
-            color: AuthColors.black,
-            height: 20,
-          }}
-          flagButtonStyle={{
-            width: 50,
-            marginLeft: 0,
-            marginRight: 8, // Add space between flag and country code
-          }}
-          countryPickerButtonStyle={{
-            backgroundColor: 'transparent',
-            paddingRight: 8, // Add padding to the right of country code
-          }}
-          // Minimal props for reliable functionality
-          disableArrowIcon={true}
-          renderDropdownImage={<Ionicons name="chevron-down" size={12} color={AuthColors.gray[400]} />}
+          placeholder="Phone number"
+          placeholderTextColor="#9CA3AF"
+          keyboardType="phone-pad"
         />
       </View>
     </View>
@@ -374,4 +372,102 @@ export const VerificationInput: React.FC<VerificationInputProps> = ({ code, onCo
       ))}
     </View>
   );
+};
+
+// Compact Phone Input Field Styles
+const styles = {
+  countryCodeDisplay: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    height: 46,
+    paddingHorizontal: 8,
+    justifyContent: 'center' as const,
+  } as ViewStyle,
+  countryCodeDropdown: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    height: 46,
+    width: 40, // Just enough for dropdown arrow
+    justifyContent: 'center' as const,
+  } as ViewStyle,
+  countryCodeText: {
+    fontSize: 14,
+    color: '#000000',
+    fontFamily: 'Inter',
+    fontWeight: '600' as const,
+    lineHeight: 20,
+    letterSpacing: -0.01,
+  } as TextStyle,
+  compactPhoneContainer: {
+    backgroundColor: 'transparent',
+    width: '100%' as const,
+    height: 46,
+    paddingLeft: 0,
+    paddingRight: 0,
+    margin: 0,
+  } as ViewStyle,
+  compactPhoneTextContainer: {
+    backgroundColor: 'transparent',
+    paddingVertical: 0,
+    paddingHorizontal: 0,
+    margin: 0,
+    height: 46,
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    justifyContent: 'flex-start' as const,
+  } as ViewStyle,
+  compactPhoneTextInput: {
+    fontSize: 14,
+    color: '#000000',
+    height: 46,
+    paddingVertical: 12,
+    paddingHorizontal: 8,
+    fontFamily: 'Inter',
+    fontWeight: '500' as const,
+    lineHeight: 20,
+    letterSpacing: -0.01,
+    flex: 1,
+  } as TextStyle,
+  compactPhoneCodeText: {
+    fontSize: 0, // Hide country code text
+    color: 'transparent',
+    height: 20,
+    fontFamily: 'Inter',
+    fontWeight: '600' as const,
+    lineHeight: 20,
+    letterSpacing: -0.01,
+    marginRight: 0,
+    minWidth: 0,
+  } as TextStyle,
+  compactPhoneFlagButton: {
+    width: 0, // Hide flag button
+    marginLeft: 0,
+    marginRight: 0,
+    height: 46,
+    justifyContent: 'center' as const,
+    alignItems: 'center' as const,
+    paddingHorizontal: 0,
+  } as ViewStyle,
+  compactPhoneCountryPicker: {
+    backgroundColor: 'transparent',
+    paddingHorizontal: 6, // Added horizontal padding
+    paddingVertical: 4, // Added vertical padding
+    height: 46,
+    justifyContent: 'center' as const,
+    alignItems: 'center' as const,
+    minWidth: 24,
+    maxWidth: 36,
+  } as ViewStyle,
+  phoneNumberInput: {
+    flex: 1,
+    fontSize: 14,
+    color: '#000000',
+    height: 46,
+    paddingVertical: 12,
+    paddingHorizontal: 8,
+    fontFamily: 'Inter',
+    fontWeight: '500' as const,
+    lineHeight: 20,
+    letterSpacing: -0.01,
+  } as TextStyle,
 };

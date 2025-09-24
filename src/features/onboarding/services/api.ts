@@ -436,6 +436,37 @@ export class QuestionnaireAPI {
       throw error;
     }
   }
+
+  async saveSports(userId: string, sports: string[]): Promise<{ success: boolean; message: string; sports: string[] }> {
+    try {
+      if (!userId) {
+        throw new Error('User ID is required');
+      }
+
+      if (!Array.isArray(sports) || sports.length === 0) {
+        throw new Error('Sports array is required and must not be empty');
+      }
+
+      const headers = await this.getAuthHeaders();
+      
+      const response = await fetch(`${BASE_URL}/api/onboarding/sports/${userId}`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ sports })
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || `Failed to save sports: ${response.statusText}`);
+      }
+      
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error('Error saving sports:', error);
+      throw error;
+    }
+  }
 }
 
 export const questionnaireAPI = new QuestionnaireAPI();

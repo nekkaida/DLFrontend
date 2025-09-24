@@ -12,24 +12,22 @@ import { navigateAndClearStack, clearAuthPagesFromHistory } from '@core/navigati
 export default function VerifyEmailScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
-  const [email, setEmail] = useState(params.email);
+  const [email, setEmail] = useState(typeof params.email === 'string' ? params.email : '');
   const [otp, setOtp] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [otpFocused, setOtpFocused] = useState(false);
+  const [otpSent, setOtpSent] = useState(false);
 
   console.log('VerifyEmailScreen: Component mounted');
   console.log('VerifyEmailScreen: Email param:', params.email);
 
   useEffect(() => {
     console.log('VerifyEmailScreen: useEffect triggered');
-    if (typeof params.email === 'string' && params.email ) {
-      console.log('VerifyEmailScreen: Setting email and sending OTP to:', params.email);
+    if (typeof params.email === 'string' && params.email) {
+      console.log('VerifyEmailScreen: Setting email from params:', params.email);
       setEmail(params.email);
-      authClient.emailOtp.sendVerificationOtp({
-        email: params.email,
-        type: "email-verification",
-      });
-      console.log('VerifyEmailScreen: OTP send request completed');
+      setOtpSent(true); // Mark as sent since better-auth already sent it during signup
+      console.log('VerifyEmailScreen: Email verification code was already sent during signup');
     } else {
       console.log('VerifyEmailScreen: No valid email param, email is:', params.email);
     }
@@ -71,13 +69,17 @@ export default function VerifyEmailScreen() {
   const handleResendOtp = async () => {
     setIsLoading(true);
     try {
+      console.log('VerifyEmailScreen: Manually resending verification email to:', email);
       await authClient.emailOtp.sendVerificationOtp({
         email: email,
         type: "email-verification",
       });
+      setOtpSent(true);
+      console.log('VerifyEmailScreen: Resend OTP request completed');
       Alert.alert('Code Sent', `A new verification code has been sent to ${email}.`);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'An unknown error occurred.';
+      console.error('VerifyEmailScreen: Error resending OTP:', err);
       Alert.alert('Error', message);
     } finally {
       setIsLoading(false);

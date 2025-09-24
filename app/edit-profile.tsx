@@ -45,6 +45,7 @@ interface FormData {
   location: string;
   bio: string;
   profilePicture: string;
+  dateOfBirth: string;
 }
 
 export default function EditProfileScreen() {
@@ -59,6 +60,7 @@ export default function EditProfileScreen() {
     location: '',
     bio: '',
     profilePicture: '',
+    dateOfBirth: '',
   });
 
   // Fetch current profile data
@@ -85,6 +87,7 @@ export default function EditProfileScreen() {
             location: profileData.area || '',
             bio: profileData.bio || '',
             profilePicture: profileData.image || '',
+            dateOfBirth: profileData.dateOfBirth ? new Date(profileData.dateOfBirth).toLocaleDateString('en-GB') : '',
           });
         }
       } catch (error) {
@@ -199,19 +202,21 @@ export default function EditProfileScreen() {
     field: keyof FormData,
     placeholder: string,
     multiline: boolean = false,
-    keyboardType: 'default' | 'email-address' | 'phone-pad' = 'default'
+    keyboardType: 'default' | 'email-address' | 'phone-pad' = 'default',
+    disabled: boolean = false
   ) => (
     <View style={styles.inputContent}>
-      <Text style={styles.inputLabel}>{label}</Text>
+      <Text style={[styles.inputLabel, disabled && styles.inputLabelDisabled]}>{label}</Text>
       <TextInput
-        style={styles.input}
+        style={[styles.input, disabled && styles.inputDisabled]}
         value={formData[field]}
         onChangeText={(text) => updateField(field, text)}
         placeholder={placeholder}
-        placeholderTextColor={theme.colors.neutral.gray[400]}
+        placeholderTextColor={disabled ? theme.colors.neutral.gray[300] : theme.colors.neutral.gray[400]}
         keyboardType={keyboardType}
         autoCapitalize={field === 'email' ? 'none' : 'words'}
         autoCorrect={field !== 'email' && field !== 'username'}
+        editable={!disabled}
       />
     </View>
   );
@@ -322,7 +327,7 @@ export default function EditProfileScreen() {
               </View>
             </View>
 
-            {/* Form Fields - Cleaner cards like profile stats */}
+            {/* Form Fields - Unified card design */}
             <View style={styles.formSection}>
               <Text style={styles.mainSectionTitle}>Edit Information</Text>
               
@@ -342,18 +347,12 @@ export default function EditProfileScreen() {
                 {renderInput('Phone Number', 'phoneNumber', 'Enter your phone number', false, 'phone-pad')}
               </View>
               
-              <View style={styles.locationCard}>
-                <View style={styles.locationHeader}>
-                  <Ionicons name="location-sharp" size={16} color={theme.colors.neutral.gray[500]} />
-                  <Text style={styles.locationLabel}>Location</Text>
-                </View>
-                <TextInput
-                  style={styles.locationInput}
-                  value={formData.location}
-                  onChangeText={(text) => updateField('location', text)}
-                  placeholder="Enter your location"
-                  placeholderTextColor={theme.colors.neutral.gray[400]}
-                />
+              <View style={styles.inputCard}>
+                {renderInput('Location', 'location', 'Enter your location')}
+              </View>
+              
+              <View style={styles.inputCard}>
+                {renderInput('Birthday', 'dateOfBirth', 'Birthday cannot be changed', false, 'default', true)}
               </View>
               
               <View style={styles.bioCard}>
@@ -570,34 +569,12 @@ const styles = StyleSheet.create({
     fontWeight: theme.typography.fontWeight.semibold,
     padding: 0,
   },
-  locationCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: theme.colors.neutral.gray[50],
-    paddingHorizontal: theme.spacing.md,
-    paddingVertical: theme.spacing.md,
-    borderRadius: theme.borderRadius.full,
-    marginBottom: theme.spacing.md,
-    gap: theme.spacing.xs,
+  inputDisabled: {
+    color: theme.colors.neutral.gray[400],
+    fontWeight: theme.typography.fontWeight.normal,
   },
-  locationHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: theme.spacing.xs,
-  },
-  locationLabel: {
-    fontSize: theme.typography.fontSize.sm,
-    color: theme.colors.neutral.gray[600],
-    fontFamily: theme.typography.fontFamily.primary,
-    fontWeight: theme.typography.fontWeight.medium,
-  },
-  locationInput: {
-    flex: 1,
-    fontSize: theme.typography.fontSize.sm,
-    color: theme.colors.neutral.gray[600],
-    fontFamily: theme.typography.fontFamily.primary,
-    fontWeight: theme.typography.fontWeight.medium,
-    marginLeft: theme.spacing.sm,
+  inputLabelDisabled: {
+    color: theme.colors.neutral.gray[400],
   },
   bioCard: {
     backgroundColor: theme.colors.neutral.white,

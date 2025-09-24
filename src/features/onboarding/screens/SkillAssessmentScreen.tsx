@@ -137,6 +137,16 @@ const SkillAssessmentScreen = () => {
       // Check if there's already a completed assessment
       const existingSkillData = data.skillAssessments?.[sport as SportType];
       if (existingSkillData && typeof existingSkillData === 'string') {
+        // Check if it's the "answer_later" placeholder first
+        if (existingSkillData === 'answer_later') {
+          console.log('User previously chose to answer later, starting fresh assessment');
+          setResponses({});
+          setSkillResponses({});
+          setCurrentQuestionIndex(0);
+          setShowIntroduction(true);
+          return;
+        }
+        
         try {
           const skillDataObject = JSON.parse(existingSkillData);
           // There's a complete assessment already, use its data

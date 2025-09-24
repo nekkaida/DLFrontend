@@ -9,13 +9,18 @@ import {
 import { router } from 'expo-router';
 import { useOnboarding } from '../OnboardingContext';
 import { SportButton, BackgroundGradient } from '../components';
+import { questionnaireAPI } from '../services/api';
+import { useSession } from '@/lib/auth-client';
+import { toast } from 'sonner-native';
 import type { SportType } from '../types';
 
 const GameSelectScreen = () => {
   const { data, updateData } = useOnboarding();
+  const { data: session } = useSession();
   const [selectedSports, setSelectedSports] = useState<SportType[]>(
     (data.selectedSports as SportType[]) || []
   );
+  const [isSaving, setIsSaving] = useState(false);
 
   // Update context when sport selection changes
   useEffect(() => {
@@ -32,6 +37,29 @@ const GameSelectScreen = () => {
         return [...prev, sport];
       }
     });
+  };
+
+  const handleConfirm = async () => {
+    if (selectedSports.length === 0) return;
+
+    setIsSaving(true);
+    try {
+      // Save sports to backend
+      if (session?.user?.id) {
+        await questionnaireAPI.saveSports(session.user.id, selectedSports);
+        console.log('Sports saved to backend:', selectedSports);
+      }
+
+      // Navigate to skill assessment for first sport
+      router.push(`/onboarding/skill-assessment?sport=${selectedSports[0]}&sportIndex=0`);
+    } catch (error) {
+      console.error('Error saving sports:', error);
+      toast.error('Error', {
+        description: 'Failed to save sports selection. Please try again.',
+      });
+    } finally {
+      setIsSaving(false);
+    }
   };
 
 
@@ -84,16 +112,13 @@ const GameSelectScreen = () => {
       {/* Confirm Button */}
       <View style={styles.buttonContainer}>
         <TouchableOpacity
-          style={[styles.button, selectedSports.length === 0 && styles.buttonDisabled]}
-          disabled={selectedSports.length === 0}
-          onPress={() => {
-            if (selectedSports.length > 0) {
-              // Always start with the first selected sport (first in order)
-              router.push(`/onboarding/skill-assessment?sport=${selectedSports[0]}&sportIndex=0`);
-            }
-          }}
+          style={[styles.button, (selectedSports.length === 0 || isSaving) && styles.buttonDisabled]}
+          disabled={selectedSports.length === 0 || isSaving}
+          onPress={handleConfirm}
         >
-          <Text style={styles.buttonText}>Confirm</Text>
+          <Text style={styles.buttonText}>
+            {isSaving ? 'Saving...' : 'Confirm'}
+          </Text>
         </TouchableOpacity>
       </View>
     </SafeAreaView>

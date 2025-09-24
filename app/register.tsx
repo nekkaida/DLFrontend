@@ -13,9 +13,10 @@ export default function RegisterRoute() {
         email: data.email,
         password: data.password,
         name: data.username,
+        username: data.username, // Add username field
       });
       toast.success('Account created! Please check your email to verify.');
-      router.push('/verifyEmail');
+      router.push(`/verifyEmail?email=${encodeURIComponent(data.email)}`);
     } catch (error) {
       console.error('Sign up failed:', error);
       toast.error('Sign up failed. Please try again.');

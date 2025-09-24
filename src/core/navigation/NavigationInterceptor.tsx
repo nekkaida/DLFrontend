@@ -32,23 +32,32 @@ export const NavigationInterceptor: React.FC<NavigationInterceptorProps> = ({ ch
   const [onboardingStatus, setOnboardingStatus] = useState<{
     completedOnboarding: boolean;
     hasCompletedAssessment: boolean;
+    timestamp?: number;
   } | null>(null);
   const [isCheckingOnboarding, setIsCheckingOnboarding] = useState(false);
 
   // Check onboarding completion status from backend (using existing APIs)
-  const checkOnboardingStatus = async (userId: string) => {
+  const checkOnboardingStatus = async (userId: string, forceRefresh: boolean = false) => {
     if (isCheckingOnboarding) return; // Prevent multiple concurrent checks
 
-    console.log('NavigationInterceptor: Checking onboarding status for user:', userId);
+    console.log('NavigationInterceptor: Checking onboarding status for user:', userId, forceRefresh ? '(force refresh)' : '');
     setIsCheckingOnboarding(true);
     try {
       const baseUrl = getBackendBaseURL();
+      console.log('NavigationInterceptor: Fetching onboarding status from:', `${baseUrl}/api/onboarding/status/${userId}`);
 
       // Use the same API endpoint that login page uses
-      const onboardingResponse = await fetch(`${baseUrl}/api/onboarding/status/${userId}`, {
+      // Add cache-busting to ensure we get fresh data
+      const onboardingResponse = await fetch(`${baseUrl}/api/onboarding/status/${userId}?t=${Date.now()}`, {
         method: 'GET',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Cache-Control': 'no-cache',
+          'Pragma': 'no-cache'
+        },
       });
+      
+      console.log('NavigationInterceptor: Onboarding response status:', onboardingResponse.status);
 
       if (!onboardingResponse.ok) {
         if (onboardingResponse.status === 404) {
@@ -64,40 +73,68 @@ export const NavigationInterceptor: React.FC<NavigationInterceptorProps> = ({ ch
       console.log('NavigationInterceptor: Onboarding data received:', onboardingData);
 
       if (onboardingData?.completedOnboarding) {
-        // Try assessment API, but don't fail if it doesn't exist
-        try {
-          const assessmentResponse = await fetch(`${baseUrl}/api/onboarding/assessment-status/${userId}`, {
-            method: 'GET',
-            headers: { 'Content-Type': 'application/json' },
-          });
-
-          if (assessmentResponse.ok) {
-            const assessmentData = await assessmentResponse.json();
-            const finalStatus = {
-              completedOnboarding: true,
-              hasCompletedAssessment: assessmentData?.hasCompletedAssessment || false
-            };
-            console.log('NavigationInterceptor: Final status (with assessment):', finalStatus);
-            setOnboardingStatus(finalStatus);
-          } else {
-            // Assessment API doesn't exist, assume assessment needed
-            const finalStatus = { completedOnboarding: true, hasCompletedAssessment: false };
-            console.log('NavigationInterceptor: Final status (assessment API failed):', finalStatus);
-            setOnboardingStatus(finalStatus);
-          }
-        } catch (assessmentError) {
-          console.warn('Assessment API not available, assuming assessment needed');
-          setOnboardingStatus({ completedOnboarding: true, hasCompletedAssessment: false });
-        }
+        // If user has completed onboarding, they have made a decision about assessment
+        // (either completed it or chose to skip it), so consider assessment as "completed"
+        const finalStatus = {
+          completedOnboarding: true,
+          hasCompletedAssessment: true, // Always true if onboarding is completed
+          timestamp: Date.now()
+        };
+        console.log('NavigationInterceptor: Final status (onboarding completed, assessment considered complete):', finalStatus);
+        console.log('NavigationInterceptor: Setting onboarding status to:', finalStatus);
+        setOnboardingStatus(finalStatus);
       } else {
-        const finalStatus = { completedOnboarding: false, hasCompletedAssessment: false };
-        console.log('NavigationInterceptor: Final status (onboarding not completed):', finalStatus);
+        // If onboarding is not completed, wait a bit and retry once more
+        // This handles race conditions where the completion API just finished
+        console.log('NavigationInterceptor: Onboarding not completed, waiting and retrying...');
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        
+        try {
+          const retryResponse = await fetch(`${baseUrl}/api/onboarding/status/${userId}?t=${Date.now()}`, {
+            method: 'GET',
+            headers: { 
+              'Content-Type': 'application/json',
+              'Cache-Control': 'no-cache',
+              'Pragma': 'no-cache'
+            },
+          });
+          
+          if (retryResponse.ok) {
+            const retryData = await retryResponse.json();
+            console.log('NavigationInterceptor: Retry data received:', retryData);
+            
+            if (retryData?.completedOnboarding) {
+              const finalStatus = {
+                completedOnboarding: true,
+                hasCompletedAssessment: true,
+                timestamp: Date.now()
+              };
+              console.log('NavigationInterceptor: Retry successful - onboarding completed:', finalStatus);
+              setOnboardingStatus(finalStatus);
+              return;
+            }
+          }
+        } catch (retryError) {
+          console.warn('NavigationInterceptor: Retry failed:', retryError);
+        }
+        
+        const finalStatus = { 
+          completedOnboarding: false, 
+          hasCompletedAssessment: false,
+          timestamp: Date.now()
+        };
+        console.log('NavigationInterceptor: Final status (onboarding not completed after retry):', finalStatus);
+        console.log('NavigationInterceptor: Setting onboarding status to:', finalStatus);
         setOnboardingStatus(finalStatus);
       }
     } catch (error) {
       console.warn('Onboarding check failed, defaulting to incomplete for safety:', error);
       // Default to incomplete on error to be safe - this ensures onboarding flow works
-      setOnboardingStatus({ completedOnboarding: false, hasCompletedAssessment: false });
+      setOnboardingStatus({ 
+        completedOnboarding: false, 
+        hasCompletedAssessment: false,
+        timestamp: Date.now()
+      });
     } finally {
       setIsCheckingOnboarding(false);
     }
@@ -168,18 +205,37 @@ export const NavigationInterceptor: React.FC<NavigationInterceptorProps> = ({ ch
     const protectedRoutes = ['/user-dashboard', '/profile', '/edit-profile', '/settings', '/match-history'];
     const isProtectedRoute = protectedRoutes.some(route => currentRoute.startsWith(route));
 
-    if (session?.user && isProtectedRoute && onboardingStatus) {
+    if (session?.user && isProtectedRoute) {
+      console.log('NavigationInterceptor: Checking protected route access for:', currentRoute);
+      console.log('NavigationInterceptor: Current onboarding status:', onboardingStatus);
+      
+      // For protected routes, always refresh the onboarding status to ensure we have the latest data
+      // Check if status is stale (older than 10 seconds) or if onboarding is incomplete
+      const isStale = !onboardingStatus?.timestamp || (Date.now() - onboardingStatus.timestamp > 10000);
+      const needsRefresh = !onboardingStatus || (!onboardingStatus.completedOnboarding && !isCheckingOnboarding) || isStale;
+      
+      if (needsRefresh) {
+        console.log('NavigationInterceptor: Refreshing onboarding status for protected route...', 
+          isStale ? '(stale data)' : '(incomplete onboarding)');
+        checkOnboardingStatus(session.user.id, true); // Force refresh
+        return; // Wait for the refresh to complete
+      }
+      
       if (!onboardingStatus.completedOnboarding) {
         console.warn('Access to protected route blocked - onboarding incomplete:', currentRoute);
+        console.warn('NavigationInterceptor: Redirecting to personal-info');
         setTimeout(() => router.replace('/onboarding/personal-info'), 100);
         return;
       }
 
       if (!onboardingStatus.hasCompletedAssessment) {
         console.warn('Access to protected route blocked - assessment incomplete:', currentRoute);
+        console.warn('NavigationInterceptor: Redirecting to game-select');
         setTimeout(() => router.replace('/onboarding/game-select'), 100);
         return;
       }
+      
+      console.log('NavigationInterceptor: Access to protected route allowed:', currentRoute);
     }
 
     // Block authenticated users from auth pages and redirect based on onboarding status

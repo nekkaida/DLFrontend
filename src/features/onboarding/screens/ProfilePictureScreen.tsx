@@ -8,11 +8,17 @@ import {
   TouchableOpacity,
   SafeAreaView,
   Image,
+  Alert,
+  ActivityIndicator,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { Svg, Path } from 'react-native-svg';
 import { BackgroundGradient } from '../components';
 import { toast } from 'sonner-native';
+import { useSession, authClient } from '@/lib/auth-client';
+import { getBackendBaseURL } from '@/config/network';
+import { questionnaireAPI } from '../services/api';
+import * as Haptics from 'expo-haptics';
 
 const DefaultProfileIcon = () => (
   <Svg width="167" height="167" viewBox="0 0 167 167" fill="none">
@@ -27,44 +33,225 @@ const DefaultProfileIcon = () => (
 
 const ProfilePictureScreen = () => {
   const [profileImage, setProfileImage] = useState<string | null>(null);
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
   const router = useRouter();
+  const { data: session } = useSession();
+
+  // Image upload functions
+  const uploadProfileImage = async (imageUri: string) => {
+    try {
+      setIsUploadingImage(true);
+      
+      const backendUrl = getBackendBaseURL();
+      const formData = new FormData();
+      
+      // Create file object for upload
+      const file = {
+        uri: imageUri,
+        type: 'image/jpeg',
+        name: `profile-${Date.now()}.jpg`,
+      } as any;
+      
+      formData.append('image', file);
+      
+      console.log('Uploading profile image:', imageUri);
+      
+      const response = await authClient.$fetch(`${backendUrl}/api/player/profile/upload-image`, {
+        method: 'POST',
+        body: formData,
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+      
+      console.log('Upload response:', response);
+      
+      // Handle different possible response structures
+      let imageUrl = null;
+      
+      if (response && (response as any).data) {
+        const responseData = (response as any).data;
+        // Try different possible paths for the image URL
+        imageUrl = responseData.imageUrl || responseData.image || responseData.url || responseData.data?.imageUrl || responseData.data?.image;
+      }
+      
+      if (imageUrl) {
+        console.log('Image URL received:', imageUrl);
+        
+        // Update local state with new image URL
+        setProfileImage(imageUrl);
+        
+        toast.success('Success', {
+          description: 'Profile picture updated successfully!',
+        });
+      } else {
+        console.error('No image URL found in response:', response);
+        toast.error('Error', {
+          description: 'Upload successful but no image URL received.',
+        });
+      }
+    } catch (error) {
+      console.error('Error uploading profile image:', error);
+      toast.error('Error', {
+        description: 'Failed to upload profile picture. Please try again.',
+      });
+    } finally {
+      setIsUploadingImage(false);
+    }
+  };
 
   const pickImage = async () => {
-    const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    
-    if (permissionResult.granted === false) {
-      toast.error('Permission Required', {
-        description: 'Permission to access camera roll is required!',
+    try {
+      // Request permission
+      const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      
+      if (permissionResult.granted === false) {
+        Alert.alert(
+          'Permission Required',
+          'Please grant permission to access your photo library to upload a profile picture.',
+          [{ text: 'OK' }]
+        );
+        return;
+      }
+
+      // Show action sheet
+      Alert.alert(
+        'Select Profile Picture',
+        'Choose how you want to select your profile picture',
+        [
+          {
+            text: 'Camera',
+            onPress: () => openCamera(),
+          },
+          {
+            text: 'Photo Library',
+            onPress: () => openImageLibrary(),
+          },
+          {
+            text: 'Cancel',
+            style: 'cancel',
+          },
+        ]
+      );
+    } catch (error) {
+      console.error('Error picking image:', error);
+      toast.error('Error', {
+        description: 'Failed to open image picker. Please try again.',
       });
-      return;
-    }
-
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      aspect: [1, 1],
-      quality: 0.8,
-    });
-
-    if (!result.canceled) {
-      setProfileImage(result.assets[0].uri);
     }
   };
 
-  const handleComplete = () => {
-    // Save profile data and navigate to main app
-    toast.success('Success!', {
-      description: 'Onboarding completed! This would navigate to the main app.',
-    });
-    router.push('/user-dashboard');
+  const openCamera = async () => {
+    try {
+      const permissionResult = await ImagePicker.requestCameraPermissionsAsync();
+      
+      if (permissionResult.granted === false) {
+        Alert.alert(
+          'Permission Required',
+          'Please grant permission to access your camera to take a profile picture.',
+          [{ text: 'OK' }]
+        );
+        return;
+      }
+
+      const result = await ImagePicker.launchCameraAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.8,
+      });
+
+      if (!result.canceled && result.assets[0]) {
+        await uploadProfileImage(result.assets[0].uri);
+      }
+    } catch (error) {
+      console.error('Error opening camera:', error);
+      toast.error('Error', {
+        description: 'Failed to open camera. Please try again.',
+      });
+    }
   };
 
-  const handleSkip = () => {
-    // Skip photo and navigate to main app
-    toast.success('Success!', {
-      description: 'Onboarding completed! This would navigate to the main app.',
-    });
-    router.push('/user-dashboard');
+  const openImageLibrary = async () => {
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.8,
+      });
+
+      if (!result.canceled && result.assets[0]) {
+        await uploadProfileImage(result.assets[0].uri);
+      }
+    } catch (error) {
+      console.error('Error opening image library:', error);
+      toast.error('Error', {
+        description: 'Failed to open photo library. Please try again.',
+      });
+    }
+  };
+
+  const handleComplete = async () => {
+    try {
+      // Mark onboarding as completed
+      if (session?.user?.id) {
+        console.log('ProfilePictureScreen: Calling completeOnboarding API...');
+        const result = await questionnaireAPI.completeOnboarding(session.user.id);
+        console.log('ProfilePictureScreen: Onboarding completion result:', result);
+        console.log('ProfilePictureScreen: Onboarding marked as completed');
+        
+        // Wait longer for the backend to process the completion and database to update
+        await new Promise(resolve => setTimeout(resolve, 1500));
+        console.log('ProfilePictureScreen: Waited for backend processing');
+      }
+      
+      // Save profile data and navigate to main app
+      toast.success('Success!', {
+        description: 'Onboarding completed! Welcome to DeuceLeague!',
+      });
+      
+      console.log('ProfilePictureScreen: Navigating to dashboard...');
+      
+      // Force clear any cached navigation state and navigate
+      router.replace('/user-dashboard');
+    } catch (error) {
+      console.error('ProfilePictureScreen: Error completing onboarding:', error);
+      // Still navigate even if completion fails
+      console.log('ProfilePictureScreen: Navigating to dashboard despite error...');
+      router.push('/user-dashboard');
+    }
+  };
+
+  const handleSkip = async () => {
+    try {
+      // Mark onboarding as completed
+      if (session?.user?.id) {
+        console.log('ProfilePictureScreen: Calling completeOnboarding API (skip)...');
+        const result = await questionnaireAPI.completeOnboarding(session.user.id);
+        console.log('ProfilePictureScreen: Onboarding completion result (skip):', result);
+        console.log('ProfilePictureScreen: Onboarding marked as completed (skip)');
+        
+        // Wait longer for the backend to process the completion and database to update
+        await new Promise(resolve => setTimeout(resolve, 1500));
+        console.log('ProfilePictureScreen: Waited for backend processing (skip)');
+      }
+      
+      // Skip photo and navigate to main app
+      toast.success('Success!', {
+        description: 'Onboarding completed! Welcome to DeuceLeague!',
+      });
+      
+      console.log('ProfilePictureScreen: Navigating to dashboard (skip)...');
+      
+      // Force clear any cached navigation state and navigate
+      router.replace('/user-dashboard');
+    } catch (error) {
+      console.error('ProfilePictureScreen: Error completing onboarding (skip):', error);
+      // Still navigate even if completion fails
+      console.log('ProfilePictureScreen: Navigating to dashboard despite error (skip)...');
+      router.push('/user-dashboard');
+    }
   };
 
   return (
@@ -88,17 +275,34 @@ const ProfilePictureScreen = () => {
 
       {/* Profile Image */}
       <View style={styles.imageContainer}>
-        {profileImage ? (
-          <Image source={{ uri: profileImage }} style={styles.profileImage} />
+        {isUploadingImage ? (
+          <View style={styles.uploadingContainer}>
+            <ActivityIndicator size="large" color="#FE9F4D" />
+          </View>
+        ) : profileImage ? (
+          <Image 
+            source={{ uri: profileImage }} 
+            style={styles.profileImage}
+            onError={() => {
+              console.log('Profile image failed to load:', profileImage);
+            }}
+          />
         ) : (
           <DefaultProfileIcon />
         )}
       </View>
 
       {/* Upload/Change Button */}
-      <TouchableOpacity style={styles.uploadButton} onPress={pickImage}>
+      <TouchableOpacity 
+        style={[styles.uploadButton, isUploadingImage && styles.uploadButtonDisabled]} 
+        onPress={() => {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          pickImage();
+        }}
+        disabled={isUploadingImage}
+      >
         <Text style={styles.uploadButtonText}>
-          {profileImage ? 'Change' : 'Upload'}
+          {isUploadingImage ? 'Uploading...' : (profileImage ? 'Change' : 'Upload')}
         </Text>
       </TouchableOpacity>
 
@@ -175,6 +379,14 @@ const styles = StyleSheet.create({
     height: 167,
     borderRadius: 83.5,
   },
+  uploadingContainer: {
+    width: 167,
+    height: 167,
+    borderRadius: 83.5,
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   uploadButton: {
     height: 40,
     backgroundColor: '#6E6E6E',
@@ -185,6 +397,9 @@ const styles = StyleSheet.create({
     marginTop: 10,
     marginBottom: 30,
     minWidth: 258,
+  },
+  uploadButtonDisabled: {
+    opacity: 0.6,
   },
   uploadButtonText: {
     color: '#FFFFFF',

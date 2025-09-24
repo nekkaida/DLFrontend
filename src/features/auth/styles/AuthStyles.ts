@@ -259,8 +259,8 @@ export const AuthStyles = StyleSheet.create({
 
   // Input Field Container
   inputFieldContainer: {
-    width: 327,
-    height: 69,
+    width: '100%',
+    minHeight: 69,
     gap: 2,
   },
 

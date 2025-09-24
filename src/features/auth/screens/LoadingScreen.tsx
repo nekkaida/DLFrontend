@@ -2,6 +2,7 @@ import React, { useEffect } from 'react';
 import { View, Text, Image, Pressable, Dimensions, Platform } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { StatusBar } from 'expo-status-bar';
+import * as Haptics from 'expo-haptics';
 import { SocialButton } from '../components/AuthComponents';
 import { AuthStyles, AuthColors } from '../styles/AuthStyles';
 
@@ -38,30 +39,38 @@ export const LoadingScreen: React.FC<LoadingScreenProps> = ({ onGetStarted, onLo
 
         {/* Bottom Container with white background and shadow */}
         <View style={styles.bottomContainer}>
-          {/* Get Started Button - positioned as in Figma */}
-          <Pressable style={styles.getStartedButton} onPress={onGetStarted}>
-            <LinearGradient
-              colors={['#FF7903', '#FEA04D']}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-              style={styles.gradientButton}
+          {/* Top Row: Get Started Button and Social Buttons */}
+          <View style={styles.topRow}>
+            <Pressable 
+              style={styles.getStartedButton} 
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Soft);
+                onGetStarted();
+              }}
             >
-              <Text style={styles.getStartedButtonText}>Ready? Start now</Text>
-            </LinearGradient>
-          </Pressable>
+              <LinearGradient
+                colors={['#FF7903', '#FEA04D']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.gradientButton}
+              >
+                <Text style={styles.getStartedButtonText} numberOfLines={1}>Ready? Start now</Text>
+              </LinearGradient>
+            </Pressable>
 
-          {/* Social Login Buttons - positioned as in Figma */}
-          <View style={styles.socialContainer}>
-            <SocialButton type="facebook" onPress={() => {}} />
-            <SocialButton type="google" onPress={() => {}} />
-            <SocialButton type="apple" onPress={() => {}} />
+            {/* Social Login Buttons */}
+            <View style={styles.socialContainer}>
+              <SocialButton type="facebook" onPress={() => {}} />
+              <SocialButton type="google" onPress={() => {}} />
+              <SocialButton type="apple" onPress={() => {}} />
+            </View>
           </View>
 
-          {/* Login Link - positioned as in Figma */}
+          {/* Login Link */}
           <View style={styles.loginLinkContainer}>
             <Text style={styles.loginLinkText}>Already have an account? </Text>
-            <Pressable onPress={onLogin}>
-              <Text style={styles.loginLinkButton}>Log in</Text>
+            <Pressable onPress={onLogin} style={styles.loginLinkButton}>
+              <Text style={styles.loginLinkButtonText}>Log in</Text>
             </Pressable>
           </View>
         </View>
@@ -130,22 +139,31 @@ const styles = {
   bottomContainer: {
     position: 'absolute' as const,
     width: screenWidth,
-    height: 120, // Much more extended height
+    minHeight: Platform.OS === 'ios' ? 140 : 120, // More height on iOS for better touch targets
     left: 0,
-    bottom: 0, // Keeps it anchored to bottom
+    bottom: 0,
     backgroundColor: '#FFFFFF',
     shadowColor: '#000000',
     shadowOffset: { width: 0, height: -20 },
     shadowOpacity: 0.25,
     shadowRadius: 80,
     elevation: 20,
+    paddingHorizontal: screenWidth * 0.05, // Add horizontal padding
+    paddingTop: Platform.OS === 'ios' ? 20 : 15, // More padding on iOS
+    paddingBottom: Platform.OS === 'ios' ? 20 : 15, // Safe area padding
+    justifyContent: 'space-between' as const,
+  },
+  topRow: {
+    flexDirection: 'row' as const,
+    justifyContent: 'space-between' as const,
+    alignItems: 'center' as const,
+    marginBottom: Platform.OS === 'ios' ? 20 : 15, // More spacing on iOS
   },
   getStartedButton: {
-    position: 'absolute' as const,
-    width: 199,
-    height: 36,
-    left: screenWidth * 0.03,
-    top: 30, // Adjusted for new container height
+    flex: 1, // Take available space
+    maxWidth: screenWidth * 0.55, // Don't exceed 55% of screen width
+    height: Platform.OS === 'ios' ? 44 : 40, // Larger touch target on iOS
+    marginRight: 10, // Space between button and social icons
     borderRadius: 20,
     shadowColor: '#000000',
     shadowOffset: { width: 0, height: 4 },
@@ -159,49 +177,47 @@ const styles = {
     borderRadius: 20,
     justifyContent: 'center' as const,
     alignItems: 'center' as const,
-    paddingVertical: 4,
-    paddingHorizontal: 36,
+    paddingVertical: Platform.OS === 'ios' ? 10 : 8,
+    paddingHorizontal: 16,
   },
   getStartedButtonText: {
     fontFamily: 'Inter',
     fontWeight: '600' as const,
-    fontSize: 16,
-    lineHeight: 24,
+    fontSize: Platform.OS === 'ios' ? 16 : 15, // Slightly smaller on Android
+    lineHeight: Platform.OS === 'ios' ? 20 : 18,
     color: '#FFFFFF',
+    textAlign: 'center' as const,
+    flexShrink: 1,
   },
   socialContainer: {
-    position: 'absolute' as const,
-    width: 156,
-    height: 48,
-    right: screenWidth * 0.05,
-    top: 24, // Adjusted for new container height
     flexDirection: 'row' as const,
-    gap: 6,
+    gap: Platform.OS === 'ios' ? 8 : 6, // More spacing on iOS
+    alignItems: 'center' as const,
   },
   loginLinkContainer: {
-    position: 'absolute' as const,
-    width: screenWidth * 0.8,
-    height: 17,
-    left: screenWidth * 0.1,
-    top: 100, // Adjusted for new container height
     flexDirection: 'row' as const,
     justifyContent: 'center' as const,
     alignItems: 'center' as const,
-    gap: 6,
+    paddingVertical: Platform.OS === 'ios' ? 8 : 4, // More padding on iOS for better touch
+    minHeight: Platform.OS === 'ios' ? 32 : 24, // Larger touch target on iOS
   },
   loginLinkText: {
     fontFamily: 'Inter',
     fontWeight: '500' as const,
-    fontSize: 12,
-    lineHeight: 17, // 140% of 12px
+    fontSize: Platform.OS === 'ios' ? 13 : 12,
+    lineHeight: Platform.OS === 'ios' ? 18 : 17,
     letterSpacing: -0.01,
     color: '#6C7278',
   },
   loginLinkButton: {
+    paddingVertical: Platform.OS === 'ios' ? 4 : 2, // Touch target padding
+    paddingHorizontal: Platform.OS === 'ios' ? 4 : 2,
+  },
+  loginLinkButtonText: {
     fontFamily: 'Inter',
     fontWeight: '600' as const,
-    fontSize: 12,
-    lineHeight: 17, // 140% of 12px
+    fontSize: Platform.OS === 'ios' ? 13 : 12,
+    lineHeight: Platform.OS === 'ios' ? 18 : 17,
     letterSpacing: -0.01,
     textDecorationLine: 'underline' as const,
     color: '#FEBC2F',

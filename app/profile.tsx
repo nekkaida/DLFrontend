@@ -11,6 +11,7 @@ import {
   Modal,
   Alert,
   ActivityIndicator,
+  RefreshControl,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -67,6 +68,7 @@ export default function ProfileAdaptedScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [hasLoadedBefore, setHasLoadedBefore] = useState(false);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   
   const {
     activeTab,
@@ -237,6 +239,8 @@ export default function ProfileAdaptedScreen() {
       
       formData.append('image', file);
       
+      console.log('Uploading profile image:', imageUri);
+      
       const response = await authClient.$fetch(`${backendUrl}/api/player/profile/upload-image`, {
         method: 'POST',
         body: formData,
@@ -245,15 +249,46 @@ export default function ProfileAdaptedScreen() {
         },
       });
       
-      if (response && (response as any).data && (response as any).data.imageUrl) {
+      console.log('Upload response:', response);
+      
+      // Handle different possible response structures
+      let imageUrl = null;
+      
+      if (response && (response as any).data) {
+        const responseData = (response as any).data;
+        // Try different possible paths for the image URL
+        imageUrl = responseData.imageUrl || responseData.image || responseData.url || responseData.data?.imageUrl || responseData.data?.image;
+      }
+      
+      if (imageUrl) {
+        console.log('Image URL received:', imageUrl);
+        
         // Update profile data with new image URL
-        setProfileData((prev: any) => ({
-          ...prev,
-          image: (response as any).data.imageUrl
-        }));
+        setProfileData((prev: any) => {
+          const updated = {
+            ...prev,
+            image: imageUrl
+          };
+          console.log('Updated profile data:', updated);
+          return updated;
+        });
+        
+        // Also refresh profile data from server to ensure consistency
+        setTimeout(async () => {
+          try {
+            await fetchProfileData();
+          } catch (error) {
+            console.error('Error refreshing profile data after upload:', error);
+          }
+        }, 1000);
         
         toast.success('Success', {
           description: 'Profile picture updated successfully!',
+        });
+      } else {
+        console.error('No image URL found in response:', response);
+        toast.error('Error', {
+          description: 'Upload successful but no image URL received.',
         });
       }
     } catch (error) {
@@ -392,6 +427,31 @@ export default function ProfileAdaptedScreen() {
       loadData();
     }, [loadData])
   );
+
+  // Refresh function for pull-to-refresh
+  const onRefresh = useCallback(async () => {
+    console.log('ProfileScreen: Refreshing profile data...');
+    setRefreshing(true);
+    
+    try {
+      // Add haptic feedback for refresh
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      
+      // Fetch fresh profile data and achievements
+      await fetchProfileData();
+      await fetchAchievements();
+      
+      console.log('ProfileScreen: Profile data refreshed successfully');
+      
+    } catch (error) {
+      console.error('ProfileScreen: Error refreshing profile data:', error);
+      toast.error('Error', {
+        description: 'Failed to refresh profile data. Please try again.',
+      });
+    } finally {
+      setRefreshing(false);
+    }
+  }, [session?.user?.id]);
   
   
   // Fallback data using team lead's original mock data for when API is not available
@@ -399,6 +459,7 @@ export default function ProfileAdaptedScreen() {
   
   // Transform API data to match frontend expectations
   console.log('Transforming profile data:', profileData);
+  console.log('Sports from API:', profileData?.sports);
   console.log('Skill ratings:', profileData?.skillRatings);
   
   const userData: any = profileData ? {
@@ -409,9 +470,11 @@ export default function ProfileAdaptedScreen() {
     gender: profileData.gender || 'Gender not set',
     skillLevel: 'Intermediate', // This would come from skillRatings
     skillRatings: profileData.skillRatings || {}, // Pass through the actual skill ratings for DMR section
-    sports: profileData.skillRatings && typeof profileData.skillRatings === 'object' && Object.keys(profileData.skillRatings).length > 0
-      ? Object.keys(profileData.skillRatings).map(sport => sport.charAt(0).toUpperCase() + sport.slice(1)) 
+    // Use the sports array from API response (includes both completed and placeholder sports)
+    sports: profileData.sports && profileData.sports.length > 0
+      ? profileData.sports.map(sport => sport.charAt(0).toUpperCase() + sport.slice(1))
       : ['No sports yet'],
+    // Active sports are those with completed skill ratings
     activeSports: profileData.skillRatings && typeof profileData.skillRatings === 'object' && Object.keys(profileData.skillRatings).length > 0
       ? Object.keys(profileData.skillRatings).map(sport => sport.charAt(0).toUpperCase() + sport.slice(1)) 
       : [],
@@ -507,7 +570,19 @@ export default function ProfileAdaptedScreen() {
 
   return (
     <View style={styles.container}>
-      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+      <ScrollView 
+        style={styles.scrollView} 
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor="#6de9a0"
+            colors={["#6de9a0"]}
+            progressBackgroundColor="#ffffff"
+          />
+        }
+      >
         {/* Orange Header Background with Curved Bottom */}
         <View style={styles.headerContainer}>
           <LinearGradient
@@ -559,61 +634,64 @@ export default function ProfileAdaptedScreen() {
 
         {/* White Background */}
         <View style={styles.whiteBackground}>
-          {/* Avatar Section */}
-          <View style={styles.avatarContainer}>
-            <Pressable 
-              style={styles.avatar}
-              onPress={() => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                pickImage();
-              }}
-              accessible={true}
-              accessibilityLabel="Change profile picture"
-              accessibilityRole="button"
-              disabled={isUploadingImage}
-            >
-              {isUploadingImage ? (
-                <View style={styles.uploadingContainer}>
-                  <ActivityIndicator size="large" color="#6de9a0" />
-                </View>
-              ) : profileData?.image ? (
-                <Image
-                  source={{ uri: profileData.image }}
-                  style={styles.profileImage}
-                  onError={() => {
-                    console.log('Profile image failed to load:', profileData.image);
-                    // Could set a state here to fallback to default avatar
-                  }}
-                />
-              ) : (
-                <Svg width="60" height="60" viewBox="0 0 24 24">
-                  <Path 
-                    fill="#FFFFFF" 
-                    fillRule="evenodd" 
-                    d="M8 7a4 4 0 1 1 8 0a4 4 0 0 1-8 0m0 6a5 5 0 0 0-5 5a3 3 0 0 0 3 3h12a3 3 0 0 0 3-3a5 5 0 0 0-5-5z" 
-                    clipRule="evenodd" 
+          {/* Profile Picture Section - Matching edit-profile.tsx style */}
+          <View style={styles.profileSection}>
+            <View style={styles.profileImageContainer}>
+              <View style={styles.profileImageWrapper}>
+                {isUploadingImage ? (
+                  <View style={styles.uploadingContainer}>
+                    <ActivityIndicator size="large" color="#6de9a0" />
+                  </View>
+                ) : profileData?.image ? (
+                  <Image
+                    key={profileData.image} // Force re-render when image URL changes
+                    source={{ uri: profileData.image }}
+                    style={styles.profileImage}
+                    onError={() => {
+                      console.log('Profile image failed to load:', profileData.image);
+                    }}
                   />
-                </Svg>
-              )}
-            </Pressable>
-            <Pressable 
-              style={styles.editIcon}
-              onPress={() => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                pickImage();
-              }}
-              accessible={true}
-              accessibilityLabel="Change profile picture"
-              accessibilityRole="button"
-              disabled={isUploadingImage}
-            >
-              <EditIcon color="#6de9a0" />
-            </Pressable>
+                ) : (
+                  <View style={styles.defaultProfileImage}>
+                    <Svg width="60" height="60" viewBox="0 0 24 24">
+                      <Path 
+                        fill="#FFFFFF" 
+                        fillRule="evenodd" 
+                        d="M8 7a4 4 0 1 1 8 0a4 4 0 0 1-8 0m0 6a5 5 0 0 0-5 5a3 3 0 0 0 3 3h12a3 3 0 0 0 3-3a5 5 0 0 0-5-5z" 
+                        clipRule="evenodd" 
+                      />
+                    </Svg>
+                  </View>
+                )}
+              </View>
+              <Pressable
+                style={styles.editImageButton}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  pickImage();
+                }}
+                accessible={true}
+                accessibilityLabel="Change profile picture"
+                accessibilityRole="button"
+                disabled={isUploadingImage}
+              >
+                <Ionicons name="camera" size={18} color={theme.colors.neutral.white} />
+              </Pressable>
+            </View>
           </View>
 
           {/* Name and Username */}
           <View style={styles.nameContainer}>
-            <Text style={styles.name}>{userData.name}</Text>
+            <View style={styles.nameWithGender}>
+              <Text style={styles.name}>{userData.name}</Text>
+              {userData.gender && userData.gender !== 'Gender not set' && (
+                <Ionicons 
+                  name={userData.gender.toLowerCase() === 'male' ? 'male' : 'female'} 
+                  size={20} 
+                  color={userData.gender.toLowerCase() === 'male' ? '#4A90E2' : '#E91E63'} 
+                />
+              )}
+            </View>
           </View>
           <Text style={styles.username}>@{userData.username}</Text>
           <Text style={styles.bio}>{userData.bio}</Text>
@@ -628,47 +706,47 @@ export default function ProfileAdaptedScreen() {
             </Pressable>
           </View>
 
-          {/* Info Pills */}
-          <View style={styles.infoPills}>
-            <View style={styles.pill}>
-              <Ionicons name="location-sharp" size={14} color="#ffffff" />
-              <Text style={styles.pillText}>{userData.location}</Text>
-            </View>
-            <View style={styles.pill}>
-              <Ionicons name="male" size={14} color="#ffffff" />
-              <Text style={styles.pillText}>{userData.gender}</Text>
+          {/* Location Section */}
+          <View style={styles.locationSection}>
+            <View style={styles.locationContainer}>
+              <Ionicons name="location-sharp" size={18} color="#6de9a0" />
+              <Text style={styles.locationText}>{userData.location}</Text>
             </View>
           </View>
 
-          {/* Sports Pills */}
-          <View style={styles.sportsPills}>
-            {userData.sports?.map((sport) => {
-              const isActive = userData.activeSports?.includes(sport);
-              
-              return (
-                <Pressable 
-                  key={sport}
-                  style={[
-                    styles.sportPill,
-                    { 
-                      backgroundColor: SPORT_COLORS[sport as keyof typeof SPORT_COLORS],
-                      opacity: isActive ? 1 : 0.6,
-                    }
-                  ]}
-                  onPress={() => {
-                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                    // Handle sport selection
-                  }}
-                >
-                  <Text style={[
-                    styles.sportPillText,
-                    isActive && styles.sportPillTextActive
-                  ]}>
-                    {sport}
-                  </Text>
-                </Pressable>
-              );
-            })}
+          {/* Sports Section */}
+          <View style={styles.sportsSection}>
+            <Text style={styles.sportsSectionTitle}>Sports</Text>
+            <View style={styles.sportsPills}>
+              {userData.sports?.map((sport) => {
+                const isActive = userData.activeSports?.includes(sport);
+                
+                return (
+                  <Pressable 
+                    key={sport}
+                    style={[
+                      styles.sportPill,
+                      { 
+                        backgroundColor: SPORT_COLORS[sport as keyof typeof SPORT_COLORS] || '#6de9a0',
+                        opacity: isActive ? 1 : 0.7,
+                        transform: [{ scale: isActive ? 1.05 : 1 }],
+                      }
+                    ]}
+                    onPress={() => {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                      // Handle sport selection
+                    }}
+                  >
+                    <Text style={[
+                      styles.sportPillText,
+                      isActive && styles.sportPillTextActive
+                    ]}>
+                      {sport}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
           </View>
 
           {/* Achievements */}
@@ -894,33 +972,76 @@ const styles = StyleSheet.create({
     paddingBottom: theme.spacing.lg,
     marginTop: -1, // Slight overlap to ensure no gap
   },
-  avatarContainer: {
-    alignSelf: 'center',
-    marginTop: -200, // Position avatar - more negative = higher up
+  profileSection: {
+    alignItems: 'center',
+    marginTop: -200, // Position profile section - more negative = higher up
     position: 'relative',
     zIndex: 15,
     marginBottom: theme.spacing.sm, // Reduced spacing to bring content closer
   },
-  avatar: {
-    width: 100,  // 3/4 of 120
-    height: 100, // 3/4 of 120
-    borderRadius: 50, // Half of 100 to make it perfectly circular
-    backgroundColor: '#e7e7e7', // Avatar background color
-    justifyContent: 'center',
-    alignItems: 'center',
-    // Removed shadow styling
+  profileImageContainer: {
+    position: 'relative',
+    marginBottom: theme.spacing.md,
+  },
+  profileImageWrapper: {
+    ...Platform.select({
+      ios: {
+        shadowColor: theme.colors.neutral.black,
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.15,
+        shadowRadius: 12,
+      },
+      android: {
+        elevation: 8,
+      },
+    }),
   },
   profileImage: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    borderWidth: 4,
+    borderColor: theme.colors.neutral.white,
   },
-  editIcon: {
+  defaultProfileImage: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    borderWidth: 4,
+    borderColor: theme.colors.neutral.white,
+    backgroundColor: '#e7e7e7',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  editImageButton: {
     position: 'absolute',
-    bottom: -9,      // Adjust up/down (negative = lower, positive = higher)
-    right: -7,      // Adjust left/right (negative = more right, positive = more left)
-    padding: 4,
-    // Removed backgroundColor, borderRadius, borderWidth, borderColor, and shadows
+    bottom: 0,
+    right: 0,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: theme.colors.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 3,
+    borderColor: theme.colors.neutral.white,
+    ...Platform.select({
+      ios: {
+        shadowColor: theme.colors.neutral.black,
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.2,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 4,
+      },
+    }),
+  },
+  nameWithGender: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: theme.spacing.sm,
   },
   nameContainer: {
     alignItems: 'center',
@@ -964,45 +1085,62 @@ const styles = StyleSheet.create({
     fontFamily: theme.typography.fontFamily.primary,
     paddingHorizontal: theme.spacing.md,
   },
-  infoPills: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    marginTop: theme.spacing.md,
-    gap: theme.spacing.sm,
+  locationSection: {
+    alignItems: 'center',
+    marginTop: theme.spacing.lg,
+    marginBottom: theme.spacing.md,
   },
-  pill: {
+  locationContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#b0b0b0',
-    paddingHorizontal: theme.spacing.md,
-    paddingVertical: theme.spacing.xs,
+    backgroundColor: 'rgba(109, 233, 160, 0.1)',
+    paddingHorizontal: theme.spacing.lg,
+    paddingVertical: theme.spacing.sm,
     borderRadius: theme.borderRadius.full,
-    gap: 4,
+    borderWidth: 1,
+    borderColor: 'rgba(109, 233, 160, 0.3)',
+    gap: theme.spacing.sm,
   },
-  pillText: {
-    color: '#ffffff',
-    fontSize: theme.typography.fontSize.xs,
+  locationText: {
+    color: theme.colors.neutral.gray[700],
+    fontSize: theme.typography.fontSize.base,
+    fontFamily: theme.typography.fontFamily.primary,
+    fontWeight: theme.typography.fontWeight.medium as any,
+  },
+  sportsSection: {
+    alignItems: 'center',
+    marginTop: theme.spacing.md,
+    marginBottom: theme.spacing.lg,
+  },
+  sportsSectionTitle: {
+    fontSize: theme.typography.fontSize.sm,
+    fontWeight: theme.typography.fontWeight.semibold as any,
+    color: theme.colors.neutral.gray[600],
+    marginBottom: theme.spacing.sm,
     fontFamily: theme.typography.fontFamily.primary,
   },
   sportsPills: {
     flexDirection: 'row',
     justifyContent: 'center',
-    marginTop: theme.spacing.sm,
+    flexWrap: 'wrap',
     gap: theme.spacing.sm,
   },
   sportPill: {
     paddingHorizontal: theme.spacing.lg,
-    paddingVertical: theme.spacing.xs,
+    paddingVertical: theme.spacing.sm,
     borderRadius: theme.borderRadius.full,
+    minWidth: 80,
+    alignItems: 'center',
   },
   sportPillText: {
     color: theme.colors.neutral.white,
-    fontSize: theme.typography.fontSize.xs,
+    fontSize: theme.typography.fontSize.sm,
     fontFamily: theme.typography.fontFamily.primary,
-    opacity: 0.8,
+    fontWeight: theme.typography.fontWeight.medium as any,
+    opacity: 0.9,
   },
   sportPillTextActive: {
-    fontWeight: theme.typography.fontWeight.semibold as any,
+    fontWeight: theme.typography.fontWeight.bold as any,
     opacity: 1,
   },
   section: {
@@ -1574,11 +1712,13 @@ const styles = StyleSheet.create({
     fontFamily: theme.typography.fontFamily.primary,
   },
   uploadingContainer: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
+    width: 120,
+    height: 120,
+    borderRadius: 60,
     backgroundColor: 'rgba(255, 255, 255, 0.9)',
     justifyContent: 'center',
     alignItems: 'center',
+    borderWidth: 4,
+    borderColor: theme.colors.neutral.white,
   },
 });

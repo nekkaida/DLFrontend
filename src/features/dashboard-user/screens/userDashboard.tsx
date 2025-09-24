@@ -1,11 +1,12 @@
 import React, { useEffect } from 'react';
-import { ScrollView, Text, View, StyleSheet, Dimensions, Platform, Image, TouchableOpacity } from 'react-native';
+import { ScrollView, Text, View, StyleSheet, Dimensions, Platform, Image, TouchableOpacity, RefreshControl } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { useDashboard } from '../DashboardContext';
 import { NavBar } from '@/shared/components/layout';
-import { useSession } from '@/lib/auth-client';
+import { useSession, authClient } from '@/lib/auth-client';
+import { getBackendBaseURL } from '@/config/network';
 import * as Haptics from 'expo-haptics';
 // import { signOut } from '@/lib/auth-client'; // Removed - logout now handled in settings
 
@@ -18,6 +19,8 @@ export default function DashboardScreen() {
   const [activeTab, setActiveTab] = React.useState(2);
   const [pickleballButtonLabel, setPickleballButtonLabel] = React.useState<'Enter League' | 'Complete Questionnaire'>('Enter League');
   const [tennisButtonLabel, setTennisButtonLabel] = React.useState<'Enter League' | 'Complete Questionnaire'>('Complete Questionnaire');
+  const [refreshing, setRefreshing] = React.useState(false);
+  const [profileData, setProfileData] = React.useState<any>(null);
 
   console.log(`DashboardScreen: Current activeTab is ${activeTab}`);
   
@@ -81,12 +84,69 @@ export default function DashboardScreen() {
     console.log('DashboardScreen: User has valid session, allowing access');
   }, [session]);
 
+  // Fetch profile data when component mounts
+  useEffect(() => {
+    if (session?.user?.id) {
+      fetchProfileData();
+    }
+  }, [session?.user?.id]);
+
   const handleTabPress = (tabIndex: number) => {
     console.log(`DashboardScreen: Setting activeTab to ${tabIndex}`);
     setActiveTab(tabIndex);
     console.log(`Tab ${tabIndex} pressed - ${['Favourite', 'Friendly', 'Leagues', 'My Games', 'Chat'][tabIndex]}`);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   };
+
+  const fetchProfileData = async () => {
+    try {
+      if (!session?.user?.id) {
+        console.log('DashboardScreen: No session user ID available for profile data');
+        return;
+      }
+      
+      const backendUrl = getBackendBaseURL();
+      console.log('DashboardScreen: Fetching profile data from:', `${backendUrl}/api/player/profile/me`);
+      
+      const authResponse = await authClient.$fetch(`${backendUrl}/api/player/profile/me`, {
+        method: 'GET',
+      });
+      
+      console.log('DashboardScreen: Profile API response:', authResponse);
+      
+      if (authResponse && (authResponse as any).data && (authResponse as any).data.data) {
+        console.log('DashboardScreen: Setting profile data:', (authResponse as any).data.data);
+        setProfileData((authResponse as any).data.data);
+      } else if (authResponse && (authResponse as any).data) {
+        console.log('DashboardScreen: Setting profile data (direct):', (authResponse as any).data);
+        setProfileData((authResponse as any).data);
+      } else {
+        console.error('DashboardScreen: No profile data received from authClient');
+      }
+    } catch (error) {
+      console.error('DashboardScreen: Error fetching profile data:', error);
+    }
+  };
+
+  const onRefresh = React.useCallback(async () => {
+    console.log('DashboardScreen: Refreshing dashboard data...');
+    setRefreshing(true);
+    
+    try {
+      // Add haptic feedback for refresh
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      
+      // Fetch fresh profile data
+      await fetchProfileData();
+      
+      console.log('DashboardScreen: Dashboard data refreshed successfully');
+      
+    } catch (error) {
+      console.error('DashboardScreen: Error refreshing dashboard data:', error);
+    } finally {
+      setRefreshing(false);
+    }
+  }, [session?.user?.id]);
 
   // handleLogout removed - logout functionality moved to settings page
 
@@ -130,10 +190,21 @@ export default function DashboardScreen() {
                    router.push('/profile');
                  }}
                >
-                 <Image 
-                   source={require('@/assets/images/nickdl.jpeg')}
-                   style={styles.profileImage}
-                 />
+                 {(profileData?.image || session?.user?.image) ? (
+                   <Image 
+                     source={{ uri: profileData?.image || session?.user?.image }}
+                     style={styles.profileImage}
+                     onError={() => {
+                       console.log('Profile image failed to load:', profileData?.image || session?.user?.image);
+                     }}
+                   />
+                 ) : (
+                   <View style={styles.defaultAvatarContainer}>
+                     <Text style={styles.defaultAvatarText}>
+                       {(profileData?.name || session?.user?.name)?.charAt(0)?.toUpperCase() || 'U'}
+                     </Text>
+                   </View>
+                 )}
                </TouchableOpacity>
              </View>
            </View>
@@ -144,7 +215,16 @@ export default function DashboardScreen() {
           style={styles.scrollContainer}
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
-                  >
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              tintColor="#6de9a0"
+              colors={["#6de9a0"]}
+              progressBackgroundColor="#ffffff"
+            />
+          }
+        >
             
             <View style={styles.sportSelectionHeader}>
               <Text style={styles.sportSelectionText}>Select a Sport</Text>
@@ -328,6 +408,20 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
+  },
+  defaultAvatarContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#6de9a0',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  defaultAvatarText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: 'bold',
+    fontFamily: 'System',
   },
   scrollContainer: {
     flex: 1,
