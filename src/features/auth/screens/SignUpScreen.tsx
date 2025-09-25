@@ -8,6 +8,7 @@ import {
   Platform,
   Dimensions,
 } from 'react-native';
+import * as Haptics from 'expo-haptics';
 import Svg, { G, Path, Defs, ClipPath, Rect } from 'react-native-svg';
 import {
   InputField,
@@ -223,7 +224,12 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({
                 letterSpacing: -0.01,
                 color: '#6C7278',
               }}>Already have an account?</Text>
-              <TouchableOpacity onPress={onLogin}>
+              <TouchableOpacity 
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  onLogin();
+                }}
+              >
                 <Text style={{
                   fontFamily: 'Inter',
                   fontWeight: '600',

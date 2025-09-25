@@ -44,7 +44,7 @@ export const LoadingScreen: React.FC<LoadingScreenProps> = ({ onGetStarted, onLo
             <Pressable 
               style={styles.getStartedButton} 
               onPress={() => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Soft);
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                 onGetStarted();
               }}
             >
@@ -69,7 +69,13 @@ export const LoadingScreen: React.FC<LoadingScreenProps> = ({ onGetStarted, onLo
           {/* Login Link */}
           <View style={styles.loginLinkContainer}>
             <Text style={styles.loginLinkText}>Already have an account? </Text>
-            <Pressable onPress={onLogin} style={styles.loginLinkButton}>
+            <Pressable 
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                onLogin();
+              }} 
+              style={styles.loginLinkButton}
+            >
               <Text style={styles.loginLinkButtonText}>Log in</Text>
             </Pressable>
           </View>
