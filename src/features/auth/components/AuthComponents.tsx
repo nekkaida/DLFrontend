@@ -9,6 +9,7 @@ import {
   ViewStyle,
   TextStyle,
 } from 'react-native';
+import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import Svg, { Path, Circle, G } from 'react-native-svg';
@@ -139,9 +140,18 @@ export const InputField: React.FC<InputFieldProps> = ({
           onChangeText={onChangeText}
           secureTextEntry={secureTextEntry}
           keyboardType={keyboardType}
+          onFocus={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          }}
         />
         {showEyeIcon && (
-          <TouchableOpacity onPress={onEyePress} style={AuthStyles.eyeIcon}>
+          <TouchableOpacity 
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              onEyePress();
+            }} 
+            style={AuthStyles.eyeIcon}
+          >
             <Ionicons
               name={secureTextEntry ? "eye-off-outline" : "eye-outline"}
               size={16}
@@ -223,6 +233,9 @@ export const PhoneInputField: React.FC<PhoneInputProps> = ({
           placeholder="Phone number"
           placeholderTextColor="#9CA3AF"
           keyboardType="phone-pad"
+          onFocus={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          }}
         />
       </View>
     </View>
@@ -231,7 +244,13 @@ export const PhoneInputField: React.FC<PhoneInputProps> = ({
 
 // Circle Arrow Button
 export const CircleArrowButton: React.FC<{ onPress: () => void }> = ({ onPress }) => (
-  <TouchableOpacity style={AuthStyles.circleButton} onPress={onPress}>
+  <TouchableOpacity 
+    style={AuthStyles.circleButton} 
+    onPress={() => {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      onPress();
+    }}
+  >
     <Ionicons name="arrow-forward" size={24} color={AuthColors.white} />
   </TouchableOpacity>
 );
@@ -244,7 +263,13 @@ interface PrimaryButtonProps {
 }
 
 export const PrimaryButton: React.FC<PrimaryButtonProps> = ({ title, onPress, style }) => (
-  <TouchableOpacity style={[AuthStyles.primaryButton, style]} onPress={onPress}>
+  <TouchableOpacity 
+    style={[AuthStyles.primaryButton, style]} 
+    onPress={() => {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      onPress();
+    }}
+  >
     <Text style={AuthStyles.primaryButtonText}>{title}</Text>
   </TouchableOpacity>
 );
@@ -278,7 +303,13 @@ export const SocialButton: React.FC<SocialButtonProps> = ({ type, onPress }) => 
   };
 
   return (
-    <TouchableOpacity style={[AuthStyles.socialButton, getButtonStyle()]} onPress={onPress}>
+    <TouchableOpacity 
+      style={[AuthStyles.socialButton, getButtonStyle()]} 
+      onPress={() => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        onPress();
+      }}
+    >
       {getIcon()}
     </TouchableOpacity>
   );
@@ -463,11 +494,14 @@ const styles = {
     fontSize: 14,
     color: '#000000',
     height: 46,
-    paddingVertical: 12,
+    paddingTop: -20,
+    paddingBottom: 0,
     paddingHorizontal: 8,
     fontFamily: 'Inter',
     fontWeight: '500' as const,
-    lineHeight: 20,
+    lineHeight: 18,
     letterSpacing: -0.01,
+    textAlignVertical: 'top',
+    includeFontPadding: false,
   } as TextStyle,
 };

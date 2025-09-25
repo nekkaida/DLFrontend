@@ -305,9 +305,12 @@ export const AuthStyles = StyleSheet.create({
     fontFamily: AuthTypography.fontFamily.secondary,
     fontWeight: AuthTypography.fontWeight.medium,
     fontSize: AuthTypography.fontSize.md,
-    lineHeight: 20,
+    lineHeight: 18,
     letterSpacing: -0.01,
     color: AuthColors.gray[700],
+    textAlignVertical: 'top',
+    paddingTop: -20,
+    includeFontPadding: false,
   },
 
   eyeIcon: {
