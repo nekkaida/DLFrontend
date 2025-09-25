@@ -60,7 +60,7 @@ export const AuthTypography = {
   fontWeight: {
     regular: '400' as const,
     medium: '500' as const,
-    semibold: '590' as const,
+    semibold: '600' as const,
     bold: '600' as const,
     heavy: '700' as const,
   },
@@ -305,11 +305,11 @@ export const AuthStyles = StyleSheet.create({
     fontFamily: AuthTypography.fontFamily.secondary,
     fontWeight: AuthTypography.fontWeight.medium,
     fontSize: AuthTypography.fontSize.md,
-    lineHeight: 18,
+    lineHeight: Platform.OS === 'android' ? 20 : 18,
     letterSpacing: -0.01,
     color: AuthColors.gray[700],
-    textAlignVertical: 'top',
-    paddingTop: -20,
+    textAlignVertical: Platform.OS === 'android' ? 'center' : 'top',
+    paddingTop: Platform.OS === 'android' ? 0 : 1,
     includeFontPadding: false,
   },
 

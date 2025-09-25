@@ -9,6 +9,7 @@ import {
   ViewStyle,
   TextStyle,
   ActivityIndicator,
+  StyleSheet,
 } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -149,7 +150,7 @@ export const InputField: React.FC<InputFieldProps> = ({
           <TouchableOpacity 
             onPress={() => {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              onEyePress();
+              onEyePress?.();
             }} 
             style={AuthStyles.eyeIcon}
           >
@@ -190,7 +191,7 @@ export const PhoneInputField: React.FC<PhoneInputProps> = ({
       <View style={[AuthStyles.inputArea, value ? AuthStyles.inputAreaActive : {}]}>
         {/* Phone Icon */}
         <View style={AuthStyles.inputIcon}>
-          <Ionicons name="call-outline" size={16} color="#9CA3AF" />
+          <Ionicons name="call-outline" size={16} color={AuthColors.gray[300]} />
         </View>
         
         {/* Country Code Display */}
@@ -232,7 +233,7 @@ export const PhoneInputField: React.FC<PhoneInputProps> = ({
           value={value}
           onChangeText={onChangeText}
           placeholder="Phone number"
-          placeholderTextColor="#9CA3AF"
+          placeholderTextColor={AuthColors.gray[400]}
           keyboardType="phone-pad"
           onFocus={() => {
             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -405,7 +406,11 @@ export const VerificationInput: React.FC<VerificationInputProps> = ({ code, onCo
       {[0, 1, 2, 3, 4, 5].map((index) => (
         <TextInput
           key={index}
-          ref={(ref) => (inputRefs.current[index] = ref!)}
+          ref={(ref) => {
+            if (ref) {
+              inputRefs.current[index] = ref;
+            }
+          }}
           style={AuthStyles.codeInput}
           value={code[index] || ''}
           onChangeText={(text) => handleCodeInput(text, index)}
@@ -419,47 +424,47 @@ export const VerificationInput: React.FC<VerificationInputProps> = ({ code, onCo
 };
 
 // Compact Phone Input Field Styles
-const styles = {
+const styles = StyleSheet.create({
   countryCodeDisplay: {
-    flexDirection: 'row' as const,
-    alignItems: 'center' as const,
+    flexDirection: 'row',
+    alignItems: 'center',
     height: 46,
     paddingHorizontal: 8,
-    justifyContent: 'center' as const,
-  } as ViewStyle,
+    justifyContent: 'center',
+  },
   countryCodeDropdown: {
-    flexDirection: 'row' as const,
-    alignItems: 'center' as const,
+    flexDirection: 'row',
+    alignItems: 'center',
     height: 46,
     width: 40, // Just enough for dropdown arrow
-    justifyContent: 'center' as const,
-  } as ViewStyle,
+    justifyContent: 'center',
+  },
   countryCodeText: {
     fontSize: 14,
     color: '#000000',
     fontFamily: 'Inter',
-    fontWeight: '600' as const,
+    fontWeight: '600',
     lineHeight: 20,
     letterSpacing: -0.01,
-  } as TextStyle,
+  },
   compactPhoneContainer: {
     backgroundColor: 'transparent',
-    width: '100%' as const,
+    width: '100%',
     height: 46,
     paddingLeft: 0,
     paddingRight: 0,
     margin: 0,
-  } as ViewStyle,
+  },
   compactPhoneTextContainer: {
     backgroundColor: 'transparent',
     paddingVertical: 0,
     paddingHorizontal: 0,
     margin: 0,
     height: 46,
-    flexDirection: 'row' as const,
-    alignItems: 'center' as const,
-    justifyContent: 'flex-start' as const,
-  } as ViewStyle,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-start',
+  },
   compactPhoneTextInput: {
     fontSize: 14,
     color: '#000000',
@@ -467,54 +472,57 @@ const styles = {
     paddingVertical: 12,
     paddingHorizontal: 8,
     fontFamily: 'Inter',
-    fontWeight: '500' as const,
+    fontWeight: '500',
     lineHeight: 20,
     letterSpacing: -0.01,
     flex: 1,
-  } as TextStyle,
+  },
   compactPhoneCodeText: {
-    fontSize: 0, // Hide country code text
+    fontSize: 1, // Minimum font size for Android compatibility
     color: 'transparent',
     height: 20,
     fontFamily: 'Inter',
-    fontWeight: '600' as const,
+    fontWeight: '600',
     lineHeight: 20,
     letterSpacing: -0.01,
     marginRight: 0,
     minWidth: 0,
-  } as TextStyle,
+    opacity: 0, // Use opacity instead of fontSize 0 to hide text
+  },
   compactPhoneFlagButton: {
-    width: 0, // Hide flag button
+    width: 1, // Minimum width for Android compatibility
     marginLeft: 0,
     marginRight: 0,
     height: 46,
-    justifyContent: 'center' as const,
-    alignItems: 'center' as const,
+    justifyContent: 'center',
+    alignItems: 'center',
     paddingHorizontal: 0,
-  } as ViewStyle,
+    opacity: 0, // Use opacity to hide flag button
+    overflow: 'hidden',
+  },
   compactPhoneCountryPicker: {
     backgroundColor: 'transparent',
     paddingHorizontal: 6, // Added horizontal padding
     paddingVertical: 4, // Added vertical padding
     height: 46,
-    justifyContent: 'center' as const,
-    alignItems: 'center' as const,
+    justifyContent: 'center',
+    alignItems: 'center',
     minWidth: 24,
     maxWidth: 36,
-  } as ViewStyle,
+  },
   phoneNumberInput: {
     flex: 1,
     fontSize: 14,
     color: '#000000',
     height: 46,
-    paddingTop: -20,
-    paddingBottom: 0,
+    paddingTop: Platform.OS === 'android' ? 12 : 1,
+    paddingBottom: Platform.OS === 'android' ? 12 : 0,
     paddingHorizontal: 8,
     fontFamily: 'Inter',
-    fontWeight: '500' as const,
-    lineHeight: 18,
+    fontWeight: '500',
+    lineHeight: Platform.OS === 'android' ? 20 : 18,
     letterSpacing: -0.01,
-    textAlignVertical: 'top',
+    textAlignVertical: Platform.OS === 'android' ? 'center' : 'top',
     includeFontPadding: false,
-  } as TextStyle,
-};
+  },
+});
