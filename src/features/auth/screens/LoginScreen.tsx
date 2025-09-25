@@ -18,7 +18,7 @@ import {
 import { AuthStyles, AuthColors } from '../styles/AuthStyles';
 
 interface LoginScreenProps {
-  onLogin: (email: string, password: string) => void;
+  onLogin: (email: string, password: string) => void | Promise<void>;
   onSignUp: () => void;
   onForgotPassword: () => void;
   onSocialLogin: (provider: 'facebook' | 'google' | 'apple') => void;
@@ -33,12 +33,20 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
 
   const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 
-  const handleLogin = () => {
-    if (email && password) {
-      onLogin(email, password);
+  const handleLogin = async () => {
+    if (email && password && !isLoading) {
+      try {
+        setIsLoading(true);
+        await onLogin(email, password);
+      } catch (error) {
+        console.error('Login error:', error);
+      } finally {
+        setIsLoading(false);
+      }
     }
   };
 
@@ -145,7 +153,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
               alignItems: 'center',
               marginBottom: screenHeight * 0.04
             }}>
-              <CircleArrowButton onPress={handleLogin} />
+              <CircleArrowButton onPress={handleLogin} loading={isLoading} />
             </View>
 
             {/* Or Sign In With */}

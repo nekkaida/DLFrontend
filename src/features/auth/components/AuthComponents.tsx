@@ -8,6 +8,7 @@ import {
   Platform,
   ViewStyle,
   TextStyle,
+  ActivityIndicator,
 } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -243,15 +244,27 @@ export const PhoneInputField: React.FC<PhoneInputProps> = ({
 };
 
 // Circle Arrow Button
-export const CircleArrowButton: React.FC<{ onPress: () => void }> = ({ onPress }) => (
+interface CircleArrowButtonProps {
+  onPress: () => void;
+  loading?: boolean;
+}
+
+export const CircleArrowButton: React.FC<CircleArrowButtonProps> = ({ onPress, loading = false }) => (
   <TouchableOpacity 
-    style={AuthStyles.circleButton} 
+    style={[AuthStyles.circleButton, loading && { opacity: 0.7 }]} 
     onPress={() => {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-      onPress();
+      if (!loading) {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+        onPress();
+      }
     }}
+    disabled={loading}
   >
-    <Ionicons name="arrow-forward" size={24} color={AuthColors.white} />
+    {loading ? (
+      <ActivityIndicator size="small" color={AuthColors.white} />
+    ) : (
+      <Ionicons name="arrow-forward" size={24} color={AuthColors.white} />
+    )}
   </TouchableOpacity>
 );
 

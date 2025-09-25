@@ -20,7 +20,7 @@ import {
 import { AuthStyles, AuthColors } from '../styles/AuthStyles';
 
 interface SignUpScreenProps {
-  onSignUp: (data: SignUpData) => void;
+  onSignUp: (data: SignUpData) => void | Promise<void>;
   onLogin: () => void;
   onSocialSignUp: (provider: 'facebook' | 'google' | 'apple') => void;
 }
@@ -43,22 +43,30 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({
   const [countryCode, setCountryCode] = useState('60'); // Default to Malaysia (+60)
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
 
   const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 
-  const handleSignUp = () => {
-    if (email && username && phone && password) {
-      // Combine country code with phone number for complete international format
-      const fullPhoneNumber = `+${countryCode}${phone}`;
-      console.log('🔢 Signup Data:', {
-        email,
-        username,
-        phone: phone,
-        countryCode: countryCode,
-        fullPhoneNumber: fullPhoneNumber,
-        password: '***'
-      });
-      onSignUp({ email, username, phone: fullPhoneNumber, password });
+  const handleSignUp = async () => {
+    if (email && username && phone && password && !isLoading) {
+      try {
+        setIsLoading(true);
+        // Combine country code with phone number for complete international format
+        const fullPhoneNumber = `+${countryCode}${phone}`;
+        console.log('🔢 Signup Data:', {
+          email,
+          username,
+          phone: phone,
+          countryCode: countryCode,
+          fullPhoneNumber: fullPhoneNumber,
+          password: '***'
+        });
+        await onSignUp({ email, username, phone: fullPhoneNumber, password });
+      } catch (error) {
+        console.error('Sign up error:', error);
+      } finally {
+        setIsLoading(false);
+      }
     }
   };
 
@@ -195,7 +203,7 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({
               justifyContent: 'flex-end',
               alignItems: 'center',
             }}>
-              <CircleArrowButton onPress={handleSignUp} />
+              <CircleArrowButton onPress={handleSignUp} loading={isLoading} />
             </View>
 
             {/* Or Sign Up With */}
