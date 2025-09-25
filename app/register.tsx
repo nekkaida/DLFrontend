@@ -9,12 +9,27 @@ export default function RegisterRoute() {
 
   const handleSignUp = async (data: SignUpData) => {
     try {
-      await authClient.signUp.email({
+      console.log('📱 Register Route - Received signup data:', {
+        email: data.email,
+        username: data.username,
+        phone: data.phone,
+        password: '***'
+      });
+      
+      const signupPayload = {
         email: data.email,
         password: data.password,
         name: data.username,
         username: data.username, // Add username field
+        phoneNumber: data.phone, // Add phone number field (now includes country code)
+      };
+      
+      console.log('📤 Register Route:', {
+        ...signupPayload,
+        password: '***'
       });
+      
+      await authClient.signUp.email(signupPayload);
       toast.success('Account created! Please check your email to verify.');
       router.push(`/verifyEmail?email=${encodeURIComponent(data.email)}`);
     } catch (error) {

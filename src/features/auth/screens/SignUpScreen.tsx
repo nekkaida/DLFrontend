@@ -40,6 +40,7 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({
   const [email, setEmail] = useState('');
   const [username, setUsername] = useState('');
   const [phone, setPhone] = useState('');
+  const [countryCode, setCountryCode] = useState('60'); // Default to Malaysia (+60)
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
 
@@ -47,7 +48,17 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({
 
   const handleSignUp = () => {
     if (email && username && phone && password) {
-      onSignUp({ email, username, phone, password });
+      // Combine country code with phone number for complete international format
+      const fullPhoneNumber = `+${countryCode}${phone}`;
+      console.log('🔢 Signup Data:', {
+        email,
+        username,
+        phone: phone,
+        countryCode: countryCode,
+        fullPhoneNumber: fullPhoneNumber,
+        password: '***'
+      });
+      onSignUp({ email, username, phone: fullPhoneNumber, password });
     }
   };
 
@@ -136,8 +147,9 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({
               onChangeFormattedText={(formattedText) => {
                 console.log('Formatted phone:', formattedText);
               }}
-              onChangeCountryCode={(countryCode) => {
-                console.log('Country code changed:', countryCode);
+              onChangeCountryCode={(newCountryCode) => {
+                console.log('Country code changed:', newCountryCode);
+                setCountryCode(newCountryCode);
               }}
             />
 
