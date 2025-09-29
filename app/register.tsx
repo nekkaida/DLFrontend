@@ -12,7 +12,7 @@ export default function RegisterRoute() {
       console.log('📱 Register Route - Received signup data:', {
         email: data.email,
         username: data.username,
-        phone: data.phone,
+        // phone: data.phone,
         password: '***'
       });
       
@@ -21,7 +21,7 @@ export default function RegisterRoute() {
         password: data.password,
         name: data.username,
         username: data.username, // Add username field
-        phoneNumber: data.phone, // Add phone number field (now includes country code)
+        phoneNumber: '', // Phone number is optional, set to empty string
       };
       
       console.log('📤 Register Route:', {

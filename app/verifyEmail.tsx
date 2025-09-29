@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { StyleSheet, View, TextInput, Pressable, Alert, TouchableWithoutFeedback, Keyboard, ScrollView } from 'react-native';
+import React, { useState, useEffect, useRef } from 'react';
+import { StyleSheet, View, TextInput, Pressable, Alert, TouchableWithoutFeedback, Keyboard, ScrollView, Animated } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { ThemedText } from '@/components/ThemedText';
@@ -15,8 +15,10 @@ export default function VerifyEmailScreen() {
   const [email, setEmail] = useState(typeof params.email === 'string' ? params.email : '');
   const [otp, setOtp] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [otpFocused, setOtpFocused] = useState(false);
   const [otpSent, setOtpSent] = useState(false);
+  const [isFocused, setIsFocused] = useState(false);
+  const hiddenInputRef = useRef<TextInput>(null);
+  const cursorAnimation = useRef(new Animated.Value(1)).current;
 
   console.log('VerifyEmailScreen: Component mounted');
   console.log('VerifyEmailScreen: Email param:', params.email);
@@ -33,8 +35,42 @@ export default function VerifyEmailScreen() {
     }
   }, [params.email]);
 
+  // Cursor blinking animation
+  useEffect(() => {
+    if (isFocused) {
+      const blinkAnimation = Animated.loop(
+        Animated.sequence([
+          Animated.timing(cursorAnimation, {
+            toValue: 0,
+            duration: 500,
+            useNativeDriver: true,
+          }),
+          Animated.timing(cursorAnimation, {
+            toValue: 1,
+            duration: 500,
+            useNativeDriver: true,
+          }),
+        ])
+      );
+      blinkAnimation.start();
+      return () => blinkAnimation.stop();
+    }
+  }, [isFocused, cursorAnimation]);
+
+  const handleOtpChange = (value: string) => {
+    // Only allow digits and limit to 6 characters
+    const cleanValue = value.replace(/\D/g, '').slice(0, 6);
+    setOtp(cleanValue);
+  };
+
+  const handleOtpBoxPress = () => {
+    if (!isLoading) {
+      hiddenInputRef.current?.focus();
+    }
+  };
+
   const handleVerifyOtp = async () => {
-    if (!otp.trim() || otp.length < 6) {
+    if (!otp || otp.length < 6) {
       Alert.alert('Error', 'Please enter a valid 6-digit verification code.');
       return;
     }
@@ -49,12 +85,13 @@ export default function VerifyEmailScreen() {
       if (error) {
         Alert.alert('Verification Failed', error.message || 'The code is incorrect. Please try again.');
       } else if (data) {
+        console.log('Email verification successful');
         Alert.alert(
           'Success',
           'Your email has been verified successfully.',
           [{ text: 'OK', onPress: () => {
             clearAuthPagesFromHistory();
-            navigateAndClearStack('/');
+            navigateAndClearStack('/onboarding/personal-info');
           }}]
         );
       }
@@ -88,7 +125,7 @@ export default function VerifyEmailScreen() {
 
   const dismissKeyboard = () => {
     Keyboard.dismiss();
-    setOtpFocused(false);
+    setIsFocused(false);
   };
 
   return (
@@ -117,26 +154,64 @@ export default function VerifyEmailScreen() {
             <ThemedText style={styles.welcomeText}>Verify Your Email</ThemedText>
             <ThemedText style={styles.instructionText}>
               We've sent a 6-digit verification code to your email address{' '}
-              <ThemedText style={{ fontWeight: 'bold' }}>{email}</ThemedText>.
+              <ThemedText style={{ fontWeight: 'bold', color: '#FE9F4D' }}>{email}</ThemedText>.
             </ThemedText>
 
             <View style={styles.inputContainer}>
               <ThemedText style={styles.inputLabel}>Verification Code</ThemedText>
-              <TextInput
-                style={[
-                  styles.input,
-                  otpFocused && styles.inputFocused
-                ]}
-                value={otp}
-                onChangeText={setOtp}
-                placeholder={otpFocused ? "" : "Enter 6-digit code"}
-                placeholderTextColor="#B0B8C1"
-                keyboardType="number-pad"
-                maxLength={6}
-                onFocus={() => setOtpFocused(true)}
-                onBlur={() => setOtpFocused(false)}
-                editable={!isLoading}
-              />
+              
+              <View style={styles.otpWrapper}>
+                {/* Hidden input that handles all the typing and pasting */}
+                <TextInput
+                  ref={hiddenInputRef}
+                  style={styles.hiddenInput}
+                  value={otp}
+                  onChangeText={handleOtpChange}
+                  keyboardType="number-pad"
+                  maxLength={6}
+                  editable={!isLoading}
+                  autoComplete="one-time-code"
+                  textContentType="oneTimeCode"
+                  onFocus={() => setIsFocused(true)}
+                  onBlur={() => setIsFocused(false)}
+                  autoFocus={false}
+                />
+                
+                {/* Visual OTP boxes */}
+                <Pressable style={styles.otpContainer} onPress={handleOtpBoxPress}>
+                  {Array.from({ length: 6 }).map((_, index) => {
+                    const digit = otp[index] || '';
+                    const isActive = isFocused && index === otp.length;
+                    const isFilled = !!digit;
+                    
+                    return (
+                      <View
+                        key={index}
+                        style={[
+                          styles.otpInput,
+                          isFilled && styles.otpInputFilled,
+                          isActive && styles.otpInputActive,
+                        ]}
+                      >
+                        <ThemedText style={[
+                          styles.otpText,
+                          isFilled && styles.otpTextFilled
+                        ]}>
+                          {digit}
+                        </ThemedText>
+                        {isActive && (
+                          <Animated.View 
+                            style={[
+                              styles.cursor,
+                              { opacity: cursorAnimation }
+                            ]} 
+                          />
+                        )}
+                      </View>
+                    );
+                  })}
+                </Pressable>
+              </View>
             </View>
 
             <Pressable
@@ -243,6 +318,64 @@ const styles = StyleSheet.create({
   },
   inputFocused: {
     borderColor: Colors.light.brand.orange,
+  },
+  otpWrapper: {
+    position: 'relative',
+  },
+  hiddenInput: {
+    position: 'absolute',
+    width: '100%',
+    height: 52,
+    opacity: 0,
+    zIndex: 1,
+  },
+  otpContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  otpInput: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    borderWidth: 1.5,
+    borderColor: '#EDF1F3',
+    width: 48,
+    height: 52,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 1,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    justifyContent: 'center',
+    alignItems: 'center',
+    position: 'relative',
+  },
+  otpInputFilled: {
+    borderColor: '#FE9F4D',
+    backgroundColor: '#FFF8F3',
+  },
+  otpInputActive: {
+    borderColor: '#FE9F4D',
+    borderWidth: 2,
+  },
+  otpText: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#000000',
+    textAlign: 'center',
+  },
+  otpTextFilled: {
+    color: '#FE9F4D',
+  },
+  cursor: {
+    position: 'absolute',
+    width: 2,
+    height: 20,
+    backgroundColor: '#FE9F4D',
+    opacity: 1,
   },
   actionButton: {
     backgroundColor: '#FE9F4D',

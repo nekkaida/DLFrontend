@@ -137,7 +137,7 @@ export const InputField: React.FC<InputFieldProps> = ({
         <TextInput
           style={AuthStyles.inputText}
           placeholder={placeholder}
-          placeholderTextColor={AuthColors.gray[400]}
+          placeholderTextColor={AuthColors.gray[300]}
           value={value}
           onChangeText={onChangeText}
           secureTextEntry={secureTextEntry}

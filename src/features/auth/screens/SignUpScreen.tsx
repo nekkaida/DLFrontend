@@ -28,7 +28,7 @@ interface SignUpScreenProps {
 export interface SignUpData {
   email: string;
   username: string;
-  phone: string;
+  // phone: string;
   password: string;
 }
 
@@ -48,11 +48,11 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({
   const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 
   const handleSignUp = async () => {
-    if (email && username && phone && password && !isLoading) {
+    if (email && username && password && !isLoading) {
       try {
         setIsLoading(true);
-        // Combine country code with phone number for complete international format
-        const fullPhoneNumber = `+${countryCode}${phone}`;
+        // Phone number is now optional - use empty string if not provided
+        const fullPhoneNumber = phone ? `+${countryCode}${phone}` : '';
         console.log('🔢 Signup Data:', {
           email,
           username,
@@ -61,7 +61,7 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({
           fullPhoneNumber: fullPhoneNumber,
           password: '***'
         });
-        await onSignUp({ email, username, phone: fullPhoneNumber, password });
+        await onSignUp({ email, username, password });
       } catch (error) {
         console.error('Sign up error:', error);
       } finally {
@@ -148,7 +148,7 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({
             />
 
             {/* Phone Input */}
-            <PhoneInputField
+            {/* <PhoneInputField
               label="Phone Number"
               value={phone}
               onChangeText={setPhone}
@@ -159,7 +159,7 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({
                 console.log('Country code changed:', newCountryCode);
                 setCountryCode(newCountryCode);
               }}
-            />
+            /> */}
 
             {/* Password Input */}
             <InputField
@@ -225,8 +225,8 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({
               gap: screenWidth * 0.015
             }}>
               <SocialButton type="facebook" onPress={() => onSocialSignUp('facebook')} />
-              <SocialButton type="google" onPress={() => onSocialSignUp('google')} />
               <SocialButton type="apple" onPress={() => onSocialSignUp('apple')} />
+              <SocialButton type="google" onPress={() => onSocialSignUp('google')} />
             </View>
 
             {/* Login Link */}

@@ -61,8 +61,8 @@ export const LoadingScreen: React.FC<LoadingScreenProps> = ({ onGetStarted, onLo
             {/* Social Login Buttons */}
             <View style={styles.socialContainer}>
               <SocialButton type="facebook" onPress={() => {}} />
-              <SocialButton type="google" onPress={() => {}} />
               <SocialButton type="apple" onPress={() => {}} />
+              <SocialButton type="google" onPress={() => {}} />
             </View>
           </View>
 
