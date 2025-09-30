@@ -11,8 +11,8 @@ const isBlockedAuthPage = (route: string): boolean => {
   return BLOCKED_AUTH_PAGES.some(authPage => route.startsWith(authPage));
 };
 
-// Pages where back navigation should be prevented
-const NO_BACK_PAGES = ['/user-dashboard', '/login', '/'];
+// Pages where back navigation should be prevented (exit app instead)
+const NO_BACK_PAGES = ['/user-dashboard', '/login', '/register', '/'];
 
 const isNoBackPage = (route: string): boolean => {
   return NO_BACK_PAGES.some(page => route === page);
@@ -284,13 +284,10 @@ export const NavigationInterceptor: React.FC<NavigationInterceptorProps> = ({ ch
     const backAction = () => {
       const currentRoute = '/' + segments.join('/');
 
-      // Prevent back from certain pages
+      // Prevent back from certain pages and exit app
       if (isNoBackPage(currentRoute)) {
-        // If on dashboard or login, exit app (return false lets Android handle it)
-        if (currentRoute === '/user-dashboard' || currentRoute === '/login') {
-          return false; // This will minimize/exit the app
-        }
-        return true; // Just prevent back but don't exit
+        // Exit app when pressing back on these pages (landing, login, register, dashboard)
+        return false; // This will minimize/exit the app
       }
 
       // For onboarding pages, use router.back() for natural navigation
