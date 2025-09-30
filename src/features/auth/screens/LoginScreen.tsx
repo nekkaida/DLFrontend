@@ -177,8 +177,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
               fontSize: screenWidth * 0.03,
               lineHeight: screenWidth * 0.042,
               letterSpacing: -0.01,
-              color: '#404040',
-              marginBottom: screenHeight * 0.02
+              color: '#404040'
             }}>or sign in with</Text>
 
             {/* Social Login Buttons */}
@@ -186,8 +185,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
               flexDirection: 'row',
               justifyContent: 'center',
               alignItems: 'center',
-              gap: screenWidth * 0.015,
-              marginBottom: screenHeight * 0.04
+              gap: screenWidth * 0.015
             }}>
               <SocialButton type="facebook" onPress={() => onSocialLogin('facebook')} />
               <SocialButton type="apple" onPress={() => onSocialLogin('apple')} />
