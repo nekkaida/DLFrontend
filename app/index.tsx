@@ -8,11 +8,11 @@ export default function HomeRoute() {
   const { data: session, isPending } = useSession();
 
   const handleGetStarted = () => {
-    router.push('/register');
+    router.replace('/register');
   };
 
   const handleLogin = () => {
-    router.push('/login');
+    router.replace('/login');
   };
 
   // Let NavigationInterceptor handle auth redirects - keep this route simple
