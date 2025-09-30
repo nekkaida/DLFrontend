@@ -18,6 +18,8 @@ import {
   LinkText,
 } from '../components/AuthComponents';
 import { AuthStyles, AuthColors } from '../styles/AuthStyles';
+import { PrivacyPolicyModal } from '../components/PrivacyPolicyModal';
+import { TermsOfServiceModal } from '../components/TermsOfServiceModal';
 
 interface SignUpScreenProps {
   onSignUp: (data: SignUpData) => void | Promise<void>;
@@ -44,6 +46,10 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+
+  // Modal states
+  const [showPrivacyPolicy, setShowPrivacyPolicy] = useState(false);
+  const [showTermsOfService, setShowTermsOfService] = useState(false);
 
   const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 
@@ -179,9 +185,8 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({
               flexDirection: 'row',
               alignItems: 'center',
               padding: 0,
-              gap: 6,
               width: screenWidth * 0.82,
-              height: 28
+              flexWrap: 'wrap'
             }}>
               <Text style={{
                 fontFamily: 'Inter',
@@ -191,18 +196,112 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({
                 lineHeight: 14,
                 letterSpacing: -0.01,
                 color: '#6C7278',
-                flex: 1
               }}>
-                By clicking the Register button, you agree to our privacy policy and terms of service.
+                By clicking the{' '}
+              </Text>
+              <Text style={{
+                fontFamily: 'Inter',
+                fontStyle: 'normal',
+                fontWeight: '600',
+                fontSize: 10,
+                lineHeight: 14,
+                letterSpacing: -0.01,
+                color: AuthColors.primary,
+              }}>
+                Register
+              </Text>
+              <Text style={{
+                fontFamily: 'Inter',
+                fontStyle: 'normal',
+                fontWeight: '500',
+                fontSize: 10,
+                lineHeight: 14,
+                letterSpacing: -0.01,
+                color: '#6C7278',
+              }}>
+                {' '}button, you agree to our{' '}
+              </Text>
+              <TouchableOpacity
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  setShowPrivacyPolicy(true);
+                }}
+              >
+                <Text style={{
+                  fontFamily: 'Inter',
+                  fontStyle: 'normal',
+                  fontWeight: '500',
+                  fontSize: 10,
+                  lineHeight: 14,
+                  letterSpacing: -0.01,
+                  color: AuthColors.primary,
+                  textDecorationLine: 'underline',
+                }}>
+                  privacy policy
+                </Text>
+              </TouchableOpacity>
+              <Text style={{
+                fontFamily: 'Inter',
+                fontStyle: 'normal',
+                fontWeight: '500',
+                fontSize: 10,
+                lineHeight: 14,
+                letterSpacing: -0.01,
+                color: '#6C7278',
+              }}>
+                {' '}and{' '}
+              </Text>
+              <TouchableOpacity
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  setShowTermsOfService(true);
+                }}
+              >
+                <Text style={{
+                  fontFamily: 'Inter',
+                  fontStyle: 'normal',
+                  fontWeight: '500',
+                  fontSize: 10,
+                  lineHeight: 14,
+                  letterSpacing: -0.01,
+                  color: AuthColors.primary,
+                  textDecorationLine: 'underline',
+                }}>
+                  terms of service
+                </Text>
+              </TouchableOpacity>
+              <Text style={{
+                fontFamily: 'Inter',
+                fontStyle: 'normal',
+                fontWeight: '500',
+                fontSize: 10,
+                lineHeight: 14,
+                letterSpacing: -0.01,
+                color: '#6C7278',
+              }}>
+                .
               </Text>
             </View>
 
             {/* Sign Up Button with Arrow */}
             <View style={{
               flexDirection: 'row',
-              justifyContent: 'flex-end',
+              justifyContent: 'space-between',
               alignItems: 'center',
+              width: '100%',
+              marginTop: screenHeight * 0.02,
             }}>
+              <Text style={{
+                fontFamily: 'Inter',
+                fontStyle: 'normal',
+                fontWeight: '600',
+                fontSize: 18,
+                lineHeight: 25,
+                letterSpacing: -0.01,
+                color: '#000000',
+              }}>
+                Sign Up
+              </Text>
               <CircleArrowButton onPress={handleSignUp} loading={isLoading} />
             </View>
 
@@ -265,6 +364,16 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({
           </View>
         </View>
       </ScrollView>
+
+      {/* Legal Modals */}
+      <PrivacyPolicyModal
+        visible={showPrivacyPolicy}
+        onClose={() => setShowPrivacyPolicy(false)}
+      />
+      <TermsOfServiceModal
+        visible={showTermsOfService}
+        onClose={() => setShowTermsOfService(false)}
+      />
     </KeyboardAvoidingView>
   );
 };
