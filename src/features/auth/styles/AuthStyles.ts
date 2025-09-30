@@ -308,8 +308,9 @@ export const AuthStyles = StyleSheet.create({
     lineHeight: Platform.OS === 'android' ? 20 : 18,
     letterSpacing: -0.01,
     color: AuthColors.gray[700],
-    textAlignVertical: Platform.OS === 'android' ? 'center' : 'top',
-    paddingTop: Platform.OS === 'android' ? 0 : 1,
+    textAlignVertical: 'center',
+    paddingTop: 0,
+    paddingBottom: 0,
     includeFontPadding: false,
   },
 
