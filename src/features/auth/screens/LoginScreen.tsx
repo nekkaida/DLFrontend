@@ -8,6 +8,7 @@ import {
   Platform,
   Dimensions,
 } from 'react-native';
+import * as Haptics from 'expo-haptics';
 import Svg, { G, Path, Defs, ClipPath, Rect } from 'react-native-svg';
 import {
   InputField,
@@ -53,14 +54,14 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
   return (
     <KeyboardAvoidingView
       style={AuthStyles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
       <ScrollView
-        contentContainerStyle={{ flexGrow: 1 }}
+        contentContainerStyle={{ flexGrow: 1, backgroundColor: AuthColors.white }}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
-        <View style={[AuthStyles.screenContainer, { paddingHorizontal: screenWidth * 0.09 }]}>
+        <View style={[AuthStyles.screenContainer, { paddingHorizontal: screenWidth * 0.09, backgroundColor: AuthColors.white }]}>
 
           {/* Decorative Package Icon */}
           <View style={{
@@ -107,7 +108,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
             </Text>
 
             {/* Input Section */}
-            <View style={{ gap: 16, marginBottom: screenHeight * 0.02 }}>
+            <View style={{ gap: 16 }}>
               {/* Username or Email Input */}
               <InputField
                 label="Username or email"
@@ -139,8 +140,8 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
               <Text style={{
                 fontFamily: 'Inter',
                 fontWeight: '500',
-                fontSize: screenWidth * 0.025,
-                lineHeight: screenWidth * 0.035,
+                fontSize: screenWidth * 0.035,
+                lineHeight: screenWidth * 0.045,
                 letterSpacing: -0.01,
                 color: AuthColors.primary,
               }}>Forgot Password?</Text>
@@ -149,10 +150,22 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
             {/* Sign In Button with Arrow */}
             <View style={{
               flexDirection: 'row',
-              justifyContent: 'flex-end',
+              justifyContent: 'space-between',
               alignItems: 'center',
-              marginBottom: screenHeight * 0.04
+              marginBottom: screenHeight * 0.04,
+              width: '100%',
             }}>
+              <Text style={{
+                fontFamily: 'Inter',
+                fontStyle: 'normal',
+                fontWeight: '600',
+                fontSize: 18,
+                lineHeight: 25,
+                letterSpacing: -0.01,
+                color: '#000000',
+              }}>
+                Sign In
+              </Text>
               <CircleArrowButton onPress={handleLogin} loading={isLoading} />
             </View>
 
@@ -177,8 +190,8 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
               marginBottom: screenHeight * 0.04
             }}>
               <SocialButton type="facebook" onPress={() => onSocialLogin('facebook')} />
-              <SocialButton type="google" onPress={() => onSocialLogin('google')} />
               <SocialButton type="apple" onPress={() => onSocialLogin('apple')} />
+              <SocialButton type="google" onPress={() => onSocialLogin('google')} />
             </View>
 
             {/* Sign Up Link */}
@@ -196,7 +209,12 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                 letterSpacing: -0.01,
                 color: '#6C7278',
               }}>Don't have an account yet?</Text>
-              <TouchableOpacity onPress={onSignUp}>
+              <TouchableOpacity
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  onSignUp();
+                }}
+              >
                 <Text style={{
                   fontFamily: 'Inter',
                   fontWeight: '600',
