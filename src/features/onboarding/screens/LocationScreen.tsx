@@ -10,10 +10,13 @@ import {
   ScrollView,
   ActivityIndicator,
   Animated,
+  KeyboardAvoidingView,
+  Linking,
+  Alert,
 } from 'react-native';
 import { router } from 'expo-router';
 import { useOnboarding } from '../OnboardingContext';
-import { Svg, Path } from 'react-native-svg';
+import Svg, { G, Path, Defs, ClipPath, Rect } from 'react-native-svg';
 import { BackgroundGradient } from '../components';
 import * as Location from 'expo-location';
 import { questionnaireAPI, LocationSearchResult } from '../services/api';
@@ -39,42 +42,34 @@ const LocationIcon = ({ color = "#6C7278" }: { color?: string }) => (
   </Svg>
 );
 
-const SearchIcon = ({ color = "#6C7278" }: { color?: string }) => (
-  <Svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+const SearchIcon = ({ color = "#FEA04D" }: { color?: string }) => (
+  <Svg width="18" height="18" viewBox="0 0 18 18" fill="none">
     <Path
-      d="M7.33333 12.6667C10.2789 12.6667 12.6667 10.2789 12.6667 7.33333C12.6667 4.38781 10.2789 2 7.33333 2C4.38781 2 2 4.38781 2 7.33333C2 10.2789 4.38781 12.6667 7.33333 12.6667Z"
-      stroke={color}
-      strokeWidth="1.5"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    />
-    <Path
-      d="M14 14L11.1 11.1"
-      stroke={color}
-      strokeWidth="1.5"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    />
-  </Svg>
-);
-
-const ClearIcon = ({ color = "#6C7278" }: { color?: string }) => (
-  <Svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-    <Path
-      d="M12 4L4 12M4 4L12 12"
-      stroke={color}
-      strokeWidth="1.5"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    />
-  </Svg>
-);
-
-const NavigationIcon: React.FC<{ color: string }> = ({ color }) => (
-  <Svg width="14" height="14" viewBox="0 0 16 16" fill="none">
-    <Path
-      d="M0.651174 8.07162C0.914745 8.33519 1.17832 8.41812 1.69839 8.41812L7.40117 8.44834C7.45389 8.44834 7.49889 8.44834 7.52171 8.47823C7.54421 8.50073 7.5516 8.54605 7.5516 8.59137L7.5741 14.3019C7.58182 14.8216 7.66475 15.0852 7.92832 15.3488C8.28253 15.7104 8.77978 15.6503 9.14878 15.2887C9.34485 15.0926 9.50299 14.7689 9.64603 14.4674L15.4092 2.03744C15.7104 1.40487 15.6728 0.937515 15.3642 0.628622C15.0624 0.327444 14.5954 0.289837 13.9628 0.591015L1.53253 6.35423C1.23103 6.49726 0.907352 6.65541 0.711281 6.85148C0.349674 7.22048 0.289567 7.71034 0.651174 8.07194"
+      d="M16.6 18L10.3 11.7C9.8 12.1 9.225 12.4167 8.575 12.65C7.925 12.8833 7.23333 13 6.5 13C4.68333 13 3.14583 12.3708 1.8875 11.1125C0.629167 9.85417 0 8.31667 0 6.5C0 4.68333 0.629167 3.14583 1.8875 1.8875C3.14583 0.629167 4.68333 0 6.5 0C8.31667 0 9.85417 0.629167 11.1125 1.8875C12.3708 3.14583 13 4.68333 13 6.5C13 7.23333 12.8833 7.925 12.65 8.575C12.4167 9.225 12.1 9.8 11.7 10.3L18 16.6L16.6 18ZM6.5 11C7.75 11 8.8125 10.5625 9.6875 9.6875C10.5625 8.8125 11 7.75 11 6.5C11 5.25 10.5625 4.1875 9.6875 3.3125C8.8125 2.4375 7.75 2 6.5 2C5.25 2 4.1875 2.4375 3.3125 3.3125C2.4375 4.1875 2 5.25 2 6.5C2 7.75 2.4375 8.8125 3.3125 9.6875C4.1875 10.5625 5.25 11 6.5 11Z"
       fill={color}
+      fillOpacity="0.9"
+    />
+  </Svg>
+);
+
+const ClearIcon = ({ color = "rgba(254, 160, 77, 0.9)" }: { color?: string }) => (
+  <Svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+    <Path
+      d="M18 6L6 18M6 6L18 18"
+      stroke={color}
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  </Svg>
+);
+
+const NavigationIcon: React.FC<{ filled?: boolean }> = ({ filled = false }) => (
+  <Svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+    <Path
+      d="M0.319584 10.1107C0.6662 10.4573 1.01282 10.5664 1.69675 10.5664L9.19632 10.6061C9.26564 10.6061 9.32482 10.6061 9.35483 10.6454C9.38442 10.675 9.39415 10.7346 9.39415 10.7942L9.42373 18.3037C9.43388 18.9872 9.54294 19.3338 9.88955 19.6804C10.3554 20.156 11.0093 20.0769 11.4945 19.6014C11.7524 19.3435 11.9604 18.9179 12.1485 18.5214L19.7275 2.17558C20.1236 1.34372 20.0741 0.729132 19.6683 0.322927C19.2714 -0.0731328 18.6572 -0.122588 17.8254 0.273473L1.47863 7.8523C1.08214 8.0404 0.656478 8.24836 0.39863 8.5062C-0.07691 8.99145 -0.155955 9.6352 0.319584 10.1107Z"
+      fill={filled ? "#4DABFE" : "#BABABA"}
+      fillOpacity="0.9"
     />
   </Svg>
 );
@@ -85,11 +80,13 @@ const LocationScreen = () => {
   const { data: session } = useSession();
   const [location, setLocation] = useState(data.location || '');
   const [showSuggestions, setShowSuggestions] = useState(false);
-  const [useCurrentLocation, setUseCurrentLocation] = useState(data.useCurrentLocation || false);
+  const [useCurrentLocation, setUseCurrentLocation] = useState(false);
   const [isLoadingLocation, setIsLoadingLocation] = useState(false);
   const [isSearchingLocations, setIsSearchingLocations] = useState(false);
   const [locationSuggestions, setLocationSuggestions] = useState<LocationSearchResult[]>([]);
   const [isInputFocused, setIsInputFocused] = useState(false);
+  const [locationServicesEnabled, setLocationServicesEnabled] = useState(false);
+  const [locationPermissionGranted, setLocationPermissionGranted] = useState(false);
   const [currentLocationData, setCurrentLocationData] = useState<{
     latitude: number;
     longitude: number;
@@ -99,7 +96,58 @@ const LocationScreen = () => {
   const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const fadeAnim = useRef(new Animated.Value(0)).current;
 
-  // Search for locations using the API with fallback to hardcoded suggestions
+  // Check location permission status on mount
+  useEffect(() => {
+    const checkInitialPermissions = async () => {
+      try {
+        const servicesEnabled = await Location.hasServicesEnabledAsync();
+        setLocationServicesEnabled(servicesEnabled);
+
+        const { status } = await Location.getForegroundPermissionsAsync();
+        const permissionGranted = status === 'granted';
+        setLocationPermissionGranted(permissionGranted);
+
+        // If services are disabled or permission not granted, reset useCurrentLocation
+        if (!servicesEnabled || !permissionGranted) {
+          setUseCurrentLocation(false);
+        }
+      } catch (error) {
+        console.log('Error checking initial permissions:', error);
+        setUseCurrentLocation(false);
+      }
+    };
+
+    checkInitialPermissions();
+  }, []);
+
+  /**
+   * Search for locations using the API
+   *
+   * BACKEND IMPLEMENTATION NEEDED:
+   * Create endpoint: GET /api/locations/search?q={query}&limit={limit}
+   *
+   * Recommended Services:
+   * 1. Google Places API (Autocomplete) - Most accurate, requires API key
+   *    - Provides: formatted_address, geometry (lat/lng), components (city, postcode, state)
+   *    - Format: "Bandar Sunway, 47500 Selangor"
+   *
+   * 2. Mapbox Geocoding API - Good alternative, requires API key
+   *    - Similar structure to Google Places
+   *
+   * 3. Nominatim (OpenStreetMap) - Free, but less detailed
+   *    - No API key needed, but rate-limited
+   *
+   * Expected Response Format:
+   * {
+   *   success: true,
+   *   results: [{
+   *     id: string,
+   *     formatted_address: "Bandar Sunway, 47500 Selangor",
+   *     geometry: { location: { lat: number, lng: number } },
+   *     components: { city: string, postcode: string, state: string }
+   *   }]
+   * }
+   */
   const searchLocations = async (query: string) => {
     if (!query || query.trim().length < 2) {
       setLocationSuggestions([]);
@@ -109,9 +157,9 @@ const LocationScreen = () => {
     try {
       setIsSearchingLocations(true);
       console.log('🔍 Searching locations for:', query);
-      
+
       const response = await questionnaireAPI.searchLocations(query.trim(), 5);
-      
+
       if (response.success && response.results) {
         console.log(`✅ Found ${response.results.length} locations via API`);
         setLocationSuggestions(response.results);
@@ -156,16 +204,31 @@ const LocationScreen = () => {
       if (reverseGeocode && reverseGeocode.length > 0) {
         const address = reverseGeocode[0];
         console.log('✅ Expo-location reverse geocode result:', address);
-        
-        const formattedAddress = `${address.city || address.subregion || ''}, ${address.region || ''} ${address.country || ''}`.trim().replace(/^,\s*/, '').replace(/,\s*$/, '');
+
+        // Format: "City, Postcode State" (e.g., "Bandar Sunway, 47500 Selangor")
+        const city = address.city || address.subregion || address.district || '';
+        const postcode = address.postalCode || '';
+        const state = address.region || '';
+
+        let formattedAddress = '';
+        if (city && postcode && state) {
+          formattedAddress = `${city}, ${postcode} ${state}`;
+        } else if (city && state) {
+          formattedAddress = `${city}, ${state}`;
+        } else if (city) {
+          formattedAddress = city;
+        } else {
+          formattedAddress = `${latitude.toFixed(4)}, ${longitude.toFixed(4)}`;
+        }
+
         console.log('✅ Formatted address:', formattedAddress);
-        
+
         setCurrentLocationData({
           latitude,
           longitude,
           address: formattedAddress,
         });
-        
+
         setLocation(formattedAddress);
         setShowSuggestions(false);
       } else {
@@ -205,25 +268,47 @@ const LocationScreen = () => {
     try {
       setIsLoadingLocation(true);
       console.log('🔍 Starting location permission request...');
-      
+
       // First check if location services are enabled
       const servicesEnabled = await checkLocationServices();
+      setLocationServicesEnabled(servicesEnabled);
+
       if (!servicesEnabled) {
         console.log('❌ Location services are disabled');
-        toast.error('Location Services Disabled', {
-          description: 'Please enable location services in your device settings to use your current location.',
-        });
         setUseCurrentLocation(false);
+        setLocationPermissionGranted(false);
         setIsLoadingLocation(false);
+
+        // Show alert with option to open settings
+        Alert.alert(
+          'Location Services Disabled',
+          'Please enable location services in your device settings to use your current location.',
+          [
+            {
+              text: 'Cancel',
+              style: 'cancel',
+            },
+            {
+              text: 'Open Settings',
+              onPress: () => {
+                if (Platform.OS === 'ios') {
+                  Linking.openURL('app-settings:');
+                } else {
+                  Linking.openSettings();
+                }
+              },
+            },
+          ]
+        );
         return;
       }
-      
+
       // Check current permission status
       const { status: currentStatus } = await Location.getForegroundPermissionsAsync();
       console.log('📍 Current permission status:', currentStatus);
-      
+
       let finalStatus = currentStatus;
-      
+
       // Request permission if not already granted
       if (currentStatus !== 'granted') {
         console.log('🔐 Requesting location permission...');
@@ -231,17 +316,38 @@ const LocationScreen = () => {
         finalStatus = requestStatus;
         console.log('📍 Permission request result:', requestStatus);
       }
-      
+
+      setLocationPermissionGranted(finalStatus === 'granted');
+
       if (finalStatus !== 'granted') {
         console.log('❌ Location permission denied');
-        toast.error('Permission Required', {
-          description: 'Location permission is required to use your current location. Please enable location access in your device settings.',
-        });
         setUseCurrentLocation(false);
         setIsLoadingLocation(false);
+
+        // Show alert with option to open settings
+        Alert.alert(
+          'Location Permission Required',
+          'Location permission is required to use your current location. Please enable location access in your app settings.',
+          [
+            {
+              text: 'Cancel',
+              style: 'cancel',
+            },
+            {
+              text: 'Open Settings',
+              onPress: () => {
+                if (Platform.OS === 'ios') {
+                  Linking.openURL('app-settings:');
+                } else {
+                  Linking.openSettings();
+                }
+              },
+            },
+          ]
+        );
         return;
       }
-      
+
       console.log('✅ Location permission granted, fetching location...');
 
       // Get current position
@@ -522,16 +628,55 @@ const LocationScreen = () => {
   return (
     <SafeAreaView style={styles.container}>
       <BackgroundGradient />
-      <View style={styles.contentContainer}>
+
+      {/* Back Button */}
+      <TouchableOpacity
+        style={styles.backButton}
+        onPress={() => router.back()}
+      >
+        <Svg width="36" height="36" viewBox="0 0 36 36" fill="none">
+          <Path
+            d="M22.5 27L13.5 18L22.5 9"
+            stroke="#000000"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </Svg>
+      </TouchableOpacity>
+
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        style={styles.keyboardView}
+      >
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={styles.scrollContent}
+          keyboardShouldPersistTaps="handled"
+        >
       {/* Logo */}
       <View style={styles.logoContainer}>
-        <Text style={styles.logo}>DEUCE</Text>
+        <Svg width="35" height="37" viewBox="0 0 67 71" fill="none">
+          <Defs>
+            <ClipPath id="clip0_1273_1964">
+              <Rect width="67" height="71" fill="white"/>
+            </ClipPath>
+          </Defs>
+          <G clipPath="url(#clip0_1273_1964)">
+            <Path d="M66.9952 35.2153C66.9769 35.9135 66.9083 36.6208 66.7848 37.3281C64.9275 48.0714 50.9017 59.5725 19.7851 70.9404C18.9983 71.2252 18.2846 70.5086 18.4676 69.6911C23.399 47.3457 22.7586 14.6934 18.1382 1.29534C17.8729 0.537481 18.646 -0.19282 19.4145 0.0506138C47.9694 9.11738 67.3521 21.482 66.9952 35.2153Z" fill="#44A7DE"/>
+            <Path d="M20.6226 35.2153V37.3282H21.1303V35.2153H20.6226Z" stroke="#ED2124" strokeMiterlimit="10"/>
+            <Path d="M22.3879 8.15321C21.6972 7.8271 20.9973 7.50558 20.2836 7.18866C14.5973 4.6303 8.22489 2.24649 1.31263 0.0509927C0.548666 -0.192441 -0.1787 0.519488 0.0363074 1.29572C6.46823 24.6929 7.2139 47.4425 0.365681 69.6914C0.118651 70.4906 0.900912 71.2255 1.68317 70.9408C8.74182 68.3595 14.9267 65.7735 20.2836 63.1876C21.0018 62.8477 21.7017 62.4987 22.3879 62.1542C39.2088 53.7029 47.3059 45.3067 48.6875 37.3285C48.811 36.6212 48.8796 35.9138 48.8979 35.2157C49.1587 25.2211 38.9664 15.9523 22.3879 8.15321ZM22.3879 46.8408C21.9808 47.0108 21.5599 47.1761 21.1299 47.3461V37.3285H20.6221V35.2157H21.1299V24.8812C21.5599 25.0879 21.9762 25.2946 22.3879 25.5013C28.7878 28.7119 33.0377 31.9454 34.0349 35.2157C34.25 35.9184 34.3186 36.6212 34.2179 37.3285C33.7879 40.461 30.1694 43.6348 22.3879 46.8408Z" fill="#195E9A"/>
+            <Path d="M34.0349 35.2148C34.2499 35.9176 34.3185 36.6203 34.2179 37.3277H20.6221V35.2148H34.0349Z" fill="white"/>
+            <Path d="M66.9952 35.2148C66.9769 35.913 66.9082 36.6203 66.7847 37.3277H48.6875C48.811 36.6203 48.8796 35.913 48.8979 35.2148H66.9952Z" fill="white"/>
+            <Path d="M22.388 8.15254V62.1535C21.7018 62.498 21.0019 62.8471 20.2837 63.187V7.18799C20.9973 7.50491 21.6973 7.82643 22.388 8.15254Z" fill="white"/>
+          </G>
+        </Svg>
       </View>
 
       {/* Header */}
       <View style={styles.headerContainer}>
-        <Text style={styles.title}>Leagues near you...</Text>
-        <Text style={styles.subtitle}>Where would you like to play?</Text>
+        <Text style={styles.title}>Where would you like to play?</Text>
+        <Text style={styles.subtitle}>Find matches near you...</Text>
         {useCurrentLocation && isLoadingLocation && (
           <Text style={styles.helpText}>
             Make sure location services are enabled in your device settings
@@ -539,47 +684,34 @@ const LocationScreen = () => {
         )}
       </View>
 
-      {/* Use Current Location Option */}
-      <View style={styles.locationOptionsContainer}>
-        <TouchableOpacity 
-          style={[
-            styles.currentLocationButton,
-            useCurrentLocation && styles.currentLocationButtonSelected,
-            isLoadingLocation && styles.currentLocationButtonLoading
-          ]}
-          onPress={handleCurrentLocationPress}
-          disabled={isLoadingLocation}
-        >
-          {isLoadingLocation ? (
-            <ActivityIndicator size="small" color="#FE9F4D" />
-          ) : (
-            <NavigationIcon color={useCurrentLocation ? '#FE9F4D' : '#1A1C1E'} />
-          )}
-          <Text style={[
-            styles.currentLocationText,
-            useCurrentLocation && styles.currentLocationTextSelected
-          ]}>
-            {isLoadingLocation ? 'Getting your location...' : 'Use my current location'}
-          </Text>
-        </TouchableOpacity>
-      </View>
-
-      {/* Choose Location Section */}
+      {/* Search Input with Icons */}
       <View style={styles.inputContainer}>
         <View style={styles.inputWrapper}>
           <View style={styles.inputGroup}>
-            <Text style={styles.label}>Choose a location</Text>
             <View style={[
               styles.inputWithIcon,
               isInputFocused && styles.inputWithIconFocused,
               location && styles.inputWithIconFilled
             ]}>
-              <SearchIcon color={isInputFocused ? "#FE9F4D" : "#6C7278"} />
+              {/* Left: GPS/Location Icon */}
+              <TouchableOpacity
+                style={styles.locationIconContainer}
+                onPress={handleCurrentLocationPress}
+                disabled={isLoadingLocation}
+              >
+                {isLoadingLocation ? (
+                  <ActivityIndicator size="small" color="rgba(77, 171, 254, 0.9)" />
+                ) : (
+                  <NavigationIcon filled={locationServicesEnabled && locationPermissionGranted && useCurrentLocation} />
+                )}
+              </TouchableOpacity>
+
+              {/* Center: Text Input */}
               <TextInput
                 ref={textInputRef}
                 style={styles.input}
-                placeholder="Enter city or zip code"
-                placeholderTextColor="#6C7278"
+                placeholder="Search or enter postcode..."
+                placeholderTextColor="#BABABA"
                 value={location}
                 onChangeText={(text) => {
                   if (useCurrentLocation) {
@@ -588,7 +720,7 @@ const LocationScreen = () => {
                   }
                   setLocation(text);
                   setShowSuggestions(text.trim().length > 0);
-                  
+
                   // Trigger debounced search
                   debouncedSearch(text);
                 }}
@@ -607,14 +739,20 @@ const LocationScreen = () => {
                 }}
                 editable={!isLoadingLocation}
               />
-              {location.length > 0 && (
+
+              {/* Right: Search Icon or Clear Icon */}
+              {location.length > 0 ? (
                 <TouchableOpacity
                   onPress={clearInput}
-                  style={styles.clearButton}
+                  style={styles.clearIconContainer}
                   hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                 >
-                  <ClearIcon color="#6C7278" />
+                  <ClearIcon />
                 </TouchableOpacity>
+              ) : (
+                <View style={styles.searchIconContainer}>
+                  <SearchIcon />
+                </View>
               )}
             </View>
           </View>
@@ -638,23 +776,36 @@ const LocationScreen = () => {
                   <Text style={styles.suggestionText}>Searching locations...</Text>
                 </View>
               )}
-              {!isSearchingLocations && locationSuggestions.length > 0 && locationSuggestions.map((item, index) => (
-                <TouchableOpacity
-                  key={`${item.id}-${index}`}
-                  style={[
-                    styles.suggestionItem,
-                    index === locationSuggestions.length - 1 && styles.suggestionItemLast
-                  ]}
-                  onPress={() => selectLocation(item)}
-                  activeOpacity={0.7}
-                >
-                  <LocationIcon color="#FE9F4D" />
-                  <View style={styles.suggestionContent}>
-                    <Text style={styles.suggestionText}>{item.name}</Text>
-                    <Text style={styles.suggestionSubtext}>{item.formatted_address}</Text>
-                  </View>
-                </TouchableOpacity>
-              ))}
+              {!isSearchingLocations && locationSuggestions.length > 0 && locationSuggestions.map((item, index) => {
+                // Format: "City, Postcode, State"
+                const formatLocationText = () => {
+                  if (item.components) {
+                    const { city, state } = item.components;
+                    // Try to extract postcode from formatted_address
+                    const postcodeMatch = item.formatted_address.match(/\b\d{5,6}\b/);
+                    const postcode = postcodeMatch ? postcodeMatch[0] : '';
+
+                    if (city && postcode && state) {
+                      return `${city}, ${postcode}, ${state}`;
+                    }
+                  }
+                  return item.formatted_address;
+                };
+
+                return (
+                  <TouchableOpacity
+                    key={`${item.id}-${index}`}
+                    style={[
+                      styles.suggestionItem,
+                      index === locationSuggestions.length - 1 && styles.suggestionItemLast
+                    ]}
+                    onPress={() => selectLocation(item)}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={styles.suggestionText}>{formatLocationText()}</Text>
+                  </TouchableOpacity>
+                );
+              })}
               {!isSearchingLocations && locationSuggestions.length === 0 && location.trim().length >= 2 && (
                 <View style={styles.suggestionItem}>
                   <Text style={styles.noResultsText}>No locations found</Text>
@@ -667,22 +818,21 @@ const LocationScreen = () => {
 
       </View>
 
-      </View>
-      
-      {/* Confirm Button */}
-      <View style={styles.buttonContainer}>
-        <TouchableOpacity
-          style={[
-            styles.button, 
-            (!location && !useCurrentLocation) && styles.buttonDisabled
-          ]}
-          disabled={!location && !useCurrentLocation}
-          onPress={handleNext}
-        >
-          <Text style={styles.buttonText}>Confirm</Text>
-        </TouchableOpacity>
-      </View>
-
+          {/* Confirm Button */}
+          <View style={styles.buttonContainer}>
+            <TouchableOpacity
+              style={[
+                styles.button,
+                (!location && !useCurrentLocation) && styles.buttonDisabled
+              ]}
+              disabled={!location && !useCurrentLocation}
+              onPress={handleNext}
+            >
+              <Text style={styles.buttonText}>Confirm</Text>
+            </TouchableOpacity>
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 };
@@ -692,16 +842,26 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#FFFFFF',
   },
-  contentContainer: {
+  backButton: {
+    position: 'absolute',
+    top: 62,
+    left: 19,
+    width: 36,
+    height: 36,
+    zIndex: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  keyboardView: {
     flex: 1,
-    paddingBottom: 160,
+  },
+  scrollContent: {
+    flexGrow: 1,
+    paddingBottom: 120,
   },
   buttonContainer: {
-    position: 'absolute',
-    bottom: 100,
-    left: 0,
-    right: 0,
     paddingHorizontal: 71,
+    marginTop: 60,
   },
   logoContainer: {
     alignItems: 'center',
@@ -720,18 +880,18 @@ const styles = StyleSheet.create({
     marginBottom: 40,
   },
   title: {
-    fontSize: 32, // theme.typography.fontSize['3xl']
-    fontWeight: '700', // theme.typography.fontWeight.heavy
-    color: '#111827',
-    lineHeight: 40, // theme.typography.lineHeight.loose
-    marginBottom: 12,
+    fontSize: 32,
+    fontWeight: '700',
+    color: '#000000',
+    lineHeight: 40,
+    marginBottom: 10,
     fontFamily: 'Inter',
   },
   subtitle: {
-    fontSize: 14, // theme.typography.fontSize.base
-    fontWeight: '400', // theme.typography.fontWeight.regular
-    color: '#4B5563',
-    lineHeight: 20, // theme.typography.lineHeight.normal
+    fontSize: 22,
+    fontWeight: '700',
+    color: '#FE9F4D',
+    lineHeight: 30,
     letterSpacing: -0.01,
     fontFamily: 'Inter',
   },
@@ -747,57 +907,18 @@ const styles = StyleSheet.create({
   inputContainer: {
     paddingHorizontal: 37,
   },
-  locationOptionsContainer: {
-    paddingHorizontal: 37,
-    marginBottom: 12,
-  },
-  currentLocationButton: {
-    flexDirection: 'row',
+  locationIconContainer: {
+    width: 48,
+    height: 48,
+    justifyContent: 'center',
     alignItems: 'center',
-    height: 50,
-    borderWidth: 1,
-    borderColor: '#EDF1F3',
-    borderRadius: 12,
-    paddingLeft: 16,
-    paddingRight: 16,
-    backgroundColor: '#FFFFFF',
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 8,
-      },
-      android: {
-        elevation: 4,
-      },
-    }),
-    marginBottom: 20,
-  },
-  currentLocationButtonSelected: {
-    borderColor: '#FE9F4D',
-    backgroundColor: '#FFF7F0',
-    borderWidth: 2,
-  },
-  currentLocationButtonLoading: {
-    opacity: 0.7,
-  },
-  currentLocationText: {
-    fontSize: 14, // theme.typography.fontSize.base
-    fontWeight: '600', // theme.typography.fontWeight.semibold (RN compatible)
-    color: '#1A1C1E',
-    marginLeft: 14,
-    fontFamily: 'Inter',
-  },
-  currentLocationTextSelected: {
-    color: '#FE9F4D',
-    fontWeight: '600', // theme.typography.fontWeight.semibold (RN compatible)
+    marginLeft: 4,
   },
   inputWrapper: {
     position: 'relative',
   },
   inputGroup: {
-    marginBottom: 16,
+    marginBottom: 0,
   },
   label: {
     fontSize: 12, // theme.typography.fontSize.sm
@@ -810,104 +931,81 @@ const styles = StyleSheet.create({
   inputWithIcon: {
     flexDirection: 'row',
     alignItems: 'center',
-    height: 50,
+    height: 48,
     borderWidth: 1,
-    borderColor: '#EDF1F3',
-    borderRadius: 12,
-    paddingHorizontal: 16,
+    borderColor: '#BABABA',
+    borderRadius: 28,
+    paddingVertical: 5,
+    paddingHorizontal: 0,
     backgroundColor: '#FFFFFF',
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 8,
-      },
-      android: {
-        elevation: 4,
-      },
-    }),
   },
   inputWithIconFocused: {
-    borderColor: '#FE9F4D',
-    borderWidth: 2,
-    ...Platform.select({
-      ios: {
-        shadowColor: '#FE9F4D',
-        shadowOpacity: 0.2,
-        shadowRadius: 8,
-      },
-      android: {
-        elevation: 6,
-      },
-    }),
+    borderColor: '#BABABA',
+    borderWidth: 1,
   },
   inputWithIconFilled: {
-    borderColor: '#E0E0E0',
+    borderColor: '#BABABA',
   },
   input: {
     flex: 1,
-    fontSize: 14, // theme.typography.fontSize.base
+    fontSize: 13,
     color: '#1A1C1E',
-    marginLeft: 10,
-    fontWeight: '400', // theme.typography.fontWeight.regular
-    fontFamily: 'Inter',
+    paddingHorizontal: 20,
+    fontWeight: '400',
+    fontFamily: 'Roboto',
+    letterSpacing: 0.5,
   },
-  clearButton: {
-    padding: 4,
-    marginLeft: 8,
+  searchIconContainer: {
+    width: 48,
+    height: 48,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 4,
+  },
+  clearIconContainer: {
+    width: 48,
+    height: 48,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 4,
   },
   suggestionsContainer: {
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: '#EDF1F3',
-    borderRadius: 12,
+    backgroundColor: 'rgba(22, 94, 153, 0.05)',
+    borderLeftWidth: 1,
+    borderRightWidth: 1,
+    borderBottomWidth: 1,
+    borderTopWidth: 0,
+    borderColor: '#BABABA',
+    borderBottomLeftRadius: 10,
+    borderBottomRightRadius: 10,
     maxHeight: 240,
-    marginTop: 8,
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000000',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.15,
-        shadowRadius: 12,
-      },
-      android: {
-        elevation: 8,
-      },
-    }),
+    marginTop: 0,
+    marginLeft: 24,
+    marginRight: 24,
+    overflow: 'hidden',
   },
   suggestionsList: {
     maxHeight: 200,
   },
   suggestionItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 16,
+    paddingHorizontal: 28,
+    paddingVertical: 6,
     borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
-    minHeight: 60,
+    borderBottomColor: '#BABABA',
+    minHeight: 32,
+    justifyContent: 'center',
   },
   suggestionItemLast: {
     borderBottomWidth: 0,
-  },
-  suggestionContent: {
-    flex: 1,
-    marginLeft: 12,
+    borderBottomLeftRadius: 10,
+    borderBottomRightRadius: 10,
   },
   suggestionText: {
-    fontSize: 14, // theme.typography.fontSize.base
-    color: '#111827',
-    fontWeight: '600', // theme.typography.fontWeight.semibold (RN compatible)
-    lineHeight: 20, // theme.typography.lineHeight.normal
-    fontFamily: 'Inter',
-  },
-  suggestionSubtext: {
-    fontSize: 12, // theme.typography.fontSize.sm
-    color: '#6B7280',
-    fontWeight: '400', // theme.typography.fontWeight.regular
-    marginTop: 3,
-    lineHeight: 20, // theme.typography.lineHeight.normal
+    fontSize: 14,
+    color: '#000000',
+    fontWeight: '500',
+    lineHeight: 20,
+    letterSpacing: -0.01,
     fontFamily: 'Inter',
   },
   noResultsText: {
@@ -927,32 +1025,20 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter',
   },
   button: {
-    height: 48,
+    height: 40,
     backgroundColor: '#FE9F4D',
-    borderRadius: 12,
+    borderRadius: 8,
     justifyContent: 'center',
     alignItems: 'center',
-    ...Platform.select({
-      ios: {
-        shadowColor: '#FE9F4D',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.3,
-        shadowRadius: 4,
-      },
-      android: {
-        elevation: 3,
-      },
-    }),
   },
   buttonDisabled: {
     opacity: 0.5,
   },
   buttonText: {
     color: '#FFFFFF',
-    fontSize: 14, // theme.typography.fontSize.base
-    fontWeight: '600', // theme.typography.fontWeight.semibold (RN compatible)
-    lineHeight: 24, // theme.typography.lineHeight.relaxed
-    fontFamily: 'Inter',
+    fontSize: 14,
+    fontWeight: '600',
+    lineHeight: 24,
   },
 });
 

@@ -308,7 +308,7 @@ export const SocialButton: React.FC<SocialButtonProps> = ({ type, onPress }) => 
   const getIcon = () => {
     switch (type) {
       case 'facebook':
-        return <Ionicons name="logo-facebook" size={20} color={AuthColors.white} />;
+        return <FacebookIcon />;
       case 'google':
         return <GoogleIcon />;
       case 'apple':
@@ -328,6 +328,13 @@ export const SocialButton: React.FC<SocialButtonProps> = ({ type, onPress }) => 
     </TouchableOpacity>
   );
 };
+
+// Facebook Icon Component
+const FacebookIcon: React.FC = () => (
+  <Svg width="10" height="20" viewBox="0 0 10 20">
+    <Path d="M9.34475 11.1068L9.86301 7.69417H6.621V5.48058C6.621 4.54672 7.07306 3.63592 8.52512 3.63592H10V0.730583C10 0.730583 8.6621 0.5 7.38356 0.5C4.71233 0.5 2.96804 2.13483 2.96804 5.0932V7.69417H0V11.1068H2.96804V19.357C3.56393 19.4516 4.17352 19.5 4.79452 19.5C5.41553 19.5 6.02511 19.4516 6.621 19.357V11.1068H9.34475Z" fill="white"/>
+  </Svg>
+);
 
 // Google Icon Component
 const GoogleIcon: React.FC = () => (
