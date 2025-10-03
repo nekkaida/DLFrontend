@@ -229,7 +229,7 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter',
   },
   sportsContainer: {
-    paddingHorizontal: 29,
+    alignItems: 'center',
     gap: 8,
   },
   sportButton: {
