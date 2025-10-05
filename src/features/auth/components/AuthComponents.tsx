@@ -424,6 +424,9 @@ export const VerificationInput: React.FC<VerificationInputProps> = ({ code, onCo
           onKeyPress={(e) => handleKeyPress(e, index)}
           keyboardType="number-pad"
           maxLength={1}
+          autoComplete="off"
+          textContentType="oneTimeCode"
+          blurOnSubmit={false}
         />
       ))}
     </View>
