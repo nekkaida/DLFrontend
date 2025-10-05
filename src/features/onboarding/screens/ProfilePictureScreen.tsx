@@ -13,8 +13,9 @@ import {
   Dimensions,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
+import { manipulateAsync, SaveFormat } from 'expo-image-manipulator';
 import { Svg, Path, G, Circle, Rect, Defs, ClipPath } from 'react-native-svg';
-import { BackgroundGradient } from '../components';
+import { BackgroundGradient, DeuceLogo, BackButton, ConfirmButton, CircularImageCropper } from '../components';
 import { toast } from 'sonner-native';
 import { useSession, authClient } from '@/lib/auth-client';
 import { getBackendBaseURL } from '@/config/network';
@@ -42,6 +43,8 @@ const DefaultProfileIcon = () => (
 const ProfilePictureScreen = () => {
   const [profileImage, setProfileImage] = useState<string | null>(null);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
+  const [showCropper, setShowCropper] = useState(false);
+  const [selectedImageUri, setSelectedImageUri] = useState<string | null>(null);
   const router = useRouter();
   const { data: session } = useSession();
 
@@ -55,11 +58,22 @@ const ProfilePictureScreen = () => {
       const backendUrl = getBackendBaseURL();
       const formData = new FormData();
 
-      // Create file object for upload
+      // Get file extension from URI
+      const fileExtension = imageUri.split('.').pop()?.toLowerCase() || 'jpg';
+      const mimeTypes: { [key: string]: string } = {
+        'jpg': 'image/jpeg',
+        'jpeg': 'image/jpeg',
+        'png': 'image/png',
+        'gif': 'image/gif',
+        'webp': 'image/webp',
+      };
+      const mimeType = mimeTypes[fileExtension] || 'image/jpeg';
+
+      // Create file object for upload with correct extension
       const file = {
         uri: imageUri,
-        type: 'image/jpeg',
-        name: `profile-${Date.now()}.jpg`,
+        type: mimeType,
+        name: `profile-${Date.now()}.${fileExtension}`,
       } as any;
 
       formData.append('image', file);
@@ -144,6 +158,45 @@ const ProfilePictureScreen = () => {
     }
   };
 
+  const normalizeImageOrientation = async (imageUri: string) => {
+    try {
+      console.log('=== NORMALIZING CAMERA IMAGE (ProfilePictureScreen) ===');
+      console.log('Original URI:', imageUri);
+
+      // Get original dimensions before normalization
+      return new Promise((resolve) => {
+        Image.getSize(imageUri, async (width, height) => {
+          console.log('Original dimensions:', { width, height });
+          console.log('Original aspect ratio:', width / height);
+
+          // Use manipulateAsync with no operations to normalize EXIF orientation
+          const normalized = await manipulateAsync(
+            imageUri,
+            [], // No operations, just normalize
+            { compress: 1.0, format: SaveFormat.JPEG }
+          );
+
+          console.log('Normalized URI:', normalized.uri);
+
+          // Get dimensions after normalization
+          Image.getSize(normalized.uri, (normWidth, normHeight) => {
+            console.log('Normalized dimensions:', { width: normWidth, height: normHeight });
+            console.log('Normalized aspect ratio:', normWidth / normHeight);
+            console.log('Dimensions changed:', normWidth !== width || normHeight !== height);
+            console.log('========================================================');
+            resolve(normalized.uri);
+          });
+        }, (error) => {
+          console.error('Error getting image size:', error);
+          resolve(imageUri);
+        });
+      });
+    } catch (error) {
+      console.error('Error normalizing image orientation:', error);
+      return imageUri;
+    }
+  };
+
   const openCamera = async () => {
     try {
       const permissionResult = await ImagePicker.requestCameraPermissionsAsync();
@@ -159,13 +212,31 @@ const ProfilePictureScreen = () => {
 
       const result = await ImagePicker.launchCameraAsync({
         mediaTypes: ['images'],
-        allowsEditing: true,
-        aspect: [1, 1],
-        quality: 0.8,
+        allowsEditing: false, // Disable native editing, we'll use custom crop
+        quality: 1.0, // Max quality before cropping
+        exif: false, // Don't include EXIF to avoid rotation issues
       });
 
       if (!result.canceled && result.assets[0]) {
-        await uploadProfileImage(result.assets[0].uri);
+        console.log('=== CAMERA PHOTO TAKEN (ProfilePictureScreen) ===');
+        console.log('Raw camera URI:', result.assets[0].uri);
+        console.log('Camera result width:', result.assets[0].width);
+        console.log('Camera result height:', result.assets[0].height);
+        console.log('Has EXIF:', result.assets[0].exif !== undefined);
+        console.log('=================================================');
+
+        // Normalize EXIF rotation BEFORE showing cropper
+        // This ensures the displayed image matches what will be cropped
+        console.log('Normalizing camera image before cropper...');
+        const normalized = await manipulateAsync(
+          result.assets[0].uri,
+          [],
+          { compress: 1, format: SaveFormat.JPEG }
+        );
+        console.log('Normalized URI for cropper:', normalized.uri);
+
+        setSelectedImageUri(normalized.uri);
+        setShowCropper(true);
       }
     } catch (error) {
       console.error('Error opening camera:', error);
@@ -179,13 +250,30 @@ const ProfilePictureScreen = () => {
     try {
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ['images'],
-        allowsEditing: true,
-        aspect: [1, 1],
-        quality: 0.8,
+        allowsEditing: false, // Disable native editing, we'll use custom crop
+        quality: 1.0, // Max quality before cropping
       });
 
       if (!result.canceled && result.assets[0]) {
-        await uploadProfileImage(result.assets[0].uri);
+        console.log('=== PHOTO LIBRARY IMAGE SELECTED (ProfilePictureScreen) ===');
+        console.log('Library image URI:', result.assets[0].uri);
+        console.log('Library result width:', result.assets[0].width);
+        console.log('Library result height:', result.assets[0].height);
+        console.log('Has EXIF:', result.assets[0].exif !== undefined);
+        console.log('============================================================');
+
+        // Normalize EXIF rotation BEFORE showing cropper
+        // This ensures the displayed image matches what will be cropped
+        console.log('Normalizing library image before cropper...');
+        const normalized = await manipulateAsync(
+          result.assets[0].uri,
+          [],
+          { compress: 1, format: SaveFormat.JPEG }
+        );
+        console.log('Normalized URI for cropper:', normalized.uri);
+
+        setSelectedImageUri(normalized.uri);
+        setShowCropper(true);
       }
     } catch (error) {
       console.error('Error opening image library:', error);
@@ -226,6 +314,23 @@ const ProfilePictureScreen = () => {
     }
   };
 
+  const handleEditImage = () => {
+    if (!profileImage) return;
+    setSelectedImageUri(profileImage);
+    setShowCropper(true);
+  };
+
+  const handleCropComplete = async (croppedUri: string) => {
+    setShowCropper(false);
+    setSelectedImageUri(null);
+    await uploadProfileImage(croppedUri);
+  };
+
+  const handleCropCancel = () => {
+    setShowCropper(false);
+    setSelectedImageUri(null);
+  };
+
   const handleSkip = async () => {
     try {
       // Mark onboarding as completed
@@ -260,40 +365,11 @@ const ProfilePictureScreen = () => {
   return (
     <SafeAreaView style={styles.container}>
       <BackgroundGradient />
-
-      {/* Back Button */}
-      <TouchableOpacity
-        style={styles.backButton}
-        onPress={() => router.back()}
-      >
-        <Svg width="36" height="36" viewBox="0 0 36 36" fill="none">
-          <Path
-            d="M22.5 27L13.5 18L22.5 9"
-            stroke="#000000"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-        </Svg>
-      </TouchableOpacity>
+      <BackButton />
 
       {/* Logo */}
       <View style={styles.logoContainer}>
-        <Svg width="35" height="37" viewBox="0 0 67 71" fill="none">
-          <Defs>
-            <ClipPath id="clip0_1273_1964_profile">
-              <Rect width="67" height="71" fill="white"/>
-            </ClipPath>
-          </Defs>
-          <G clipPath="url(#clip0_1273_1964_profile)">
-            <Path d="M66.9952 35.2153C66.9769 35.9135 66.9083 36.6208 66.7848 37.3281C64.9275 48.0714 50.9017 59.5725 19.7851 70.9404C18.9983 71.2252 18.2846 70.5086 18.4676 69.6911C23.399 47.3457 22.7586 14.6934 18.1382 1.29534C17.8729 0.537481 18.646 -0.19282 19.4145 0.0506138C47.9694 9.11738 67.3521 21.482 66.9952 35.2153Z" fill="#44A7DE"/>
-            <Path d="M20.6226 35.2153V37.3282H21.1303V35.2153H20.6226Z" stroke="#ED2124" strokeMiterlimit="10"/>
-            <Path d="M22.3879 8.15321C21.6972 7.8271 20.9973 7.50558 20.2836 7.18866C14.5973 4.6303 8.22489 2.24649 1.31263 0.0509927C0.548666 -0.192441 -0.1787 0.519488 0.0363074 1.29572C6.46823 24.6929 7.2139 47.4425 0.365681 69.6914C0.118651 70.4906 0.900912 71.2255 1.68317 70.9408C8.74182 68.3595 14.9267 65.7735 20.2836 63.1876C21.0018 62.8477 21.7017 62.4987 22.3879 62.1542C39.2088 53.7029 47.3059 45.3067 48.6875 37.3285C48.811 36.6212 48.8796 35.9138 48.8979 35.2157C49.1587 25.2211 38.9664 15.9523 22.3879 8.15321ZM22.3879 46.8408C21.9808 47.0108 21.5599 47.1761 21.1299 47.3461V37.3285H20.6221V35.2157H21.1299V24.8812C21.5599 25.0879 21.9762 25.2946 22.3879 25.5013C28.7878 28.7119 33.0377 31.9454 34.0349 35.2157C34.25 35.9184 34.3186 36.6212 34.2179 37.3285C33.7879 40.461 30.1694 43.6348 22.3879 46.8408Z" fill="#195E9A"/>
-            <Path d="M34.0349 35.2148C34.2499 35.9176 34.3185 36.6203 34.2179 37.3277H20.6221V35.2148H34.0349Z" fill="white"/>
-            <Path d="M66.9952 35.2148C66.9769 35.913 66.9082 36.6203 66.7847 37.3277H48.6875C48.811 36.6203 48.8796 35.913 48.8979 35.2148H66.9952Z" fill="white"/>
-            <Path d="M22.388 8.15254V62.1535C21.7018 62.498 21.0019 62.8471 20.2837 63.187V7.18799C20.9973 7.50491 21.6973 7.82643 22.388 8.15254Z" fill="white"/>
-          </G>
-        </Svg>
+        <DeuceLogo />
       </View>
 
       {/* Header */}
@@ -313,13 +389,33 @@ const ProfilePictureScreen = () => {
               <ActivityIndicator size="large" color="#FE9F4D" />
             </View>
           ) : profileImage ? (
-            <Image
-              source={{ uri: profileImage }}
-              style={styles.profileImage}
-              onError={() => {
-                console.log('Profile image failed to load:', profileImage);
-              }}
-            />
+            <>
+              <Image
+                source={{ uri: profileImage }}
+                style={styles.profileImage}
+                onError={() => {
+                  console.log('Profile image failed to load:', profileImage);
+                }}
+              />
+              {/* Edit button overlay */}
+              <TouchableOpacity
+                style={styles.editButton}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  handleEditImage();
+                }}
+              >
+                <Svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                  <Path
+                    d="M14.166 2.5009C14.3849 2.28203 14.6447 2.10842 14.9307 1.98996C15.2167 1.87151 15.5232 1.81055 15.8327 1.81055C16.1422 1.81055 16.4487 1.87151 16.7347 1.98996C17.0206 2.10842 17.2805 2.28203 17.4993 2.5009C17.7182 2.71977 17.8918 2.97961 18.0103 3.26558C18.1287 3.55154 18.1897 3.85804 18.1897 4.16757C18.1897 4.4771 18.1287 4.7836 18.0103 5.06956C17.8918 5.35553 17.7182 5.61537 17.4993 5.83424L6.24935 17.0842L1.66602 18.3342L2.91602 13.7509L14.166 2.5009Z"
+                    stroke="#FFFFFF"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </Svg>
+              </TouchableOpacity>
+            </>
           ) : (
             <DefaultProfileIcon />
           )}
@@ -357,14 +453,26 @@ const ProfilePictureScreen = () => {
 
       {/* All set? text with yes icon */}
       <View style={styles.allSetContainer}>
-        <TouchableOpacity onPress={handleComplete} style={styles.allSetButton}>
+        <View style={styles.allSetButton}>
           <Text style={styles.allSetText}>All set?</Text>
+        </View>
+        <TouchableOpacity onPress={handleComplete}>
+          <Image
+            source={require('../../../../assets/images/yes.png')}
+            style={styles.yesIcon}
+          />
         </TouchableOpacity>
-        <Image
-          source={require('../../../../assets/images/yes.png')}
-          style={styles.yesIcon}
-        />
       </View>
+
+      {/* Circular Image Cropper Modal */}
+      {selectedImageUri && (
+        <CircularImageCropper
+          visible={showCropper}
+          imageUri={selectedImageUri}
+          onCropComplete={handleCropComplete}
+          onCancel={handleCropCancel}
+        />
+      )}
     </SafeAreaView>
   );
 };
@@ -439,11 +547,31 @@ const styles = StyleSheet.create({
     backgroundColor: '#EBEBEB',
     justifyContent: 'center',
     alignItems: 'center',
+    position: 'relative',
   },
   profileImage: {
     width: 276,
     height: 276,
     borderRadius: 138,
+  },
+  editButton: {
+    position: 'absolute',
+    bottom: 10,
+    right: 10,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#FE9F4D',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
   },
   uploadingContainer: {
     width: 276,
