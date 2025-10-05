@@ -79,7 +79,7 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({
   return (
     <KeyboardAvoidingView
       style={AuthStyles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
       <ScrollView
         contentContainerStyle={{ flexGrow: 1 }}
