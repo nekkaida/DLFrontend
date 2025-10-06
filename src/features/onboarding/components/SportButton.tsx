@@ -6,6 +6,7 @@ import {
   View,
   ViewStyle,
   TextStyle,
+  Dimensions,
 } from 'react-native';
 import Svg, { G, Path } from 'react-native-svg';
 
@@ -148,9 +149,12 @@ const SportButton: React.FC<SportButtonProps> = ({
   );
 };
 
+const { width: screenWidth } = Dimensions.get('window');
+const buttonWidth = Math.min(screenWidth * 0.85, 330); // 85% of screen width, max 330px
+
 const styles = StyleSheet.create({
   button: {
-    width: 330,
+    width: buttonWidth,
     height: 145,
     flexDirection: 'column',
     alignItems: 'center',

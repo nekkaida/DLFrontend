@@ -8,6 +8,10 @@
 // Core UI Components
 export { default as BackgroundGradient } from './BackgroundGradient';
 export { default as SportButton } from './SportButton';
+export { default as DeuceLogo } from './DeuceLogo';
+export { default as BackButton } from './BackButton';
+export { default as ConfirmButton } from './ConfirmButton';
+export { default as CircularImageCropper } from './CircularImageCropper';
 
 // Form Components
 export { default as OptionButton } from './OptionButton';
