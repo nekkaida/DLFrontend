@@ -949,9 +949,9 @@ const SkillAssessmentScreen = () => {
                         <>
                           <TouchableOpacity
                             style={styles.skipButton}
-                            onPress={skipAssessmentForLater}
+                            onPress={handleBack}
                           >
-                            <Text style={styles.skipButtonText}>Skip</Text>
+                            <Text style={styles.skipButtonText}>Back</Text>
                           </TouchableOpacity>
                           
                           <TouchableOpacity
