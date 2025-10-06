@@ -503,20 +503,15 @@ const SkillAssessmentScreen = () => {
 
   const handleNext = async () => {
     if (isComprehensiveQuestionnaire) {
-      // Process current page answers and move to next question/page
-      const currentPageData = {
-        questions: [...questions],
-        responses: { ...responses }
-      };
+      // Include skill responses for skill matrix questions
+      const currentQuestion = questions[currentQuestionIndex];
+      let finalPageAnswers = { ...currentPageAnswers };
       
-      // Add current page to history if not already there
-      const newHistory = [...questionHistory];
-      if (newHistory.length <= currentPageIndex) {
-        newHistory.push(currentPageData);
-        setQuestionHistory(newHistory);
+      if (currentQuestion?.type === 'skill_matrix' && Object.keys(skillResponses).length > 0) {
+        finalPageAnswers[currentQuestion.key] = skillResponses;
       }
       
-      const newResponses = { ...responses, ...currentPageAnswers };
+      const newResponses = { ...responses, ...finalPageAnswers };
       setResponses(newResponses);
       
       // Get the appropriate questionnaire
@@ -525,17 +520,16 @@ const SkillAssessmentScreen = () => {
       
       // Get next questions based on updated responses
       const nextQuestions = questionnaire.getConditionalQuestions(newResponses);
-      setQuestions(nextQuestions);
       
       // Clear current page answers and navigation
       setCurrentPageAnswers({});
-      // Navigation is handled within question cards
       setSkillResponses({});
       setTextInput('');
       
-      // Move to next question or finish
+      // Check if questionnaire is complete
       if (nextQuestions.length === 0) {
         // Questionnaire complete, calculate rating
+        console.log('🎯 Questionnaire complete, calculating rating...');
         if (currentQuestionnaireType === 'pickleball') {
           await completePickleballAssessment(newResponses as QuestionnaireResponse);
         } else if (currentQuestionnaireType === 'tennis') {
@@ -543,12 +537,14 @@ const SkillAssessmentScreen = () => {
         } else {
           await completePadelAssessment(newResponses as PadelQuestionnaireResponse);
         }
-      } else {
-        // Move to next page
-        setCurrentPageIndex(currentPageIndex + 1);
-        setCurrentQuestionIndex(0);
-        console.log('📖 Moving to next question page:', currentPageIndex + 1);
+        return;
       }
+      
+      // Update questions and reset to first question of new set
+      setQuestions(nextQuestions);
+      setCurrentQuestionIndex(0);
+      setCurrentPageIndex(currentPageIndex + 1);
+      console.log('📖 Moving to next question set:', nextQuestions.length, 'questions');
     } else {
       // For simple dropdown
       if (selectedOption) {
@@ -750,6 +746,62 @@ const SkillAssessmentScreen = () => {
   };
 
 
+  // Calculate total questions and current progress
+  const getQuestionProgress = () => {
+    if (!isComprehensiveQuestionnaire || !currentQuestionnaireType) {
+      return { current: currentQuestionIndex + 1, total: questions.length };
+    }
+    
+    const questionnaire = currentQuestionnaireType === 'pickleball' ? pickleballQuestionnaire : 
+                         currentQuestionnaireType === 'tennis' ? tennisQuestionnaire : padelQuestionnaire;
+    
+    // Count answered questions
+    const allResponses = { ...responses, ...currentPageAnswers };
+    let answeredQuestions = 0;
+    
+    // Count questions that have been answered
+    for (const [key, value] of Object.entries(allResponses)) {
+      if (value !== undefined && value !== null && value !== '') {
+        if (typeof value === 'object' && value !== null) {
+          // For skill matrix, count each sub-question
+          answeredQuestions += Object.keys(value).length;
+        } else {
+          answeredQuestions += 1;
+        }
+      }
+    }
+    
+    // Calculate total questions by simulating the flow
+    let totalQuestions = answeredQuestions;
+    let currentResponses = { ...allResponses };
+    
+    // Simulate remaining questions
+    while (true) {
+      const nextQuestions = questionnaire.getConditionalQuestions(currentResponses);
+      if (nextQuestions.length === 0) break;
+      
+      totalQuestions += nextQuestions.length;
+      
+      // Simulate answering all questions in this set
+      for (const question of nextQuestions) {
+        if (question.type === 'single_choice') {
+          currentResponses[question.key] = question.options?.[0] || '';
+        } else if (question.type === 'number') {
+          currentResponses[question.key] = question.min_value || 0;
+        } else if (question.type === 'skill_matrix' && question.sub_questions) {
+          const skillResponses: { [key: string]: string } = {};
+          for (const [skillKey, skillData] of Object.entries(question.sub_questions)) {
+            const skill = skillData as { question: string; options: string[] };
+            skillResponses[skillKey] = skill.options[0] || '';
+          }
+          currentResponses[question.key] = skillResponses;
+        }
+      }
+    }
+    
+    return { current: answeredQuestions + 1, total: totalQuestions };
+  };
+
   const getQuestionContext = (question: Question | TennisQuestion | PadelQuestion) => {
     // First check if the question has its own context data
     if ('contextText' in question && question.contextText) {
@@ -762,7 +814,7 @@ const SkillAssessmentScreen = () => {
     // Fall back to predefined context map for pickleball questions
     const pickleballContextMap: { [key: string]: { text: string; tooltip?: string } } = {
       has_dupr: { 
-        text: "This helps us use your official rating if you have one",
+        text: "We will take into account of your existing DUPR (if any) in calculating a provisional DMR for you.",
         tooltip: "DUPR is the official rating system used in competitive pickleball"
       },
       dupr_singles: { 
@@ -833,6 +885,22 @@ const SkillAssessmentScreen = () => {
   const renderQuestionnaireQuestion = (question: Question | TennisQuestion | PadelQuestion) => {
     const contextData = getQuestionContext(question);
     
+    // Determine if Next button should be enabled
+    const isNextEnabled = () => {
+      if (question.type === 'skill_matrix' && question.sub_questions) {
+        // For skill matrix, check if all sub-questions are answered
+        const allSkillKeys = Object.keys(question.sub_questions);
+        const answeredSkillKeys = Object.keys(skillResponses);
+        return allSkillKeys.every(key => answeredSkillKeys.includes(key));
+      } else if (question.type === 'number') {
+        // For number input, check if there's a valid input or if it's optional
+        return currentPageAnswers[question.key] !== undefined || question.optional;
+      } else {
+        // For single choice, check if an option is selected
+        return currentPageAnswers[question.key] !== undefined;
+      }
+    };
+    
     const navigationButtons = (
       <>
         <TouchableOpacity
@@ -845,10 +913,10 @@ const SkillAssessmentScreen = () => {
         <TouchableOpacity
           style={[
             styles.nextButton,
-            !currentPageAnswers[question.key] && styles.nextButtonDisabled
+            !isNextEnabled() && styles.nextButtonDisabled
           ]}
           onPress={handleNext}
-          disabled={!currentPageAnswers[question.key]}
+          disabled={!isNextEnabled()}
         >
           <Text style={styles.nextButtonText}>Next</Text>
         </TouchableOpacity>
@@ -883,6 +951,7 @@ const SkillAssessmentScreen = () => {
             helpText={question.help_text}
             contextText={contextData?.text}
             tooltipText={contextData?.tooltip}
+            navigationButtons={navigationButtons}
           >
             <NumberInput
               value={currentPageAnswers[question.key] ? String(currentPageAnswers[question.key]) : textInput}
@@ -914,6 +983,7 @@ const SkillAssessmentScreen = () => {
             helpText={question.help_text}
             contextText={contextData?.text}
             tooltipText={contextData?.tooltip}
+            navigationButtons={navigationButtons}
           >
             {question.sub_questions && Object.entries(question.sub_questions).map(([skillKey, skillData]) => {
               const skill = skillData as { question: string; options: string[]; tooltip?: string };
@@ -993,17 +1063,24 @@ const SkillAssessmentScreen = () => {
 
               {/* Progress Indicator */}
               <View style={styles.progressContainer}>
-                <Text style={styles.progressText}>
-                  Question {currentQuestionIndex + 1}/{questions.length}
-                </Text>
-                <View style={styles.progressBar}>
-                  <View 
-                    style={[
-                      styles.progressFill, 
-                      { width: `${((currentQuestionIndex + 1) / questions.length) * 100}%` }
-                    ]} 
-                  />
-                </View>
+                {(() => {
+                  const progress = getQuestionProgress();
+                  return (
+                    <>
+                      <Text style={styles.progressText}>
+                        Question {progress.current}/{progress.total}
+                      </Text>
+                      <View style={styles.progressBar}>
+                        <View 
+                          style={[
+                            styles.progressFill, 
+                            { width: `${(progress.current / progress.total) * 100}%` }
+                          ]} 
+                        />
+                      </View>
+                    </>
+                  );
+                })()}
               </View>
 
               {/* Question Content */}
@@ -1018,7 +1095,7 @@ const SkillAssessmentScreen = () => {
                   </View>
                 ) : (
                   <View style={styles.questionContainer}>
-                    <Text style={styles.errorText}>No more questions available.</Text>
+                    <Text style={styles.loadingText}>Preparing assessment...</Text>
                   </View>
                 )}
               </View>
@@ -1158,7 +1235,7 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter',
   },
   questionContainer: {
-    paddingHorizontal: 37,
+    paddingHorizontal: 20,
     marginBottom: 20,
   },
   dropdown: {
@@ -1231,7 +1308,8 @@ const styles = StyleSheet.create({
   },
   questionnaireContainer: {
     flex: 1,
-    justifyContent: 'center',
+    justifyContent: 'flex-start',
+    paddingTop: 10,
   },
   questionnaireHeader: {
     flexDirection: 'row',
@@ -1242,13 +1320,13 @@ const styles = StyleSheet.create({
     paddingBottom: 20,
   },
   backButton: {
-    width: 40,
-    height: 40,
+    width: 48,
+    height: 48,
     justifyContent: 'center',
     alignItems: 'center',
   },
   questionnaireTitle: {
-    fontSize: 18,
+    fontSize: 28,
     fontWeight: '600',
     color: '#CA9BFF',
     fontFamily: 'Poppins',
@@ -1258,7 +1336,7 @@ const styles = StyleSheet.create({
     width: 40,
   },
   progressContainer: {
-    paddingHorizontal: 20,
+    paddingHorizontal: 36,
     paddingBottom: 20,
   },
   progressText: {
@@ -1266,19 +1344,20 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#FFFFFF',
     fontFamily: 'Roboto',
-    marginBottom: 12,
-    textAlign: 'center',
+    marginBottom: 20,
+    marginTop: 30,
+    textAlign: 'left',
   },
   progressBar: {
-    height: 4,
+    height: 6,
     backgroundColor: 'rgba(255, 255, 255, 0.3)',
-    borderRadius: 2,
+    borderRadius: 4,
     overflow: 'hidden',
   },
   progressFill: {
     height: '100%',
     backgroundColor: '#FE9F4D',
-    borderRadius: 2,
+    borderRadius: 4,
   },
   questionnaireNavigation: {
     flexDirection: 'row',

@@ -6,6 +6,7 @@ import {
   StyleSheet,
   ViewStyle,
   Alert,
+  ScrollView,
 } from 'react-native';
 
 interface QuestionContainerProps {
@@ -35,12 +36,23 @@ const QuestionContainer: React.FC<QuestionContainerProps> = ({
 
   return (
     <View style={[styles.container, containerStyle]}>
-      <Text style={styles.instructionText}>Select an answer</Text>
-      <Text style={styles.questionText}>{question}</Text>
-      
-      <View style={styles.contentContainer}>
-        {children}
-      </View>
+      <ScrollView 
+        style={styles.scrollContainer}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+        bounces={false}
+      >
+        <Text style={styles.instructionText}>Select an answer</Text>
+        <Text style={styles.questionText}>{question}</Text>
+        
+        {contextText && (
+          <Text style={styles.contextText}>{contextText}</Text>
+        )}
+        
+        <View style={styles.contentContainer}>
+          {children}
+        </View>
+      </ScrollView>
       
       {navigationButtons && (
         <View style={styles.navigationContainer}>
@@ -54,10 +66,10 @@ const QuestionContainer: React.FC<QuestionContainerProps> = ({
 const styles = StyleSheet.create({
   container: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 20,
-    padding: 36,
+    borderRadius: 30,
+    padding: 0,
     marginHorizontal: 12,
-    marginVertical: 20,
+    marginVertical: 10,
     shadowColor: '#000',
     shadowOffset: {
       width: 0,
@@ -66,8 +78,18 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 8,
     elevation: 5,
-    minHeight: 500,
+    minHeight: 600,
+    maxHeight: '85%',
     maxWidth: '100%',
+    flex: 1,
+  },
+  scrollContainer: {
+    flex: 1,
+    paddingHorizontal: 36,
+    paddingTop: 36,
+  },
+  scrollContent: {
+    paddingBottom: 20,
   },
   instructionText: {
     fontSize: 14,
@@ -85,18 +107,30 @@ const styles = StyleSheet.create({
     lineHeight: 28,
     textAlign: 'left',
   },
+  contextText: {
+    fontSize: 16,
+    color: '#6C7278',
+    marginBottom: 20,
+    fontFamily: 'Roboto',
+    lineHeight: 22,
+    textAlign: 'left',
+    fontStyle: 'italic',
+  },
   contentContainer: {
     gap: 16,
-    flex: 1,
     marginBottom: 20,
   },
   navigationContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingTop: 20,
+    paddingHorizontal: 36,
+    paddingVertical: 20,
     borderTopWidth: 1,
     borderTopColor: '#F0F0F0',
+    backgroundColor: '#FFFFFF',
+    borderBottomLeftRadius: 30,
+    borderBottomRightRadius: 30,
   },
 });
 
