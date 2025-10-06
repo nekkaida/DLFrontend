@@ -18,7 +18,7 @@ import {
 import { router } from 'expo-router';
 import { useOnboarding } from '../OnboardingContext';
 import Svg, { G, Path, Defs, ClipPath, Rect } from 'react-native-svg';
-import { BackgroundGradient, DeuceLogo, BackButton, ConfirmButton } from '../components';
+import { DeuceLogo, BackButton, ConfirmButton, ProgressIndicator } from '../components';
 import * as Location from 'expo-location';
 import { questionnaireAPI, LocationSearchResult } from '../services/api';
 import { useSession } from '@/lib/auth-client';
@@ -97,9 +97,9 @@ const LocationScreen = () => {
   const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const fadeAnim = useRef(new Animated.Value(0)).current;
 
-  // Check location permission status on mount
+  // Check location permission status and auto-fetch location on mount
   useEffect(() => {
-    const checkInitialPermissions = async () => {
+    const checkInitialPermissionsAndFetchLocation = async () => {
       try {
         const servicesEnabled = await Location.hasServicesEnabledAsync();
         setLocationServicesEnabled(servicesEnabled);
@@ -108,8 +108,12 @@ const LocationScreen = () => {
         const permissionGranted = status === 'granted';
         setLocationPermissionGranted(permissionGranted);
 
-        // If services are disabled or permission not granted, reset useCurrentLocation
-        if (!servicesEnabled || !permissionGranted) {
+        // If services are enabled and permission is granted, automatically fetch location
+        if (servicesEnabled && permissionGranted) {
+          console.log('📍 Auto-fetching location on screen load...');
+          await getCurrentLocation(true);
+        } else if (!servicesEnabled || !permissionGranted) {
+          // If services are disabled or permission not granted, reset useCurrentLocation
           setUseCurrentLocation(false);
         }
       } catch (error) {
@@ -118,7 +122,7 @@ const LocationScreen = () => {
       }
     };
 
-    checkInitialPermissions();
+    checkInitialPermissionsAndFetchLocation();
   }, []);
 
   /**
@@ -265,7 +269,7 @@ const LocationScreen = () => {
   };
 
   // Function to request location permissions and fetch current location
-  const getCurrentLocation = async () => {
+  const getCurrentLocation = async (isAutoFetch = false) => {
     try {
       setIsLoadingLocation(true);
       console.log('🔍 Starting location permission request...');
@@ -280,27 +284,29 @@ const LocationScreen = () => {
         setLocationPermissionGranted(false);
         setIsLoadingLocation(false);
 
-        // Show alert with option to open settings
-        Alert.alert(
-          'Location Services Disabled',
-          'Please enable location services in your device settings to use your current location.',
-          [
-            {
-              text: 'Cancel',
-              style: 'cancel',
-            },
-            {
-              text: 'Open Settings',
-              onPress: () => {
-                if (Platform.OS === 'ios') {
-                  Linking.openURL('app-settings:');
-                } else {
-                  Linking.openSettings();
-                }
+        // Only show alert if user manually triggered this (not auto-fetch)
+        if (!isAutoFetch) {
+          Alert.alert(
+            'Location Services Disabled',
+            'Please enable location services in your device settings to use your current location.',
+            [
+              {
+                text: 'Cancel',
+                style: 'cancel',
               },
-            },
-          ]
-        );
+              {
+                text: 'Open Settings',
+                onPress: () => {
+                  if (Platform.OS === 'ios') {
+                    Linking.openURL('app-settings:');
+                  } else {
+                    Linking.openSettings();
+                  }
+                },
+              },
+            ]
+          );
+        }
         return;
       }
 
@@ -325,27 +331,29 @@ const LocationScreen = () => {
         setUseCurrentLocation(false);
         setIsLoadingLocation(false);
 
-        // Show alert with option to open settings
-        Alert.alert(
-          'Location Permission Required',
-          'Location permission is required to use your current location. Please enable location access in your app settings.',
-          [
-            {
-              text: 'Cancel',
-              style: 'cancel',
-            },
-            {
-              text: 'Open Settings',
-              onPress: () => {
-                if (Platform.OS === 'ios') {
-                  Linking.openURL('app-settings:');
-                } else {
-                  Linking.openSettings();
-                }
+        // Only show alert if user manually triggered this (not auto-fetch)
+        if (!isAutoFetch) {
+          Alert.alert(
+            'Location Permission Required',
+            'Location permission is required to use your current location. Please enable location access in your app settings.',
+            [
+              {
+                text: 'Cancel',
+                style: 'cancel',
               },
-            },
-          ]
-        );
+              {
+                text: 'Open Settings',
+                onPress: () => {
+                  if (Platform.OS === 'ios') {
+                    Linking.openURL('app-settings:');
+                  } else {
+                    Linking.openSettings();
+                  }
+                },
+              },
+            ]
+          );
+        }
         return;
       }
 
@@ -422,9 +430,12 @@ const LocationScreen = () => {
         errorMessage = 'Network error while getting location. Please check your internet connection.';
       }
       
-      toast.error(errorTitle, {
-        description: errorMessage,
-      });
+      // Only show toast if user manually triggered this (not auto-fetch)
+      if (!isAutoFetch) {
+        toast.error(errorTitle, {
+          description: errorMessage,
+        });
+      }
       setUseCurrentLocation(false);
     } finally {
       setIsLoadingLocation(false);
@@ -615,7 +626,7 @@ const LocationScreen = () => {
       setUseCurrentLocation(true);
       setLocation('');
       setShowSuggestions(false);
-      await getCurrentLocation();
+      await getCurrentLocation(false);
     } else {
       // User is turning off current location
       console.log('❌ User is turning off current location');
@@ -628,7 +639,6 @@ const LocationScreen = () => {
 
   return (
     <SafeAreaView style={styles.container}>
-      <BackgroundGradient />
       <BackButton />
 
       <KeyboardAvoidingView
@@ -642,16 +652,16 @@ const LocationScreen = () => {
         >
       {/* Logo */}
       <View style={styles.logoContainer}>
-        <DeuceLogo />
+          {/* <DeuceLogo width={42} height={42} /> */}
       </View>
 
       {/* Header */}
       <View style={styles.headerContainer}>
         <Text style={styles.title}>Where would you like to play?</Text>
         <Text style={styles.subtitle}>Find matches near you...</Text>
-        {useCurrentLocation && isLoadingLocation && (
+        {isLoadingLocation && (
           <Text style={styles.helpText}>
-            Make sure location services are enabled in your device settings
+            {useCurrentLocation ? 'Getting your current location...' : 'Make sure location services are enabled in your device settings'}
           </Text>
         )}
       </View>
@@ -799,6 +809,9 @@ const LocationScreen = () => {
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
+      
+      {/* Fixed Progress Indicator */}
+      <ProgressIndicator currentStep={1} totalSteps={3} />
     </SafeAreaView>
   );
 };
@@ -826,7 +839,7 @@ const styles = StyleSheet.create({
   },
   logoContainer: {
     alignItems: 'center',
-    marginTop: 60,
+    marginTop: 40,
     marginBottom: 40,
   },
   logo: {
@@ -841,7 +854,7 @@ const styles = StyleSheet.create({
     marginBottom: 40,
   },
   title: {
-    fontSize: 32,
+    fontSize: 36,
     fontWeight: '700',
     color: '#000000',
     lineHeight: 40,

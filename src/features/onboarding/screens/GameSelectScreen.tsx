@@ -9,7 +9,7 @@ import {
 } from 'react-native';
 import { router } from 'expo-router';
 import { useOnboarding } from '../OnboardingContext';
-import { SportButton, BackgroundGradient, DeuceLogo, BackButton, ConfirmButton } from '../components';
+import { SportButton, DeuceLogo, BackButton, ConfirmButton, ProgressIndicator } from '../components';
 import { questionnaireAPI } from '../services/api';
 import { useSession } from '@/lib/auth-client';
 import { toast } from 'sonner-native';
@@ -66,7 +66,6 @@ const GameSelectScreen = () => {
 
   return (
     <SafeAreaView style={styles.container}>
-      <BackgroundGradient />
       <BackButton />
 
       <View style={styles.contentContainer}>
@@ -77,7 +76,7 @@ const GameSelectScreen = () => {
         >
         {/* Logo */}
         <View style={styles.logoContainer}>
-          <DeuceLogo />
+          {/* <DeuceLogo width={42} height={42} /> */}
         </View>
 
         {/* Header */}
@@ -119,6 +118,9 @@ const GameSelectScreen = () => {
           isLoading={isSaving}
         />
       </View>
+      
+      {/* Fixed Progress Indicator */}
+      <ProgressIndicator currentStep={2} totalSteps={3} />
     </SafeAreaView>
   );
 };
@@ -126,7 +128,7 @@ const GameSelectScreen = () => {
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 const horizontalPadding = Math.max(screenWidth * 0.08, 20); // 8% of screen, min 20px
 const buttonPadding = Math.max(screenWidth * 0.18, 60); // 18% of screen, min 60px
-const bottomPosition = Math.max(screenHeight * 0.05, 40); // 5% of screen height, min 40px
+const bottomPosition = Math.max(screenHeight * 0.12, 80); // 12% of screen height, min 80px
 
 const styles = StyleSheet.create({
   container: {
@@ -143,13 +145,14 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     paddingHorizontal: buttonPadding,
+    paddingBottom: 10,
   },
   backgroundTouchable: {
     flex: 1,
   },
   logoContainer: {
     alignItems: 'center',
-    marginTop: 60,
+    marginTop: 40,
     marginBottom: 40,
   },
   logo: {
@@ -188,7 +191,7 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter',
   },
   sportsContainer: {
-    alignItems: 'center',
+    paddingHorizontal: horizontalPadding,
     gap: 8,
   },
   sportButton: {

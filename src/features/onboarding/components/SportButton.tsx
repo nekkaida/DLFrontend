@@ -120,10 +120,10 @@ const SportButton: React.FC<SportButtonProps> = ({
   // Dynamic styles based on state
   const buttonStyle: ViewStyle[] = [
     styles.button,
-    isSelected && {
+    ...(isSelected ? [{
       backgroundColor: config.selectedBg,
       borderWidth: 0,
-    },
+    }] : []),
     ...(disabled ? [styles.buttonDisabled] : []),
   ];
 
@@ -150,7 +150,8 @@ const SportButton: React.FC<SportButtonProps> = ({
 };
 
 const { width: screenWidth } = Dimensions.get('window');
-const buttonWidth = Math.min(screenWidth * 0.85, 330); // 85% of screen width, max 330px
+const horizontalPadding = Math.max(screenWidth * 0.08, 20); 
+const buttonWidth = screenWidth - (horizontalPadding * 2); 
 
 const styles = StyleSheet.create({
   button: {

@@ -1,5 +1,6 @@
 import React from 'react';
 import { TouchableOpacity, Text, StyleSheet, Dimensions } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 
 interface ConfirmButtonProps {
   onPress: () => void;
@@ -18,27 +19,38 @@ const ConfirmButton: React.FC<ConfirmButtonProps> = ({
 }) => {
   return (
     <TouchableOpacity
-      style={[
-        styles.button,
-        (disabled || isLoading) && styles.buttonDisabled,
-      ]}
       onPress={onPress}
       disabled={disabled || isLoading}
+      style={styles.touchableContainer}
     >
-      <Text style={styles.buttonText}>
-        {isLoading ? loadingText : text}
-      </Text>
+      <LinearGradient
+        colors={disabled || isLoading ? ['#BABABA', '#BABABA'] : ['#FF7903', '#FEA04D']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 0 }}
+        style={[
+          styles.button,
+          (disabled || isLoading) && styles.buttonDisabled,
+        ]}
+      >
+        <Text style={styles.buttonText}>
+          {isLoading ? loadingText : text}
+        </Text>
+      </LinearGradient>
     </TouchableOpacity>
   );
 };
 
 const styles = StyleSheet.create({
+  touchableContainer: {
+    borderRadius: 22, // Half of height for pill shape
+    overflow: 'hidden',
+  },
   button: {
     height: 44,
-    backgroundColor: '#FE9F4D',
-    borderRadius: 8,
+    borderRadius: 22, // Half of height for pill shape
     justifyContent: 'center',
     alignItems: 'center',
+    paddingHorizontal: 24,
   },
   buttonDisabled: {
     opacity: 0.5,

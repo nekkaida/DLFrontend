@@ -16,6 +16,7 @@ import { PickleballQuestionnaire, Question, QuestionnaireResponse, SkillQuestion
 import { TennisQuestionnaire, TennisQuestion, TennisQuestionnaireResponse, TennisSkillQuestions } from '../services/TennisQuestionnaire';
 import { PadelQuestionnaire, PadelQuestion, PadelQuestionnaireResponse, PadelSkillQuestions } from '../services/PadelQuestionnaire';
 import { OptionButton, NumberInput, QuestionContainer, BackgroundGradient } from '../components';
+import { QuestionCard } from '../components/QuestionContainer';
 import { LoadingSpinner } from '@/shared/components/ui';
 import { useSession } from '@/lib/auth-client';
 import type { SportType } from '../types';
@@ -67,6 +68,43 @@ const PadelIcon = () => (
   </Svg>
 );
 
+// Simple Question Card Component for dropdown
+interface SimpleQuestionCardProps {
+  question: string;
+  selectedOption: string | null;
+  dropdownRef: React.RefObject<View | null>;
+  onPress: () => void;
+  isActive: boolean;
+}
+
+const SimpleQuestionCard: React.FC<SimpleQuestionCardProps> = ({
+  question,
+  selectedOption,
+  dropdownRef,
+  onPress,
+  isActive,
+}) => {
+  return (
+    <View style={[styles.stackedCard, isActive ? styles.activeCard : styles.inactiveCard]}>
+      <QuestionContainer question={question}>
+        <TouchableOpacity
+          ref={dropdownRef}
+          style={styles.dropdown}
+          onPress={onPress}
+        >
+          <Text style={[
+            styles.dropdownText,
+            selectedOption && styles.dropdownTextSelected
+          ]}>
+            {selectedOption || 'Select an option'}
+          </Text>
+          <ChevronDown />
+        </TouchableOpacity>
+      </QuestionContainer>
+    </View>
+  );
+};
+
 const SkillAssessmentScreen = () => {
   const { sport, sportIndex } = useLocalSearchParams();
   const { data, updateData } = useOnboarding();
@@ -98,6 +136,9 @@ const SkillAssessmentScreen = () => {
   const [currentPageAnswers, setCurrentPageAnswers] = useState<{[key: string]: any}>({});
   const [questionHistory, setQuestionHistory] = useState<Array<{questions: Question[] | TennisQuestion[] | PadelQuestion[], responses: any}>>([]);
   const [currentPageIndex, setCurrentPageIndex] = useState(0);
+  const [expandedSkillQuestions, setExpandedSkillQuestions] = useState<Question[] | TennisQuestion[] | PadelQuestion[]>([]);
+  const [isInSkillMatrix, setIsInSkillMatrix] = useState(false);
+  const [currentSkillIndex, setCurrentSkillIndex] = useState(0);
 
   // Update navigation state for simple dropdown
   useEffect(() => {
@@ -113,6 +154,34 @@ const SkillAssessmentScreen = () => {
       setCurrentPageAnswers({});
     }
   }, [currentQuestionIndex, questions]);
+
+  // Expand skill matrix questions into individual questions
+  const expandSkillMatrixQuestions = (questions: Question[] | TennisQuestion[] | PadelQuestion[]) => {
+    const expandedQuestions: any[] = [];
+    
+    questions.forEach(question => {
+      if (question.type === 'skill_matrix' && question.sub_questions) {
+        // Create individual questions for each skill
+        Object.entries(question.sub_questions).forEach(([skillKey, skillData]) => {
+          const skill = skillData as { question: string; options: string[]; tooltip?: string };
+          expandedQuestions.push({
+            key: `${question.key}_${skillKey}`,
+            question: skill.question,
+            type: 'single_choice' as const,
+            options: skill.options,
+            help_text: skill.tooltip,
+            // Store the original question key for response mapping
+            originalKey: question.key,
+            skillKey: skillKey,
+          });
+        });
+      } else {
+        expandedQuestions.push(question);
+      }
+    });
+    
+    return expandedQuestions;
+  };
   
   // Initialize question history when questionnaire starts
   useEffect(() => {
@@ -162,11 +231,13 @@ const SkillAssessmentScreen = () => {
             setSkillResponses({});
             setCurrentQuestionIndex(0);
             const initialQuestions = questionnaire.getConditionalQuestions({});
-            setQuestions(initialQuestions);
+            const expandedQuestions = expandSkillMatrixQuestions(initialQuestions);
+            setQuestions(expandedQuestions);
           } else {
             // Continue incomplete assessment
             const nextQuestions = questionnaire.getConditionalQuestions(existingResponses);
-            setQuestions(nextQuestions);
+            const expandedQuestions = expandSkillMatrixQuestions(nextQuestions);
+            setQuestions(expandedQuestions);
             setCurrentQuestionIndex(0);
           }
         } catch (error) {
@@ -176,7 +247,8 @@ const SkillAssessmentScreen = () => {
           setSkillResponses({});
           setCurrentQuestionIndex(0);
           const initialQuestions = questionnaire.getConditionalQuestions({});
-          setQuestions(initialQuestions);
+          const expandedQuestions = expandSkillMatrixQuestions(initialQuestions);
+          setQuestions(expandedQuestions);
         }
       } else {
         // No existing data, start fresh
@@ -184,7 +256,8 @@ const SkillAssessmentScreen = () => {
         setSkillResponses({});
         setCurrentQuestionIndex(0);
         const initialQuestions = questionnaire.getConditionalQuestions({});
-        setQuestions(initialQuestions);
+        const expandedQuestions = expandSkillMatrixQuestions(initialQuestions);
+        setQuestions(expandedQuestions);
       }
     } else {
       setIsComprehensiveQuestionnaire(false);
@@ -279,49 +352,8 @@ const SkillAssessmentScreen = () => {
     setCurrentPageAnswers(newPageAnswers);
     console.log('📝 Current page answers:', newPageAnswers);
     
-    // Check if current question is fully answered
-    const currentQuestion = questions[currentQuestionIndex];
-    if (currentQuestion) {
-      if (currentQuestion.type === 'skill_matrix' && currentQuestion.sub_questions) {
-        // For skill matrix, check if all sub-questions are answered
-        const allSkillKeys = Object.keys(currentQuestion.sub_questions);
-        const answeredSkillKeys = Object.keys(skillResponses);
-        const hasAllSkillAnswers = allSkillKeys.every(key => answeredSkillKeys.includes(key) || newPageAnswers[key]);
-        console.log('🎯 Skill matrix check:', { allSkillKeys, answeredSkillKeys, hasAllSkillAnswers });
-        // Navigation is handled within question cards
-      } else {
-        // For single questions, show navigation immediately
-        console.log('✅ Single question answered - showing navigation');
-        // Navigation is handled within question cards
-      }
-    }
-  };
-
-  const handleSkillResponse = (skillKey: string, answer: string) => {
-    const newSkillResponses = { ...skillResponses, [skillKey]: answer };
-    setSkillResponses(newSkillResponses);
-    console.log('🎯 Skill answered:', skillKey, answer, 'All responses:', newSkillResponses);
-    
-    // Check if all skills are answered for current question
-    const currentQuestion = questions[currentQuestionIndex];
-    if (currentQuestion?.sub_questions) {
-      const allSkillKeys = Object.keys(currentQuestion.sub_questions);
-      const answeredKeys = Object.keys(newSkillResponses);
-      
-      console.log('🎯 Skill matrix progress:', { allSkillKeys, answeredKeys });
-      
-      if (allSkillKeys.every(key => answeredKeys.includes(key))) {
-        // All skills answered, show navigation
-        console.log('✅ All skills answered - showing navigation');
-        // Navigation is handled within question cards
-        // Store skill responses in current page answers
-        setCurrentPageAnswers({ ...currentPageAnswers, skills: newSkillResponses });
-      } else {
-        // Not all skills answered yet, hide navigation
-        console.log('⏳ Not all skills answered yet - hiding navigation');
-        // Navigation is handled within question cards
-      }
-    }
+    // For individual skill questions, we don't need special handling since they're now single_choice
+    console.log('✅ Question answered - showing navigation');
   };
 
   const completePickleballAssessment = async (finalResponses: QuestionnaireResponse) => {
@@ -352,6 +384,7 @@ const SkillAssessmentScreen = () => {
       }
       
       // Navigate directly to results without delay
+      setIsSubmittingAssessment(false);
       router.replace(`/onboarding/assessment-results?sport=${sport}&sportIndex=${currentSportIndex}`);
     } catch (error) {
       console.error('Error in completePickleballAssessment:', error);
@@ -390,6 +423,7 @@ const SkillAssessmentScreen = () => {
       }
       
       // Navigate directly to results without delay
+      setIsSubmittingAssessment(false);
       router.replace(`/onboarding/assessment-results?sport=${sport}&sportIndex=${currentSportIndex}`);
     } catch (error) {
       console.error('Error in completeTennisAssessment:', error);
@@ -428,6 +462,7 @@ const SkillAssessmentScreen = () => {
       }
       
       // Navigate directly to results without delay
+      setIsSubmittingAssessment(false);
       router.replace(`/onboarding/assessment-results?sport=${sport}&sportIndex=${currentSportIndex}`);
     } catch (error) {
       console.error('Error in completePadelAssessment:', error);
@@ -501,14 +536,31 @@ const SkillAssessmentScreen = () => {
     }
   };
 
-  const handleNext = async () => {
+  const proceedToNextQuestion = async () => {
     if (isComprehensiveQuestionnaire) {
-      // Include skill responses for skill matrix questions
+      // Handle individual skill questions differently
       const currentQuestion = questions[currentQuestionIndex];
       let finalPageAnswers = { ...currentPageAnswers };
       
-      if (currentQuestion?.type === 'skill_matrix' && Object.keys(skillResponses).length > 0) {
-        finalPageAnswers[currentQuestion.key] = skillResponses;
+      // Check if this is a skill question (has originalKey and skillKey)
+      if (currentQuestion && 'originalKey' in currentQuestion && 'skillKey' in currentQuestion) {
+        const originalKey = (currentQuestion as any).originalKey;
+        const skillKey = (currentQuestion as any).skillKey;
+        
+        // Initialize the skill responses object if it doesn't exist
+        if (!responses[originalKey]) {
+          (responses as any)[originalKey] = {};
+        }
+        
+        // Add the skill response to the appropriate skill matrix
+        (responses as any)[originalKey][skillKey] = currentPageAnswers[currentQuestion.key];
+        
+        // Move to next question
+        if (currentQuestionIndex < questions.length - 1) {
+          setCurrentQuestionIndex(currentQuestionIndex + 1);
+          setCurrentPageAnswers({});
+          return;
+        }
       }
       
       const newResponses = { ...responses, ...finalPageAnswers };
@@ -541,10 +593,11 @@ const SkillAssessmentScreen = () => {
       }
       
       // Update questions and reset to first question of new set
-      setQuestions(nextQuestions);
+      const expandedQuestions = expandSkillMatrixQuestions(nextQuestions);
+      setQuestions(expandedQuestions);
       setCurrentQuestionIndex(0);
       setCurrentPageIndex(currentPageIndex + 1);
-      console.log('📖 Moving to next question set:', nextQuestions.length, 'questions');
+      console.log('📖 Moving to next question set:', expandedQuestions.length, 'questions');
     } else {
       // For simple dropdown
       if (selectedOption) {
@@ -564,6 +617,7 @@ const SkillAssessmentScreen = () => {
             console.warn('Failed to save skill level to backend:', backendError);
           }
 
+          setIsSubmittingAssessment(false);
           proceedToNext();
         } catch (error) {
           console.error('Error saving simple skill level:', error);
@@ -572,6 +626,11 @@ const SkillAssessmentScreen = () => {
         }
       }
     }
+  };
+
+  const handleNext = () => {
+    // Direct navigation without animations
+    proceedToNextQuestion();
   };
 
   const startFreshAssessment = () => {
@@ -599,7 +658,8 @@ const SkillAssessmentScreen = () => {
       console.log('📋 Questions from service:', initialQuestions.length, initialQuestions);
       
       if (initialQuestions.length > 0) {
-        setQuestions(initialQuestions);
+        const expandedQuestions = expandSkillMatrixQuestions(initialQuestions);
+        setQuestions(expandedQuestions);
         console.log('✅ Service questions set');
       } else {
         // Fallback question based on sport
@@ -611,7 +671,8 @@ const SkillAssessmentScreen = () => {
             options: ['Yes', 'No', 'Not sure what DUPR is'],
             help_text: 'DUPR is the official rating system used in competitive pickleball',
           };
-          setQuestions([hasDoprQuestion]);
+          const expandedQuestions = expandSkillMatrixQuestions([hasDoprQuestion]);
+          setQuestions(expandedQuestions);
         } else if (currentQuestionnaireType === 'tennis') {
           const experienceQuestion = {
             key: 'experience',
@@ -620,7 +681,8 @@ const SkillAssessmentScreen = () => {
             options: ['Less than 6 months', '6 months - 1 year', '1-2 years', '2-5 years', 'More than 5 years'],
             help_text: 'Include all tennis experience, whether casual or formal',
           };
-          setQuestions([experienceQuestion]);
+          const expandedQuestions = expandSkillMatrixQuestions([experienceQuestion]);
+          setQuestions(expandedQuestions);
         } else {
           const experienceQuestion = {
             key: 'experience',
@@ -629,7 +691,8 @@ const SkillAssessmentScreen = () => {
             options: ['Less than 3 months', '3-6 months', '6 months - 1 year', '1-2 years', 'More than 2 years'],
             help_text: 'Include all padel experience, whether casual or formal',
           };
-          setQuestions([experienceQuestion]);
+          const expandedQuestions = expandSkillMatrixQuestions([experienceQuestion]);
+          setQuestions(expandedQuestions);
         }
         console.log('✅ Fallback question set');
       }
@@ -660,6 +723,7 @@ const SkillAssessmentScreen = () => {
         description: 'You can complete your skill assessment later in your profile settings.',
       });
       
+      setIsSubmittingAssessment(false);
       proceedToNext();
     } catch (error) {
       console.error('Error skipping assessment:', error);
@@ -802,228 +866,6 @@ const SkillAssessmentScreen = () => {
     return { current: answeredQuestions + 1, total: totalQuestions };
   };
 
-  const getQuestionContext = (question: Question | TennisQuestion | PadelQuestion) => {
-    // First check if the question has its own context data
-    if ('contextText' in question && question.contextText) {
-      return {
-        text: question.contextText,
-        tooltip: 'tooltipText' in question ? question.tooltipText : undefined
-      };
-    }
-    
-    // Fall back to predefined context map for pickleball questions
-    const pickleballContextMap: { [key: string]: { text: string; tooltip?: string } } = {
-      has_dupr: { 
-        text: "We will take into account of your existing DUPR (if any) in calculating a provisional DMR for you.",
-        tooltip: "DUPR is the official rating system used in competitive pickleball"
-      },
-      dupr_singles: { 
-        text: "Your official singles rating for accurate assessment",
-        tooltip: "DUPR ratings typically range from 2.0 (beginner) to 8.0+ (professional)"
-      },
-      dupr_doubles: { 
-        text: "Your official doubles rating for accurate assessment",
-        tooltip: "Doubles ratings may differ from singles due to partner play dynamics"
-      },
-      dupr_reliability_games: { 
-        text: "More games means a more reliable rating",
-        tooltip: "DUPR becomes more accurate with 15+ rated games"
-      },
-      dupr_recent_activity: { 
-        text: "Recent play ensures current skill level",
-        tooltip: "Skills can change over time, recent games reflect current ability"
-      },
-      dupr_competition_level: { 
-        text: "Competition level affects rating accuracy",
-        tooltip: "Tournament games typically provide more accurate ratings"
-      },
-      experience: { 
-        text: "Experience level helps gauge your development",
-        tooltip: "Playing time correlates with skill development patterns"
-      },
-      sports_background: { 
-        text: "Other sports experience translates to pickleball",
-        tooltip: "Tennis, badminton, and paddle sports provide transferable skills"
-      },
-      frequency: { 
-        text: "How often you play affects skill development",
-        tooltip: "Regular play accelerates improvement and maintains consistency"
-      },
-      competitive_level: { 
-        text: "Your typical competition level",
-        tooltip: "The skill level of your regular opponents indicates your own level"
-      },
-      skills: { 
-        text: "Technical skills assessment",
-        tooltip: "Different aspects of your game may be at different skill levels"
-      },
-      self_rating: { 
-        text: "Your honest self-assessment",
-        tooltip: "Self-perception helps validate our calculated rating"
-      },
-      tournament: { 
-        text: "Tournament experience indicates skill level",
-        tooltip: "Competitive play demonstrates ability under pressure"
-      },
-      consistency_check_1: { 
-        text: "Overall ability check",
-        tooltip: "Helps us verify the consistency of your responses"
-      },
-      consistency_check_2: { 
-        text: "Competition level verification",
-        tooltip: "Cross-validates your skill level assessment"
-      },
-      coaching_background: {
-        text: "Formal instruction background",
-        tooltip: "Coaching experience often indicates higher skill levels"
-      }
-    };
-    
-    return pickleballContextMap[question.key];
-  };
-
-  const renderQuestionnaireQuestion = (question: Question | TennisQuestion | PadelQuestion) => {
-    const contextData = getQuestionContext(question);
-    
-    // Determine if Next button should be enabled
-    const isNextEnabled = () => {
-      if (question.type === 'skill_matrix' && question.sub_questions) {
-        // For skill matrix, check if all sub-questions are answered
-        const allSkillKeys = Object.keys(question.sub_questions);
-        const answeredSkillKeys = Object.keys(skillResponses);
-        return allSkillKeys.every(key => answeredSkillKeys.includes(key));
-      } else if (question.type === 'number') {
-        // For number input, check if there's a valid input or if it's optional
-        return currentPageAnswers[question.key] !== undefined || question.optional;
-      } else {
-        // For single choice, check if an option is selected
-        return currentPageAnswers[question.key] !== undefined;
-      }
-    };
-    
-    const navigationButtons = (
-      <>
-        <TouchableOpacity
-          style={styles.skipButton}
-          onPress={skipAssessmentForLater}
-        >
-          <Text style={styles.skipButtonText}>Skip</Text>
-        </TouchableOpacity>
-        
-        <TouchableOpacity
-          style={[
-            styles.nextButton,
-            !isNextEnabled() && styles.nextButtonDisabled
-          ]}
-          onPress={handleNext}
-          disabled={!isNextEnabled()}
-        >
-          <Text style={styles.nextButtonText}>Next</Text>
-        </TouchableOpacity>
-      </>
-    );
-    
-    switch (question.type) {
-      case 'single_choice':
-        return (
-          <QuestionContainer
-            question={question.question}
-            helpText={question.help_text}
-            contextText={contextData?.text}
-            tooltipText={contextData?.tooltip}
-            navigationButtons={navigationButtons}
-          >
-            {question.options?.map((option, index) => (
-              <OptionButton
-                key={index}
-                title={option}
-                isSelected={currentPageAnswers[question.key] === option || responses[question.key] === option}
-                onPress={() => handleQuestionnaireResponse(question.key, option)}
-              />
-            ))}
-          </QuestionContainer>
-        );
-      
-      case 'number':
-        return (
-          <QuestionContainer
-            question={question.question}
-            helpText={question.help_text}
-            contextText={contextData?.text}
-            tooltipText={contextData?.tooltip}
-            navigationButtons={navigationButtons}
-          >
-            <NumberInput
-              value={currentPageAnswers[question.key] ? String(currentPageAnswers[question.key]) : textInput}
-              onChangeText={setTextInput}
-              onSubmit={() => {
-                const numValue = parseFloat(textInput);
-                if (!isNaN(numValue) && 
-                    (!question.min_value || numValue >= question.min_value) &&
-                    (!question.max_value || numValue <= question.max_value)) {
-                  handleQuestionnaireResponse(question.key, numValue);
-                } else {
-                  toast.error('Invalid Input', {
-                    description: `Please enter a valid number ${question.min_value ? `between ${question.min_value} and ${question.max_value}` : ''}`,
-                  });
-                }
-              }}
-              onSkip={question.optional ? () => handleQuestionnaireResponse(question.key, '') : undefined}
-              minValue={question.min_value}
-              maxValue={question.max_value}
-              allowSkip={question.optional}
-            />
-          </QuestionContainer>
-        );
-      
-      case 'skill_matrix':
-        return (
-          <QuestionContainer
-            question={question.question}
-            helpText={question.help_text}
-            contextText={contextData?.text}
-            tooltipText={contextData?.tooltip}
-            navigationButtons={navigationButtons}
-          >
-            {question.sub_questions && Object.entries(question.sub_questions).map(([skillKey, skillData]) => {
-              const skill = skillData as { question: string; options: string[]; tooltip?: string };
-              return (
-                <View key={skillKey} style={styles.skillQuestionContainer}>
-                  <View style={styles.skillQuestionHeader}>
-                    <Text style={styles.skillQuestionText}>{skill.question}</Text>
-                    {skill.tooltip && (
-                      <TouchableOpacity 
-                        style={styles.skillTooltipButton} 
-                        onPress={() => toast.info('Info', {
-                          description: skill.tooltip,
-                        })}
-                      >
-                        <Text style={styles.skillTooltipIcon}>ⓘ</Text>
-                      </TouchableOpacity>
-                    )}
-                  </View>
-                  <View style={styles.skillOptionsContainer}>
-                    {skill.options.map((option, index) => (
-                      <OptionButton
-                        key={index}
-                        title={option}
-                        isSelected={skillResponses[skillKey] === option}
-                        onPress={() => handleSkillResponse(skillKey, option)}
-                        variant="compact"
-                      />
-                    ))}
-                  </View>
-                </View>
-              );
-            })}
-          </QuestionContainer>
-        );
-      
-      default:
-        return null;
-    }
-  };
-
   return (
     <SafeAreaView style={styles.container}>
       <BackgroundGradient sport={sport as string} />
@@ -1086,8 +928,57 @@ const SkillAssessmentScreen = () => {
               {/* Question Content */}
               <View style={styles.questionnaireContainer}>
                 {questions.length > 0 && currentQuestionIndex < questions.length ? (
-                  <View style={styles.questionContainer}>
-                    {renderQuestionnaireQuestion(questions[currentQuestionIndex])}
+                  <View style={styles.cardStackContainer}>
+                    {/* Render current and next question cards */}
+                    {questions.slice(currentQuestionIndex, currentQuestionIndex + 2).map((question, index) => {
+                      const actualIndex = currentQuestionIndex + index;
+                      const isActive = index === 0;
+                      
+                      // Determine if Next button should be enabled
+                      const isNextEnabled = () => {
+                        if (question.type === 'number') {
+                          // For number input, check if there's a valid input or if it's optional
+                          return currentPageAnswers[question.key] !== undefined || question.optional;
+                        } else {
+                          // For single choice, check if an option is selected
+                          return currentPageAnswers[question.key] !== undefined;
+                        }
+                      };
+                      
+                      const navigationButtons = (
+                        <>
+                          <TouchableOpacity
+                            style={styles.skipButton}
+                            onPress={skipAssessmentForLater}
+                          >
+                            <Text style={styles.skipButtonText}>Skip</Text>
+                          </TouchableOpacity>
+                          
+                          <TouchableOpacity
+                            style={[
+                              styles.nextButton,
+                              !isNextEnabled() && styles.nextButtonDisabled
+                            ]}
+                            onPress={handleNext}
+                            disabled={!isNextEnabled()}
+                          >
+                            <Text style={styles.nextButtonText}>Next</Text>
+                          </TouchableOpacity>
+                        </>
+                      );
+                      
+                      return (
+                        <QuestionCard
+                          key={actualIndex}
+                          question={question}
+                          isActive={isActive}
+                          onAnswer={handleQuestionnaireResponse}
+                          currentPageAnswers={currentPageAnswers}
+                          responses={responses}
+                          navigationButtons={navigationButtons}
+                        />
+                      );
+                    })}
                   </View>
                 ) : questions.length === 0 ? (
                   <View style={styles.questionContainer}>
@@ -1102,23 +993,27 @@ const SkillAssessmentScreen = () => {
             </>
           )
         ) : (
-          <QuestionContainer
-            question="How long have you been playing?"
-          >
-            <TouchableOpacity
-              ref={dropdownRef}
-              style={styles.dropdown}
+          <View style={styles.cardStackContainer}>
+            <SimpleQuestionCard
+              question="How long have you been playing?"
+              selectedOption={selectedOption}
+              dropdownRef={dropdownRef}
               onPress={openDropdown}
-            >
-              <Text style={[
-                styles.dropdownText,
-                selectedOption && styles.dropdownTextSelected
-              ]}>
-                {selectedOption || 'Select an option'}
-              </Text>
-              <ChevronDown />
-            </TouchableOpacity>
-          </QuestionContainer>
+              isActive={true}
+            />
+            
+            {/* Confirm Button */}
+            {selectedOption && (
+              <View style={styles.simpleConfirmButtonContainer}>
+                <TouchableOpacity
+                  style={styles.simpleConfirmButton}
+                  onPress={handleConfirm}
+                >
+                  <Text style={styles.simpleConfirmButtonText}>Continue</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+          </View>
         )}
 
       </View>
@@ -1310,6 +1205,54 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'flex-start',
     paddingTop: 10,
+  },
+  cardStackContainer: {
+    flex: 1,
+    position: 'relative',
+  },
+  stackedCard: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+  },
+  activeCard: {
+    zIndex: 2,
+    opacity: 1,
+  },
+  inactiveCard: {
+    zIndex: 1,
+    opacity: 0.7,
+    transform: [{ scale: 0.95 }],
+  },
+  simpleConfirmButtonContainer: {
+    position: 'absolute',
+    bottom: 20,
+    left: 0,
+    right: 0,
+    paddingHorizontal: 20,
+  },
+  simpleConfirmButton: {
+    backgroundColor: '#FE9F4D',
+    borderRadius: 25,
+    paddingVertical: 12,
+    paddingHorizontal: 32,
+    alignItems: 'center',
+    shadowColor: '#FE9F4D',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  simpleConfirmButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '600',
+    fontFamily: 'Roboto',
   },
   questionnaireHeader: {
     flexDirection: 'row',

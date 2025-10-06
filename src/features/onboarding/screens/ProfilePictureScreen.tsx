@@ -16,6 +16,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { manipulateAsync, SaveFormat } from 'expo-image-manipulator';
 import { Svg, Path, G, Circle, Rect, Defs, ClipPath } from 'react-native-svg';
 import { BackgroundGradient, DeuceLogo, BackButton, ConfirmButton, CircularImageCropper } from '../components';
+import { LinearGradient } from 'expo-linear-gradient';
 import { toast } from 'sonner-native';
 import { useSession, authClient } from '@/lib/auth-client';
 import { getBackendBaseURL } from '@/config/network';
@@ -364,12 +365,12 @@ const ProfilePictureScreen = () => {
 
   return (
     <SafeAreaView style={styles.container}>
-      <BackgroundGradient />
+      {/* <BackgroundGradient /> */}
       <BackButton />
 
       {/* Logo */}
       <View style={styles.logoContainer}>
-        <DeuceLogo />
+        {/* <DeuceLogo /> */}
       </View>
 
       {/* Header */}
@@ -424,26 +425,44 @@ const ProfilePictureScreen = () => {
 
       {/* Upload Photo Button */}
       <TouchableOpacity
-        style={[styles.uploadButton, isUploadingImage && styles.uploadButtonDisabled]}
         onPress={() => {
           Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
           pickImageFromLibrary();
         }}
         disabled={isUploadingImage}
+        style={styles.buttonTouchableContainer}
       >
-        <Text style={styles.uploadButtonText}>Upload a photo</Text>
+        <LinearGradient
+          colors={isUploadingImage ? ['#BABABA', '#BABABA'] : ['#FF7903', '#FEA04D']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0 }}
+          style={[
+            styles.button,
+            isUploadingImage && styles.buttonDisabled,
+          ]}
+        >
+          <Text style={styles.buttonText}>Upload a photo</Text>
+        </LinearGradient>
       </TouchableOpacity>
 
       {/* Take Photo Button */}
       <TouchableOpacity
-        style={[styles.takePhotoButton, isUploadingImage && styles.uploadButtonDisabled]}
         onPress={() => {
           Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
           openCamera();
         }}
         disabled={isUploadingImage}
+        style={styles.buttonTouchableContainer}
       >
-        <Text style={styles.takePhotoButtonText}>Take a photo</Text>
+        <View
+          style={[
+            styles.button,
+            styles.takePhotoButtonSolid,
+            isUploadingImage && styles.buttonDisabled,
+          ]}
+        >
+          <Text style={styles.takePhotoButtonText}>Take a photo</Text>
+        </View>
       </TouchableOpacity>
 
       {/* Skip for now */}
@@ -581,35 +600,35 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  uploadButton: {
-    height: 40,
-    backgroundColor: '#FE9F4D',
-    borderRadius: 8,
+  buttonTouchableContainer: {
+    borderRadius: 22,
+    overflow: 'hidden',
+    marginBottom: 8,
+    width: '70%',
+    alignSelf: 'center',
+  },
+  button: {
+    height: 44,
+    borderRadius: 22,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 71,
-    marginBottom: 8,
+    paddingHorizontal: 24,
   },
-  uploadButtonDisabled: {
+  buttonDisabled: {
     opacity: 0.5,
   },
-  uploadButtonText: {
+  buttonText: {
     color: '#FFFFFF',
     fontSize: 14,
     fontWeight: '600',
     lineHeight: 24,
     fontFamily: 'Inter',
   },
-  takePhotoButton: {
-    height: 40,
+  takePhotoButtonSolid: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 8,
     borderWidth: 1,
     borderColor: '#FE9F4D',
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 71,
-    marginBottom: 16,
+    marginBottom: 8,
   },
   takePhotoButtonText: {
     color: '#FE9F4D',
@@ -630,8 +649,8 @@ const styles = StyleSheet.create({
   },
   allSetContainer: {
     position: 'absolute',
-    bottom: Dimensions.get('window').height * 0.02, // 2% from bottom for responsiveness
-    right: Dimensions.get('window').width * 0.05, // 5% from right for responsiveness
+    bottom: Dimensions.get('window').height * 0.06,
+    right: Dimensions.get('window').width * 0.08, 
     flexDirection: 'row',
     alignItems: 'center',
   },

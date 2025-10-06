@@ -14,7 +14,7 @@ import * as Haptics from 'expo-haptics';
 import { router } from 'expo-router';
 import { useOnboarding } from '../OnboardingContext';
 import { InputField, GenderSelector, DatePicker } from '@shared/components/forms';
-import { BackgroundGradient, DeuceLogo, ConfirmButton } from '../components';
+import { DeuceLogo, ConfirmButton, ProgressIndicator } from '../components';
 import { LoadingSpinner } from '@shared/components/ui';
 import { validateFullName, validateGender, validateDateOfBirth } from '../utils/validation';
 import { questionnaireAPI } from '../services/api';
@@ -107,7 +107,6 @@ const PersonalInfoScreen = () => {
   if (isLoading) {
     return (
       <SafeAreaView style={styles.container}>
-        <BackgroundGradient />
         <LoadingSpinner message="Loading your information..." />
       </SafeAreaView>
     );
@@ -115,7 +114,6 @@ const PersonalInfoScreen = () => {
 
   return (
     <SafeAreaView style={styles.container}>
-      <BackgroundGradient />
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         style={styles.keyboardView}
@@ -127,14 +125,14 @@ const PersonalInfoScreen = () => {
         >
           {/* Logo */}
           <View style={styles.logoContainer}>
-            <DeuceLogo />
+            <DeuceLogo width={42} height={42} />
           </View>
 
           {/* Header */}
           <View style={styles.headerContainer}>
             <Text style={styles.title}>Welcome aboard.</Text>
             <Text style={styles.subtitle}>
-              Let&apos;s get you ready for the court.
+              Let&apos;s get you ready for the court...
             </Text>
           </View>
 
@@ -191,6 +189,9 @@ const PersonalInfoScreen = () => {
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
+      
+      {/* Fixed Progress Indicator */}
+      <ProgressIndicator currentStep={0} totalSteps={3} />
     </SafeAreaView>
   );
 };
@@ -217,7 +218,7 @@ const styles = StyleSheet.create({
   },
   logoContainer: {
     alignItems: 'center',
-    marginTop: 60,
+    marginTop: 40,
     marginBottom: 40,
   },
   logo: {

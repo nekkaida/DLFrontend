@@ -135,7 +135,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(22, 94, 153, 0.85)',
   },
   optionSelectedFemale: {
-    backgroundColor: '#FF69B4',
+    backgroundColor: 'rgba(22, 94, 153, 0.85)',
   },
   optionText: {
     fontSize: 14,
