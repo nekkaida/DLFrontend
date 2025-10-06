@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useOnboarding } from '../OnboardingContext';
-import { Svg, Path } from 'react-native-svg';
+import { Svg, Path, G } from 'react-native-svg';
 import { PickleballQuestionnaire, Question, QuestionnaireResponse, SkillQuestions } from '../services/PickleballQuestionnaire';
 import { TennisQuestionnaire, TennisQuestion, TennisQuestionnaireResponse, TennisSkillQuestions } from '../services/TennisQuestionnaire';
 import { PadelQuestionnaire, PadelQuestion, PadelQuestionnaireResponse, PadelSkillQuestions } from '../services/PadelQuestionnaire';
@@ -35,11 +35,17 @@ const ChevronDown = () => (
 
 // Sport Icons with faded yellow-orange color
 const PickleballIcon = () => (
-  <Svg width="88" height="87" viewBox="0 0 88 87" fill="none">
-    <Path
-      d="M53.1795 9.92012C53.1807 12.7688 52.2281 15.5396 50.4672 17.8097C48.7063 20.0798 46.2337 21.7245 43.4268 22.4928C40.6199 23.2611 37.6329 23.1108 34.9216 22.0648C32.2103 21.0188 29.9236 19.1346 28.4106 16.6998C24.0073 21.3357 21.7495 25.7864 20.9177 29.9295C19.36 37.6822 22.9732 43.6301 26.808 47.905C25.1359 47.9453 23.5012 48.3965 22.0546 49.217C18.7208 45.0739 15.9716 39.5874 17.3655 32.6539C18.7062 27.0992 21.7281 22.0679 26.0372 18.2158C26.7223 17.5504 27.4375 16.9163 28.1826 16.3137C27.0189 14.2967 26.4279 12.0124 26.4707 9.69727C24.6936 10.9151 23.0395 12.2752 21.5086 13.7776C16.2917 18.5093 12.6496 24.6636 11.0545 31.4424C9.15954 40.8711 12.9686 48.1561 17.1728 53.3037L2.54338 66.3828L2.49199 66.433C1.55061 67.3358 0.842407 68.4445 0.425816 69.6675C0.00922591 70.8905 -0.103806 72.1928 0.0960471 73.4669C0.426855 75.7958 1.63446 77.9459 3.11186 79.6784L3.14719 79.7192L5.44678 82.2334L5.53029 82.3118C7.40593 84.0883 9.86612 85.4662 12.413 85.9841C14.9792 86.502 18.0432 86.1944 20.346 83.944L20.4231 83.8686L33.4819 69.1794C38.0586 72.6728 43.9522 75.7299 51.1047 75.7299C53.263 75.7247 55.4111 75.4397 57.4928 74.8824C62.5814 73.4269 67.2653 70.8608 71.1908 67.3777C72.5569 66.4361 73.863 65.4223 75.1091 64.3363C79.2636 60.7516 82.5684 56.3247 84.7932 51.3642C87.0181 46.4036 88.1094 41.0287 87.9913 35.6138C87.8932 30.4119 86.6355 25.2934 84.3058 20.6152C81.9761 15.937 78.6304 11.8116 74.5021 8.52652C67.9081 3.31981 59.6881 0.477417 51.2107 0.472534H51.2235C50.5105 0.472534 49.8007 0.491367 49.0941 0.529032C50.3467 1.70919 51.898 3.95966 52.6174 6.17875C53.1762 7.89563 53.1795 9.48697 53.1795 9.92012ZM67.2436 62.4248C63.9914 65.3894 60.083 67.5806 55.8227 68.8278C54.2907 69.239 52.7073 69.4524 51.1207 69.4556C45.8535 69.4556 41.2832 67.1109 37.5737 64.3081C38.3927 62.8956 38.823 61.3231 38.8584 59.7412C43.8654 64.104 50.8927 68.3602 59.3717 66.1034C61.8896 65.4317 64.5233 64.2516 67.2436 62.4248ZM24.5919 55.1681C25.9408 53.8498 28.1473 53.8498 29.493 55.1681L31.4361 57.067C32.785 58.4292 32.7625 60.6075 31.4361 61.9163L31.3654 61.9885L18.0464 76.9697C17.3117 75.0596 16.1711 73.3234 14.6998 71.8755C13.2522 70.4387 11.5066 69.3213 9.58027 68.5987L24.5437 55.2152L24.5919 55.1681Z"
-      fill="#F4ECDC"
-    />
+  <Svg width="70" height="70" viewBox="0 0 64 64" fill="none">
+    <G>
+      <G fill="#F8F3FF">
+        <Path d="M6.519 33.26a1.5 1.5 0 0 1-1.461-1.166C.346 11.497 12.714 4.013 13.243 3.704a1.5 1.5 0 0 1 1.516 2.59c-.477.284-10.97 6.8-6.778 25.131A1.5 1.5 0 0 1 6.52 33.26zM17 15.5a1.5 1.5 0 0 1-1.5-1.5c-.001-6.771 5.493-10.146 5.728-10.286a1.5 1.5 0 0 1 1.548 2.57C22.6 6.391 18.5 8.96 18.5 14a1.5 1.5 0 0 1-1.5 1.5z" fill="#F8F3FF" opacity="1"/>
+        <Path d="M13.17 26.61a1.5 1.5 0 0 1-1.326-.799c-2.444-4.62-.942-9.194-.876-9.387a1.499 1.499 0 1 1 2.842.962c-.01.029-1.14 3.572.686 7.023a1.5 1.5 0 0 1-1.325 2.201zM28.52 19.21c-.263 0-.529-.07-.771-.214-4.985-2.988-4.674-7.66-2.893-10.754a1.5 1.5 0 0 1 2.6 1.497c-.719 1.248-1.978 4.398 1.836 6.684a1.5 1.5 0 0 1-.772 2.786zM22.768 43.452a1.5 1.5 0 0 1-.197-2.987l3.584-.478a1.5 1.5 0 1 1 .396 2.974l-3.583.478a1.543 1.543 0 0 1-.2.013zM27.482 36.565c-.272 0-.546-.074-.794-.228l-2.996-1.873a1.499 1.499 0 1 1 1.59-2.544l2.996 1.873a1.499 1.499 0 0 1-.796 2.772zM32.259 32.245a1.5 1.5 0 0 1-1.38-.91l-1.15-2.688a1.5 1.5 0 1 1 2.758-1.18l1.15 2.688a1.5 1.5 0 0 1-1.378 2.09z" fill="#F8F3FF" opacity="1"/>
+        <Path d="M22.549 54.498c-1.171 0-2.35-.302-3.414-.922-6.609-3.826-10.872-8.09-14.713-14.714-1.536-2.66-1.11-6.016 1.037-8.163l13.29-13.29a6.837 6.837 0 0 1 6.047-1.895l10.48 1.89a1.5 1.5 0 0 1-.533 2.952l-10.48-1.89a3.843 3.843 0 0 0-3.393 1.065L7.58 32.82c-1.187 1.187-1.419 3.054-.561 4.539 3.601 6.212 7.42 10.032 13.622 13.621 1.48.862 3.35.63 4.551-.565l7.456-7.466a1.5 1.5 0 1 1 2.123 2.12l-7.46 7.47a6.75 6.75 0 0 1-4.762 1.958zM40.202 30.5a1.5 1.5 0 0 1-1.474-1.234l-1.084-6.01a1.501 1.501 0 0 1 2.953-.532l1.084 6.01a1.501 1.501 0 0 1-1.479 1.766z" fill="#F8F3FF" opacity="1"/>
+        <Path d="M39.116 24.493c-.384 0-.767-.146-1.06-.44l-4.109-4.108a1.5 1.5 0 0 1 0-2.12l11.069-11.07.643-1.715a2.37 2.37 0 0 1 3.897-.844l4.249 4.248c.572.573.812 1.387.641 2.179a2.364 2.364 0 0 1-1.484 1.718l-1.716.644-11.07 11.069c-.292.293-.676.44-1.06.44zm-1.987-5.608 1.987 1.987 10.238-10.238c.152-.152.333-.269.535-.344l1.105-.415-2.868-2.869-.415 1.106a1.5 1.5 0 0 1-.344.534zm9.178-11.3h.01zm2.16-1.492z" fill="#F8F3FF" opacity="1"/>
+        <Path d="M43.626 19.984c-.384 0-.768-.146-1.06-.44l-4.11-4.11a1.5 1.5 0 1 1 2.12-2.12l4.11 4.11a1.5 1.5 0 0 1-1.06 2.56zM48.026 15.585c-.383 0-.767-.147-1.06-.44l-4.11-4.11a1.5 1.5 0 1 1 2.12-2.121l4.11 4.11a1.5 1.5 0 0 1-1.06 2.561z" fill="#F8F3FF" opacity="1"/>
+      </G>
+      <Path fill="#C89AFF" d="M46.255 32.01c-7.855 0-14.244 6.39-14.244 14.245S38.4 60.5 46.255 60.5 60.5 54.11 60.5 46.255s-6.39-14.244-14.245-14.244zm-5.409 17.054a2 2 0 1 1-3.912-.831 2 2 0 0 1 3.912.831zm1.066-7.085a2 2 0 1 1-.418-3.978 2 2 0 0 1 .418 3.978zm6.075 13.02a2 2 0 1 1-3.464-2 2 2 0 0 1 3.464 2zm0-7.744a2 2 0 1 1-3.464-2 2 2 0 0 1 3.464 2zm.993-6.452a2 2 0 1 1 3.654-1.627 2 2 0 0 1-3.654 1.627zm5.979 9.332a2 2 0 1 1-2.677-2.973 2 2 0 0 1 2.677 2.973z" opacity="1"/>
+    </G>
   </Svg>
 );
 
@@ -89,9 +95,6 @@ const SkillAssessmentScreen = () => {
   const [forceShowQuestionnaire, setForceShowQuestionnaire] = useState(false);
   const [isSubmittingAssessment, setIsSubmittingAssessment] = useState(false);
   const [loadingMessage, setLoadingMessage] = useState('Processing...');
-  
-  // Navigation state
-  const [showNavigation, setShowNavigation] = useState(false);
   const [currentPageAnswers, setCurrentPageAnswers] = useState<{[key: string]: any}>({});
   const [questionHistory, setQuestionHistory] = useState<Array<{questions: Question[] | TennisQuestion[] | PadelQuestion[], responses: any}>>([]);
   const [currentPageIndex, setCurrentPageIndex] = useState(0);
@@ -99,14 +102,14 @@ const SkillAssessmentScreen = () => {
   // Update navigation state for simple dropdown
   useEffect(() => {
     if (!isComprehensiveQuestionnaire) {
-      setShowNavigation(!!selectedOption);
+      // Navigation is always available for simple dropdown
     }
   }, [selectedOption, isComprehensiveQuestionnaire]);
   
   // Reset navigation when question changes
   useEffect(() => {
     if (isComprehensiveQuestionnaire) {
-      setShowNavigation(false);
+      // Navigation is handled within question cards
       setCurrentPageAnswers({});
     }
   }, [currentQuestionIndex, questions]);
@@ -285,11 +288,11 @@ const SkillAssessmentScreen = () => {
         const answeredSkillKeys = Object.keys(skillResponses);
         const hasAllSkillAnswers = allSkillKeys.every(key => answeredSkillKeys.includes(key) || newPageAnswers[key]);
         console.log('🎯 Skill matrix check:', { allSkillKeys, answeredSkillKeys, hasAllSkillAnswers });
-        setShowNavigation(hasAllSkillAnswers);
+        // Navigation is handled within question cards
       } else {
         // For single questions, show navigation immediately
         console.log('✅ Single question answered - showing navigation');
-        setShowNavigation(true);
+        // Navigation is handled within question cards
       }
     }
   };
@@ -310,13 +313,13 @@ const SkillAssessmentScreen = () => {
       if (allSkillKeys.every(key => answeredKeys.includes(key))) {
         // All skills answered, show navigation
         console.log('✅ All skills answered - showing navigation');
-        setShowNavigation(true);
+        // Navigation is handled within question cards
         // Store skill responses in current page answers
         setCurrentPageAnswers({ ...currentPageAnswers, skills: newSkillResponses });
       } else {
         // Not all skills answered yet, hide navigation
         console.log('⏳ Not all skills answered yet - hiding navigation');
-        setShowNavigation(false);
+        // Navigation is handled within question cards
       }
     }
   };
@@ -474,7 +477,7 @@ const SkillAssessmentScreen = () => {
         setResponses(previousPage.responses);
         setCurrentPageIndex(currentPageIndex - 1);
         setCurrentPageAnswers({});
-        setShowNavigation(false);
+        // Navigation is handled within question cards
         setSkillResponses({});
         setTextInput('');
         console.log('📖 Going back to previous question page:', currentPageIndex - 1);
@@ -526,7 +529,7 @@ const SkillAssessmentScreen = () => {
       
       // Clear current page answers and navigation
       setCurrentPageAnswers({});
-      setShowNavigation(false);
+      // Navigation is handled within question cards
       setSkillResponses({});
       setTextInput('');
       
@@ -676,36 +679,73 @@ const SkillAssessmentScreen = () => {
                         currentQuestionnaireType === 'tennis' ? 'Standard tennis rating assessment' : 
                         'Padel-specific rating for doubles play';
     
+    // Extract first name from full name
+    const firstName = data.fullName ? data.fullName.split(' ')[0] : 'there';
+    
     return (
-      <View style={styles.introductionContainer}>
-        <View style={styles.introCard}>
-          <Text style={styles.introTitle}>Quick Skill Assessment</Text>
-          <Text style={styles.introDescription}>
-            We&apos;ll ask a few questions about your {sportName} experience to find your skill level and match you with players at your level.
-          </Text>
-          <View style={styles.introPoints}>
-            <Text style={styles.introPoint}>• Takes 2-3 minutes to complete</Text>
-            <Text style={styles.introPoint}>• Questions about your experience and playing style</Text>
-            <Text style={styles.introPoint}>• {ratingSystem}</Text>
-            <Text style={styles.introPoint}>• Skip questions you&apos;re unsure about</Text>
-            <Text style={styles.introPoint}>• Get matched with players at your skill level</Text>
+      <>
+        {/* Pickleball branding */}
+        <View style={styles.pickleballBranding}>
+          <View style={styles.pickleballIconContainer}>
+            <PickleballIcon />
           </View>
-          <View style={styles.introButtonContainer}>
-            <TouchableOpacity
-              style={styles.startButton}
-              onPress={startFreshAssessment}
-            >
-              <Text style={styles.startButtonText}>Start Assessment</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.answerLaterButton}
-              onPress={skipAssessmentForLater}
-            >
-              <Text style={styles.answerLaterButtonText}>Answer Later</Text>
-            </TouchableOpacity>
+          <Text style={styles.pickleballText}>pickleball</Text>
+        </View>
+        
+        {/* Introduction container */}
+        <View style={styles.introductionContainer}>
+          <View style={styles.whiteCard}>
+            {/* Greeting at top-left of white card */}
+            <View style={styles.greetingContainer}>
+              <Text style={styles.greetingText}>Hi, {firstName}</Text>
+            </View>
+            <Text style={styles.introTitle}>It&apos;s time to set your level.</Text>
+            <View style={styles.introPoints}>
+              <View style={styles.introPointContainer}>
+                <View style={styles.arrowCircle}>
+                  <Text style={styles.arrowText}>→</Text>
+                </View>
+                <Text style={styles.introPoint}>5 mins or less</Text>
+              </View>
+              <View style={styles.introPointContainer}>
+                <View style={styles.arrowCircle}>
+                  <Text style={styles.arrowText}>→</Text>
+                </View>
+                <Text style={styles.introPoint}>About your play style & experience</Text>
+              </View>
+              <View style={styles.introPointContainer}>
+                <View style={styles.arrowCircle}>
+                  <Text style={styles.arrowText}>→</Text>
+                </View>
+                <Text style={styles.introPoint}>Already have a DUPR rating? We&apos;ll sync it</Text>
+              </View>
+              <View style={styles.introPointContainer}>
+                <View style={styles.arrowCircle}>
+                  <Text style={styles.arrowText}>→</Text>
+                </View>
+                <Text style={styles.introPoint}>Not sure? Skip and come back later</Text>
+              </View>
+            </View>
+            <Text style={styles.introDescription}>
+              You&apos;ll start with a provisional DMR based on your experience and skill level to match you with the most balanced competition in the right division.
+            </Text>
+            <View style={styles.introButtonContainer}>
+              <TouchableOpacity
+                style={styles.startButton}
+                onPress={startFreshAssessment}
+              >
+                <Text style={styles.startButtonText}>Start Now</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.answerLaterButton}
+                onPress={skipAssessmentForLater}
+              >
+                <Text style={styles.answerLaterButtonText}>Skip for now</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
-      </View>
+      </>
     );
   };
 
@@ -793,6 +833,28 @@ const SkillAssessmentScreen = () => {
   const renderQuestionnaireQuestion = (question: Question | TennisQuestion | PadelQuestion) => {
     const contextData = getQuestionContext(question);
     
+    const navigationButtons = (
+      <>
+        <TouchableOpacity
+          style={styles.skipButton}
+          onPress={skipAssessmentForLater}
+        >
+          <Text style={styles.skipButtonText}>Skip</Text>
+        </TouchableOpacity>
+        
+        <TouchableOpacity
+          style={[
+            styles.nextButton,
+            !currentPageAnswers[question.key] && styles.nextButtonDisabled
+          ]}
+          onPress={handleNext}
+          disabled={!currentPageAnswers[question.key]}
+        >
+          <Text style={styles.nextButtonText}>Next</Text>
+        </TouchableOpacity>
+      </>
+    );
+    
     switch (question.type) {
       case 'single_choice':
         return (
@@ -801,6 +863,7 @@ const SkillAssessmentScreen = () => {
             helpText={question.help_text}
             contextText={contextData?.text}
             tooltipText={contextData?.tooltip}
+            navigationButtons={navigationButtons}
           >
             {question.options?.map((option, index) => (
               <OptionButton
@@ -893,26 +956,8 @@ const SkillAssessmentScreen = () => {
 
   return (
     <SafeAreaView style={styles.container}>
-      <BackgroundGradient />
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
-        {/* Logo */}
-        <View style={styles.logoContainer}>
-          <Text style={styles.logo}>DEUCE</Text>
-        </View>
-
-        {/* Header */}
-        <View style={styles.headerContainer}>
-          <View style={styles.sportIconContainer}>
-            {getSportIcon()}
-          </View>
-          <Text style={styles.sportTitle}>{getSportTitle()}</Text>
-          {selectedSports.length > 1 && (
-            <Text style={styles.progressText}>
-              {currentSportIndex + 1} of {selectedSports.length}
-            </Text>
-          )}
-          <Text style={styles.title}>Let&apos;s assess your skills</Text>
-        </View>
+      <BackgroundGradient sport={sport as string} />
+      <View style={styles.contentContainer}>
         
 
         {/* Render different content based on sport type */}
@@ -920,21 +965,64 @@ const SkillAssessmentScreen = () => {
           showIntroduction && !forceShowQuestionnaire ? (
             renderIntroduction()
           ) : (
-            <View style={styles.questionnaireContainer}>
-              {questions.length > 0 && currentQuestionIndex < questions.length ? (
-                <View style={styles.currentQuestionContainer}>
-                  {renderQuestionnaireQuestion(questions[currentQuestionIndex])}
+            <>
+              {/* Questionnaire Header */}
+              <View style={styles.questionnaireHeader}>
+                <TouchableOpacity 
+                  style={styles.backButton}
+                  onPress={() => router.back()}
+                >
+                  <Svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                    <Path
+                      d="M15 18L9 12L15 6"
+                      stroke="#FFFFFF"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </Svg>
+                </TouchableOpacity>
+                
+                <Text style={styles.questionnaireTitle}>
+                  {currentQuestionnaireType === 'pickleball' ? 'pickleball' : 
+                   currentQuestionnaireType === 'tennis' ? 'tennis' : 'padel'}
+                </Text>
+                
+                <View style={styles.headerSpacer} />
+              </View>
+
+              {/* Progress Indicator */}
+              <View style={styles.progressContainer}>
+                <Text style={styles.progressText}>
+                  Question {currentQuestionIndex + 1}/{questions.length}
+                </Text>
+                <View style={styles.progressBar}>
+                  <View 
+                    style={[
+                      styles.progressFill, 
+                      { width: `${((currentQuestionIndex + 1) / questions.length) * 100}%` }
+                    ]} 
+                  />
                 </View>
-              ) : questions.length === 0 ? (
-                <View style={styles.currentQuestionContainer}>
-                  <Text style={styles.loadingText}>Loading questions...</Text>
-                </View>
-              ) : (
-                <View style={styles.currentQuestionContainer}>
-                  <Text style={styles.errorText}>No more questions available.</Text>
-                </View>
-              )}
-            </View>
+              </View>
+
+              {/* Question Content */}
+              <View style={styles.questionnaireContainer}>
+                {questions.length > 0 && currentQuestionIndex < questions.length ? (
+                  <View style={styles.questionContainer}>
+                    {renderQuestionnaireQuestion(questions[currentQuestionIndex])}
+                  </View>
+                ) : questions.length === 0 ? (
+                  <View style={styles.questionContainer}>
+                    <Text style={styles.loadingText}>Loading questions...</Text>
+                  </View>
+                ) : (
+                  <View style={styles.questionContainer}>
+                    <Text style={styles.errorText}>No more questions available.</Text>
+                  </View>
+                )}
+              </View>
+            </>
           )
         ) : (
           <QuestionContainer
@@ -956,32 +1044,8 @@ const SkillAssessmentScreen = () => {
           </QuestionContainer>
         )}
 
-      </ScrollView>
+      </View>
       
-      {/* Navigation Buttons - Fixed at bottom, only show when answers are complete and not on introduction */}
-      {showNavigation && !showIntroduction && (
-        <View style={styles.navigationContainer}>
-          <TouchableOpacity
-            style={[
-              styles.navigationButton,
-              styles.backButton,
-            ]}
-            onPress={handleBack}
-          >
-            <Text style={styles.backButtonText}>Back</Text>
-          </TouchableOpacity>
-          
-          <TouchableOpacity
-            style={[
-              styles.navigationButton,
-              styles.nextButton,
-            ]}
-            onPress={handleNext}
-          >
-            <Text style={styles.nextButtonText}>Next</Text>
-          </TouchableOpacity>
-        </View>
-      )}
 
       {/* Dropdown Modal */}
       <Modal
@@ -1048,9 +1112,8 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#FFFFFF',
   },
-  scrollContent: {
-    flexGrow: 1,
-    paddingBottom: 100,
+  contentContainer: {
+    flex: 1,
   },
   buttonContainer: {
     position: 'absolute',
@@ -1093,14 +1156,6 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     textAlign: 'center',
     fontFamily: 'Inter',
-  },
-  progressText: {
-    fontSize: 12,
-    fontWeight: '500',
-    color: '#FE9F4D',
-    textAlign: 'center',
-    fontFamily: 'Inter',
-    marginTop: 4,
   },
   questionContainer: {
     paddingHorizontal: 37,
@@ -1175,10 +1230,91 @@ const styles = StyleSheet.create({
     paddingHorizontal: 37,
   },
   questionnaireContainer: {
-    paddingHorizontal: 37,
-  },
-  currentQuestionContainer: {
     flex: 1,
+    justifyContent: 'center',
+  },
+  questionnaireHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingTop: 10,
+    paddingBottom: 20,
+  },
+  backButton: {
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  questionnaireTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#CA9BFF',
+    fontFamily: 'Poppins',
+    textTransform: 'lowercase',
+  },
+  headerSpacer: {
+    width: 40,
+  },
+  progressContainer: {
+    paddingHorizontal: 20,
+    paddingBottom: 20,
+  },
+  progressText: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#FFFFFF',
+    fontFamily: 'Roboto',
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  progressBar: {
+    height: 4,
+    backgroundColor: 'rgba(255, 255, 255, 0.3)',
+    borderRadius: 2,
+    overflow: 'hidden',
+  },
+  progressFill: {
+    height: '100%',
+    backgroundColor: '#FE9F4D',
+    borderRadius: 2,
+  },
+  questionnaireNavigation: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 24,
+    paddingTop: 20,
+    borderTopWidth: 1,
+    borderTopColor: '#F0F0F0',
+  },
+  skipButton: {
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+  },
+  skipButtonText: {
+    fontSize: 16,
+    color: '#FE9F4D',
+    fontWeight: '500',
+    fontFamily: 'Roboto',
+  },
+  nextButton: {
+    backgroundColor: '#FE9F4D',
+    borderRadius: 25,
+    paddingVertical: 12,
+    paddingHorizontal: 32,
+    minWidth: 100,
+    alignItems: 'center',
+  },
+  nextButtonDisabled: {
+    backgroundColor: '#CCCCCC',
+  },
+  nextButtonText: {
+    fontSize: 16,
+    color: '#FFFFFF',
+    fontWeight: '600',
+    fontFamily: 'Roboto',
   },
   skillQuestionContainer: {
     marginBottom: 20,
@@ -1238,89 +1374,139 @@ const styles = StyleSheet.create({
     lineHeight: 24,
   },
   // New UX Enhancement Styles
-  introductionContainer: {
-    paddingHorizontal: 37,
-    paddingVertical: 20,
+  greetingContainer: {
+    alignItems: 'flex-start',
+    marginBottom: 16,
   },
-  introCard: {
+  greetingText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#A04DFE',
+    fontFamily: 'Poppins',
+  },
+  pickleballBranding: {
+    position: 'absolute',
+    right: 20,
+    bottom: 610,
+    alignItems: 'flex-end',
+    zIndex: 10,
+  },
+  pickleballIconContainer: {
+    marginBottom: 8,
+  },
+  pickleballText: {
+    fontSize: 48,
+    fontWeight: '600',
+    color: '#CA9BFF',
+    fontFamily: 'Poppins',
+    textAlign: 'right',
+  },
+  introductionContainer: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    paddingHorizontal: 15,
+    paddingBottom: 15,
+    paddingTop: 20,
+  },
+  whiteCard: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    padding: 24,
-    borderWidth: 1,
-    borderColor: '#EDF1F3',
-    shadowColor: '#E4E5E7',
+    borderRadius: 30,
+    padding: 32,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 5,
+  },
+  introTitle: {
+    fontSize: 30,
+    fontWeight: '500',
+    color: '#000000',
+    marginBottom: 24,
+    fontFamily: 'Inter',
+    textAlign: 'left',
+  },
+  introPoints: {
+    marginBottom: 20,
+  },
+  introPointContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 14,
+  },
+  arrowCircle: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: 'rgba(160, 77, 254, 0.15)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  arrowText: {
+    fontSize: 17,
+    color: '#A04DFE',
+    fontWeight: '600',
+  },
+  introDescription: {
+    fontSize: 15,
+    color: '#000000',
+    lineHeight: 21,
+    marginBottom: 2,
+    fontFamily: 'Poppins',
+  },
+  introPoint: {
+    fontSize: 15,
+    fontWeight: '500',
+    color: '#8C8C8C',
+    lineHeight: 21,
+    fontFamily: 'Roboto',
+    flex: 1,
+  },
+  introButtonContainer: {
+    gap: 14,
+    marginTop: 28,
+  },
+  startButton: {
+    height: 50,
+    backgroundColor: '#A04DFE',
+    borderRadius: 25,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#A04DFE',
     shadowOffset: {
       width: 0,
       height: 2,
     },
-    shadowOpacity: 0.24,
+    shadowOpacity: 0.3,
     shadowRadius: 4,
     elevation: 3,
   },
-  introTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#000000',
-    marginBottom: 12,
-    fontFamily: 'Inter',
-    textAlign: 'center',
-  },
-  introDescription: {
-    fontSize: 14,
-    color: '#6C7278',
-    lineHeight: 20,
-    marginBottom: 20,
-    fontFamily: 'Roboto',
-    textAlign: 'center',
-  },
-  introPoints: {
-    marginBottom: 24,
-  },
-  introPoint: {
-    fontSize: 13,
-    color: '#6C7278',
-    lineHeight: 18,
-    marginBottom: 6,
-    fontFamily: 'Roboto',
-  },
-  introButtonContainer: {
-    gap: 12,
-  },
-  startButton: {
-    height: 46,
-    backgroundColor: '#FE9F4D',
-    borderRadius: 10,
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#E4E5E7',
-    shadowOffset: {
-      width: 0,
-      height: 1,
-    },
-    shadowOpacity: 0.24,
-    shadowRadius: 2,
-    elevation: 2,
-  },
   startButtonText: {
     color: '#FFFFFF',
-    fontSize: 14,
+    fontSize: 17,
     fontWeight: '600',
-    fontFamily: 'Roboto',
+    fontFamily: 'Poppins',
   },
   answerLaterButton: {
-    height: 46,
+    height: 50,
     backgroundColor: 'transparent',
     borderWidth: 1,
-    borderColor: '#EDF1F3',
-    borderRadius: 10,
+    borderColor: '#A04DFE',
+    borderRadius: 25,
     justifyContent: 'center',
     alignItems: 'center',
   },
   answerLaterButtonText: {
-    color: '#6C7278',
-    fontSize: 14,
-    fontWeight: '500',
-    fontFamily: 'Roboto',
+    color: '#777777',
+    fontSize: 17,
+    fontWeight: '600',
+    fontFamily: 'Poppins',
   },
   loadingText: {
     fontSize: 16,
@@ -1366,22 +1552,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     minWidth: 80,
   },
-  backButton: {
-    backgroundColor: 'transparent',
-    borderWidth: 1,
-    borderColor: '#EDF1F3',
-  },
-  nextButton: {
-    backgroundColor: '#FE9F4D',
-  },
   backButtonText: {
     color: '#6C7278',
-    fontSize: 14,
-    fontWeight: '600',
-    fontFamily: 'Roboto',
-  },
-  nextButtonText: {
-    color: '#FFFFFF',
     fontSize: 14,
     fontWeight: '600',
     fontFamily: 'Roboto',

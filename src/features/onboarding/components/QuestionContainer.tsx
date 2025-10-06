@@ -15,6 +15,7 @@ interface QuestionContainerProps {
   tooltipText?: string;
   children: React.ReactNode;
   containerStyle?: ViewStyle;
+  navigationButtons?: React.ReactNode;
 }
 
 const QuestionContainer: React.FC<QuestionContainerProps> = ({
@@ -24,6 +25,7 @@ const QuestionContainer: React.FC<QuestionContainerProps> = ({
   tooltipText,
   children,
   containerStyle,
+  navigationButtons,
 }) => {
   const showTooltip = () => {
     if (tooltipText) {
@@ -33,79 +35,68 @@ const QuestionContainer: React.FC<QuestionContainerProps> = ({
 
   return (
     <View style={[styles.container, containerStyle]}>
+      <Text style={styles.instructionText}>Select an answer</Text>
       <Text style={styles.questionText}>{question}</Text>
-      
-      {contextText && (
-        <View style={styles.contextContainer}>
-          <Text style={styles.contextText}>{contextText}</Text>
-          {tooltipText && (
-            <TouchableOpacity style={styles.tooltipButton} onPress={showTooltip}>
-              <Text style={styles.tooltipIcon}>ⓘ</Text>
-            </TouchableOpacity>
-          )}
-        </View>
-      )}
-      
-      {helpText && <Text style={styles.helpText}>{helpText}</Text>}
       
       <View style={styles.contentContainer}>
         {children}
       </View>
+      
+      {navigationButtons && (
+        <View style={styles.navigationContainer}>
+          {navigationButtons}
+        </View>
+      )}
     </View>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
-    marginBottom: 24,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 36,
+    marginHorizontal: 12,
+    marginVertical: 20,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 5,
+    minHeight: 500,
+    maxWidth: '100%',
   },
-  questionText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#000000',
-    marginBottom: 12,
-    fontFamily: 'Roboto',
-    lineHeight: 24,
-    textAlign: 'center',
-  },
-  contextContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 8,
-    gap: 6,
-  },
-  contextText: {
-    fontSize: 12,
-    color: '#FE9F4D',
-    fontFamily: 'Roboto',
-    fontStyle: 'italic',
-    textAlign: 'center',
-  },
-  tooltipButton: {
-    width: 18,
-    height: 18,
-    borderRadius: 9,
-    backgroundColor: '#FE9F4D',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  tooltipIcon: {
-    fontSize: 11,
-    color: '#FFFFFF',
-    fontWeight: '600',
-  },
-  helpText: {
+  instructionText: {
     fontSize: 14,
-    color: '#6C7278',
+    color: '#8C8C8C',
     marginBottom: 16,
     fontFamily: 'Roboto',
-    fontStyle: 'italic',
-    textAlign: 'center',
-    lineHeight: 20,
+    textAlign: 'left',
+  },
+  questionText: {
+    fontSize: 20,
+    fontWeight: '600',
+    color: '#000000',
+    marginBottom: 24,
+    fontFamily: 'Roboto',
+    lineHeight: 28,
+    textAlign: 'left',
   },
   contentContainer: {
-    gap: 12,
+    gap: 16,
+    flex: 1,
+    marginBottom: 20,
+  },
+  navigationContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingTop: 20,
+    borderTopWidth: 1,
+    borderTopColor: '#F0F0F0',
   },
 });
 
