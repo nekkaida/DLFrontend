@@ -49,7 +49,116 @@ export default function SeasonsScreen({
     // TODO: Navigate to registration screen
   };
 
+  const handleJoinWaitlistPress = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    console.log('Join Waitlist button pressed');
+    // TODO: Navigate to waitlist screen
+  };
+
+  const handleViewStandingsPress = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    console.log('View Standings button pressed');
+    // TODO: Navigate to standings screen
+  };
+
   const tabs = ['In Progress', 'Upcoming', 'Past'];
+
+  const renderSeasonCard = () => {
+    const getSeasonData = () => {
+      switch (activeTab) {
+        case 0: // In Progress
+          return {
+            title: 'Winter Season 2025',
+            badge: '🏆 S1',
+            playerCount: '+95',
+            duration: 'Duration: 1 Dec 2025 – 31 Jan 2026',
+            lastRegistration: 'Last Registration: 27 Nov 2025',
+            entryFee: 'RM59.90',
+            buttonText: 'Register',
+            buttonColor: '#863A73',
+            buttonHandler: handleRegisterPress
+          };
+        case 1: // Upcoming
+          return {
+            title: 'Spring Season 2025',
+            badge: '🌱 S2',
+            playerCount: '+67',
+            duration: 'Duration: 1 Mar 2025 – 30 Apr 2025',
+            lastRegistration: 'Registration Opens: 15 Feb 2025',
+            entryFee: 'RM59.90',
+            buttonText: 'Join Waitlist',
+            buttonColor: '#000000',
+            buttonHandler: handleJoinWaitlistPress
+          };
+        case 2: // Past
+          return {
+            title: 'Fall Season 2024',
+            badge: '🍂 S4',
+            playerCount: '+89',
+            duration: 'Duration: 1 Sep 2024 – 30 Nov 2024',
+            lastRegistration: 'Season Ended: 30 Nov 2024',
+            entryFee: 'RM59.90',
+            buttonText: 'View Standings',
+            buttonColor: '#B2B2B2',
+            buttonHandler: handleViewStandingsPress
+          };
+        default:
+          return null;
+      }
+    };
+
+    const seasonData = getSeasonData();
+    if (!seasonData) return null;
+
+    return (
+      <View style={styles.seasonCard}>
+        <View style={styles.seasonCardHeader}>
+          <Text style={styles.seasonTitle}>{seasonData.title}</Text>
+          <View style={styles.seasonBadge}>
+            <Text style={styles.seasonBadgeText}>{seasonData.badge}</Text>
+          </View>
+        </View>
+        
+        <View style={styles.playerCountRow}>
+          <View style={styles.playerAvatars}>
+            <View style={styles.playerAvatar} />
+            <View style={styles.playerAvatar} />
+            <View style={styles.playerAvatar} />
+            <View style={styles.playerAvatar} />
+            <View style={styles.playerAvatar} />
+          </View>
+          <Text style={styles.playerCountText}>
+            <Text style={styles.playerCountNumber}>{seasonData.playerCount}</Text> players registered
+          </Text>
+        </View>
+
+        <View style={styles.seasonDetails}>
+          <View style={styles.detailRow}>
+            <CalendarIcon width={16} height={16} style={styles.detailIcon} />
+            <Text style={styles.detailText}>{seasonData.duration}</Text>
+          </View>
+          <View style={styles.detailRow}>
+            <ClockIcon width={16} height={16} style={styles.detailIcon} />
+            <Text style={styles.detailText}>{seasonData.lastRegistration}</Text>
+          </View>
+          <View style={styles.detailRow}>
+            <DollarSignIcon width={16} height={16} style={styles.detailIcon} />
+            <Text style={styles.detailText}>
+              Entry Fee: <Text style={styles.highlightText}>{seasonData.entryFee}</Text>
+            </Text>
+          </View>
+        </View>
+
+        <TouchableOpacity 
+          style={[styles.registerButton, { backgroundColor: seasonData.buttonColor }]}
+          onPress={seasonData.buttonHandler}
+          activeOpacity={0.8}
+        >
+          <Text style={styles.registerButtonText}>{seasonData.buttonText}</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  };
 
   return (
     <SafeAreaView style={styles.container}>
@@ -104,53 +213,8 @@ export default function SeasonsScreen({
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
         >
-          {/* Season Card */}
-          <View style={styles.seasonCard}>
-            <View style={styles.seasonCardHeader}>
-              <Text style={styles.seasonTitle}>Winter Season 2025</Text>
-              <View style={styles.seasonBadge}>
-                <Text style={styles.seasonBadgeText}>🏆 S1</Text>
-              </View>
-            </View>
-            
-            <View style={styles.playerCountRow}>
-              <View style={styles.playerAvatars}>
-                <View style={styles.playerAvatar} />
-                <View style={styles.playerAvatar} />
-                <View style={styles.playerAvatar} />
-                <View style={styles.playerAvatar} />
-                <View style={styles.playerAvatar} />
-              </View>
-              <Text style={styles.playerCountText}>
-                <Text style={styles.playerCountNumber}>+95</Text> players registered
-              </Text>
-            </View>
-
-            <View style={styles.seasonDetails}>
-              <View style={styles.detailRow}>
-                <CalendarIcon width={16} height={16} style={styles.detailIcon} />
-                <Text style={styles.detailText}>Duration: 1 Dec 2025 – 31 Jan 2026</Text>
-              </View>
-              <View style={styles.detailRow}>
-                <ClockIcon width={16} height={16} style={styles.detailIcon} />
-                <Text style={styles.detailText}>Last Registration: 27 Nov 2025</Text>
-              </View>
-              <View style={styles.detailRow}>
-                <DollarSignIcon width={16} height={16} style={styles.detailIcon} />
-                <Text style={styles.detailText}>
-                  Entry Fee: <Text style={styles.highlightText}>RM59.90</Text>
-                </Text>
-              </View>
-            </View>
-
-            <TouchableOpacity 
-              style={styles.registerButton}
-              onPress={handleRegisterPress}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.registerButtonText}>Register</Text>
-            </TouchableOpacity>
-          </View>
+          {/* Dynamic Season Card */}
+          {renderSeasonCard()}
         </ScrollView>
       </View>
       
@@ -385,7 +449,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   registerButton: {
-    backgroundColor: '#863A73',
     borderRadius: 12,
     paddingVertical: 12,
     alignItems: 'center',
@@ -393,7 +456,7 @@ const styles = StyleSheet.create({
   registerButtonText: {
     color: '#FFFFFF',
     fontSize: 14,
-    fontWeight: '700',
+    fontWeight: '600',
   },
   dropdownMenu: {
     position: 'absolute',

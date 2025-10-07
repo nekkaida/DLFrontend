@@ -83,7 +83,7 @@ export default function DashboardScreen() {
                  {/* Header Section */}
         <View style={styles.headerSection}>
           <View style={styles.headerContainer}>
-            <TouchableOpacity onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); router.push('/user-dashboard'); }} activeOpacity={0.7}>
+            <TouchableOpacity onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); router.back(); }} activeOpacity={0.7}>
               <Text style={styles.backIcon}>‹</Text>
             </TouchableOpacity>
             <TouchableOpacity
@@ -96,11 +96,8 @@ export default function DashboardScreen() {
               <Text style={styles.headerTitleCaret}>▾</Text>
             </TouchableOpacity>
           </View>
-          
         </View>
 
-        
-        
         <Animated.ScrollView 
           style={styles.scrollContainer}
           contentContainerStyle={styles.scrollContent}
@@ -327,15 +324,15 @@ const styles = StyleSheet.create({
     fontFamily: Platform.OS === 'ios' ? 'Helvetica Neue' : 'sans-serif',
     fontStyle: 'italic',
     fontWeight: '800',
-    fontSize: 24,
-    lineHeight: 24,
+    fontSize: 20,
+    lineHeight: 20,
     color: '#863A73',
     marginRight: 6,
   },
   headerTitleCaret: {
     fontSize: 16,
     color: '#111827',
-    marginTop: 2,
+    marginTop: -1,
   },
   dropdownMenu: {
     position: 'absolute',
