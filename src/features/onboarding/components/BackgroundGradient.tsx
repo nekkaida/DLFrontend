@@ -40,13 +40,25 @@ const BackgroundGradient: React.FC<BackgroundGradientProps> = React.memo(({ spor
     if (sport === 'pickleball') {
       return ['#A04DFE', '#602E98'];
     }
+    if (sport === 'tennis') {
+      return ['#A2E047', '#587A27'];
+    }
+    if (sport === 'padel') {
+      return ['#4DABFE', '#2E6698'];
+    }
     // Default gradient for other sports
     return ['#FE9F4D', '#FFF5EE', '#FFFFFF'];
   };
 
   const getGradientLocations = (): [number, number, ...number[]] => {
     if (sport === 'pickleball') {
-      return [0, 1]; // Simple two-color gradient
+      return [0, 1];
+    }
+    if (sport === 'tennis') {
+      return [0, 1];
+    }
+    if (sport === 'padel') {
+      return [0, 1];
     }
     // Default locations for other sports
     return [0, 0.3, 0.7];

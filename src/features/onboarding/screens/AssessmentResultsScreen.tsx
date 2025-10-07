@@ -207,8 +207,15 @@ const AssessmentResultsScreen = () => {
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
         {/* Logo */}
         <View style={styles.logoContainer}>
-          <Text style={[styles.logo, sport === 'pickleball' && styles.pickleballLogo]}>
-            {sport === 'pickleball' ? 'pickleball' : 'DEUCE'}
+          <Text style={[
+            styles.logo, 
+            sport === 'pickleball' && styles.pickleballLogo,
+            sport === 'tennis' && styles.tennisLogo,
+            sport === 'padel' && styles.padelLogo
+          ]}>
+            {sport === 'pickleball' ? 'pickleball' : 
+             sport === 'tennis' ? 'tennis' : 
+             sport === 'padel' ? 'padel' : 'DEUCE'}
           </Text>
         </View>
 
@@ -371,6 +378,20 @@ const styles = StyleSheet.create({
   },
   pickleballLogo: {
     color: '#CA9BFF',
+    fontSize: 28,
+    fontWeight: '600',
+    fontFamily: 'Poppins',
+    textTransform: 'lowercase',
+  },
+  tennisLogo: {
+    color: '#D7FFA9',
+    fontSize: 28,
+    fontWeight: '600',
+    fontFamily: 'Poppins',
+    textTransform: 'lowercase',
+  },
+  padelLogo: {
+    color: '#9BD0FF',
     fontSize: 28,
     fontWeight: '600',
     fontFamily: 'Poppins',

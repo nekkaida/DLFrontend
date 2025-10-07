@@ -8,7 +8,8 @@ import {
   Alert,
   ScrollView,
 } from 'react-native';
-import { OptionButton, NumberInput } from './';
+import OptionButton from './OptionButton';
+import NumberInput from './NumberInput';
 import { toast } from 'sonner-native';
 
 interface QuestionContainerProps {
@@ -153,6 +154,7 @@ interface QuestionCardProps {
   currentPageAnswers: {[key: string]: any};
   responses: any;
   navigationButtons: React.ReactNode;
+  sport?: 'pickleball' | 'tennis' | 'padel';
 }
 
 export const QuestionCard: React.FC<QuestionCardProps> = ({
@@ -162,6 +164,7 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
   currentPageAnswers,
   responses,
   navigationButtons,
+  sport = 'pickleball',
 }) => {
   const renderQuestionContent = () => {
     switch (question.type) {
@@ -179,6 +182,7 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
                 title={option}
                 isSelected={currentPageAnswers[question.key] === option || responses[question.key] === option}
                 onPress={() => onAnswer(question.key, option)}
+                sport={sport}
               />
             ))}
           </QuestionContainer>
