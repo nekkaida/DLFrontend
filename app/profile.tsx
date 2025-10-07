@@ -676,10 +676,10 @@ export default function ProfileAdaptedScreen() {
                   style={styles.backButton}
                   onPress={() => {
                     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                    navigateTo('/user-dashboard');
+                    router.back();
                   }}
                   accessible={true}
-                  accessibilityLabel="Back to dashboard"
+                  accessibilityLabel="Back"
                   accessibilityRole="button"
                 >
                   <Ionicons name="arrow-back" size={24} color="#fff" />
