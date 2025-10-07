@@ -43,7 +43,6 @@ export default function LoginRoute() {
         
         if (sessionCheck.data) {
           console.log('Session confirmed, redirecting to dashboard');
-          router.replace('/user-dashboard');
         } else {
           console.error('Session not established after login');
           toast.error('Session not established. Please try again.');
@@ -66,11 +65,17 @@ export default function LoginRoute() {
     router.push('/resetPassword');
   };
 
+  const handleSocialLogin = (provider: 'facebook' | 'google' | 'apple') => {
+    console.log(`Social login with ${provider} - not implemented yet`);
+    // TODO: Implement social login functionality
+  };
+
   return (
     <LoginScreen
       onLogin={handleLogin}
       onSignUp={handleSignUp}
       onForgotPassword={handleForgotPassword}
+      onSocialLogin={handleSocialLogin}
     />
   );
 }

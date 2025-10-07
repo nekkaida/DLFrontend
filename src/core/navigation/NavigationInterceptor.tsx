@@ -205,6 +205,13 @@ export const NavigationInterceptor: React.FC<NavigationInterceptorProps> = ({ ch
     const protectedRoutes = ['/user-dashboard', '/profile', '/edit-profile', '/settings', '/match-history'];
     const isProtectedRoute = protectedRoutes.some(route => currentRoute.startsWith(route));
 
+    // Handle unauthenticated users accessing protected routes
+    if (!session?.user && isProtectedRoute) {
+      console.warn('NavigationInterceptor: Unauthenticated user accessing protected route, redirecting to login:', currentRoute);
+      setTimeout(() => router.replace('/login'), 100);
+      return;
+    }
+
     if (session?.user && isProtectedRoute) {
       console.log('NavigationInterceptor: Checking protected route access for:', currentRoute);
       console.log('NavigationInterceptor: Current onboarding status:', onboardingStatus);
