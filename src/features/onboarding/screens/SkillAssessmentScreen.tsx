@@ -345,7 +345,7 @@ const SkillAssessmentScreen = () => {
   };
 
   const completePickleballAssessment = async (finalResponses: QuestionnaireResponse) => {
-    setLoadingMessage('Calculating your pickleball rating...');
+    setLoadingMessage('Calculating your Pickleball rating...');
     setIsSubmittingAssessment(true);
     try {
       // Calculate rating using existing logic (for immediate UI feedback)
@@ -385,7 +385,7 @@ const SkillAssessmentScreen = () => {
   };
 
   const completeTennisAssessment = async (finalResponses: TennisQuestionnaireResponse) => {
-    setLoadingMessage('Calculating your tennis rating...');
+    setLoadingMessage('Calculating your Tennis rating...');
     setIsSubmittingAssessment(true);
     try {
       // Calculate rating using existing logic
@@ -424,7 +424,7 @@ const SkillAssessmentScreen = () => {
   };
 
   const completePadelAssessment = async (finalResponses: PadelQuestionnaireResponse) => {
-    setLoadingMessage('Calculating your padel rating...');
+    setLoadingMessage('Calculating your Padel rating...');
     setIsSubmittingAssessment(true);
     try {
       // Calculate rating using existing logic

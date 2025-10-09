@@ -233,14 +233,10 @@ const AssessmentResultsScreen = () => {
 
         {/* Header */}
         <View style={styles.headerContainer}>
-          {sport === 'pickleball' ? (
-            <Text style={styles.title}>
-              <Text style={styles.titleWhite}>You're All Set, </Text>
-              <Text style={styles.titleOrange}>{firstName}!</Text>
-            </Text>
-          ) : (
-            <Text style={styles.title}>Assessment Complete!</Text>
-          )}
+          <Text style={styles.title}>
+            <Text style={styles.titleWhite}>You're All Set, </Text>
+            <Text style={styles.titleOrange}>{firstName}!</Text>
+          </Text>
           <Text style={styles.subtitle}>Here&apos;s your initial rating for {getSportTitle()}.</Text>
         </View>
 
@@ -266,7 +262,9 @@ const AssessmentResultsScreen = () => {
             </View>
             
             {/* DMR Title */}
-            <Text style={styles.dmrTitle}>DEUCE Match Rating (DMR)</Text>
+            <Text style={styles.dmrTitle}>
+              <Text style={styles.dmrTitleBrand}>DEUCE</Text> Match Rating (DMR)
+            </Text>
             {/* Main Rating Display */}
             <View style={styles.ratingContainer}>
               {sport === 'pickleball' && results.rating && typeof results.rating === 'object' && 'singles_rating' in results.rating ? (
@@ -309,8 +307,12 @@ const AssessmentResultsScreen = () => {
             </View>
           </View>
 
-          {/* Purple Bottom Section */}
-          <View style={styles.cardBottomSection}>
+          {/* Bottom Section */}
+          <View style={[
+            styles.cardBottomSection,
+            sport === 'tennis' && styles.tennisCardBottomSection,
+            sport === 'padel' && styles.padelCardBottomSection
+          ]}>
             <Text style={styles.instructionalText}>
               Think of this DMR as your kick-off point that will adjust as you play.
             </Text>
@@ -476,14 +478,24 @@ const styles = StyleSheet.create({
     borderBottomLeftRadius: 20,
     borderBottomRightRadius: 20,
   },
+  tennisCardBottomSection: {
+    backgroundColor: '#BFE97E',
+  },
+  padelCardBottomSection: {
+    backgroundColor: '#83C4FE',
+  },
   dmrTitle: {
     fontSize: 14,
-    fontWeight: '500',
+    fontWeight: '600',
     color: '#BABABA',
     fontFamily: 'Inter',
     textAlign: 'center',
     marginTop: 16,
     marginBottom: 30,
+  },
+  dmrTitleBrand: {
+    fontStyle: 'italic',
+    fontWeight: '600',
   },
   ratingContainer: {
     flexDirection: 'row',
