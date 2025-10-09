@@ -6,6 +6,7 @@ import { useDashboard } from '../DashboardContext';
 import { NavBar } from '@/shared/components/layout';
 import * as Haptics from 'expo-haptics';
 import { router } from 'expo-router';
+import { SportDropdownHeader } from '@/src/shared/components/ui/SportDropdownHeader';
 
 const { width, height } = Dimensions.get('window');
 
@@ -15,8 +16,6 @@ export default function DashboardScreen() {
   const [locationFilterOpen, setLocationFilterOpen] = React.useState(false);
   const [isLoading, setIsLoading] = React.useState(true);
   const scrollY = React.useRef(new Animated.Value(0)).current;
-  const [isHeaderMenuOpen, setIsHeaderMenuOpen] = React.useState(false);
-  const [headerTitleLayout, setHeaderTitleLayout] = React.useState<{ x: number; y: number; width: number; height: number } | null>(null);
 
   console.log(`DashboardScreen: Current activeTab is ${activeTab}`);
 
@@ -40,24 +39,11 @@ export default function DashboardScreen() {
       
       
       <View style={styles.contentContainer}>
-                 {/* Header Section */}
-        <View style={styles.headerSection}>
-          <View style={styles.headerContainer}>
-            <TouchableOpacity onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); router.push('/user-dashboard'); }} activeOpacity={0.7}>
-              <Text style={styles.backIcon}>‹</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.headerTitleRow}
-              activeOpacity={0.7}
-              onPress={() => setIsHeaderMenuOpen((v) => !v)}
-              onLayout={(e) => setHeaderTitleLayout(e.nativeEvent.layout)}
-            >
-              <Text style={styles.headerTitleText}>Tennis</Text>
-              <Text style={styles.headerTitleCaret}>▾</Text>
-            </TouchableOpacity>
-          </View>
-          
-        </View>
+        <SportDropdownHeader 
+          currentSport="tennis"
+          sportName="Tennis"
+          sportColor="#008000"
+        />
 
         
         
@@ -193,46 +179,6 @@ export default function DashboardScreen() {
       
       {/* Bottom Navigation Bar */}
       <NavBar activeTab={activeTab} onTabPress={handleTabPress} />
-
-      {isHeaderMenuOpen && (
-        <View style={styles.dropdownOverlay} pointerEvents="box-none">
-          <TouchableOpacity
-            style={styles.dropdownBackdrop}
-            activeOpacity={1}
-            onPress={() => setIsHeaderMenuOpen(false)}
-          />
-          <View
-            style={[
-              styles.dropdownMenu,
-              headerTitleLayout
-                ? {
-                    top: headerTitleLayout.y + headerTitleLayout.height + 40,
-                    left: headerTitleLayout.x + 100,
-                  }
-                : undefined,
-            ]}
-          >
-            <View style={styles.dropdownCard}>
-              <TouchableOpacity
-                style={styles.dropdownRow}
-                onPress={() => { setIsHeaderMenuOpen(false); router.push('/user-dashboard/pickleball'); }}
-              >
-                <Text style={styles.dropdownIconPickleball}>🏓</Text>
-                <Text style={styles.dropdownLabelPickleball}>Pickleball</Text>
-              </TouchableOpacity>
-              <View style={styles.dropdownDivider} />
-              <TouchableOpacity
-                style={styles.dropdownRow}
-                onPress={() => { setIsHeaderMenuOpen(false); router.push('/user-dashboard/tennis'); }}
-              >
-                <Text style={styles.dropdownIconTennis}>🎾</Text>
-                <Text style={styles.dropdownLabelTennis}>Tennis</Text>
-                <Text style={styles.dropdownCheck}>✓</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      )}
     </SafeAreaView>
   );
 }
@@ -252,165 +198,6 @@ const styles = StyleSheet.create({
   contentContainer: {
     flex: 1,
     zIndex: 1,
-  },
-  headerSection: {
-    paddingHorizontal: 24,
-    paddingTop: 20,
-    paddingBottom: 30,
-  },
-  headerExpanded: {
-    marginBottom: 0,
-  },
-  headerContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    width: '100%',
-    gap: 8,
-    marginTop: 10, 
-  },
-  backIcon: {
-    fontSize: 35,
-    fontWeight: '600',
-    color: '#111827',
-    marginRight: 5,
-  },
-  headerTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 10, 
-  },
-  headerTitleText: {
-    fontFamily: Platform.OS === 'ios' ? 'Helvetica Neue' : 'sans-serif',
-    fontStyle: 'italic',
-    fontWeight: '800',
-    fontSize: 24,
-    lineHeight: 24,
-    color: '#008000',
-    marginRight: 6,
-  },
-  headerTitleCaret: {
-    fontSize: 16,
-    color: '#111827',
-    marginTop: 2,
-  },
-  dropdownMenu: {
-    position: 'absolute',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 10,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.12,
-    shadowRadius: 8,
-    elevation: 20,
-    minWidth: 140,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    zIndex: 9999,
-  },
-  dropdownOverlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    zIndex: 10000,
-    elevation: 30,
-  },
-  dropdownBackdrop: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'transparent',
-  },
-  dropdownCard: {
-    borderRadius: 10,
-    overflow: 'hidden',
-  },
-  dropdownRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 10,
-    backgroundColor: '#FFFFFF',
-  },
-  dropdownDivider: {
-    height: 1,
-    backgroundColor: '#E5E7EB',
-  },
-  dropdownIconPickleball: {
-    fontSize: 16,
-  },
-  dropdownIconTennis: {
-    fontSize: 16,
-  },
-  dropdownLabelPickleball: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#863A73',
-    flex: 1,
-  },
-  dropdownLabelTennis: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#008000',
-    flex: 1,
-  },
-  dropdownCheck: {
-    fontSize: 14,
-    color: '#008000',
-  },
-  inlineSelectorWrapper: {
-    paddingTop: 8,
-  },
-  inlineSelector: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  selectorPill: {
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    borderRadius: 9999,
-    paddingVertical: 8,
-    paddingHorizontal: 14,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 3,
-    elevation: 2,
-  },
-  selectorTextPickleball: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#863A73',
-  },
-  selectorTextTennis: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#008000',
-  },
-  dropdownItem: {
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-  },
-  dropdownItemText: {
-    fontSize: 14,
-    color: '#111827',
-  },
-  dropdownItemTextBold: {
-    fontSize: 14,
-    color: '#111827',
-    fontWeight: '700',
-  },
-  dropdownItemTextPickleball: {
-    fontSize: 14,
-    color: '#863A73',
-    fontWeight: '700',
-  },
-  dropdownItemTextTennis: {
-    fontSize: 14,
-    color: '#008000',
-    fontWeight: '700',
   },
   scrollContainer: {
     flex: 1,
@@ -536,6 +323,12 @@ const styles = StyleSheet.create({
     fontSize: 18,
     color: '#9CA3AF',
   },
+  sectionTitle: {
+    fontSize: 18,
+    color: '#333333',
+    fontWeight: 'bold',
+    marginBottom: 16,
+  },
   otherLeagueCard: {
     backgroundColor: '#FFFFFF',
     borderRadius: 16,
@@ -580,176 +373,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
   },
-  cardContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 20,
-    gap: 12,
-  },
-  card: {
-    flex: 1,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 20,
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  cardTitle: {
-    fontSize: 14,
-    color: '#666666',
-    fontWeight: '500',
-    marginBottom: 8,
-  },
-  cardValue: {
-    fontSize: 24,
-    color: '#FF6B35',
-    fontWeight: 'bold',
-    marginBottom: 4,
-  },
-  cardSubtext: {
-    fontSize: 12,
-    color: '#999999',
-  },
-  quickActionsCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 20,
-    padding: 24,
-    marginBottom: 20,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  recentActivityCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 20,
-    padding: 24,
-    marginBottom: 20,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    color: '#333333',
-    fontWeight: 'bold',
-    marginBottom: 16,
-  },
-  actionButtonsContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    gap: 12,
-  },
-  actionButton: {
-    flex: 1,
-    backgroundColor: '#FF6B35',
-    borderRadius: 12,
-    paddingVertical: 14,
-    paddingHorizontal: 20,
-    alignItems: 'center',
-  },
-  actionButtonText: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  placeholderText: {
-    fontSize: 14,
-    color: '#999999',
-    fontStyle: 'italic',
-    textAlign: 'center',
-  },
-  tabIndicator: {
-    backgroundColor: '#F8F0F5',
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    marginHorizontal: 20,
-    marginBottom: 16,
-    borderRadius: 12,
-    borderLeftWidth: 4,
-    borderLeftColor: '#863A73',
-  },
-  tabIndicatorText: {
-    fontSize: 14,
-    color: '#863A73',
-    fontWeight: '600',
-    textAlign: 'center',
-  },
-  newsSection: {
-    marginBottom: 20,
-  },
-  newsCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 16,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  newsCardHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  newsIconContainer: {
-    marginRight: 16,
-  },
-  newsIconText: {
-    fontSize: 24,
-  },
-  newsInfo: {
-    flex: 1,
-  },
-  newsTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#1A1C1E',
-    marginBottom: 4,
-  },
-  newsSubtitle: {
-    fontSize: 14,
-    color: '#6B7280',
-    fontWeight: '500',
-  },
-  newsTime: {
-    alignItems: 'flex-end',
-  },
-  newsTimeText: {
-    fontSize: 12,
-    color: '#9CA3AF',
-    fontWeight: '500',
-  },
-  newsPlaceholder: {
-    fontSize: 14,
-    color: '#9CA3AF',
-    fontStyle: 'italic',
-    textAlign: 'center',
-    paddingVertical: 20,
-    backgroundColor: '#F9FAFB',
-    borderRadius: 8,
-  },
   parallaxWrapper: {
     borderRadius: 16,
     overflow: 'hidden',
@@ -761,5 +384,3 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
 });
-
-

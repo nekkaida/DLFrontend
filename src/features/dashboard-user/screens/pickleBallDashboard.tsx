@@ -6,10 +6,7 @@ import { useDashboard } from '../DashboardContext';
 import { NavBar } from '@/shared/components/layout';
 import * as Haptics from 'expo-haptics';
 import { router } from 'expo-router';
-import DropdownIcon from '@/assets/icons/dropdown-icon.svg';
-import PickleballIcon from '@/assets/images/045-PICKLEBALL.svg';
-import TennisIcon from '@/assets/images/033-TENNIS 1.svg';
-import PadelIcon from '@/assets/images/036-PADEL 1.svg';
+import { SportDropdownHeader } from '@/src/shared/components/ui/SportDropdownHeader';
 
 const { width, height } = Dimensions.get('window');
 
@@ -20,8 +17,6 @@ export default function DashboardScreen() {
   const [locationFilterOpen, setLocationFilterOpen] = React.useState(false);
   const [isLoading, setIsLoading] = React.useState(true);
   const scrollY = React.useRef(new Animated.Value(0)).current;
-  const [isHeaderMenuOpen, setIsHeaderMenuOpen] = React.useState(false);
-  const [headerTitleLayout, setHeaderTitleLayout] = React.useState<{ x: number; y: number; width: number; height: number } | null>(null);
 
   console.log(`PickleballDashboard: Current activeTab is ${activeTab}`);
   
@@ -84,57 +79,11 @@ export default function DashboardScreen() {
       
       
       <View style={styles.contentContainer}>
-        {/* Header Section */}
-        <View style={styles.headerSection}>
-          <View style={styles.headerContainer}>
-            <TouchableOpacity onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); router.back(); }} activeOpacity={0.7}>
-              <Text style={styles.backIcon}>‹</Text>
-            </TouchableOpacity>
-            <View style={styles.headerTitleContainer}>
-              <TouchableOpacity
-                style={styles.headerTitleRow}
-                activeOpacity={0.7}
-                onPress={() => setIsHeaderMenuOpen((v) => !v)}
-                onLayout={(e) => setHeaderTitleLayout(e.nativeEvent.layout)}
-              >
-                <Text style={styles.headerTitleText}>Pickleball</Text>
-                <DropdownIcon width={18} height={18} />
-              </TouchableOpacity>
-              
-              {/* Dropdown positioned relative to header */}
-              {isHeaderMenuOpen && (
-                <View style={styles.dropdownMenu}>
-                  <View style={styles.dropdownCard}>
-                    <TouchableOpacity
-                      style={styles.dropdownRow}
-                      onPress={() => { setIsHeaderMenuOpen(false); router.push('/user-dashboard/pickleball')}}
-                    >
-                      <PickleballIcon width={24} height={24} />
-                      <Text style={styles.dropdownLabelPickleball}>Pickleball</Text>
-                      <Text style={styles.dropdownCheckPickle}>✓</Text>
-                    </TouchableOpacity>
-                    <View style={styles.dropdownDivider} />
-                    <TouchableOpacity
-                      style={styles.dropdownRow}
-                      onPress={() => { setIsHeaderMenuOpen(false); router.push('/user-dashboard/tennis'); }}
-                    >
-                      <TennisIcon width={24} height={24} />
-                      <Text style={styles.dropdownLabelTennis}>Tennis</Text>
-                    </TouchableOpacity>
-                    <View style={styles.dropdownDivider} />
-                    <TouchableOpacity
-                      style={styles.dropdownRow}
-                      onPress={() => { setIsHeaderMenuOpen(false); router.push('/user-dashboard/padel' as any); }}
-                    >
-                      <PadelIcon width={24} height={24} />
-                      <Text style={styles.dropdownLabelPadel}>Padel</Text>
-                    </TouchableOpacity>
-                  </View>
-                </View>
-              )}
-            </View>
-          </View>
-        </View>
+        <SportDropdownHeader 
+          currentSport="pickleball"
+          sportName="Pickleball"
+          sportColor="#863A73"
+        />
 
         <Animated.ScrollView 
           style={styles.scrollContainer}
@@ -277,99 +226,6 @@ const styles = StyleSheet.create({
     flex: 1,
     zIndex: 1,
   },
-  headerSection: {
-    paddingHorizontal: 24,
-    paddingTop: 20,
-    paddingBottom: 30,
-  },
-  headerExpanded: {
-    marginBottom: 0,
-  },
-  headerContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    width: '100%',
-    gap: 8,
-    marginTop: 10, 
-  },
-  headerTitleContainer: {
-    flex: 1,
-    position: 'relative',
-  },
-  backIcon: {
-    fontSize: 35,
-    fontWeight: '600',
-    color: '#111827',
-    marginRight: 5,
-  },
-  headerTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 10, 
-  },
-  headerTitleText: {
-    fontFamily: Platform.OS === 'ios' ? 'Helvetica Neue' : 'sans-serif',
-    fontStyle: 'italic',
-    fontWeight: '800',
-    fontSize: 20,
-    lineHeight: 20,
-    color: '#863A73',
-    marginRight: 6,
-  },
-  dropdownMenu: {
-    position: 'absolute',
-    top: 45,
-    left: -10,
-    width: 200,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.12,
-    shadowRadius: 8,
-    elevation: 20,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    zIndex: 1000,
-  },
-  dropdownCard: {
-    borderRadius: 10,
-    overflow: 'hidden',
-  },
-  dropdownRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 16,
-    backgroundColor: '#FFFFFF',
-  },
-  dropdownDivider: {
-    height: 1,
-    backgroundColor: '#E5E7EB',
-  },
-  dropdownLabelPickleball: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#863A73',
-    flex: 1,
-  },
-  dropdownLabelTennis: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#008000',
-    flex: 1,
-  },
-  dropdownLabelPadel: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#4DABFE',
-    flex: 1,
-  },
-  dropdownCheckPickle: {
-    fontSize: 16,
-    color: '#863A73',
-  },
   scrollContainer: {
     flex: 1,
   },
@@ -489,6 +345,12 @@ const styles = StyleSheet.create({
     fontSize: 18,
     color: '#9CA3AF',
   },
+  sectionTitle: {
+    fontSize: 18,
+    color: '#333333',
+    fontWeight: 'bold',
+    marginBottom: 16,
+  },
   otherLeagueCard: {
     backgroundColor: '#FFFFFF',
     borderRadius: 16,
@@ -525,176 +387,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
   },
-  cardContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 20,
-    gap: 12,
-  },
-  card: {
-    flex: 1,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 20,
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  cardTitle: {
-    fontSize: 14,
-    color: '#666666',
-    fontWeight: '500',
-    marginBottom: 8,
-  },
-  cardValue: {
-    fontSize: 24,
-    color: '#FF6B35',
-    fontWeight: 'bold',
-    marginBottom: 4,
-  },
-  cardSubtext: {
-    fontSize: 12,
-    color: '#999999',
-  },
-  quickActionsCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 20,
-    padding: 24,
-    marginBottom: 20,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  recentActivityCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 20,
-    padding: 24,
-    marginBottom: 20,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    color: '#333333',
-    fontWeight: 'bold',
-    marginBottom: 16,
-  },
-  actionButtonsContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    gap: 12,
-  },
-  actionButton: {
-    flex: 1,
-    backgroundColor: '#FF6B35',
-    borderRadius: 12,
-    paddingVertical: 14,
-    paddingHorizontal: 20,
-    alignItems: 'center',
-  },
-  actionButtonText: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  placeholderText: {
-    fontSize: 14,
-    color: '#999999',
-    fontStyle: 'italic',
-    textAlign: 'center',
-  },
-  tabIndicator: {
-    backgroundColor: '#F8F0F5',
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    marginHorizontal: 20,
-    marginBottom: 16,
-    borderRadius: 12,
-    borderLeftWidth: 4,
-    borderLeftColor: '#863A73',
-  },
-  tabIndicatorText: {
-    fontSize: 14,
-    color: '#863A73',
-    fontWeight: '600',
-    textAlign: 'center',
-  },
-  newsSection: {
-    marginBottom: 20,
-  },
-  newsCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 16,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  newsCardHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  newsIconContainer: {
-    marginRight: 16,
-  },
-  newsIconText: {
-    fontSize: 24,
-  },
-  newsInfo: {
-    flex: 1,
-  },
-  newsTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#1A1C1E',
-    marginBottom: 4,
-  },
-  newsSubtitle: {
-    fontSize: 14,
-    color: '#6B7280',
-    fontWeight: '500',
-  },
-  newsTime: {
-    alignItems: 'flex-end',
-  },
-  newsTimeText: {
-    fontSize: 12,
-    color: '#9CA3AF',
-    fontWeight: '500',
-  },
-  newsPlaceholder: {
-    fontSize: 14,
-    color: '#9CA3AF',
-    fontStyle: 'italic',
-    textAlign: 'center',
-    paddingVertical: 20,
-    backgroundColor: '#F9FAFB',
-    borderRadius: 8,
-  },
   parallaxWrapper: {
     borderRadius: 16,
     overflow: 'hidden',
@@ -706,5 +398,3 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
 });
-
-
