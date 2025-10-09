@@ -4,6 +4,7 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { NavBar } from '@/shared/components/layout';
+import { SportDropdownHeader } from '@/shared/components/ui/SportDropdownHeader';
 import * as Haptics from 'expo-haptics';
 import CalendarIcon from '@/assets/icons/calendar-icon.svg';
 import ClockIcon from '@/assets/icons/clock-icon.svg';
@@ -24,8 +25,6 @@ export default function SeasonsScreen({
 }: SeasonsScreenProps) {
   const insets = useSafeAreaInsets();
   const [activeTab, setActiveTab] = React.useState(0); // 0: In Progress, 1: Upcoming, 2: Past
-  const [isHeaderMenuOpen, setIsHeaderMenuOpen] = React.useState(false);
-  const [headerTitleLayout, setHeaderTitleLayout] = React.useState<{ x: number; y: number; width: number; height: number } | null>(null);
 
   React.useEffect(() => {
     console.log('SeasonsScreen loaded successfully!');
@@ -38,10 +37,6 @@ export default function SeasonsScreen({
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   };
 
-  const handleBackPress = () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    router.back();
-  };
 
   const handleRegisterPress = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -170,26 +165,15 @@ export default function SeasonsScreen({
       
       <View style={styles.contentContainer}>
         {/* Header Section */}
-        <View style={styles.headerSection}>
-          <View style={styles.headerContainer}>
-            <TouchableOpacity onPress={handleBackPress} activeOpacity={0.7}>
-              <Text style={styles.backIcon}>‹</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.headerTitleRow}
-              activeOpacity={0.7}
-              onPress={() => setIsHeaderMenuOpen((v) => !v)}
-              onLayout={(e) => setHeaderTitleLayout(e.nativeEvent.layout)}
-            >
-              <Text style={styles.headerTitleText}>Pickleball</Text>
-              <Text style={styles.headerTitleCaret}>▾</Text>
-            </TouchableOpacity>
-          </View>
-          
-          {/* Category Title */}
-          <View style={styles.categoryTitleContainer}>
-            <Text style={styles.categoryTitleText}>{category}</Text>
-          </View>
+        <SportDropdownHeader 
+          currentSport={sport}
+          sportName={sport === 'pickleball' ? 'Pickleball' : 'Tennis'}
+          sportColor={sport === 'pickleball' ? '#863A73' : '#008000'}
+        />
+        
+        {/* Category Title */}
+        <View style={styles.categoryTitleContainer}>
+          <Text style={styles.categoryTitleText}>{category}</Text>
         </View>
 
         {/* Tab Navigation */}
@@ -219,46 +203,6 @@ export default function SeasonsScreen({
       </View>
       
       <NavBar activeTab={2} onTabPress={() => {}} />
-
-      {isHeaderMenuOpen && (
-        <View style={styles.dropdownOverlay} pointerEvents="box-none">
-          <TouchableOpacity
-            style={styles.dropdownBackdrop}
-            activeOpacity={1}
-            onPress={() => setIsHeaderMenuOpen(false)}
-          />
-          <View
-            style={[
-              styles.dropdownMenu,
-              headerTitleLayout
-                ? {
-                    top: headerTitleLayout.y + headerTitleLayout.height + 40,
-                    left: headerTitleLayout.x + 100,
-                  }
-                : undefined,
-            ]}
-          >
-            <View style={styles.dropdownCard}>
-              <TouchableOpacity
-                style={styles.dropdownRow}
-                onPress={() => { setIsHeaderMenuOpen(false); router.push('/user-dashboard/pickleball')}}
-              >
-                <Text style={styles.dropdownIconPickleball}>🏓</Text>
-                <Text style={styles.dropdownLabelPickleball}>Pickleball</Text>
-                <Text style={styles.dropdownCheckPickle}>✓</Text>
-              </TouchableOpacity>
-              <View style={styles.dropdownDivider} />
-              <TouchableOpacity
-                style={styles.dropdownRow}
-                onPress={() => { setIsHeaderMenuOpen(false); router.push('/user-dashboard/tennis'); }}
-              >
-                <Text style={styles.dropdownIconTennis}>🎾</Text>
-                <Text style={styles.dropdownLabelTennis}>Tennis</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      )}
     </SafeAreaView>
   );
 }
@@ -279,46 +223,10 @@ const styles = StyleSheet.create({
     flex: 1,
     zIndex: 1,
   },
-  headerSection: {
-    paddingHorizontal: 24,
-    paddingTop: 20,
-    paddingBottom: 20,
-  },
-  headerContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    width: '100%',
-    gap: 8,
-    marginTop: 10,
-  },
-  backIcon: {
-    fontSize: 35,
-    fontWeight: '600',
-    color: '#111827',
-    marginRight: 5,
-  },
-  headerTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 10,
-  },
-  headerTitleText: {
-    fontFamily: Platform.OS === 'ios' ? 'Helvetica Neue' : 'sans-serif',
-    fontStyle: 'italic',
-    fontWeight: '800',
-    fontSize: 20,
-    lineHeight: 20,
-    color: '#863A73',
-    marginRight: 6,
-  },
-  headerTitleCaret: {
-    fontSize: 16,
-    color: '#111827',
-    marginTop: -1,
-  },
   categoryTitleContainer: {
     marginTop: 30,
     alignItems: 'flex-start',
+    paddingHorizontal: 24,
   },
   categoryTitleText: {
     fontSize: 22,
@@ -343,6 +251,9 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '500',
     color: '#9CA3AF',
+  },
+  activeTab: {
+    // Active tab styling - can be empty or add specific styles
   },
   activeTabText: {
     fontSize: 14,
@@ -457,70 +368,5 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 14,
     fontWeight: '600',
-  },
-  dropdownMenu: {
-    position: 'absolute',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 10,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.12,
-    shadowRadius: 8,
-    elevation: 20,
-    minWidth: 140,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    zIndex: 9999,
-  },
-  dropdownOverlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    zIndex: 10000,
-    elevation: 30,
-  },
-  dropdownBackdrop: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'transparent',
-  },
-  dropdownCard: {
-    borderRadius: 10,
-    overflow: 'hidden',
-  },
-  dropdownRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 10,
-    backgroundColor: '#FFFFFF',
-  },
-  dropdownDivider: {
-    height: 1,
-    backgroundColor: '#E5E7EB',
-  },
-  dropdownIconPickleball: {
-    fontSize: 16,
-  },
-  dropdownIconTennis: {
-    fontSize: 16,
-  },
-  dropdownLabelPickleball: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#863A73',
-    flex: 1,
-  },
-  dropdownLabelTennis: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#008000',
-    flex: 1,
-  },
-  dropdownCheckPickle: {
-    fontSize: 14,
-    color: '#863A73',
   },
 });
