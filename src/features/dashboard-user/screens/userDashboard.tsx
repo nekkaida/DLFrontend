@@ -35,6 +35,11 @@ const SPORT_CONFIG = {
 
 const { width, height } = Dimensions.get('window');
 
+// Responsive design helpers
+const isSmallScreen = width < 375;
+const isLargeScreen = width > 414;
+const isTablet = width > 768;
+
 export default function DashboardScreen() {
   const { userName } = useDashboard();
   const { data: session } = useSession();
@@ -42,7 +47,8 @@ export default function DashboardScreen() {
   const [activeTab, setActiveTab] = React.useState(2);
   const [refreshing, setRefreshing] = React.useState(false);
   const [profileData, setProfileData] = React.useState<any>(null);
-  const STATUS_BAR_HEIGHT = Platform.OS === 'android' ? (StatusBar.currentHeight || 0) : (insets?.top || 0);
+  // Use safe area insets for proper status bar handling across platforms
+  const STATUS_BAR_HEIGHT = insets.top;
 
   // Helper function to get user's selected sports
   const getUserSelectedSports = () => {
@@ -267,7 +273,7 @@ export default function DashboardScreen() {
         />
 
 
-      <View style={[styles.contentContainer, Platform.OS === 'android' && { paddingTop: STATUS_BAR_HEIGHT }]}>
+      <View style={[styles.contentContainer, { paddingTop: STATUS_BAR_HEIGHT }]}>
          <View style={styles.headerSection}>
            <View style={styles.headerContainer}>
              <Text style={styles.logoText}>DEUCE</Text>
@@ -331,7 +337,10 @@ export default function DashboardScreen() {
                       <View style={styles.sportCardHeader}>
                       <View style={styles.sportIconContainer}>
                         <View style={[styles.sportIcon, { backgroundColor: '#FFFFFF' }]}>
-                          <sportConfig.Icon width={30} height={30} />
+                          <sportConfig.Icon 
+                            width={isSmallScreen ? 24 : isTablet ? 36 : 30} 
+                            height={isSmallScreen ? 24 : isTablet ? 36 : 30} 
+                          />
                         </View>
                       </View>
                         <View style={styles.sportInfo}>
@@ -438,9 +447,9 @@ const styles = StyleSheet.create({
     zIndex: 1,
   },
   headerSection: {
-    paddingHorizontal: 24,
-    paddingTop: 20,
-    paddingBottom: 30,
+    paddingHorizontal: isSmallScreen ? 16 : isTablet ? 32 : 24,
+    paddingTop: Platform.OS === 'ios' ? 16 : 20,
+    paddingBottom: isSmallScreen ? 20 : 30,
   },
   headerContainer: {
     flexDirection: 'row',
@@ -452,8 +461,8 @@ const styles = StyleSheet.create({
     fontFamily: Platform.OS === 'ios' ? 'Helvetica Neue' : 'sans-serif',
     fontStyle: 'italic',
     fontWeight: '700',
-    fontSize: 24,
-    lineHeight: 24,
+    fontSize: isSmallScreen ? 20 : isTablet ? 28 : 24,
+    lineHeight: isSmallScreen ? 20 : isTablet ? 28 : 24,
     color: '#FE9F4D',
   },
   headerRight: {
@@ -463,9 +472,9 @@ const styles = StyleSheet.create({
   },
   // logoutButton styles removed - logout now in settings page
   profilePicture: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: isSmallScreen ? 36 : isTablet ? 48 : 40,
+    height: isSmallScreen ? 36 : isTablet ? 48 : 40,
+    borderRadius: isSmallScreen ? 18 : isTablet ? 24 : 20,
     overflow: 'hidden',
     shadowColor: '#000',
     shadowOffset: {
@@ -477,21 +486,21 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   profileImage: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: isSmallScreen ? 36 : isTablet ? 48 : 40,
+    height: isSmallScreen ? 36 : isTablet ? 48 : 40,
+    borderRadius: isSmallScreen ? 18 : isTablet ? 24 : 20,
   },
   defaultAvatarContainer: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: isSmallScreen ? 36 : isTablet ? 48 : 40,
+    height: isSmallScreen ? 36 : isTablet ? 48 : 40,
+    borderRadius: isSmallScreen ? 18 : isTablet ? 24 : 20,
     backgroundColor: '#6de9a0',
     justifyContent: 'center',
     alignItems: 'center',
   },
   defaultAvatarText: {
     color: '#FFFFFF',
-    fontSize: 16,
+    fontSize: isSmallScreen ? 14 : isTablet ? 18 : 16,
     fontWeight: 'bold',
     fontFamily: 'System',
   },
@@ -499,7 +508,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    paddingHorizontal: 20,
+    paddingHorizontal: isSmallScreen ? 16 : isTablet ? 32 : 20,
     paddingBottom: 120,
   },
   sportSelectionHeader: {
@@ -515,8 +524,8 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter',
     fontStyle: 'normal',
     fontWeight: '700',
-    fontSize: 16,
-    lineHeight: 22,
+    fontSize: isSmallScreen ? 14 : isTablet ? 18 : 16,
+    lineHeight: isSmallScreen ? 20 : isTablet ? 24 : 22,
     color: '#1A1C1E',
   },
   sportCardsContainer: {
@@ -525,7 +534,7 @@ const styles = StyleSheet.create({
   sportCard: {
     backgroundColor: '#FFFFFF',
     borderRadius: 16,
-    padding: 20,
+    padding: isSmallScreen ? 16 : isTablet ? 24 : 20,
     marginBottom: 16,
     shadowColor: '#000',
     shadowOffset: {
@@ -545,9 +554,9 @@ const styles = StyleSheet.create({
     marginRight: 16,
   },
   sportIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: isSmallScreen ? 40 : isTablet ? 56 : 48,
+    height: isSmallScreen ? 40 : isTablet ? 56 : 48,
+    borderRadius: isSmallScreen ? 20 : isTablet ? 28 : 24,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -558,7 +567,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   sportName: {
-    fontSize: 18,
+    fontSize: isSmallScreen ? 16 : isTablet ? 20 : 18,
     fontWeight: '700',
   },
   playerCount: {
@@ -573,18 +582,18 @@ const styles = StyleSheet.create({
     marginRight: 8,
   },
   playerCountText: {
-    fontSize: 14,
+    fontSize: isSmallScreen ? 12 : isTablet ? 16 : 14,
     color: '#6B7280',
   },
   sportButton: {
     borderRadius: 12,
-    paddingVertical: 14,
-    paddingHorizontal: 20,
+    paddingVertical: isSmallScreen ? 12 : isTablet ? 16 : 14,
+    paddingHorizontal: isSmallScreen ? 16 : isTablet ? 24 : 20,
     alignItems: 'center',
   },
   sportButtonText: {
     color: '#FFFFFF',
-    fontSize: 14,
+    fontSize: isSmallScreen ? 12 : isTablet ? 16 : 14,
     fontWeight: '600',
   },
   cardContainer: {
@@ -653,7 +662,7 @@ const styles = StyleSheet.create({
     elevation: 4,
   },
   sectionTitle: {
-    fontSize: 18,
+    fontSize: isSmallScreen ? 16 : isTablet ? 20 : 18,
     color: '#333333',
     fontWeight: 'bold',
     marginBottom: 16,
@@ -704,7 +713,7 @@ const styles = StyleSheet.create({
   newsCard: {
     backgroundColor: '#FFFFFF',
     borderRadius: 16,
-    padding: 20,
+    padding: isSmallScreen ? 16 : isTablet ? 24 : 20,
     marginBottom: 16,
     shadowColor: '#000',
     shadowOffset: {
@@ -730,13 +739,13 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   newsTitle: {
-    fontSize: 16,
+    fontSize: isSmallScreen ? 14 : isTablet ? 18 : 16,
     fontWeight: '700',
     color: '#1A1C1E',
     marginBottom: 4,
   },
   newsSubtitle: {
-    fontSize: 14,
+    fontSize: isSmallScreen ? 12 : isTablet ? 16 : 14,
     color: '#6B7280',
     fontWeight: '500',
   },
@@ -744,12 +753,12 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
   },
   newsTimeText: {
-    fontSize: 12,
+    fontSize: isSmallScreen ? 10 : isTablet ? 14 : 12,
     color: '#9CA3AF',
     fontWeight: '500',
   },
   newsPlaceholder: {
-    fontSize: 14,
+    fontSize: isSmallScreen ? 12 : isTablet ? 16 : 14,
     color: '#9CA3AF',
     fontStyle: 'italic',
     textAlign: 'center',
@@ -760,7 +769,7 @@ const styles = StyleSheet.create({
   noSportsCard: {
     backgroundColor: '#FFFFFF',
     borderRadius: 16,
-    padding: 40,
+    padding: isSmallScreen ? 32 : isTablet ? 48 : 40,
     alignItems: 'center',
     shadowColor: '#000',
     shadowOffset: {
@@ -772,14 +781,14 @@ const styles = StyleSheet.create({
     elevation: 4,
   },
   noSportsText: {
-    fontSize: 18,
+    fontSize: isSmallScreen ? 16 : isTablet ? 20 : 18,
     fontWeight: '700',
     color: '#1A1C1E',
     marginBottom: 8,
     textAlign: 'center',
   },
   noSportsSubtext: {
-    fontSize: 14,
+    fontSize: isSmallScreen ? 12 : isTablet ? 16 : 14,
     color: '#6B7280',
     textAlign: 'center',
   },

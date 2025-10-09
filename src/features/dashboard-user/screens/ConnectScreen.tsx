@@ -1,7 +1,12 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { ScrollView, Text, View, StyleSheet, Dimensions, Platform, Image, TouchableOpacity, TextInput, StatusBar, Modal, Pressable } from 'react-native';
 
-const { height } = Dimensions.get('window');
+const { width, height } = Dimensions.get('window');
+
+// Responsive design helpers
+const isSmallScreen = width < 375;
+const isLargeScreen = width > 414;
+const isTablet = width > 768;
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
@@ -47,7 +52,8 @@ export default function ConnectScreen() {
   const [modalVisible, setModalVisible] = useState(false);
   const [viewMode, setViewMode] = useState<'all' | 'favorites'>('all');
   const [favoritedPlayerIds, setFavoritedPlayerIds] = useState<string[]>(['1', '3']); // Mock: Janice Fu and Sarah Chen
-  const STATUS_BAR_HEIGHT = Platform.OS === 'android' ? (StatusBar.currentHeight || 0) : (insets?.top || 0);
+  // Use safe area insets for proper status bar handling across platforms
+  const STATUS_BAR_HEIGHT = insets.top;
 
   const filteredPlayers = MOCK_PLAYERS.filter(player =>
     player.name.toLowerCase().includes(searchQuery.toLowerCase())
@@ -133,7 +139,7 @@ export default function ConnectScreen() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     console.log('View profile:', selectedPlayer?.id);
     closeModal();
-    router.push(`/player-profile/${selectedPlayer?.id}`);
+    router.push(`/player-profile/${selectedPlayer?.id}` as any);
   }, [selectedPlayer, closeModal]);
 
   return (
@@ -144,7 +150,7 @@ export default function ConnectScreen() {
         style={styles.backgroundGradient}
       />
 
-      <View style={[styles.contentContainer, Platform.OS === 'android' && { paddingTop: STATUS_BAR_HEIGHT }]}>
+      <View style={[styles.contentContainer, { paddingTop: STATUS_BAR_HEIGHT }]}>
         <View style={styles.headerSection}>
           <View style={styles.headerContainer}>
             <Text style={styles.logoText}>DEUCE</Text>
@@ -158,7 +164,7 @@ export default function ConnectScreen() {
               >
                 {(profileData?.image || session?.user?.image) ? (
                   <Image
-                    source={{ uri: profileData?.image || session?.user?.image }}
+                    source={{ uri: profileData?.image || session?.user?.image || '' }}
                     style={styles.profileImage}
                     onError={() => {
                       console.log('Profile image failed to load:', profileData?.image || session?.user?.image);
@@ -339,9 +345,9 @@ const styles = StyleSheet.create({
     zIndex: 1,
   },
   headerSection: {
-    paddingHorizontal: 24,
-    paddingTop: 20,
-    paddingBottom: 20,
+    paddingHorizontal: isSmallScreen ? 16 : isTablet ? 32 : 24,
+    paddingTop: Platform.OS === 'ios' ? 16 : 20,
+    paddingBottom: isSmallScreen ? 16 : 20,
   },
   headerContainer: {
     flexDirection: 'row',
@@ -353,8 +359,8 @@ const styles = StyleSheet.create({
     fontFamily: Platform.OS === 'ios' ? 'Helvetica Neue' : 'sans-serif',
     fontStyle: 'italic',
     fontWeight: '700',
-    fontSize: 24,
-    lineHeight: 24,
+    fontSize: isSmallScreen ? 20 : isTablet ? 28 : 24,
+    lineHeight: isSmallScreen ? 20 : isTablet ? 28 : 24,
     color: '#FE9F4D',
   },
   headerRight: {
@@ -363,9 +369,9 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   profilePicture: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: isSmallScreen ? 36 : isTablet ? 48 : 40,
+    height: isSmallScreen ? 36 : isTablet ? 48 : 40,
+    borderRadius: isSmallScreen ? 18 : isTablet ? 24 : 20,
     overflow: 'hidden',
     shadowColor: '#000',
     shadowOffset: {
@@ -377,38 +383,38 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   profileImage: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: isSmallScreen ? 36 : isTablet ? 48 : 40,
+    height: isSmallScreen ? 36 : isTablet ? 48 : 40,
+    borderRadius: isSmallScreen ? 18 : isTablet ? 24 : 20,
   },
   defaultAvatarContainer: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: isSmallScreen ? 36 : isTablet ? 48 : 40,
+    height: isSmallScreen ? 36 : isTablet ? 48 : 40,
+    borderRadius: isSmallScreen ? 18 : isTablet ? 24 : 20,
     backgroundColor: '#6de9a0',
     justifyContent: 'center',
     alignItems: 'center',
   },
   defaultAvatarText: {
     color: '#FFFFFF',
-    fontSize: 16,
+    fontSize: isSmallScreen ? 14 : isTablet ? 18 : 16,
     fontWeight: 'bold',
     fontFamily: 'System',
   },
   searchSection: {
-    paddingHorizontal: 16,
+    paddingHorizontal: isSmallScreen ? 12 : isTablet ? 24 : 16,
     paddingBottom: 16,
   },
   tabSwitcher: {
     flexDirection: 'row',
-    paddingHorizontal: 16,
+    paddingHorizontal: isSmallScreen ? 12 : isTablet ? 24 : 16,
     paddingBottom: 16,
     gap: 12,
   },
   tabButton: {
     flex: 1,
-    paddingVertical: 10,
-    paddingHorizontal: 16,
+    paddingVertical: isSmallScreen ? 8 : isTablet ? 12 : 10,
+    paddingHorizontal: isSmallScreen ? 12 : isTablet ? 20 : 16,
     borderRadius: 8,
     backgroundColor: '#F5F5F5',
     alignItems: 'center',
@@ -419,7 +425,7 @@ const styles = StyleSheet.create({
   tabButtonText: {
     fontFamily: 'Inter',
     fontWeight: '600',
-    fontSize: 14,
+    fontSize: isSmallScreen ? 12 : isTablet ? 16 : 14,
     color: '#666666',
   },
   tabButtonTextActive: {
@@ -435,7 +441,7 @@ const styles = StyleSheet.create({
   emptyStateText: {
     fontFamily: 'Inter',
     fontWeight: '600',
-    fontSize: 18,
+    fontSize: isSmallScreen ? 16 : isTablet ? 20 : 18,
     color: '#666666',
     marginTop: 16,
     textAlign: 'center',
@@ -443,7 +449,7 @@ const styles = StyleSheet.create({
   emptyStateSubtext: {
     fontFamily: 'Inter',
     fontWeight: '400',
-    fontSize: 14,
+    fontSize: isSmallScreen ? 12 : isTablet ? 16 : 14,
     color: '#999999',
     marginTop: 8,
     textAlign: 'center',
@@ -452,8 +458,8 @@ const styles = StyleSheet.create({
   searchBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 8,
-    height: 36,
+    padding: isSmallScreen ? 6 : isTablet ? 10 : 8,
+    height: isSmallScreen ? 32 : isTablet ? 40 : 36,
     backgroundColor: '#FFFFFF',
     borderRadius: 10,
     ...Platform.select({
@@ -478,8 +484,8 @@ const styles = StyleSheet.create({
   },
   searchInput: {
     flex: 1,
-    fontSize: 17,
-    lineHeight: 22,
+    fontSize: isSmallScreen ? 15 : isTablet ? 19 : 17,
+    lineHeight: isSmallScreen ? 20 : isTablet ? 24 : 22,
     letterSpacing: -0.408,
     color: '#000000',
     fontFamily: Platform.OS === 'ios' ? 'SF Pro Text' : 'System',
@@ -490,7 +496,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    paddingHorizontal: 20,
+    paddingHorizontal: isSmallScreen ? 16 : isTablet ? 32 : 20,
     paddingBottom: 120,
   },
   contentPlaceholder: {
@@ -518,12 +524,12 @@ const styles = StyleSheet.create({
   connectionItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 12,
+    paddingVertical: isSmallScreen ? 10 : isTablet ? 16 : 12,
   },
   avatar: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: isSmallScreen ? 40 : isTablet ? 56 : 48,
+    height: isSmallScreen ? 40 : isTablet ? 56 : 48,
+    borderRadius: isSmallScreen ? 20 : isTablet ? 28 : 24,
   },
   connectionContent: {
     flex: 1,
@@ -533,14 +539,14 @@ const styles = StyleSheet.create({
   connectionName: {
     fontFamily: 'Inter',
     fontWeight: '700',
-    fontSize: 16,
+    fontSize: isSmallScreen ? 14 : isTablet ? 18 : 16,
     letterSpacing: -0.3,
     color: '#1a1a1a',
   },
   divider: {
     height: 1,
     backgroundColor: '#E2E2E2',
-    marginLeft: 60,
+    marginLeft: isSmallScreen ? 52 : isTablet ? 68 : 60,
   },
   modalOverlay: {
     flex: 1,
@@ -552,9 +558,9 @@ const styles = StyleSheet.create({
   modalContent: {
     backgroundColor: '#FFFFFF',
     borderRadius: 16,
-    padding: 24,
+    padding: isSmallScreen ? 20 : isTablet ? 28 : 24,
     width: '90%',
-    maxWidth: 380,
+    maxWidth: isTablet ? 420 : 380,
     borderWidth: 1,
     borderColor: '#f1f5f9',
     position: 'relative',
@@ -584,9 +590,9 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   modalAvatar: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
+    width: isSmallScreen ? 80 : isTablet ? 120 : 100,
+    height: isSmallScreen ? 80 : isTablet ? 120 : 100,
+    borderRadius: isSmallScreen ? 40 : isTablet ? 60 : 50,
     borderWidth: 3,
     borderColor: '#FFFFFF',
     ...Platform.select({
@@ -602,7 +608,7 @@ const styles = StyleSheet.create({
     }),
   },
   modalPlayerName: {
-    fontSize: 20,
+    fontSize: isSmallScreen ? 18 : isTablet ? 24 : 20,
     fontWeight: '700',
     color: '#1a1a1a',
     fontFamily: 'Inter',
@@ -626,7 +632,7 @@ const styles = StyleSheet.create({
   },
   modalSportPillText: {
     color: '#FFFFFF',
-    fontSize: 10,
+    fontSize: isSmallScreen ? 9 : isTablet ? 12 : 10,
     fontFamily: 'Inter',
     fontWeight: '600',
     opacity: 0.95,
@@ -649,7 +655,7 @@ const styles = StyleSheet.create({
   modalActionButtonText: {
     fontFamily: 'Inter',
     fontWeight: '600',
-    fontSize: 11,
+    fontSize: isSmallScreen ? 10 : isTablet ? 13 : 11,
     color: '#6b7280',
     marginTop: 4,
   },
