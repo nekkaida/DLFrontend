@@ -6,6 +6,10 @@ import { useDashboard } from '../DashboardContext';
 import { NavBar } from '@/shared/components/layout';
 import * as Haptics from 'expo-haptics';
 import { router } from 'expo-router';
+import DropdownIcon from '@/assets/icons/dropdown-icon.svg';
+import PickleballIcon from '@/assets/images/045-PICKLEBALL.svg';
+import TennisIcon from '@/assets/images/033-TENNIS 1.svg';
+import PadelIcon from '@/assets/images/036-PADEL 1.svg';
 
 const { width, height } = Dimensions.get('window');
 
@@ -80,21 +84,55 @@ export default function DashboardScreen() {
       
       
       <View style={styles.contentContainer}>
-                 {/* Header Section */}
+        {/* Header Section */}
         <View style={styles.headerSection}>
           <View style={styles.headerContainer}>
             <TouchableOpacity onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); router.back(); }} activeOpacity={0.7}>
               <Text style={styles.backIcon}>‹</Text>
             </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.headerTitleRow}
-              activeOpacity={0.7}
-              onPress={() => setIsHeaderMenuOpen((v) => !v)}
-              onLayout={(e) => setHeaderTitleLayout(e.nativeEvent.layout)}
-            >
-              <Text style={styles.headerTitleText}>Pickleball</Text>
-              <Text style={styles.headerTitleCaret}>▾</Text>
-            </TouchableOpacity>
+            <View style={styles.headerTitleContainer}>
+              <TouchableOpacity
+                style={styles.headerTitleRow}
+                activeOpacity={0.7}
+                onPress={() => setIsHeaderMenuOpen((v) => !v)}
+                onLayout={(e) => setHeaderTitleLayout(e.nativeEvent.layout)}
+              >
+                <Text style={styles.headerTitleText}>Pickleball</Text>
+                <DropdownIcon width={18} height={18} />
+              </TouchableOpacity>
+              
+              {/* Dropdown positioned relative to header */}
+              {isHeaderMenuOpen && (
+                <View style={styles.dropdownMenu}>
+                  <View style={styles.dropdownCard}>
+                    <TouchableOpacity
+                      style={styles.dropdownRow}
+                      onPress={() => { setIsHeaderMenuOpen(false); router.push('/user-dashboard/pickleball')}}
+                    >
+                      <PickleballIcon width={24} height={24} />
+                      <Text style={styles.dropdownLabelPickleball}>Pickleball</Text>
+                      <Text style={styles.dropdownCheckPickle}>✓</Text>
+                    </TouchableOpacity>
+                    <View style={styles.dropdownDivider} />
+                    <TouchableOpacity
+                      style={styles.dropdownRow}
+                      onPress={() => { setIsHeaderMenuOpen(false); router.push('/user-dashboard/tennis'); }}
+                    >
+                      <TennisIcon width={24} height={24} />
+                      <Text style={styles.dropdownLabelTennis}>Tennis</Text>
+                    </TouchableOpacity>
+                    <View style={styles.dropdownDivider} />
+                    <TouchableOpacity
+                      style={styles.dropdownRow}
+                      onPress={() => { setIsHeaderMenuOpen(false); router.push('/user-dashboard/padel' as any); }}
+                    >
+                      <PadelIcon width={24} height={24} />
+                      <Text style={styles.dropdownLabelPadel}>Padel</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              )}
+            </View>
           </View>
         </View>
 
@@ -107,7 +145,7 @@ export default function DashboardScreen() {
             [{ nativeEvent: { contentOffset: { y: scrollY } } }],
             { useNativeDriver: true }
           )}
-                  >
+         >
           
             {/* Recommended League Header with filter */}
             <View style={styles.recommendedHeaderRow}>
@@ -129,12 +167,7 @@ export default function DashboardScreen() {
                   { scale: scrollY.interpolate({ inputRange: [-100, 0], outputRange: [1.05, 1], extrapolate: 'clamp' }) }
                 ]
               }]}>
-                <ImageBackground
-                  source={require('@/assets/images/leaguepickleball3.png')}
-                  style={styles.featuredImage}
-                  imageStyle={styles.featuredImageRadius}
-                >
-                  <View style={styles.featuredOverlay} />
+                <View style={styles.featuredWhiteCard}>
                   <View style={styles.featuredContent}>
                     <View style={styles.featuredTopRow}>
                       <Text style={styles.featuredLeagueName}>PJ League</Text>
@@ -170,7 +203,7 @@ export default function DashboardScreen() {
                       </TouchableOpacity>
                     </View>
                   </View>
-                </ImageBackground>
+                </View>
               </Animated.View>
             </TouchableOpacity>
             )}
@@ -182,11 +215,6 @@ export default function DashboardScreen() {
             </View>
 
             <View style={styles.otherLeagueCard}>
-              <ImageBackground
-                source={require('@/assets/images/leaguepickleball1.png')}
-                style={styles.otherLeagueImage}
-                imageStyle={styles.otherLeagueImageRadius}
-              />
               <View style={styles.otherLeagueInfoRow}>
                 <View>
                   <Text style={styles.otherLeagueName}>KL League</Text>
@@ -205,11 +233,6 @@ export default function DashboardScreen() {
             </View>
 
             <View style={styles.otherLeagueCard}>
-              <ImageBackground
-                source={require('@/assets/images/leaguepickleball2.png')}
-                style={styles.otherLeagueImage}
-                imageStyle={styles.otherLeagueImageRadius}
-              />
               <View style={styles.otherLeagueInfoRow}>
                 <View>
                   <Text style={styles.otherLeagueName}>Subang League</Text>
@@ -234,46 +257,6 @@ export default function DashboardScreen() {
       
       
       <NavBar activeTab={activeTab} onTabPress={handleTabPress} />
-
-      {isHeaderMenuOpen && (
-        <View style={styles.dropdownOverlay} pointerEvents="box-none">
-          <TouchableOpacity
-            style={styles.dropdownBackdrop}
-            activeOpacity={1}
-            onPress={() => setIsHeaderMenuOpen(false)}
-          />
-          <View
-            style={[
-              styles.dropdownMenu,
-              headerTitleLayout
-                ? {
-                    top: headerTitleLayout.y + headerTitleLayout.height + 40,
-                    left: headerTitleLayout.x + 100,
-                  }
-                : undefined,
-            ]}
-          >
-            <View style={styles.dropdownCard}>
-              <TouchableOpacity
-                style={styles.dropdownRow}
-                onPress={() => { setIsHeaderMenuOpen(false); router.push('/user-dashboard/pickleball')}}
-              >
-                <Text style={styles.dropdownIconPickleball}>🏓</Text>
-                <Text style={styles.dropdownLabelPickleball}>Pickleball</Text>
-                <Text style={styles.dropdownCheckPickle}>✓</Text>
-              </TouchableOpacity>
-              <View style={styles.dropdownDivider} />
-              <TouchableOpacity
-                style={styles.dropdownRow}
-                onPress={() => { setIsHeaderMenuOpen(false); router.push('/user-dashboard/tennis'); }}
-              >
-                <Text style={styles.dropdownIconTennis}>🎾</Text>
-                <Text style={styles.dropdownLabelTennis}>Tennis</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      )}
     </SafeAreaView>
   );
 }
@@ -309,6 +292,10 @@ const styles = StyleSheet.create({
     gap: 8,
     marginTop: 10, 
   },
+  headerTitleContainer: {
+    flex: 1,
+    position: 'relative',
+  },
   backIcon: {
     fontSize: 35,
     fontWeight: '600',
@@ -329,37 +316,21 @@ const styles = StyleSheet.create({
     color: '#863A73',
     marginRight: 6,
   },
-  headerTitleCaret: {
-    fontSize: 16,
-    color: '#111827',
-    marginTop: -1,
-  },
   dropdownMenu: {
     position: 'absolute',
+    top: 45,
+    left: -10,
+    width: 200,
     backgroundColor: '#FFFFFF',
-    borderRadius: 10,
+    borderRadius: 12,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.12,
     shadowRadius: 8,
     elevation: 20,
-    minWidth: 140,
     borderWidth: 1,
     borderColor: '#E5E7EB',
-    zIndex: 9999,
-  },
-  dropdownOverlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    zIndex: 10000,
-    elevation: 30,
-  },
-  dropdownBackdrop: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'transparent',
+    zIndex: 1000,
   },
   dropdownCard: {
     borderRadius: 10,
@@ -368,35 +339,35 @@ const styles = StyleSheet.create({
   dropdownRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 10,
+    gap: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 16,
     backgroundColor: '#FFFFFF',
   },
   dropdownDivider: {
     height: 1,
     backgroundColor: '#E5E7EB',
   },
-  dropdownIconPickleball: {
-    fontSize: 16,
-  },
-  dropdownIconTennis: {
-    fontSize: 16,
-  },
   dropdownLabelPickleball: {
-    fontSize: 14,
+    fontSize: 16,
     fontWeight: '700',
     color: '#863A73',
     flex: 1,
   },
   dropdownLabelTennis: {
-    fontSize: 14,
+    fontSize: 16,
     fontWeight: '700',
     color: '#008000',
     flex: 1,
   },
+  dropdownLabelPadel: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#4DABFE',
+    flex: 1,
+  },
   dropdownCheckPickle: {
-    fontSize: 14,
+    fontSize: 16,
     color: '#863A73',
   },
   scrollContainer: {
@@ -442,17 +413,14 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     overflow: 'hidden',
   },
-  featuredImage: {
+  featuredWhiteCard: {
     width: '100%',
     height: 180,
-    justifyContent: 'flex-end',
-  },
-  featuredImageRadius: {
+    backgroundColor: '#FFFFFF',
     borderRadius: 16,
-  },
-  featuredOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,0,0,0.25)',
+    borderWidth: 1,
+    borderColor: '#F3F4F6',
+    justifyContent: 'flex-end',
   },
   featuredContent: {
     padding: 16,
@@ -464,17 +432,17 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   featuredLeagueName: {
-    color: '#FFFFFF',
+    color: '#111827',
     fontSize: 18,
     fontWeight: '700',
   },
   trophyBadge: {
-    backgroundColor: 'rgba(255,255,255,0.7)',
+    backgroundColor: '#F3F4F6',
     borderRadius: 14,
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.85)'
+    borderColor: '#E5E7EB'
   },
   trophyText: {
     fontSize: 12,
@@ -493,23 +461,21 @@ const styles = StyleSheet.create({
     height: 26,
     borderRadius: 13,
     borderWidth: 2,
-    borderColor: '#FFFFFF',
+    borderColor: '#E5E7EB',
   },
   moreCountText: {
-    color: '#FFFFFF',
+    color: '#6B7280',
     fontSize: 12,
     fontWeight: '600',
   },
   featuredCta: {
-    backgroundColor: 'rgba(255,255,255,0.75)',
+    backgroundColor: '#111827',
     paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: 18,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.85)'
   },
   featuredCtaText: {
-    color: '#111827',
+    color: '#FFFFFF',
     fontSize: 12,
     fontWeight: '700',
   },
@@ -530,14 +496,6 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     borderWidth: 1,
     borderColor: '#F3F4F6',
-  },
-  otherLeagueImage: {
-    width: '100%',
-    height: 140,
-  },
-  otherLeagueImageRadius: {
-    borderTopLeftRadius: 16,
-    borderTopRightRadius: 16,
   },
   otherLeagueInfoRow: {
     flexDirection: 'row',
