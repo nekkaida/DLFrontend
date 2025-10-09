@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
-import { ScrollView, Text, View, StyleSheet, Dimensions, Platform, Image, TouchableOpacity, RefreshControl } from 'react-native';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { ScrollView, Text, View, StyleSheet, Dimensions, Platform, Image, TouchableOpacity, RefreshControl, StatusBar } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { useDashboard } from '../DashboardContext';
@@ -42,6 +42,7 @@ export default function DashboardScreen() {
   const [activeTab, setActiveTab] = React.useState(2);
   const [refreshing, setRefreshing] = React.useState(false);
   const [profileData, setProfileData] = React.useState<any>(null);
+  const STATUS_BAR_HEIGHT = Platform.OS === 'android' ? (StatusBar.currentHeight || 0) : (insets?.top || 0);
 
   // Helper function to get user's selected sports
   const getUserSelectedSports = () => {
@@ -177,8 +178,14 @@ export default function DashboardScreen() {
   const handleTabPress = (tabIndex: number) => {
     console.log(`DashboardScreen: Setting activeTab to ${tabIndex}`);
     setActiveTab(tabIndex);
-    console.log(`Tab ${tabIndex} pressed - ${['Favourite', 'Friendly', 'Leagues', 'My Games', 'Chat'][tabIndex]}`);
+    console.log(`Tab ${tabIndex} pressed - ${['Connect', 'Friendly', 'Leagues', 'My Games', 'Chat'][tabIndex]}`);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+
+
+    // Navigate to Connect screen when tab 0 is pressed
+    if (tabIndex === 0) {
+      router.push('/user-dashboard/connect');
+    }
   };
 
   const fetchProfileData = async () => {
@@ -234,33 +241,33 @@ export default function DashboardScreen() {
   // handleLogout removed - logout functionality moved to settings page
 
   return (
-    <SafeAreaView 
+    <View
       style={styles.container}
       onLayout={(event) => {
-        const { x, y, width: layoutWidth, height: layoutHeight } = event.nativeEvent.layout;
-        console.log('=== SafeAreaView Layout Debug ===');
-        console.log(`SafeAreaView layout:`, {
-          x,
-          y,
-          width: layoutWidth,
-          height: layoutHeight
-        });
-        console.log(`SafeAreaView top position: ${y}px`);
-        console.log(`SafeAreaView bottom position: ${y + layoutHeight}px`);
-        console.log(`Available space for content: ${layoutHeight}px`);
-        console.log(`NavBar space reserved: 83px`);
-        console.log(`Actual content space: ${layoutHeight - 83}px`);
-        console.log('==============================');
-      }}
-    >
+          const { x, y, width: layoutWidth, height: layoutHeight } = event.nativeEvent.layout;
+          console.log('=== Container Layout Debug ===');
+          console.log(`Container layout:`, {
+            x,
+            y,
+            width: layoutWidth,
+            height: layoutHeight
+          });
+          console.log(`Container top position: ${y}px`);
+          console.log(`Container bottom position: ${y + layoutHeight}px`);
+          console.log(`Available space for content: ${layoutHeight}px`);
+          console.log(`NavBar space reserved: 83px`);
+          console.log(`Actual content space: ${layoutHeight - 83}px`);
+          console.log('==============================');
+        }}
+      >
               <LinearGradient
           colors={['#FDEDE0', '#FFFFFF']}
           locations={[0, 1]}
           style={styles.backgroundGradient}
         />
-      
-      
-      <View style={styles.contentContainer}>
+
+
+      <View style={[styles.contentContainer, Platform.OS === 'android' && { paddingTop: STATUS_BAR_HEIGHT }]}>
          <View style={styles.headerSection}>
            <View style={styles.headerContainer}>
              <Text style={styles.logoText}>DEUCE</Text>
@@ -407,10 +414,10 @@ export default function DashboardScreen() {
             </View>
           </View>
         </ScrollView>
-      
+
       </View>
       <NavBar activeTab={activeTab} onTabPress={handleTabPress} />
-    </SafeAreaView>
+    </View>
   );
 }
 
