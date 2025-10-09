@@ -88,7 +88,7 @@ const WhiteArrowIcon = () => (
 );
 
 const AssessmentResultsScreen = () => {
-  const { sport, sportIndex } = useLocalSearchParams();
+  const { sport, sportIndex, fromDashboard } = useLocalSearchParams();
   const { data, updateData } = useOnboarding();
   const currentSportIndex = parseInt(sportIndex as string) || 0;
   const selectedSports = data.selectedSports || [];
@@ -180,14 +180,21 @@ const AssessmentResultsScreen = () => {
   };
 
   const handleContinue = () => {
-    // Check if there are more sports to assess
-    if (currentSportIndex < selectedSports.length - 1) {
-      // Navigate to skill assessment for next sport
-      const nextSport = selectedSports[currentSportIndex + 1];
-      router.push(`/onboarding/skill-assessment?sport=${nextSport}&sportIndex=${currentSportIndex + 1}`);
+    // Check if we're coming from the dashboard
+    if (fromDashboard === 'true') {
+      // Coming from dashboard - return to user dashboard
+      router.push('/user-dashboard');
     } else {
-      // All sports assessed, go to profile picture
-      router.push('/onboarding/profile-picture');
+      // During onboarding flow - continue to next step
+      // Check if there are more sports to assess
+      if (currentSportIndex < selectedSports.length - 1) {
+        // Navigate to skill assessment for next sport
+        const nextSport = selectedSports[currentSportIndex + 1];
+        router.push(`/onboarding/skill-assessment?sport=${nextSport}&sportIndex=${currentSportIndex + 1}`);
+      } else {
+        // All sports assessed, go to profile picture
+        router.push('/onboarding/profile-picture');
+      }
     }
   };
 

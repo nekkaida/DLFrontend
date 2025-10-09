@@ -94,7 +94,7 @@ const SimpleQuestionCard: React.FC<SimpleQuestionCardProps> = ({
 };
 
 const SkillAssessmentScreen = () => {
-  const { sport, sportIndex } = useLocalSearchParams();
+  const { sport, sportIndex, fromDashboard } = useLocalSearchParams();
   const { data, updateData } = useOnboarding();
   const session = useSession(); // Get session at component level
   const currentSportIndex = parseInt(sportIndex as string) || 0;
@@ -373,7 +373,7 @@ const SkillAssessmentScreen = () => {
       
       // Navigate directly to results without delay
       setIsSubmittingAssessment(false);
-      router.replace(`/onboarding/assessment-results?sport=${sport}&sportIndex=${currentSportIndex}`);
+      router.replace(`/onboarding/assessment-results?sport=${sport}&sportIndex=${currentSportIndex}${fromDashboard ? '&fromDashboard=true' : ''}`);
     } catch (error) {
       console.error('Error in completePickleballAssessment:', error);
       setIsSubmittingAssessment(false);
@@ -412,7 +412,7 @@ const SkillAssessmentScreen = () => {
       
       // Navigate directly to results without delay
       setIsSubmittingAssessment(false);
-      router.replace(`/onboarding/assessment-results?sport=${sport}&sportIndex=${currentSportIndex}`);
+      router.replace(`/onboarding/assessment-results?sport=${sport}&sportIndex=${currentSportIndex}${fromDashboard ? '&fromDashboard=true' : ''}`);
     } catch (error) {
       console.error('Error in completeTennisAssessment:', error);
       setIsSubmittingAssessment(false);
@@ -451,7 +451,7 @@ const SkillAssessmentScreen = () => {
       
       // Navigate directly to results without delay
       setIsSubmittingAssessment(false);
-      router.replace(`/onboarding/assessment-results?sport=${sport}&sportIndex=${currentSportIndex}`);
+      router.replace(`/onboarding/assessment-results?sport=${sport}&sportIndex=${currentSportIndex}${fromDashboard ? '&fromDashboard=true' : ''}`);
     } catch (error) {
       console.error('Error in completePadelAssessment:', error);
       setIsSubmittingAssessment(false);
