@@ -7,15 +7,26 @@ import { NavBar } from '@/shared/components/layout';
 import * as Haptics from 'expo-haptics';
 import { router } from 'expo-router';
 import { SportDropdownHeader } from '@/src/shared/components/ui/SportDropdownHeader';
+import { useLeagues, LeagueCard } from '@/src/features/leagues';
 
 const { width, height } = Dimensions.get('window');
+
+// Responsive design helpers
+const isSmallScreen = width < 375;
+const isLargeScreen = width > 414;
+const isTablet = width > 768;
 
 export default function DashboardScreen() {
   const { userName } = useDashboard();
   const [activeTab, setActiveTab] = React.useState(2);
   const [locationFilterOpen, setLocationFilterOpen] = React.useState(false);
-  const [isLoading, setIsLoading] = React.useState(true);
   const scrollY = React.useRef(new Animated.Value(0)).current;
+
+  // Fetch leagues data
+  const { leagues, isLoading, error, refetch, joinLeague } = useLeagues({
+    sportType: 'TENNIS',
+    autoFetch: true
+  });
 
   console.log(`DashboardScreen: Current activeTab is ${activeTab}`);
 
@@ -24,10 +35,16 @@ export default function DashboardScreen() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   };
 
-  React.useEffect(() => {
-    const t = setTimeout(() => setIsLoading(false), 700);
-    return () => clearTimeout(t);
-  }, []);
+  const handleJoinLeague = async (leagueId: string) => {
+    const success = await joinLeague(leagueId);
+    if (success) {
+      console.log('Successfully joined league:', leagueId);
+      // You could show a success toast here
+    } else {
+      console.log('Failed to join league:', leagueId);
+      // You could show an error toast here
+    }
+  };
 
   return (
     <SafeAreaView style={styles.container}>
@@ -66,111 +83,54 @@ export default function DashboardScreen() {
               </TouchableOpacity>
             </View>
 
+            {/* Featured League Card */}
             {isLoading ? (
               <View style={styles.featuredSkeleton} />
-            ) : (
-            <TouchableOpacity activeOpacity={0.9} style={styles.featuredCard}>
+            ) : error ? (
+              <View style={styles.errorContainer}>
+                <Text style={styles.errorText}>Failed to load leagues</Text>
+                <TouchableOpacity style={styles.retryButton} onPress={refetch}>
+                  <Text style={styles.retryButtonText}>Retry</Text>
+                </TouchableOpacity>
+              </View>
+            ) : leagues.length > 0 ? (
               <Animated.View style={[styles.parallaxWrapper, {
                 transform: [
                   { translateY: scrollY.interpolate({ inputRange: [-100, 0, 200], outputRange: [-30, 0, 20], extrapolate: 'clamp' }) },
                   { scale: scrollY.interpolate({ inputRange: [-100, 0], outputRange: [1.05, 1], extrapolate: 'clamp' }) }
                 ]
               }]}>
-                <ImageBackground
-                  source={require('@/assets/images/leaguetennis3.png')}
-                  style={styles.featuredImage}
-                  imageStyle={styles.featuredImageRadius}
-                >
-                  <View style={styles.featuredOverlay} />
-                  <View style={styles.featuredContent}>
-                    <View style={styles.featuredTopRow}>
-                      <Text style={styles.featuredLeagueName}>PJ League</Text>
-                      <View style={styles.trophyBadge}>
-                        <Text style={styles.trophyText}>🏆 S1</Text>
-                      </View>
-                    </View>
-                    <View style={styles.featuredMetaRow}>
-                      <View style={styles.avatarsRow}>
-                        <Image
-                          source={require('@/assets/images/icon1.png')}
-                          style={[styles.avatarImage, { zIndex: 3 }]}
-                        />
-                        <Image
-                          source={require('@/assets/images/icon2.png')}
-                          style={[styles.avatarImage, { marginLeft: -10, zIndex: 2 }]}
-                        />
-                        <Image
-                          source={require('@/assets/images/icon3.png')}
-                          style={[styles.avatarImage, { marginLeft: -10, zIndex: 1 }]}
-                        />
-                        <Text style={styles.moreCountText}>+23</Text>
-                      </View>
-                      <TouchableOpacity 
-                        style={styles.featuredCta} 
-                        onPress={() => {
-                          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                          router.push('/user-dashboard/category');
-                        }}
-                      >
-                        <Text style={styles.featuredCtaText}>Join Now</Text>
-                      </TouchableOpacity>
-                    </View>
-                  </View>
-                </ImageBackground>
+                <LeagueCard 
+                  league={leagues[0]} 
+                  variant="featured"
+                  onJoinPress={handleJoinLeague}
+                />
               </Animated.View>
-            </TouchableOpacity>
+            ) : (
+              <View style={styles.noLeaguesContainer}>
+                <Text style={styles.noLeaguesText}>No tennis leagues available</Text>
+                <Text style={styles.noLeaguesSubtext}>Check back later for new leagues!</Text>
+              </View>
             )}
 
-            <View style={styles.otherLeaguesHeaderRow}>
-              <Text style={styles.sectionTitle}>Other leagues near you</Text>
-              <Text style={styles.arrowText}>→</Text>
-            </View>
-
-            <View style={styles.otherLeagueCard}>
-              <ImageBackground
-                source={require('@/assets/images/leaguetennis1.png')}
-                style={styles.otherLeagueImage}
-                imageStyle={styles.otherLeagueImageRadius}
-              />
-              <View style={styles.otherLeagueInfoRow}>
-                <View>
-                  <Text style={styles.otherLeagueName}>KL League</Text>
-                  <Text style={styles.otherLeagueSub}>120 players joined</Text>
+            {/* Other leagues near you */}
+            {leagues.length > 1 && (
+              <>
+                <View style={styles.otherLeaguesHeaderRow}>
+                  <Text style={styles.sectionTitle}>Other leagues near you</Text>
+                  <Text style={styles.arrowText}>→</Text>
                 </View>
-                <TouchableOpacity 
-                  style={styles.otherLeagueCta} 
-                  onPress={() => {
-                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                    router.push('/user-dashboard/category');
-                  }}
-                >
-                  <Text style={styles.otherLeagueCtaText}>Join</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
 
-            <View style={styles.otherLeagueCard}>
-              <ImageBackground
-                source={require('@/assets/images/leaguetennis2.png')}
-                style={styles.otherLeagueImage}
-                imageStyle={styles.otherLeagueImageRadius}
-              />
-              <View style={styles.otherLeagueInfoRow}>
-                <View>
-                  <Text style={styles.otherLeagueName}>Subang League</Text>
-                  <Text style={styles.otherLeagueSub}>96 players joined</Text>
-                </View>
-                <TouchableOpacity 
-                  style={styles.otherLeagueCta} 
-                  onPress={() => {
-                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                    router.push('/user-dashboard/category');
-                  }}
-                >
-                  <Text style={styles.otherLeagueCtaText}>Join</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
+                {leagues.slice(1).map((league) => (
+                  <LeagueCard
+                    key={league.id}
+                    league={league}
+                    variant="regular"
+                    onJoinPress={handleJoinLeague}
+                  />
+                ))}
+              </>
+            )}
 
            
 
@@ -203,7 +163,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    paddingHorizontal: 20,
+    paddingHorizontal: isSmallScreen ? 16 : isTablet ? 32 : 20,
     paddingBottom: 120,
   },
   recommendedHeaderRow: {
@@ -216,8 +176,8 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter',
     fontStyle: 'normal',
     fontWeight: '700',
-    fontSize: 16,
-    lineHeight: 22,
+    fontSize: isSmallScreen ? 14 : isTablet ? 18 : 16,
+    lineHeight: isSmallScreen ? 20 : isTablet ? 24 : 22,
     color: '#1A1C1E',
   },
   locationFilter: {
@@ -237,82 +197,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#6B7280',
   },
-  featuredCard: {
-    marginBottom: 20,
-    borderRadius: 16,
-    overflow: 'hidden',
-  },
-  featuredImage: {
-    width: '100%',
-    height: 180,
-    justifyContent: 'flex-end',
-  },
-  featuredImageRadius: {
-    borderRadius: 16,
-  },
-  featuredOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,0,0,0.25)',
-  },
-  featuredContent: {
-    padding: 16,
-  },
-  featuredTopRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  featuredLeagueName: {
-    color: '#FFFFFF',
-    fontSize: 18,
-    fontWeight: '700',
-  },
-  trophyBadge: {
-    backgroundColor: 'rgba(255,255,255,0.7)',
-    borderRadius: 14,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.85)'
-  },
-  trophyText: {
-    fontSize: 12,
-  },
-  featuredMetaRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  avatarsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  avatarImage: {
-    width: 26,
-    height: 26,
-    borderRadius: 13,
-    borderWidth: 2,
-    borderColor: '#FFFFFF',
-  },
-  moreCountText: {
-    color: '#FFFFFF',
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  featuredCta: {
-    backgroundColor: 'rgba(255,255,255,0.75)',
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.85)'
-  },
-  featuredCtaText: {
-    color: '#111827',
-    fontSize: 12,
-    fontWeight: '700',
-  },
   otherLeaguesHeaderRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -324,54 +208,10 @@ const styles = StyleSheet.create({
     color: '#9CA3AF',
   },
   sectionTitle: {
-    fontSize: 18,
+    fontSize: isSmallScreen ? 16 : isTablet ? 20 : 18,
     color: '#333333',
     fontWeight: 'bold',
     marginBottom: 16,
-  },
-  otherLeagueCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    overflow: 'hidden',
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: '#F3F4F6',
-  },
-  otherLeagueImage: {
-    width: '100%',
-    height: 140,
-  },
-  otherLeagueImageRadius: {
-    borderTopLeftRadius: 16,
-    borderTopRightRadius: 16,
-  },
-  otherLeagueInfoRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-  },
-  otherLeagueName: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#111827',
-  },
-  otherLeagueSub: {
-    fontSize: 12,
-    color: '#6B7280',
-    marginTop: 4,
-  },
-  otherLeagueCta: {
-    backgroundColor: '#111827',
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 12,
-  },
-  otherLeagueCtaText: {
-    color: '#FFFFFF',
-    fontSize: 12,
-    fontWeight: '700',
   },
   parallaxWrapper: {
     borderRadius: 16,
@@ -382,5 +222,53 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     backgroundColor: '#F3F4F6',
     marginBottom: 20,
+  },
+  errorContainer: {
+    backgroundColor: '#FEF2F2',
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: '#FECACA',
+  },
+  errorText: {
+    color: '#DC2626',
+    fontSize: 14,
+    fontWeight: '600',
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  retryButton: {
+    backgroundColor: '#DC2626',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 8,
+    alignSelf: 'center',
+  },
+  retryButtonText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  noLeaguesContainer: {
+    backgroundColor: '#F9FAFB',
+    borderRadius: 16,
+    padding: 24,
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    alignItems: 'center',
+  },
+  noLeaguesText: {
+    color: '#374151',
+    fontSize: 16,
+    fontWeight: '600',
+    textAlign: 'center',
+    marginBottom: 4,
+  },
+  noLeaguesSubtext: {
+    color: '#6B7280',
+    fontSize: 12,
+    textAlign: 'center',
   },
 });
