@@ -52,18 +52,6 @@ const PadelIcon = () => (
   </Svg>
 );
 
-// Sport configuration with exact Figma colors
-const SPORT_CONFIG = {
-  pickleball: {
-    selectedBg: 'rgba(160, 77, 254, 0.15)',
-  },
-  tennis: {
-    selectedBg: 'rgba(171, 254, 77, 0.2)',
-  },
-  padel: {
-    selectedBg: 'rgba(77, 171, 254, 0.2)',
-  },
-};
 
 /**
  * Props for the SportButton component
@@ -81,30 +69,6 @@ interface SportButtonProps {
   disabled?: boolean;
 }
 
-/**
- * SportButton Component
- *
- * Interactive button for sport selection in the onboarding flow.
- * Displays sport-specific icons and colors with selection states.
- *
- * Features:
- * - Sport-specific styling and icons (pickleball, tennis, padel)
- * - Selection state with visual feedback
- * - Optional order numbering for multi-selection
- * - Disabled state support
- * - Accessible touch targets
- *
- * @component
- * @example
- * ```tsx
- * <SportButton
- *   sport="pickleball"
- *   isSelected={selectedSports.includes('pickleball')}
- *   orderNumber={1}
- *   onPress={() => handleSportSelect('pickleball')}
- * />
- * ```
- */
 const SportButton: React.FC<SportButtonProps> = ({
   sport,
   isSelected = false,
@@ -112,19 +76,19 @@ const SportButton: React.FC<SportButtonProps> = ({
   onPress,
   disabled = false,
 }) => {
-  const config = SPORT_CONFIG[sport];
-
   // Get display name with proper capitalization
   const displayName = sport.charAt(0).toUpperCase() + sport.slice(1);
 
   // Dynamic styles based on state
   const buttonStyle: ViewStyle[] = [
     styles.button,
-    ...(isSelected ? [{
-      backgroundColor: config.selectedBg,
-      borderWidth: 0,
-    }] : []),
+    ...(isSelected ? [styles.buttonSelected] : []),
     ...(disabled ? [styles.buttonDisabled] : []),
+  ];
+
+  const textStyle: TextStyle[] = [
+    styles.text,
+    ...(isSelected ? [styles.textSelected] : []),
   ];
 
   return (
@@ -144,7 +108,7 @@ const SportButton: React.FC<SportButtonProps> = ({
         {sport === 'tennis' && <TennisIcon />}
         {sport === 'padel' && <PadelIcon />}
       </View>
-      <Text style={styles.text}>{displayName}</Text>
+      <Text style={textStyle}>{displayName}</Text>
     </TouchableOpacity>
   );
 };
@@ -168,6 +132,11 @@ const styles = StyleSheet.create({
   buttonDisabled: {
     opacity: 0.5,
   },
+  buttonSelected: {
+    backgroundColor: '#FFF5EC',
+    borderColor: '#FEA04D',
+    borderWidth: 2,
+  },
   iconContainer: {
     width: 90,
     height: 90,
@@ -184,6 +153,9 @@ const styles = StyleSheet.create({
     fontSize: 16,
     lineHeight: 24,
     color: '#555555',
+  },
+  textSelected: {
+    color: '#FF861A',
   },
   orderBadge: {
     position: 'absolute',

@@ -31,23 +31,23 @@ const OptionButton: React.FC<OptionButtonProps> = ({
         return {
           borderColor: '#587A27',
           textColor: '#587A27',
-          selectedBorderColor: '#FE9F4D',
-          selectedBackgroundColor: '#FE9F4D',
+          selectedBorderColor: '#587A27',
+          selectedBackgroundColor: '#587A27',
         };
       case 'padel':
         return {
           borderColor: '#4DABFE',
           textColor: '#4DABFE',
-          selectedBorderColor: '#FE9F4D',
-          selectedBackgroundColor: '#FE9F4D',
+          selectedBorderColor: '#4DABFE',
+          selectedBackgroundColor: '#4DABFE',
         };
       case 'pickleball':
       default:
         return {
           borderColor: '#A04DFE',
           textColor: '#A04DFE',
-          selectedBorderColor: '#FE9F4D',
-          selectedBackgroundColor: '#FE9F4D',
+          selectedBorderColor: '#A04DFE',
+          selectedBackgroundColor: '#A04DFE',
         };
     }
   };

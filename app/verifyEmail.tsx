@@ -425,12 +425,12 @@ const styles = StyleSheet.create({
     marginTop: 20,
   },
   footerText: {
-    fontSize: 12,
-    color: '#6C7278',
+    fontSize: 14,
+    color: '#404040',
     fontWeight: '500',
   },
   footerLink: {
-    fontSize: 12,
+    fontSize: 14,
     color: '#FEA04D',
     fontWeight: '600',
     textDecorationLine: 'underline',

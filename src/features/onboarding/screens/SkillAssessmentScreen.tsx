@@ -9,6 +9,7 @@ import {
   Modal,
   FlatList,
 } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useOnboarding } from '../OnboardingContext';
 import { Svg, Path, G } from 'react-native-svg';
@@ -1008,13 +1009,20 @@ const SkillAssessmentScreen = () => {
                           
                           <TouchableOpacity
                             style={[
-                              styles.nextButton,
+                              styles.nextButtonContainer,
                               !isNextEnabled() && styles.nextButtonDisabled
                             ]}
                             onPress={handleNext}
                             disabled={!isNextEnabled()}
                           >
-                            <Text style={styles.nextButtonText}>Next</Text>
+                            <LinearGradient
+                              colors={['#FEA04D', '#FF7903']}
+                              start={{ x: 0, y: 0 }}
+                              end={{ x: 1, y: 0 }}
+                              style={styles.nextButtonGradient}
+                            >
+                              <Text style={styles.nextButtonText}>Next</Text>
+                            </LinearGradient>
                           </TouchableOpacity>
                         </>
                       );
@@ -1376,8 +1384,12 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     fontFamily: 'Roboto',
   },
-  nextButton: {
-    backgroundColor: '#FE9F4D',
+  nextButtonContainer: {
+    borderRadius: 25,
+    minWidth: 100,
+    alignItems: 'center',
+  },
+  nextButtonGradient: {
     borderRadius: 25,
     paddingVertical: 12,
     paddingHorizontal: 32,
@@ -1385,7 +1397,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   nextButtonDisabled: {
-    backgroundColor: '#CCCCCC',
+    opacity: 0.5,
   },
   nextButtonText: {
     fontSize: 16,

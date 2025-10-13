@@ -218,12 +218,12 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   label: {
-    fontSize: 12,
+    fontSize: 14,
     fontWeight: '500',
     color: '#6C7278',
     marginBottom: 8,
     letterSpacing: -0.02,
-    fontFamily: 'Roboto',
+    fontFamily: 'Inter',
   },
   dateButton: {
     height: 46,
@@ -347,6 +347,7 @@ const styles = StyleSheet.create({
     color: '#FF3B30',
     marginTop: 4,
     marginLeft: 4,
+    fontFamily: 'Inter',
   },
 });
 

@@ -52,12 +52,12 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   label: {
-    fontSize: 12,
+    fontSize: 14,
     fontWeight: '500',
     color: '#6C7278',
     marginBottom: 8,
     letterSpacing: -0.02,
-    fontFamily: 'Roboto',
+    fontFamily: 'Inter',
   },
   inputWrapper: {
     flexDirection: 'row',
@@ -100,10 +100,11 @@ const styles = StyleSheet.create({
     marginLeft: 4,
   },
   errorText: {
-    fontSize: 12,
+    fontSize: 14,
     color: '#FF3B30',
     marginTop: 4,
     marginLeft: 4,
+    fontFamily: 'Inter',
   },
 });
 
