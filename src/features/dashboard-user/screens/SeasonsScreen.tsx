@@ -313,9 +313,10 @@ const styles = StyleSheet.create({
     zIndex: 1,
   },
   categoryTitleContainer: {
-    marginTop: 30,
+    marginTop: 5,
     alignItems: 'flex-start',
     paddingHorizontal: 24,
+    marginBottom: 30,
   },
   categoryTitleText: {
     fontSize: 22,

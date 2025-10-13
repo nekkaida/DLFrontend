@@ -240,8 +240,9 @@ const styles = StyleSheet.create({
     zIndex: 1,
   },
   leagueInfoContainer: {
-    marginTop: 40,
+    marginTop: 5,
     paddingHorizontal: 24,
+    marginBottom: 30,
   },
   leagueInfoRow: {
     flexDirection: 'row',
