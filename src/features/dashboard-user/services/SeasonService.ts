@@ -1,0 +1,259 @@
+import { authClient } from '@/lib/auth-client';
+import { getBackendBaseURL } from '@/src/config/network';
+
+export interface Season {
+  id: string;
+  name: string;
+  startDate: string;
+  endDate: string;
+  regiDeadline?: string;
+  description?: string;
+  entryFee: number | string; // Backend might return as string
+  isActive: boolean;
+  paymentRequired: boolean;
+  promoCodeSupported: boolean;
+  withdrawalEnabled: boolean;
+  status: 'UPCOMING' | 'ACTIVE' | 'FINISHED' | 'CANCELLED';
+  registeredUserCount: number;
+  createdAt: string;
+  updatedAt: string;
+  leagueId: string;
+  categoryId: string;
+  league?: {
+    id: string;
+    name: string;
+    sportType: 'PADDLE' | 'PICKLEBALL' | 'TENNIS';
+    gameType: 'SINGLES' | 'DOUBLES';
+  };
+}
+
+export interface SeasonResponse {
+  success: boolean;
+  data: Season[];
+  message: string;
+}
+
+export class SeasonService {
+  /**
+   * Fetch all seasons
+   */
+  static async fetchAllSeasons(): Promise<Season[]> {
+    try {
+      const backendUrl = getBackendBaseURL();
+      console.log('SeasonService: Fetching all seasons');
+      console.log('SeasonService: API URL:', `${backendUrl}/api/season`);
+
+      const response = await authClient.$fetch(`${backendUrl}/api/season`, {
+        method: 'GET',
+      });
+
+      console.log('SeasonService: Raw API response:', response);
+
+      if (response && typeof response === 'object') {
+        const apiResponse = response as any;
+        
+        console.log('SeasonService: Debug - response structure:', {
+          hasData: 'data' in apiResponse,
+          hasError: 'error' in apiResponse,
+          dataType: typeof apiResponse.data,
+          dataKeys: apiResponse.data ? Object.keys(apiResponse.data) : 'no data',
+          isArray: Array.isArray(apiResponse.data),
+          responseKeys: Object.keys(apiResponse)
+        });
+        
+        // Handle direct array response (from backend controller)
+        if (Array.isArray(apiResponse)) {
+          console.log('SeasonService: Successfully fetched seasons (direct array):', apiResponse.length);
+          return apiResponse;
+        }
+        
+        // Handle wrapped response structure: { data: [...], error: null }
+        if (apiResponse.data && Array.isArray(apiResponse.data)) {
+          console.log('SeasonService: Successfully fetched seasons (wrapped):', apiResponse.data.length);
+          return apiResponse.data;
+        }
+        
+        // Handle authClient.$fetch wrapped response structure
+        if (apiResponse.data && apiResponse.data.success && Array.isArray(apiResponse.data.data)) {
+          console.log('SeasonService: Successfully fetched seasons (authClient wrapped):', apiResponse.data.data.length);
+          return apiResponse.data.data;
+        }
+        
+        // Handle better-auth response wrapper: { data: [...], error: null }
+        if (apiResponse.data && Array.isArray(apiResponse.data) && apiResponse.error === null) {
+          console.log('SeasonService: Successfully fetched seasons (better-auth wrapper):', apiResponse.data.length);
+          return apiResponse.data;
+        }
+        
+        // Generic fallback: if there's a data property that's an array, use it
+        if (apiResponse.data && Array.isArray(apiResponse.data)) {
+          console.log('SeasonService: Successfully fetched seasons (generic fallback):', apiResponse.data.length);
+          return apiResponse.data;
+        }
+      }
+
+      console.warn('SeasonService: No seasons found or invalid response');
+      console.warn('SeasonService: Full response object:', JSON.stringify(response, null, 2));
+      return [];
+    } catch (error) {
+      console.error('SeasonService: Error fetching seasons:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Fetch seasons for a specific category
+   */
+  static async fetchSeasonsByCategory(categoryId: string): Promise<Season[]> {
+    try {
+      console.log('SeasonService: Fetching seasons for category:', categoryId);
+      const allSeasons = await this.fetchAllSeasons();
+      console.log('SeasonService: All seasons fetched:', allSeasons.length);
+      
+      const filteredSeasons = allSeasons.filter(season => season.categoryId === categoryId);
+      console.log('SeasonService: Filtered seasons for category:', filteredSeasons.length);
+      console.log('SeasonService: Category IDs in seasons:', allSeasons.map(s => s.categoryId));
+      
+      return filteredSeasons;
+    } catch (error) {
+      console.error('SeasonService: Error fetching seasons by category:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Fetch seasons for a specific league
+   */
+  static async fetchSeasonsByLeague(leagueId: string): Promise<Season[]> {
+    try {
+      const allSeasons = await this.fetchAllSeasons();
+      return allSeasons.filter(season => season.leagueId === leagueId);
+    } catch (error) {
+      console.error('SeasonService: Error fetching seasons by league:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Get seasons grouped by status
+   */
+  static groupSeasonsByStatus(seasons: Season[]): {
+    active: Season[];
+    upcoming: Season[];
+    finished: Season[];
+  } {
+    const active: Season[] = [];
+    const upcoming: Season[] = [];
+    const finished: Season[] = [];
+
+    seasons.forEach(season => {
+      switch (season.status) {
+        case 'ACTIVE':
+          active.push(season);
+          break;
+        case 'UPCOMING':
+          upcoming.push(season);
+          break;
+        case 'FINISHED':
+        case 'CANCELLED':
+          finished.push(season);
+          break;
+      }
+    });
+
+    return { active, upcoming, finished };
+  }
+
+  /**
+   * Format date for display
+   */
+  static formatDate(dateString: string): string {
+    try {
+      const date = new Date(dateString);
+      return date.toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric'
+      });
+    } catch (error) {
+      console.error('SeasonService: Error formatting date:', error);
+      return dateString;
+    }
+  }
+
+  /**
+   * Format date range for display
+   */
+  static formatDateRange(startDate: string, endDate: string): string {
+    const start = this.formatDate(startDate);
+    const end = this.formatDate(endDate);
+    return `${start} – ${end}`;
+  }
+
+  /**
+   * Get button text based on season status
+   */
+  static getButtonText(status: Season['status']): string {
+    switch (status) {
+      case 'ACTIVE':
+        return 'Register';
+      case 'UPCOMING':
+        return 'Join Waitlist';
+      case 'FINISHED':
+      case 'CANCELLED':
+        return 'View Standings';
+      default:
+        return 'View Details';
+    }
+  }
+
+  /**
+   * Get button color based on season status
+   */
+  static getButtonColor(status: Season['status']): string {
+    switch (status) {
+      case 'ACTIVE':
+        return '#863A73';
+      case 'UPCOMING':
+        return '#000000';
+      case 'FINISHED':
+      case 'CANCELLED':
+        return '#B2B2B2';
+      default:
+        return '#6B7280';
+    }
+  }
+
+  /**
+   * Get season badge emoji based on status
+   */
+  static getSeasonBadge(status: Season['status'], seasonName: string): string {
+    switch (status) {
+      case 'ACTIVE':
+        return '🏆';
+      case 'UPCOMING':
+        return '🌱';
+      case 'FINISHED':
+        return '🍂';
+      case 'CANCELLED':
+        return '❌';
+      default:
+        return '📅';
+    }
+  }
+
+  /**
+   * Check if registration is still open
+   */
+  static isRegistrationOpen(season: Season): boolean {
+    if (season.status !== 'ACTIVE') return false;
+    
+    if (season.regiDeadline) {
+      const deadline = new Date(season.regiDeadline);
+      const now = new Date();
+      return now <= deadline;
+    }
+    
+    return true;
+  }
+}
