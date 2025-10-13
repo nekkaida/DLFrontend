@@ -114,6 +114,8 @@ export const InputField: React.FC<InputFieldProps> = ({
   keyboardType = 'default',
   containerStyle,
 }) => {
+  const [isFocused, setIsFocused] = useState(false);
+
   const getIcon = () => {
     switch (icon) {
       case 'mail':
@@ -132,7 +134,10 @@ export const InputField: React.FC<InputFieldProps> = ({
   return (
     <View style={[AuthStyles.inputFieldContainer, containerStyle]}>
       <Text style={AuthStyles.inputLabel}>{label}</Text>
-      <View style={[AuthStyles.inputArea, value ? AuthStyles.inputAreaActive : {}]}>
+      <View style={[
+        AuthStyles.inputArea, 
+        (isFocused || value) ? AuthStyles.inputAreaActive : {}
+      ]}>
         {icon && <View style={AuthStyles.inputIcon}>{getIcon()}</View>}
         <TextInput
           style={AuthStyles.inputText}
@@ -143,7 +148,11 @@ export const InputField: React.FC<InputFieldProps> = ({
           secureTextEntry={secureTextEntry}
           keyboardType={keyboardType}
           onFocus={() => {
+            setIsFocused(true);
             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          }}
+          onBlur={() => {
+            setIsFocused(false);
           }}
         />
         {showEyeIcon && (

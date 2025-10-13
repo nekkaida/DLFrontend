@@ -6,6 +6,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { SocialButton } from '../components/AuthComponents';
 import { AuthStyles, AuthColors } from '../styles/AuthStyles';
+import DeuceLogo from '../../onboarding/components/DeuceLogo';
 
 interface LoadingScreenProps {
   onGetStarted: () => void;
@@ -67,12 +68,17 @@ export const LoadingScreen: React.FC<LoadingScreenProps> = ({ onGetStarted, onLo
 
         {/* Logo positioned exactly as in Figma */}
         <View style={dynamicStyles.logoContainer}>
-          <Text style={dynamicStyles.logoText}>DEUCE</Text>
+          <View style={dynamicStyles.textShadowContainer}>
+            <Text style={dynamicStyles.logoText}>DEUCE</Text>
+          </View>
+          <View style={dynamicStyles.logoShadowContainer}>
+            <DeuceLogo width={80} height={80} />
+          </View>
         </View>
 
         {/* Tagline positioned exactly as in Figma */}
         <Text style={dynamicStyles.taglineText}>
-          Your ultimate{'\n'}flex league platform...
+          Your ultimate{'\n'}sports flex league platform.
         </Text>
 
         {/* Bottom Container with white background and shadow */}
@@ -87,7 +93,7 @@ export const LoadingScreen: React.FC<LoadingScreenProps> = ({ onGetStarted, onLo
               }}
             >
               <LinearGradient
-                colors={['#FF7903', '#FEA04D']}
+                colors={['#FEA04D', '#FF7903']}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 0 }}
                 style={dynamicStyles.gradientButton}
@@ -150,10 +156,10 @@ const getStyles = (screenWidth: number, screenHeight: number, bottomInset: numbe
   },
   logoContainer: {
     position: 'absolute',
-    left: screenWidth * 0.09,
-    top: screenHeight * 0.25,
-    flexDirection: 'row',
+    left: screenWidth * 0.5 - 100, // Center horizontally (assuming logo width ~200px)
+    top: screenHeight * 0.15, // Moved higher up from 0.25 to 0.15
     alignItems: 'center',
+    justifyContent: 'center',
   },
   logoText: {
     fontFamily: Platform.select({
@@ -166,22 +172,38 @@ const getStyles = (screenWidth: number, screenHeight: number, bottomInset: numbe
     lineHeight: 60,
     letterSpacing: 3.5,
     color: '#FEA04D',
+    textAlign: 'center',
+    marginBottom: 40,
+  },
+  textShadowContainer: {
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.15,
+    shadowRadius: 2,
+    elevation: 2, // For Android shadow
+  },
+  logoShadowContainer: {
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 4, // For Android shadow
   },
   taglineText: {
     position: 'absolute',
     width: screenWidth * 0.8,
     left: screenWidth * 0.07,
-    top: screenHeight * 0.73, // Adjusted for better positioning and responsiveness
+    top: screenHeight * 0.73,
     fontFamily: Platform.select({
       ios: 'Helvetica',
       android: 'sans-serif',
     }),
     fontStyle: 'italic',
-    fontWeight: '500',
+    fontWeight: '400',
     fontSize: 22,
     lineHeight: 29,
     letterSpacing: -0.01,
-    color: '#C7C7C7',
+    color: '#E3EEF2',
   },
   bottomContainer: {
     position: 'absolute',
@@ -252,10 +274,10 @@ const getStyles = (screenWidth: number, screenHeight: number, bottomInset: numbe
   loginLinkText: {
     fontFamily: 'Inter',
     fontWeight: '500',
-    fontSize: Platform.OS === 'ios' ? 13 : 12,
+    fontSize: Platform.OS === 'ios' ? 14 : 13,
     lineHeight: Platform.OS === 'ios' ? 18 : 17,
     letterSpacing: -0.01,
-    color: '#6C7278',
+    color: '#404040',
   },
   loginLinkButton: {
     paddingVertical: Platform.OS === 'ios' ? 4 : 2,
@@ -263,11 +285,11 @@ const getStyles = (screenWidth: number, screenHeight: number, bottomInset: numbe
   },
   loginLinkButtonText: {
     fontFamily: 'Inter',
-    fontWeight: '600',
-    fontSize: Platform.OS === 'ios' ? 13 : 12,
+    fontWeight: '800',
+    fontSize: Platform.OS === 'ios' ? 14 : 13,
     lineHeight: Platform.OS === 'ios' ? 18 : 17,
     letterSpacing: -0.01,
     textDecorationLine: 'underline',
-    color: '#FEBC2F',
+    color: '#FEA04D',
   },
 });

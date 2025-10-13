@@ -7,8 +7,10 @@ import {
   KeyboardAvoidingView,
   Platform,
   Dimensions,
+  ActivityIndicator,
 } from 'react-native';
 import * as Haptics from 'expo-haptics';
+import { LinearGradient } from 'expo-linear-gradient';
 import Svg, { G, Path, Defs, ClipPath, Rect } from 'react-native-svg';
 import {
   InputField,
@@ -152,21 +154,57 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
               flexDirection: 'row',
               justifyContent: 'space-between',
               alignItems: 'center',
-              marginBottom: screenHeight * 0.04,
+              marginBottom: screenHeight * 0.02,
               width: '100%',
             }}>
               <Text style={{
                 fontFamily: 'Inter',
                 fontStyle: 'normal',
                 fontWeight: '600',
-                fontSize: 18,
-                lineHeight: 25,
+                fontSize: 22,
+                lineHeight: 28,
                 letterSpacing: -0.01,
                 color: '#000000',
               }}>
                 Sign In
               </Text>
-              <CircleArrowButton onPress={handleLogin} loading={isLoading} />
+              <TouchableOpacity 
+                onPress={handleLogin}
+                disabled={isLoading}
+                style={{
+                  width: 56,
+                  height: 56,
+                  borderRadius: 28,
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                  shadowColor: AuthColors.primary,
+                  shadowOffset: { width: 0, height: 4 },
+                  shadowOpacity: 0.3,
+                  shadowRadius: 8,
+                  elevation: 6,
+                }}
+              >
+                <LinearGradient
+                  colors={[AuthColors.primary, AuthColors.primaryDark]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={{
+                    width: 56,
+                    height: 56,
+                    borderRadius: 28,
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                  }}
+                >
+                  {isLoading ? (
+                    <ActivityIndicator size="small" color="white" />
+                  ) : (
+                    <Svg width="42" height="42" viewBox="0 0 42 42" fill="none">
+                      <Path d="M8.75 21H33.25M33.25 21L26.25 28M33.25 21L26.25 14" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                    </Svg>
+                  )}
+                </LinearGradient>
+              </TouchableOpacity>
             </View>
 
             {/* Or Sign In With */}
@@ -202,10 +240,10 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
               <Text style={{
                 fontFamily: 'Inter',
                 fontWeight: '500',
-                fontSize: screenWidth * 0.03,
-                lineHeight: screenWidth * 0.042,
+                fontSize: 14,
+                lineHeight: 22,
                 letterSpacing: -0.01,
-                color: '#6C7278',
+                color: '#404040',
               }}>Don't have an account yet?</Text>
               <TouchableOpacity
                 onPress={() => {
@@ -216,8 +254,8 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                 <Text style={{
                   fontFamily: 'Inter',
                   fontWeight: '600',
-                  fontSize: screenWidth * 0.03,
-                  lineHeight: screenWidth * 0.042,
+                  fontSize: 14,
+                  lineHeight: 22,
                   letterSpacing: -0.01,
                   textDecorationLine: 'underline',
                   color: AuthColors.primary,

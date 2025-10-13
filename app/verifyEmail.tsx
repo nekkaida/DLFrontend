@@ -220,9 +220,16 @@ export default function VerifyEmailScreen() {
                 isLoading && styles.actionButtonDisabled
               ]}
             >
-              <ThemedText style={styles.actionButtonText}>
-                {isLoading ? 'Verifying...' : 'Verify'}
-              </ThemedText>
+              <LinearGradient
+                colors={['#FEA04D', '#FF7903']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.gradientButton}
+              >
+                <ThemedText style={styles.actionButtonText}>
+                  {isLoading ? 'Verifying...' : 'Confirm'}
+                </ThemedText>
+              </LinearGradient>
             </Pressable>
 
             <View style={styles.footerContainer}>
@@ -289,7 +296,7 @@ const styles = StyleSheet.create({
     lineHeight: 40,
   },
   instructionText: {
-    fontSize: 12,
+    fontSize: 14,
     color: '#6C7278',
     lineHeight: 19,
     marginBottom: 40,
@@ -298,7 +305,7 @@ const styles = StyleSheet.create({
     marginBottom: 30,
   },
   inputLabel: {
-    fontSize: 12,
+    fontSize: 14,
     fontWeight: '700',
     color: '#6C7278',
     marginBottom: 12,
@@ -385,23 +392,31 @@ const styles = StyleSheet.create({
     opacity: 1,
   },
   actionButton: {
-    backgroundColor: '#FE9F4D',
-    paddingVertical: 16,
-    paddingHorizontal: 32,
-    borderRadius: 12,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.4)',
-    elevation: 2,
+    borderRadius: 20,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 4,
     marginBottom: 30,
   },
   actionButtonDisabled: {
-    backgroundColor: '#B0B8C1',
+    opacity: 0.6,
+  },
+  gradientButton: {
+    width: '100%',
+    height: 44,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 16,
   },
   actionButtonText: {
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '600',
+    textAlign: 'center',
   },
   footerContainer: {
     flexDirection: 'row',
