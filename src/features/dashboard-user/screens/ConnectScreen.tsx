@@ -24,23 +24,38 @@ interface ProfileData {
 interface Player {
   id: string;
   name: string;
-  image: string;
+  username?: string;
+  displayUsername?: string;
+  image: string | null;
   sports: string[];
+  skillRatings?: any;
+  bio?: string | null;
+  area?: string | null;
+  gender?: string | null;
+}
+
+interface Favorite {
+  id: string;
+  userId: string;
+  favoritedId: string;
+  createdAt: string;
+  favorited: {
+    id: string;
+    name: string;
+    username: string;
+    displayUsername: string | null;
+    image: string | null;
+  };
 }
 
 const SPORT_COLORS: { [key: string]: string } = {
   Tennis: '#A2E047',
+  tennis: '#A2E047',
   Pickleball: '#A04DFE',
+  pickleball: '#A04DFE',
   Padel: '#4DABFE',
+  padel: '#4DABFE',
 };
-
-const MOCK_PLAYERS: Player[] = [
-  { id: '1', name: 'Janice Fu', image: 'https://i.pravatar.cc/150?img=5', sports: ['Pickleball', 'Tennis'] },
-  { id: '2', name: 'Nick Siau', image: 'https://i.pravatar.cc/150?img=12', sports: ['Tennis', 'Padel'] },
-  { id: '3', name: 'Sarah Chen', image: 'https://i.pravatar.cc/150?img=9', sports: ['Pickleball'] },
-  { id: '4', name: 'Alex Wong', image: 'https://i.pravatar.cc/150?img=33', sports: ['Tennis', 'Padel'] },
-  { id: '5', name: 'Maria Garcia', image: 'https://i.pravatar.cc/150?img=27', sports: ['Tennis'] },
-];
 
 export default function ConnectScreen() {
   const insets = useSafeAreaInsets();
@@ -51,11 +66,15 @@ export default function ConnectScreen() {
   const [selectedPlayer, setSelectedPlayer] = useState<Player | null>(null);
   const [modalVisible, setModalVisible] = useState(false);
   const [viewMode, setViewMode] = useState<'all' | 'favorites'>('all');
-  const [favoritedPlayerIds, setFavoritedPlayerIds] = useState<string[]>(['1', '3']); // Mock: Janice Fu and Sarah Chen
+  const [players, setPlayers] = useState<Player[]>([]);
+  const [favorites, setFavorites] = useState<Favorite[]>([]);
+  const [favoritedPlayerIds, setFavoritedPlayerIds] = useState<string[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [searchTimeout, setSearchTimeout] = useState<NodeJS.Timeout | null>(null);
   // Use safe area insets for proper status bar handling across platforms
   const STATUS_BAR_HEIGHT = insets.top;
 
-  const filteredPlayers = MOCK_PLAYERS.filter(player =>
+  const filteredPlayers = players.filter(player =>
     player.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
@@ -93,12 +112,127 @@ export default function ConnectScreen() {
     }
   }, [session?.user?.id]);
 
+  const fetchPlayers = useCallback(async (query: string = '') => {
+    try {
+      if (!session?.user?.id) {
+        console.log('ConnectScreen: No session user ID available for searching players');
+        return;
+      }
+
+      setIsLoading(true);
+      const backendUrl = getBackendBaseURL();
+      const searchParam = query.trim().length >= 2 ? `?q=${encodeURIComponent(query)}` : '';
+
+      console.log('ConnectScreen: Fetching players from:', `${backendUrl}/api/player/search${searchParam}`);
+
+      const authResponse = await authClient.$fetch(`${backendUrl}/api/player/search${searchParam}`, {
+        method: 'GET',
+      });
+
+      console.log('ConnectScreen: Search API response:', authResponse);
+
+      if (authResponse && (authResponse as any).data) {
+        const playersData = (authResponse as any).data.data || (authResponse as any).data;
+        console.log('ConnectScreen: Setting players data:', playersData);
+        setPlayers(playersData);
+      }
+    } catch (error) {
+      console.error('ConnectScreen: Error fetching players:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [session?.user?.id]);
+
+  const fetchFavorites = useCallback(async () => {
+    try {
+      if (!session?.user?.id) {
+        console.log('ConnectScreen: No session user ID available for favorites');
+        return;
+      }
+
+      const backendUrl = getBackendBaseURL();
+      console.log('ConnectScreen: Fetching favorites from:', `${backendUrl}/api/player/favorites`);
+
+      const authResponse = await authClient.$fetch(`${backendUrl}/api/player/favorites`, {
+        method: 'GET',
+      });
+
+      console.log('ConnectScreen: Favorites API response:', authResponse);
+
+      if (authResponse && (authResponse as any).data) {
+        const favoritesData = (authResponse as any).data.data || (authResponse as any).data;
+        console.log('ConnectScreen: Setting favorites data:', favoritesData);
+        setFavorites(favoritesData);
+        setFavoritedPlayerIds(favoritesData.map((fav: Favorite) => fav.favoritedId));
+      }
+    } catch (error) {
+      console.error('ConnectScreen: Error fetching favorites:', error);
+    }
+  }, [session?.user?.id]);
+
+  const toggleFavorite = useCallback(async (playerId: string) => {
+    try {
+      if (!session?.user?.id) {
+        console.log('ConnectScreen: No session user ID available for toggling favorite');
+        return;
+      }
+
+      const backendUrl = getBackendBaseURL();
+      const isFavorited = favoritedPlayerIds.includes(playerId);
+      const method = isFavorited ? 'DELETE' : 'POST';
+      const endpoint = `${backendUrl}/api/player/favorites/${playerId}`;
+
+      console.log(`ConnectScreen: ${isFavorited ? 'Removing' : 'Adding'} favorite:`, endpoint);
+
+      const authResponse = await authClient.$fetch(endpoint, {
+        method,
+      });
+
+      console.log('ConnectScreen: Toggle favorite API response:', authResponse);
+
+      // Refresh favorites list
+      await fetchFavorites();
+    } catch (error) {
+      console.error('ConnectScreen: Error toggling favorite:', error);
+    }
+  }, [session?.user?.id, favoritedPlayerIds, fetchFavorites]);
+
   // Fetch profile data when component mounts
   useEffect(() => {
     if (session?.user?.id) {
       fetchProfileData();
     }
   }, [session?.user?.id, fetchProfileData]);
+
+  // Fetch initial players and favorites
+  useEffect(() => {
+    if (session?.user?.id) {
+      fetchPlayers();
+      fetchFavorites();
+    }
+  }, [session?.user?.id, fetchPlayers, fetchFavorites]);
+
+  // Handle search query changes with debounce
+  useEffect(() => {
+    if (searchTimeout) {
+      clearTimeout(searchTimeout);
+    }
+
+    if (searchQuery.trim().length >= 2) {
+      const timeout = setTimeout(() => {
+        fetchPlayers(searchQuery);
+      }, 500); // Debounce for 500ms
+      setSearchTimeout(timeout);
+    } else if (searchQuery.trim().length === 0) {
+      fetchPlayers();
+    }
+
+    return () => {
+      if (searchTimeout) {
+        clearTimeout(searchTimeout);
+      }
+    };
+  }, [searchQuery]);
 
   const handleTabPress = useCallback((tabIndex: number) => {
     console.log(`ConnectScreen: Setting activeTab to ${tabIndex}`);
@@ -129,11 +263,14 @@ export default function ConnectScreen() {
     closeModal();
   }, [selectedPlayer, closeModal]);
 
-  const handleFavorite = useCallback(() => {
+  const handleFavorite = useCallback(async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    console.log('Favorite:', selectedPlayer?.name);
+    if (selectedPlayer?.id) {
+      await toggleFavorite(selectedPlayer.id);
+      console.log('Toggled favorite for:', selectedPlayer?.name);
+    }
     closeModal();
-  }, [selectedPlayer, closeModal]);
+  }, [selectedPlayer, closeModal, toggleFavorite]);
 
   const handleViewProfile = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -226,12 +363,24 @@ export default function ConnectScreen() {
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
         >
-          {displayedPlayers.length === 0 && viewMode === 'favorites' ? (
+          {isLoading ? (
+            <View style={styles.emptyState}>
+              <Text style={styles.emptyStateText}>Loading players...</Text>
+            </View>
+          ) : displayedPlayers.length === 0 && viewMode === 'favorites' ? (
             <View style={styles.emptyState}>
               <Ionicons name="heart-outline" size={64} color="#BABABA" />
               <Text style={styles.emptyStateText}>No favorites yet</Text>
               <Text style={styles.emptyStateSubtext}>
                 Tap the heart icon on any player to add them to favorites
+              </Text>
+            </View>
+          ) : displayedPlayers.length === 0 && searchQuery.trim().length >= 2 ? (
+            <View style={styles.emptyState}>
+              <Ionicons name="search-outline" size={64} color="#BABABA" />
+              <Text style={styles.emptyStateText}>No players found</Text>
+              <Text style={styles.emptyStateSubtext}>
+                Try adjusting your search query
               </Text>
             </View>
           ) : (
@@ -242,10 +391,18 @@ export default function ConnectScreen() {
                   onPress={() => handlePlayerPress(player)}
                   activeOpacity={0.7}
                 >
-                  <Image
-                    source={{ uri: player.image }}
-                    style={styles.avatar}
-                  />
+                  {player.image ? (
+                    <Image
+                      source={{ uri: player.image }}
+                      style={styles.avatar}
+                    />
+                  ) : (
+                    <View style={[styles.avatar, styles.defaultAvatarContainer]}>
+                      <Text style={styles.defaultAvatarText}>
+                        {player.name.charAt(0).toUpperCase()}
+                      </Text>
+                    </View>
+                  )}
                   <View style={styles.connectionContent}>
                     <Text style={styles.connectionName}>{player.name}</Text>
                   </View>
@@ -278,29 +435,39 @@ export default function ConnectScreen() {
 
                 {/* Player Avatar */}
                 <View style={styles.modalAvatarSection}>
-                  <Image
-                    source={{ uri: selectedPlayer.image }}
-                    style={styles.modalAvatar}
-                  />
+                  {selectedPlayer.image ? (
+                    <Image
+                      source={{ uri: selectedPlayer.image }}
+                      style={styles.modalAvatar}
+                    />
+                  ) : (
+                    <View style={[styles.modalAvatar, styles.defaultAvatarContainer]}>
+                      <Text style={[styles.defaultAvatarText, { fontSize: 40 }]}>
+                        {selectedPlayer.name.charAt(0).toUpperCase()}
+                      </Text>
+                    </View>
+                  )}
                 </View>
 
                 {/* Player Name */}
                 <Text style={styles.modalPlayerName}>{selectedPlayer.name}</Text>
 
                 {/* Sport Pills */}
-                <View style={styles.modalSportPills}>
-                  {selectedPlayer.sports.map((sport, index) => (
-                    <View
-                      key={index}
-                      style={[
-                        styles.modalSportPill,
-                        { backgroundColor: SPORT_COLORS[sport] || '#A2E047' }
-                      ]}
-                    >
-                      <Text style={styles.modalSportPillText}>{sport}</Text>
-                    </View>
-                  ))}
-                </View>
+                {selectedPlayer.sports && selectedPlayer.sports.length > 0 && (
+                  <View style={styles.modalSportPills}>
+                    {selectedPlayer.sports.map((sport, index) => (
+                      <View
+                        key={index}
+                        style={[
+                          styles.modalSportPill,
+                          { backgroundColor: SPORT_COLORS[sport] || '#A2E047' }
+                        ]}
+                      >
+                        <Text style={styles.modalSportPillText}>{sport}</Text>
+                      </View>
+                    ))}
+                  </View>
+                )}
 
                 {/* Action Buttons */}
                 <View style={styles.modalActionButtons}>
@@ -310,8 +477,14 @@ export default function ConnectScreen() {
                   </TouchableOpacity>
 
                   <TouchableOpacity style={styles.modalActionButton} onPress={handleFavorite}>
-                    <Ionicons name="heart" size={20} color="#FEA04D" />
-                    <Text style={styles.modalActionButtonText}>Favorite</Text>
+                    <Ionicons
+                      name={favoritedPlayerIds.includes(selectedPlayer.id) ? "heart" : "heart-outline"}
+                      size={20}
+                      color="#FEA04D"
+                    />
+                    <Text style={styles.modalActionButtonText}>
+                      {favoritedPlayerIds.includes(selectedPlayer.id) ? "Unfavorite" : "Favorite"}
+                    </Text>
                   </TouchableOpacity>
 
                   <TouchableOpacity style={styles.modalActionButton} onPress={handleViewProfile}>

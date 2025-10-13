@@ -40,8 +40,23 @@ export default function SeasonsScreen({
 
   const handleRegisterPress = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    console.log('Register button pressed');
-    // TODO: Navigate to registration screen
+    console.log('Register button pressed for category:', category);
+
+    // Check if category is doubles (contains "double" or "doubles")
+    const isDoublesCategory = category.toLowerCase().includes('double');
+
+    if (isDoublesCategory) {
+      // For doubles categories, navigate to Find Partner screen
+      // TODO: Replace with actual seasonId from backend API
+      const mockSeasonId = 'season_123'; // This should come from fetched season data
+      console.log('Doubles category detected - navigating to Find Partner');
+      router.push(`/pairing/find-partner/${mockSeasonId}`);
+    } else {
+      // For singles categories, navigate to regular registration
+      console.log('Singles category detected - navigating to registration');
+      // TODO: Navigate to regular registration screen
+      // router.push(`/registration/${seasonId}`);
+    }
   };
 
   const handleJoinWaitlistPress = () => {
