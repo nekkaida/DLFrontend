@@ -1,34 +1,73 @@
 import React from 'react';
-import { ScrollView, Text, View, StyleSheet, Dimensions, Platform, TouchableOpacity, Image } from 'react-native';
+import { ScrollView, Text, View, StyleSheet, Dimensions, Platform, TouchableOpacity, Image, ActivityIndicator } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { NavBar } from '@/shared/components/layout';
 import { SportDropdownHeader } from '@/shared/components/ui/SportDropdownHeader';
 import * as Haptics from 'expo-haptics';
+import { CategoryService, Category } from '@/src/features/dashboard-user/services/CategoryService';
 
 const { width, height } = Dimensions.get('window');
 
 interface LeagueCategoryScreenProps {
+  leagueId?: string;
   leagueName?: string;
   playerCount?: number;
   season?: string;
   sport?: 'pickleball' | 'tennis';
+  gameType?: 'SINGLES' | 'DOUBLES';
 }
 
 export default function LeagueCategoryScreen({ 
+  leagueId,
   leagueName = 'Subang League', 
   playerCount = 28, 
   season = 'S1',
-  sport = 'pickleball'
+  sport = 'pickleball',
+  gameType = 'SINGLES'
 }: LeagueCategoryScreenProps) {
   const insets = useSafeAreaInsets();
   const [activeTab, setActiveTab] = React.useState(2);
+  const [categories, setCategories] = React.useState<Category[]>([]);
+  const [isLoading, setIsLoading] = React.useState(true);
+  const [error, setError] = React.useState<string | null>(null);
 
   React.useEffect(() => {
     console.log('LeagueCategoryScreen loaded successfully!');
-    console.log('League:', leagueName, 'Players:', playerCount, 'Season:', season, 'Sport:', sport);
-  }, [leagueName, playerCount, season, sport]);
+    console.log('League:', leagueName, 'Players:', playerCount, 'Season:', season, 'Sport:', sport, 'GameType:', gameType);
+    
+    // Fetch categories if leagueId is provided
+    if (leagueId) {
+      fetchCategories();
+    } else {
+      setIsLoading(false);
+    }
+  }, [leagueId, leagueName, playerCount, season, sport, gameType]);
+
+  const fetchCategories = async () => {
+    if (!leagueId) return;
+    
+    try {
+      setIsLoading(true);
+      setError(null);
+      console.log('Fetching categories for league:', leagueId);
+      
+      const fetchedCategories = await CategoryService.fetchLeagueCategories(leagueId);
+      console.log('Fetched categories:', fetchedCategories);
+      
+      // Show all active categories
+      const activeCategories = CategoryService.filterCategoriesByGameType(fetchedCategories, gameType);
+      console.log('Active categories:', activeCategories);
+      
+      setCategories(activeCategories);
+    } catch (err) {
+      console.error('Error fetching categories:', err);
+      setError('Failed to load categories');
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const handleTabPress = (tabIndex: number) => {
     console.log(`Tab ${tabIndex} pressed - ${['Favourite', 'Friendly', 'Leagues', 'My Games', 'Chat'][tabIndex]}`);
@@ -36,10 +75,32 @@ export default function LeagueCategoryScreen({
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   };
 
-  const handleCategoryPress = (category: string) => {
+  const handleCategoryPress = (category: Category) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    console.log(`Selected category: ${category} for ${sport} league: ${leagueName}`);
-    router.push('/user-dashboard/seasons');
+    const displayName = CategoryService.getCategoryDisplayName(category, gameType);
+    const effectiveGender = CategoryService.getEffectiveGender(category);
+    console.log(`Selected category: ${displayName} for ${sport} league: ${leagueName}`);
+    console.log('Category details:', {
+      id: category.id,
+      name: category.name,
+      game_type: category.game_type,
+      genderRestriction: category.genderRestriction,
+      gender_category: category.gender_category,
+      effectiveGender,
+      categoryOrder: category.categoryOrder
+    });
+    
+    // Navigate to seasons screen with proper data
+    router.push({
+      pathname: '/user-dashboard/seasons',
+      params: {
+        category: displayName,
+        categoryId: category.id,
+        leagueId: leagueId || '',
+        leagueName: leagueName || '',
+        sport: sport || 'pickleball'
+      }
+    });
   };
 
   const getSportEmoji = () => {
@@ -83,58 +144,76 @@ export default function LeagueCategoryScreen({
         >
           {/* Category Selection Cards */}
           <View style={styles.categoriesContainer}>
-            
-            {/* Men's Single */}
-            <TouchableOpacity 
-              style={styles.categoryCard}
-              activeOpacity={0.8}
-              onPress={() => handleCategoryPress('Men\'s Single')}
-            >
-              <View style={styles.categoryIllustration}>
-                <View style={styles.characterContainer}>
-                  <Text style={styles.characterEmoji}>{getSportEmoji()}</Text>
-                  <Text style={styles.characterText}>👤</Text>
-                </View>
+            {isLoading ? (
+              <View style={styles.loadingContainer}>
+                <ActivityIndicator size="large" color="#863A73" />
+                <Text style={styles.loadingText}>Loading categories...</Text>
               </View>
-              <Text style={styles.categoryTitle}>Men's Single</Text>
-            </TouchableOpacity>
-
-            {/* Men's Doubles */}
-            <TouchableOpacity 
-              style={styles.categoryCard}
-              activeOpacity={0.8}
-              onPress={() => handleCategoryPress('Men\'s Doubles')}
-            >
-              <View style={styles.categoryIllustration}>
-                <View style={styles.characterContainer}>
-                  <Text style={styles.characterEmoji}>{getSportEmoji()}</Text>
-                  <View style={styles.doublesCharacters}>
-                    <Text style={styles.characterText}>👤</Text>
-                    <Text style={styles.characterText}>👤</Text>
-                  </View>
-                </View>
+            ) : error ? (
+              <View style={styles.errorContainer}>
+                <Text style={styles.errorText}>{error}</Text>
+                <TouchableOpacity 
+                  style={styles.retryButton}
+                  onPress={fetchCategories}
+                >
+                  <Text style={styles.retryButtonText}>Retry</Text>
+                </TouchableOpacity>
               </View>
-              <Text style={styles.categoryTitle}>Men's Doubles</Text>
-            </TouchableOpacity>
-
-            {/* Mixed Doubles */}
-            <TouchableOpacity 
-              style={styles.categoryCard}
-              activeOpacity={0.8}
-              onPress={() => handleCategoryPress('Mixed Doubles')}
-            >
-              <View style={styles.categoryIllustration}>
-                <View style={styles.characterContainer}>
-                  <Text style={styles.characterEmoji}>{getSportEmoji()}</Text>
-                  <View style={styles.doublesCharacters}>
-                    <Text style={styles.characterText}>👤</Text>
-                    <Text style={styles.characterText}>👩</Text>
-                  </View>
-                </View>
+            ) : categories.length === 0 ? (
+              <View style={styles.emptyContainer}>
+                <Text style={styles.emptyText}>
+                  No categories available for this league
+                </Text>
+                <Text style={styles.emptySubtext}>
+                  Categories will appear here once they are created by the league administrator.
+                </Text>
               </View>
-              <Text style={styles.categoryTitle}>Mixed Doubles</Text>
-            </TouchableOpacity>
-
+            ) : (
+              categories
+                .sort((a, b) => a.categoryOrder - b.categoryOrder)
+                .map((category) => {
+                  const effectiveGameType = CategoryService.getEffectiveGameType(category, gameType);
+                  const displayName = CategoryService.getCategoryDisplayName(category, effectiveGameType);
+                  const effectiveGender = CategoryService.getEffectiveGender(category);
+                  const categoryEmoji = CategoryService.getCategoryEmoji(effectiveGender);
+                  const isDoubles = effectiveGameType === 'DOUBLES';
+                  
+                  return (
+                    <TouchableOpacity 
+                      key={category.id}
+                      style={styles.categoryCard}
+                      activeOpacity={0.8}
+                      onPress={() => handleCategoryPress(category)}
+                    >
+                      <View style={styles.categoryIllustration}>
+                        <View style={styles.characterContainer}>
+                          <Text style={styles.characterEmoji}>{getSportEmoji()}</Text>
+                          {isDoubles ? (
+                            <View style={styles.doublesCharacters}>
+                              <Text style={styles.characterText}>{categoryEmoji}</Text>
+                              <Text style={styles.characterText}>
+                                {effectiveGender === 'MIXED' ? '👩' : categoryEmoji}
+                              </Text>
+                            </View>
+                          ) : (
+                            <Text style={styles.characterText}>{categoryEmoji}</Text>
+                          )}
+                        </View>
+                      </View>
+                      <View style={styles.categoryTitleContainer}>
+                        <Text style={styles.categoryTitle}>
+                          {displayName}
+                        </Text>
+                        {category.game_type && (
+                          <Text style={styles.categoryGameTypeText}>
+                            {category.game_type.toLowerCase()}
+                          </Text>
+                        )}
+                      </View>
+                    </TouchableOpacity>
+                  );
+                })
+            )}
           </View>
         </ScrollView>
       </View>
@@ -247,11 +326,76 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 4,
   },
+  categoryTitleContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   categoryTitle: {
     fontSize: 18,
     fontWeight: '700',
     color: '#863A73',
-    flex: 1,
     textAlign: 'center',
+  },
+  categoryGameTypeText: {
+    fontSize: 12,
+    color: '#6B7280',
+    fontWeight: '500',
+    textAlign: 'center',
+    marginTop: 2,
+    textTransform: 'uppercase',
+  },
+  loadingContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 40,
+  },
+  loadingText: {
+    fontSize: 16,
+    color: '#6B7280',
+    marginTop: 12,
+    fontWeight: '500',
+  },
+  errorContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 40,
+  },
+  errorText: {
+    fontSize: 16,
+    color: '#EF4444',
+    marginBottom: 16,
+    fontWeight: '500',
+    textAlign: 'center',
+  },
+  retryButton: {
+    backgroundColor: '#863A73',
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 8,
+  },
+  retryButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  emptyContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 40,
+  },
+  emptyText: {
+    fontSize: 16,
+    color: '#6B7280',
+    fontWeight: '500',
+    textAlign: 'center',
+  },
+  emptySubtext: {
+    fontSize: 14,
+    color: '#9CA3AF',
+    fontWeight: '400',
+    textAlign: 'center',
+    marginTop: 8,
+    lineHeight: 20,
   },
 });

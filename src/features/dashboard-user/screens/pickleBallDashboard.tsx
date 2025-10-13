@@ -68,7 +68,17 @@ export default function DashboardScreen() {
     const success = await joinLeague(leagueId);
     if (success) {
       console.log('Successfully joined league:', leagueId);
-      // You could show a success toast here
+      // Navigate to category screen with league information
+      const league = leagues.find(l => l.id === leagueId);
+      router.push({
+        pathname: '/user-dashboard/category',
+        params: { 
+          leagueId: leagueId,
+          leagueName: league?.name || 'League',
+          sport: 'pickleball',
+          gameType: league?.gameType || 'SINGLES'
+        }
+      });
     } else {
       console.log('Failed to join league:', leagueId);
       // You could show an error toast here

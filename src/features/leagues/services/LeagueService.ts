@@ -27,7 +27,7 @@ export interface LeagueResponse {
 }
 
 export class LeagueService {
-  // Fetch all leagues from the backend
+  // fetch all leagues from the backend
   static async fetchAllLeagues(): Promise<League[]> {
     try {
       // Log network configuration for debugging
@@ -38,7 +38,7 @@ export class LeagueService {
       console.log('🔍 LeagueService: Backend URL:', backendUrl);
       console.log('🔍 LeagueService: Full API URL:', `${backendUrl}/api/league`);
 
-      // Try with regular fetch first to debug
+      // try with regular fetch first to debug
       console.log('🔍 LeagueService: Testing with regular fetch...');
       const regularFetchResponse = await fetch(`${backendUrl}/api/league`, {
         method: 'GET',
@@ -53,7 +53,7 @@ export class LeagueService {
       const regularFetchData = await regularFetchResponse.json();
       console.log('🔍 LeagueService: Regular fetch data:', regularFetchData);
 
-      // Use regular fetch data since it works
+      // use regular fetch data since it works
       if (regularFetchData && regularFetchData.success && regularFetchData.data && regularFetchData.data.leagues) {
         console.log('✅ LeagueService: Successfully found leagues via regular fetch:', regularFetchData.data.leagues.length);
         console.log('✅ LeagueService: Leagues data:', regularFetchData.data.leagues);
@@ -72,7 +72,7 @@ export class LeagueService {
       console.log('🔍 LeagueService: Response type:', typeof response);
       console.log('🔍 LeagueService: Response keys:', response ? Object.keys(response) : 'null');
 
-      // Handle the ApiResponse structure from backend
+      // handle the ApiResponse structure from backend
       if (response && typeof response === 'object') {
         const apiResponse = response as any;
         console.log('🔍 LeagueService: API Response structure:', {
@@ -111,9 +111,7 @@ export class LeagueService {
     }
   }
 
-  /**
-   * Fetch leagues filtered by sport type
-   */
+  // fetch leagues filtered by sport type
   static async fetchLeaguesBySport(sportType: 'PADDLE' | 'PICKLEBALL' | 'TENNIS'): Promise<League[]> {
     try {
       const allLeagues = await this.fetchAllLeagues();
@@ -124,9 +122,7 @@ export class LeagueService {
     }
   }
 
-  /**
-   * Fetch a specific league by ID
-   */
+  // fetch a specific league by ID
   static async fetchLeagueById(leagueId: string): Promise<League | null> {
     try {
       const backendUrl = getBackendBaseURL();
@@ -138,7 +134,7 @@ export class LeagueService {
 
       console.log('LeagueService: League by ID API response:', response);
 
-      // Handle the ApiResponse structure from backend
+      // handle the apiResponse structure from backend
       if (response && typeof response === 'object') {
         const apiResponse = response as any;
         if (apiResponse.success && apiResponse.data && apiResponse.data.league) {
@@ -155,9 +151,7 @@ export class LeagueService {
     }
   }
 
-  /**
-   * Join a league
-   */
+  // join a league
   static async joinLeague(leagueId: string, userId: string): Promise<boolean> {
     try {
       const backendUrl = getBackendBaseURL();
@@ -173,12 +167,31 @@ export class LeagueService {
 
       console.log('LeagueService: Join league API response:', response);
 
-      // Handle the ApiResponse structure from backend
+      // handle the apiResponse structure from backend
       if (response && typeof response === 'object') {
         const apiResponse = response as any;
-        if (apiResponse.success || apiResponse.message?.includes('Successfully joined')) {
+        
+        console.log('LeagueService: Debug - apiResponse.success:', apiResponse.success);
+        console.log('LeagueService: Debug - apiResponse.data:', apiResponse.data);
+        console.log('LeagueService: Debug - apiResponse.data?.message:', apiResponse.data?.message);
+        console.log('LeagueService: Debug - apiResponse.data?.membership:', apiResponse.data?.membership);
+        console.log('LeagueService: Debug - apiResponse.message:', apiResponse.message);
+        console.log('LeagueService: Debug - apiResponse.error:', apiResponse.error);
+        
+        // check for success indicators in the response
+        if (apiResponse.success || 
+            (apiResponse.data?.message?.includes('Successfully joined')) ||
+            (apiResponse.data?.membership && apiResponse.data !== null) ||
+            (apiResponse.message?.includes('Successfully joined'))) {
           console.log('LeagueService: Successfully joined league');
           return true;
+        }
+        
+        // handle case where user is already a member
+        if (apiResponse.error?.status === 409 && 
+            apiResponse.error?.message?.includes('already joined')) {
+          console.log('LeagueService: User is already a member of this league');
+          return true; // treat as success since user is already in the league
         }
       }
       
