@@ -10,6 +10,7 @@ import CalendarIcon from '@/assets/icons/calendar-icon.svg';
 import ClockIcon from '@/assets/icons/clock-icon.svg';
 import DollarSignIcon from '@/assets/icons/dollarsign-icon.svg';
 import { SeasonService, Season } from '@/src/features/dashboard-user/services/SeasonService';
+import { PaymentOptionsBottomSheet } from '@/src/features/dashboard-user/components';
 
 const { width, height } = Dimensions.get('window');
 
@@ -18,7 +19,7 @@ interface SeasonsScreenProps {
   categoryId?: string;
   leagueId?: string;
   leagueName?: string;
-  sport?: 'pickleball' | 'tennis';
+  sport?: 'pickleball' | 'tennis'; // adding padel later
 }
 
 export default function SeasonsScreen({ 
@@ -33,13 +34,15 @@ export default function SeasonsScreen({
   const [seasons, setSeasons] = React.useState<Season[]>([]);
   const [isLoading, setIsLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
+  const [showPaymentOptions, setShowPaymentOptions] = React.useState(false);
+  const [selectedSeason, setSelectedSeason] = React.useState<Season | null>(null);
 
   React.useEffect(() => {
     console.log('SeasonsScreen loaded successfully!');
     console.log('Category:', category, 'League:', leagueName, 'Sport:', sport);
     console.log('CategoryId:', categoryId, 'LeagueId:', leagueId);
     
-    // Fetch seasons if we have the necessary IDs
+    // Fetch seasons by league or category
     if (categoryId || leagueId) {
       fetchSeasons();
     } else {
@@ -97,25 +100,43 @@ export default function SeasonsScreen({
       console.log('Doubles season detected - navigating to Find Partner');
       router.push(`/pairing/find-partner/${season.id}`);
     } else {
-      // For singles seasons, navigate to regular registration
-      console.log('Singles season detected - navigating to registration');
-      // TODO: Navigate to regular registration screen
-      // router.push(`/registration/${season.id}`);
+      // For singles seasons, show payment options
+      console.log('Singles season detected - showing payment options');
+      setSelectedSeason(season);
+      setShowPaymentOptions(true);
     }
   };
 
   const handleJoinWaitlistPress = (season: Season) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     console.log('Join Waitlist button pressed for season:', season.name);
-    // TODO: Navigate to waitlist screen
+    // TODO: navigate to waitlist screen or maybe just a button to join waitlist
     // router.push(`/waitlist/${season.id}`);
   };
 
   const handleViewStandingsPress = (season: Season) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     console.log('View Standings button pressed for season:', season.name);
-    // TODO: Navigate to standings screen
+    // TODO: navigate to standings screen 
     // router.push(`/standings/${season.id}`);
+  };
+
+  const handlePayNow = (season: Season) => {
+    console.log('Pay Now pressed for season:', season.name);
+    // TODO: implement payment gateway integration (fiuupayment)
+    // this will redirect users to the payment gateway
+    console.log('Payment gateway integration not yet implemented');
+  };
+
+  const handlePayLater = (season: Season) => {
+    console.log('Pay Later pressed for season:', season.name);
+    // development-only: complete registration without payment
+    console.log('Registration completed without payment (development only)');
+  };
+
+  const handleClosePaymentOptions = () => {
+    setShowPaymentOptions(false);
+    setSelectedSeason(null);
   };
 
   const tabs = ['In Progress', 'Upcoming', 'Past'];
@@ -292,6 +313,15 @@ export default function SeasonsScreen({
       </View>
       
       <NavBar activeTab={2} onTabPress={() => {}} />
+      
+      {/* Payment Options Bottom Sheet */}
+      <PaymentOptionsBottomSheet
+        visible={showPaymentOptions}
+        onClose={handleClosePaymentOptions}
+        season={selectedSeason}
+        onPayNow={handlePayNow}
+        onPayLater={handlePayLater}
+      />
     </SafeAreaView>
   );
 }
