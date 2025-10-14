@@ -48,6 +48,10 @@ interface Favorite {
   };
 }
 
+interface ConnectScreenProps {
+  onTabPress: (tabIndex: number) => void;
+}
+
 const SPORT_COLORS: { [key: string]: string } = {
   Tennis: '#A2E047',
   tennis: '#A2E047',
@@ -57,7 +61,7 @@ const SPORT_COLORS: { [key: string]: string } = {
   padel: '#4DABFE',
 };
 
-export default function ConnectScreen() {
+export default function ConnectScreen({ onTabPress }: ConnectScreenProps) {
   const insets = useSafeAreaInsets();
   const { data: session } = useSession();
   const [activeTab, setActiveTab] = useState(0);
@@ -70,7 +74,7 @@ export default function ConnectScreen() {
   const [favorites, setFavorites] = useState<Favorite[]>([]);
   const [favoritedPlayerIds, setFavoritedPlayerIds] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [searchTimeout, setSearchTimeout] = useState<NodeJS.Timeout | null>(null);
+  const [searchTimeout, setSearchTimeout] = useState<ReturnType<typeof setTimeout> | null>(null);
   // Use safe area insets for proper status bar handling across platforms
   const STATUS_BAR_HEIGHT = insets.top;
 
@@ -240,11 +244,9 @@ export default function ConnectScreen() {
     console.log(`Tab ${tabIndex} pressed - ${['Connect', 'Friendly', 'Leagues', 'My Games', 'Chat'][tabIndex]}`);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
 
-    // Navigate to user-dashboard when Leagues tab (index 2) is pressed
-    if (tabIndex === 2) {
-      router.push('/user-dashboard');
-    }
-  }, []);
+    // Call parent's onTabPress to update currentView
+    onTabPress(tabIndex);
+  }, [onTabPress]);
 
   const handlePlayerPress = useCallback((player: Player) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
