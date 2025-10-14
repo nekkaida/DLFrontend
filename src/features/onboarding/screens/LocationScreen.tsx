@@ -650,11 +650,6 @@ const LocationScreen = () => {
           contentContainerStyle={styles.scrollContent}
           keyboardShouldPersistTaps="handled"
         >
-      {/* Logo */}
-      <View style={styles.logoContainer}>
-          {/* <DeuceLogo width={42} height={42} /> */}
-      </View>
-
       {/* Header */}
       <View style={styles.headerContainer}>
         <Text style={styles.title}>Where would you like to play?</Text>
@@ -837,20 +832,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: buttonPadding,
     marginTop: 60,
   },
-  logoContainer: {
-    alignItems: 'center',
-    marginTop: 40,
-    marginBottom: 40,
-  },
-  logo: {
-    fontSize: 24, // theme.typography.fontSize['2xl']
-    fontWeight: '700', // theme.typography.fontWeight.heavy
-    fontStyle: 'italic',
-    color: '#FE9F4D',
-    fontFamily: 'Inter',
-  },
   headerContainer: {
     paddingHorizontal: horizontalPadding,
+    marginTop: Platform.OS === 'ios' ? 110 : 160, 
     marginBottom: 40,
   },
   title: {

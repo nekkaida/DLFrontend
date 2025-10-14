@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   SafeAreaView,
   Dimensions,
+  Platform,
 } from 'react-native';
 import { router } from 'expo-router';
 import { useOnboarding } from '../OnboardingContext';
@@ -74,11 +75,6 @@ const GameSelectScreen = () => {
           activeOpacity={1}
           onPress={() => setSelectedSports([])}
         >
-        {/* Logo */}
-        <View style={styles.logoContainer}>
-          {/* <DeuceLogo width={42} height={42} /> */}
-        </View>
-
         {/* Header */}
         <View style={styles.headerContainer}>
           <Text style={styles.title}>Choose your sport</Text>
@@ -150,27 +146,16 @@ const styles = StyleSheet.create({
   backgroundTouchable: {
     flex: 1,
   },
-  logoContainer: {
-    alignItems: 'center',
-    marginTop: 40,
-    marginBottom: 40,
-  },
-  logo: {
-    fontSize: 24,
-    fontWeight: '700',
-    fontStyle: 'italic',
-    color: '#FE9F4D',
-  },
   headerContainer: {
     paddingHorizontal: horizontalPadding,
-    marginBottom: 32,
+    marginTop: Platform.OS === 'ios' ? 70 : 130,
   },
   title: {
     fontSize: 32,
     fontWeight: '700',
     color: '#000000',
     lineHeight: 40,
-    marginBottom: 10,
+    marginBottom: 4,
     fontFamily: 'Inter',
   },
   subtitle: {
@@ -180,15 +165,16 @@ const styles = StyleSheet.create({
     lineHeight: 34,
     letterSpacing: -0.01,
     fontFamily: 'Inter',
-    marginBottom: 8,
+    marginBottom: 18,
   },
   helperText: {
     fontSize: 14,
-    fontWeight: '400',
-    color: '#BABABA',
+    fontWeight: '500',
+    color: '#8C8C8C',
     lineHeight: 20,
     letterSpacing: -0.01,
     fontFamily: 'Inter',
+    marginBottom: 10,
   },
   sportsContainer: {
     paddingHorizontal: horizontalPadding,
