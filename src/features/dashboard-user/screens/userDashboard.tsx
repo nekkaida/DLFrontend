@@ -371,7 +371,7 @@ export default function DashboardScreen() {
               )}
             </View>
 
-          <View style={styles.newsSection}>
+          {/* <View style={styles.newsSection}>
             <Text style={styles.sectionTitle}>Latest News</Text>
             
             <View style={styles.newsCard}>
@@ -421,7 +421,7 @@ export default function DashboardScreen() {
               </View>
               <Text style={styles.newsPlaceholder}>Training content will appear here</Text>
             </View>
-          </View>
+          </View> */}
         </ScrollView>
 
       </View>

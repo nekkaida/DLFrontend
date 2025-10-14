@@ -22,6 +22,7 @@ import { useSession, authClient } from '@/lib/auth-client';
 import { getBackendBaseURL } from '@/config/network';
 import { questionnaireAPI } from '../services/api';
 import * as Haptics from 'expo-haptics';
+import AllSetArrowIcon from '../../../../assets/icons/allset-arrow.svg';
 
 const DefaultProfileIcon = () => (
   <Svg width="296" height="296" viewBox="0 0 296 296" fill="none">
@@ -433,7 +434,7 @@ const ProfilePictureScreen = () => {
         style={styles.buttonTouchableContainer}
       >
         <LinearGradient
-          colors={isUploadingImage ? ['#BABABA', '#BABABA'] : ['#FF7903', '#FEA04D']}
+          colors={isUploadingImage ? ['#BABABA', '#BABABA'] : ['#FEA04D', '#FF8C1A']}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 0 }}
           style={[
@@ -466,21 +467,26 @@ const ProfilePictureScreen = () => {
       </TouchableOpacity>
 
       {/* Skip for now */}
-      <TouchableOpacity onPress={handleSkip} style={styles.skipButton}>
-        <Text style={styles.skipText}>Skip for now</Text>
-      </TouchableOpacity>
-
-      {/* All set? text with yes icon */}
-      <View style={styles.allSetContainer}>
-        <View style={styles.allSetButton}>
-          <Text style={styles.allSetText}>All set?</Text>
-        </View>
-        <TouchableOpacity onPress={handleComplete}>
+      <View style={styles.skipContainer}>
+        <TouchableOpacity onPress={handleSkip} style={styles.skipButton}>
           <Image
             source={require('../../../../assets/images/yes.png')}
-            style={styles.yesIcon}
+            style={styles.skipIcon}
           />
+          <Text style={styles.skipText}>Skip for now</Text>
         </TouchableOpacity>
+      </View>
+
+      {/* All set text */}
+      <View style={styles.allSetContainer}>
+        <TouchableOpacity onPress={handleComplete} style={styles.allSetButton}>
+          <Text style={styles.allSetText}>All set</Text>
+          <AllSetArrowIcon width={14} height={14} />
+        </TouchableOpacity>
+        <View style={styles.readyToDeuceContainer}>
+          <Text style={styles.readyToText}>Ready to </Text>
+          <Text style={styles.deuceText}>DEUCE!</Text>
+        </View>
       </View>
 
       {/* Circular Image Cropper Modal */}
@@ -514,7 +520,7 @@ const styles = StyleSheet.create({
   },
   logoContainer: {
     alignItems: 'center',
-    marginTop: 60,
+    marginTop: 20,
     marginBottom: 40,
   },
   logo: {
@@ -532,7 +538,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#000000',
     lineHeight: 40,
-    marginBottom: 0,
+    marginBottom: 5,
     fontFamily: 'Inter',
   },
   subtitle: {
@@ -542,12 +548,12 @@ const styles = StyleSheet.create({
     lineHeight: 34,
     letterSpacing: -0.01,
     fontFamily: 'Inter',
-    marginBottom: 3,
+    marginBottom: 30,
   },
   description: {
-    fontSize: 14,
-    fontWeight: '400',
-    color: '#BABABA',
+    fontSize: 16,
+    fontWeight: '500',
+    color: '#8C8C8C',
     lineHeight: 20,
     letterSpacing: -0.01,
     fontFamily: 'Inter',
@@ -619,7 +625,7 @@ const styles = StyleSheet.create({
   },
   buttonText: {
     color: '#FFFFFF',
-    fontSize: 14,
+    fontSize: 16,
     fontWeight: '600',
     lineHeight: 24,
     fontFamily: 'Inter',
@@ -632,13 +638,24 @@ const styles = StyleSheet.create({
   },
   takePhotoButtonText: {
     color: '#FE9F4D',
-    fontSize: 14,
-    fontWeight: '600',
+    fontSize: 16,
+    fontWeight: '500',
     lineHeight: 24,
     fontFamily: 'Inter',
   },
-  skipButton: {
+  skipContainer: {
     marginBottom: 44,
+  },
+  skipButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  skipIcon: {
+    width: 24,
+    height: 24,
+    marginRight: 8,
+    transform: [{ rotate: '7.09deg' }],
   },
   skipText: {
     fontSize: 14,
@@ -649,13 +666,16 @@ const styles = StyleSheet.create({
   },
   allSetContainer: {
     position: 'absolute',
-    bottom: Dimensions.get('window').height * 0.06,
-    right: Dimensions.get('window').width * 0.08, 
-    flexDirection: 'row',
+    bottom: Dimensions.get('window').height * 0.08,
+    left: 0,
+    right: 0,
     alignItems: 'center',
   },
   allSetButton: {
-    marginRight: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 8,
   },
   allSetText: {
     fontSize: 20,
@@ -665,11 +685,25 @@ const styles = StyleSheet.create({
     letterSpacing: -0.01,
     fontFamily: 'Inter',
     textAlign: 'center',
+    marginRight: 10,
   },
-  yesIcon: {
-    width: 72,
-    height: 72,
-    transform: [{ rotate: '7.09deg' }],
+  readyToDeuceContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  readyToText: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#555555',
+    fontFamily: 'Inter',
+  },
+  deuceText: {
+    fontSize: 18,
+    fontWeight: '700',
+    fontStyle: 'italic',
+    fontFamily: 'Inter',
+    color: '#FF8C1A',
   },
 });
 
