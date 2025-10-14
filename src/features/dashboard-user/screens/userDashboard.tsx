@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { ScrollView, Text, View, StyleSheet, Dimensions, Platform, Image, TouchableOpacity, RefreshControl, StatusBar } from 'react-native';
+import { ScrollView, Text, View, StyleSheet, Dimensions, Platform, Image, TouchableOpacity, RefreshControl, StatusBar, BackHandler } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
@@ -8,9 +8,11 @@ import { NavBar } from '@/shared/components/layout';
 import { useSession, authClient } from '@/lib/auth-client';
 import { getBackendBaseURL } from '@/config/network';
 import * as Haptics from 'expo-haptics';
+import ConnectScreen from './ConnectScreen';
 import TennisIcon from '@/assets/images/033-TENNIS 1.svg';
 import PadelIcon from '@/assets/images/036-PADEL 1.svg';
 import PickleballIcon from '@/assets/images/045-PICKLEBALL.svg';
+
 
 const SPORT_CONFIG = {
   Pickleball: {
@@ -45,6 +47,7 @@ export default function DashboardScreen() {
   const { data: session } = useSession();
   const insets = useSafeAreaInsets();
   const [activeTab, setActiveTab] = React.useState(2);
+  const [currentView, setCurrentView] = React.useState<'dashboard' | 'connect' | 'friendly' | 'myGames' | 'chat'>('dashboard');
   const [refreshing, setRefreshing] = React.useState(false);
   const [profileData, setProfileData] = React.useState<any>(null);
   // Use safe area insets for proper status bar handling across platforms
@@ -174,6 +177,19 @@ export default function DashboardScreen() {
     console.log('DashboardScreen: User has valid session, allowing access');
   }, [session]);
 
+  // Disable Android hardware back when not on main dashboard view
+  useEffect(() => {
+    const onBackPress = () => {
+      if (currentView !== 'dashboard') {
+        
+        return true;
+      }
+      return false;
+    };
+    const subscription = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+    return () => subscription.remove();
+  }, [currentView]);
+
   // Fetch profile data when component mounts
   useEffect(() => {
     if (session?.user?.id) {
@@ -187,10 +203,17 @@ export default function DashboardScreen() {
     console.log(`Tab ${tabIndex} pressed - ${['Connect', 'Friendly', 'Leagues', 'My Games', 'Chat'][tabIndex]}`);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
 
-
-    // Navigate to Connect screen when tab 0 is pressed
+    // Absolute in-app view switching per tab
     if (tabIndex === 0) {
-      router.push('/user-dashboard/connect');
+      setCurrentView('connect');
+    } else if (tabIndex === 1) {
+      setCurrentView('friendly');
+    } else if (tabIndex === 2) {
+      setCurrentView('dashboard');
+    } else if (tabIndex === 3) {
+      setCurrentView('myGames');
+    } else if (tabIndex === 4) {
+      setCurrentView('chat');
     }
   };
 
@@ -244,7 +267,39 @@ export default function DashboardScreen() {
     }
   }, [session?.user?.id]);
 
-  // handleLogout removed - logout functionality moved to settings page
+
+  // use this for swtiching between tabs
+  if (currentView === 'connect') {
+    return (
+      <ConnectScreen onTabPress={handleTabPress} />
+    );
+  }
+
+  // later delete this
+  if (currentView === 'friendly' || currentView === 'myGames' || currentView === 'chat') {
+    const title = currentView === 'friendly' ? 'Friendly' : currentView === 'myGames' ? 'My Games' : 'Chat';
+    return (
+      <View style={styles.container}>
+        <LinearGradient
+          colors={['#FDEDE0', '#FFFFFF']}
+          locations={[0, 1]}
+          style={styles.backgroundGradient}
+        />
+        <View style={[styles.contentContainer, { paddingTop: STATUS_BAR_HEIGHT }]}> 
+          <View style={styles.headerSection}>
+            <View style={styles.headerContainer}>
+              <Text style={styles.logoText}>DEUCE</Text>
+            </View>
+          </View>
+          <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+            <Text style={{ fontSize: 18, fontWeight: '700', color: '#1A1C1E' }}>{title}</Text>
+            <Text style={{ marginTop: 8, color: '#6B7280' }}>Content coming soon</Text>
+          </View>
+        </View>
+        <NavBar activeTab={activeTab} onTabPress={handleTabPress} />
+      </View>
+    );
+  }
 
   return (
     <View
@@ -371,7 +426,7 @@ export default function DashboardScreen() {
               )}
             </View>
 
-          <View style={styles.newsSection}>
+          {/* <View style={styles.newsSection}>
             <Text style={styles.sectionTitle}>Latest News</Text>
             
             <View style={styles.newsCard}>
@@ -421,7 +476,7 @@ export default function DashboardScreen() {
               </View>
               <Text style={styles.newsPlaceholder}>Training content will appear here</Text>
             </View>
-          </View>
+          </View> */}
         </ScrollView>
 
       </View>

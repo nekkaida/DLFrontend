@@ -27,9 +27,9 @@ export default function RootLayout() {
           <NavigationInterceptor>
           <Stack
             screenOptions={{
-              gestureEnabled: true, // Re-enable swipe-back gesture
+              gestureEnabled: true,
               headerShown: false,
-              presentation: 'card', // Ensure consistent presentation
+              presentation: 'card',
             }}
           >
         <Stack.Screen 
@@ -50,14 +50,14 @@ export default function RootLayout() {
           name="login" 
           options={{ 
             headerShown: false,
-            gestureEnabled: false, 
+            gestureEnabled: true,
           }} 
         />
         <Stack.Screen 
           name="register" 
           options={{ 
             headerShown: false,
-            gestureEnabled: false,
+            gestureEnabled: true,
           }} 
         />
         <Stack.Screen 
@@ -86,6 +86,7 @@ export default function RootLayout() {
           options={{ 
             headerShown: false,
             gestureEnabled: false,
+            animation: 'none',
           }} 
         />
         <Stack.Screen 
