@@ -7,7 +7,8 @@ export default function DashboardLayout() {
       <Stack 
         screenOptions={{ 
           headerShown: false,
-          gestureEnabled: true, // Re-enable swipe-back gesture
+          gestureEnabled: false,
+          animation: 'none',
         }}
       >
         <Stack.Screen name="index" />
