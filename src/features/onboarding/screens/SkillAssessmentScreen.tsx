@@ -125,7 +125,6 @@ const SkillAssessmentScreen = () => {
   const [currentPageAnswers, setCurrentPageAnswers] = useState<{[key: string]: any}>({});
   const [questionHistory, setQuestionHistory] = useState<Array<{questions: Question[] | TennisQuestion[] | PadelQuestion[], responses: any}>>([]);
   const [currentPageIndex, setCurrentPageIndex] = useState(0);
-  const [expandedSkillQuestions, setExpandedSkillQuestions] = useState<Question[] | TennisQuestion[] | PadelQuestion[]>([]);
   const [isInSkillMatrix, setIsInSkillMatrix] = useState(false);
   const [currentSkillIndex, setCurrentSkillIndex] = useState(0);
 
@@ -862,21 +861,16 @@ const SkillAssessmentScreen = () => {
   // Calculate total questions and current progress
   const getQuestionProgress = () => {
     if (!isComprehensiveQuestionnaire || !currentQuestionnaireType) {
-      return { current: currentQuestionIndex + 1, total: questions.length };
+      return { current: 1, total: 1 };
     }
     
     const questionnaire = currentQuestionnaireType === 'pickleball' ? pickleballQuestionnaire : 
                          currentQuestionnaireType === 'tennis' ? tennisQuestionnaire : padelQuestionnaire;
     
-    // Count answered questions
-    const allResponses = { ...responses, ...currentPageAnswers };
     let answeredQuestions = 0;
-    
-    // Count questions that have been answered
-    for (const [key, value] of Object.entries(allResponses)) {
+    for (const [key, value] of Object.entries(responses)) {
       if (value !== undefined && value !== null && value !== '') {
-        if (typeof value === 'object' && value !== null) {
-          // For skill matrix, count each sub-question
+        if (typeof value === 'object' && !Array.isArray(value)) {
           answeredQuestions += Object.keys(value).length;
         } else {
           answeredQuestions += 1;
@@ -884,35 +878,49 @@ const SkillAssessmentScreen = () => {
       }
     }
     
-    // Calculate total questions by simulating the flow
-    let totalQuestions = answeredQuestions;
-    let currentResponses = { ...allResponses };
+
+    const allResponses = { ...responses, ...currentPageAnswers };
     
-    // Simulate remaining questions
+    // total questions
+    let totalQuestions = 0;
+    let tempResponses: QuestionnaireResponse = {};
+    const processedKeys = new Set<string>();
+
     while (true) {
-      const nextQuestions = questionnaire.getConditionalQuestions(currentResponses);
-      if (nextQuestions.length === 0) break;
-      
-      totalQuestions += nextQuestions.length;
-      
-      // Simulate answering all questions in this set
-      for (const question of nextQuestions) {
-        if (question.type === 'single_choice') {
-          currentResponses[question.key] = question.options?.[0] || '';
-        } else if (question.type === 'number') {
-          currentResponses[question.key] = question.min_value || 0;
-        } else if (question.type === 'skill_matrix' && question.sub_questions) {
-          const skillResponses: { [key: string]: string } = {};
-          for (const [skillKey, skillData] of Object.entries(question.sub_questions)) {
-            const skill = skillData as { question: string; options: string[] };
-            skillResponses[skillKey] = skill.options[0] || '';
+      const questionsForThisStep = questionnaire.getConditionalQuestions(tempResponses);
+      if (questionsForThisStep.length === 0) break;
+
+      const newQuestions = questionsForThisStep.filter(q => !processedKeys.has(q.key));
+      if (newQuestions.length === 0) {
+        break;
+      }
+
+      const expanded = expandSkillMatrixQuestions(newQuestions);
+      totalQuestions += expanded.length;
+
+      for (const q of newQuestions) {
+        processedKeys.add(q.key);
+        if (allResponses[q.key] !== undefined) {
+          tempResponses[q.key] = allResponses[q.key];
+        } else {
+          if (q.type === 'single_choice') {
+            tempResponses[q.key] = q.options?.[0] || '';
+          } else if (q.type === 'number') {
+            tempResponses[q.key] = q.min_value !== undefined ? q.min_value : 0;
+          } else if (q.type === 'skill_matrix' && q.sub_questions) {
+            const skillResp: { [key: string]: string } = {};
+            for (const [sk, sd] of Object.entries(q.sub_questions)) {
+              skillResp[sk] = sd.options[0] || '';
+            }
+            tempResponses[q.key] = skillResp;
           }
-          currentResponses[question.key] = skillResponses;
         }
       }
     }
     
-    return { current: answeredQuestions + 1, total: totalQuestions };
+    // current never exceeds total
+    const current = Math.min(answeredQuestions + 1, totalQuestions);
+    return { current, total: Math.max(current, totalQuestions) };
   };
 
   return (
