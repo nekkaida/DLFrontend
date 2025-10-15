@@ -158,12 +158,12 @@ export default function PairRequestsScreen() {
     }
   };
 
-  const handleDeny = (requestId: string, requesterName: string) => {
+  const handleDeny = (requestId: string, requesterName: string, seasonId: string) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
 
     Alert.alert(
       'Deny Pair Request',
-      `Are you sure you want to deny the pair request from ${requesterName}? They will not be notified.`,
+      `Are you sure you want to deny the pair request from ${requesterName}?`,
       [
         {
           text: 'Cancel',
@@ -185,8 +185,11 @@ export default function PairRequestsScreen() {
               );
 
               if (response && (response as any).success) {
-                toast.success('Request denied');
-                await fetchRequests(false);
+                toast.success('Request denied', {
+                  description: 'You can find another partner to pair with',
+                });
+                // Navigate back to find partner page for this season
+                router.push(`/pairing/find-partner/${seasonId}`);
               } else {
                 toast.error('Error', {
                   description: (response as any).message || 'Failed to deny request',
@@ -350,7 +353,7 @@ export default function PairRequestsScreen() {
                 <>
                   <TouchableOpacity
                     style={[styles.actionButton, styles.denyButton]}
-                    onPress={() => handleDeny(request.id, player.name)}
+                    onPress={() => handleDeny(request.id, player.name, request.seasonId)}
                     disabled={isActionLoading}
                   >
                     {isActionLoading ? (
