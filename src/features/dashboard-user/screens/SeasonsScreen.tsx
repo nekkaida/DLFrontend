@@ -1,5 +1,5 @@
 import React from 'react';
-import { ScrollView, Text, View, StyleSheet, Dimensions, Platform, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { ScrollView, Text, View, StyleSheet, Dimensions, Platform, TouchableOpacity, Alert } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
@@ -9,77 +9,40 @@ import * as Haptics from 'expo-haptics';
 import CalendarIcon from '@/assets/icons/calendar-icon.svg';
 import ClockIcon from '@/assets/icons/clock-icon.svg';
 import DollarSignIcon from '@/assets/icons/dollarsign-icon.svg';
-import { SeasonService, Season } from '@/src/features/dashboard-user/services/SeasonService';
-import { PaymentOptionsBottomSheet } from '@/src/features/dashboard-user/components';
+import { useActivePartnership } from '@/features/pairing/hooks';
+import { PartnershipCard } from '@/features/pairing/components';
 
 const { width, height } = Dimensions.get('window');
 
 interface SeasonsScreenProps {
   category?: string;
-  categoryId?: string;
-  leagueId?: string;
   leagueName?: string;
-  sport?: 'pickleball' | 'tennis'; // adding padel later
+  sport?: 'pickleball' | 'tennis';
+  seasonId?: string;
+  currentUserId?: string;
 }
 
-export default function SeasonsScreen({ 
+export default function SeasonsScreen({
   category = 'Men\'s Single',
-  categoryId,
-  leagueId,
   leagueName = 'PJ League',
-  sport = 'pickleball'
+  sport = 'pickleball',
+  seasonId = 'season_123', // TODO: Replace with real seasonId
+  currentUserId
 }: SeasonsScreenProps) {
   const insets = useSafeAreaInsets();
   const [activeTab, setActiveTab] = React.useState(0); // 0: In Progress, 1: Upcoming, 2: Past
-  const [seasons, setSeasons] = React.useState<Season[]>([]);
-  const [isLoading, setIsLoading] = React.useState(true);
-  const [error, setError] = React.useState<string | null>(null);
-  const [showPaymentOptions, setShowPaymentOptions] = React.useState(false);
-  const [selectedSeason, setSelectedSeason] = React.useState<Season | null>(null);
+
+  // Check for active partnership for doubles categories
+  const isDoublesCategory = category.toLowerCase().includes('double');
+  const { partnership, loading: partnershipLoading, refresh: refreshPartnership } = useActivePartnership(
+    isDoublesCategory ? seasonId : null,
+    currentUserId
+  );
 
   React.useEffect(() => {
     console.log('SeasonsScreen loaded successfully!');
     console.log('Category:', category, 'League:', leagueName, 'Sport:', sport);
-    console.log('CategoryId:', categoryId, 'LeagueId:', leagueId);
-    
-    // Fetch seasons by league or category
-    if (categoryId || leagueId) {
-      fetchSeasons();
-    } else {
-      setIsLoading(false);
-    }
-  }, [category, leagueName, sport, categoryId, leagueId]);
-
-  const fetchSeasons = async () => {
-    try {
-      setIsLoading(true);
-      setError(null);
-      console.log('Fetching seasons...');
-      
-      let fetchedSeasons: Season[] = [];
-      
-      if (categoryId) {
-        // Fetch seasons for specific category
-        fetchedSeasons = await SeasonService.fetchSeasonsByCategory(categoryId);
-        console.log('Fetched seasons by category:', fetchedSeasons);
-      } else if (leagueId) {
-        // Fetch seasons for specific league
-        fetchedSeasons = await SeasonService.fetchSeasonsByLeague(leagueId);
-        console.log('Fetched seasons by league:', fetchedSeasons);
-      } else {
-        // Fetch all seasons
-        fetchedSeasons = await SeasonService.fetchAllSeasons();
-        console.log('Fetched all seasons:', fetchedSeasons);
-      }
-      
-      setSeasons(fetchedSeasons);
-    } catch (err) {
-      console.error('Error fetching seasons:', err);
-      setError('Failed to load seasons');
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  }, [category, leagueName, sport]);
 
   const handleTabPress = (tabIndex: number) => {
     console.log(`Tab ${tabIndex} pressed - ${['In Progress', 'Upcoming', 'Past'][tabIndex]}`);
@@ -88,181 +51,145 @@ export default function SeasonsScreen({
   };
 
 
-  const handleRegisterPress = (season: Season) => {
+  const handleRegisterPress = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    console.log('Register button pressed for season:', season.name);
+    console.log('Register button pressed for category:', category);
 
-    // Check if season is doubles (from league gameType)
-    const isDoublesSeason = season.league?.gameType === 'DOUBLES';
+    if (isDoublesCategory) {
+      // Check if user already has an active partnership
+      if (partnership) {
+        const partnerName = partnership.player1Id === currentUserId
+          ? partnership.player2.name
+          : partnership.player1.name;
 
-    if (isDoublesSeason) {
-      // For doubles seasons, navigate to Find Partner screen
-      console.log('Doubles season detected - navigating to Find Partner');
-      router.push(`/pairing/find-partner/${season.id}`);
+        Alert.alert(
+          'Already Paired',
+          `You are already paired with ${partnerName}. You cannot register for another doubles season while in a partnership.`,
+          [{ text: 'OK', style: 'default' }]
+        );
+        return;
+      }
+
+      // Navigate to Find Partner screen
+      console.log('Doubles category detected - navigating to Find Partner');
+      router.push(`/pairing/find-partner/${seasonId}`);
     } else {
-      // For singles seasons, show payment options
-      console.log('Singles season detected - showing payment options');
-      setSelectedSeason(season);
-      setShowPaymentOptions(true);
+      // For singles categories, navigate to regular registration
+      console.log('Singles category detected - navigating to registration');
+      // TODO: Navigate to regular registration screen
+      // router.push(`/registration/${seasonId}`);
     }
   };
 
-  const handleJoinWaitlistPress = (season: Season) => {
+  const handleJoinWaitlistPress = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    console.log('Join Waitlist button pressed for season:', season.name);
-    // TODO: navigate to waitlist screen or maybe just a button to join waitlist
-    // router.push(`/waitlist/${season.id}`);
+    console.log('Join Waitlist button pressed');
+    // TODO: Navigate to waitlist screen
   };
 
-  const handleViewStandingsPress = (season: Season) => {
+  const handleViewStandingsPress = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    console.log('View Standings button pressed for season:', season.name);
-    // TODO: navigate to standings screen 
-    // router.push(`/standings/${season.id}`);
-  };
-
-  const handlePayNow = (season: Season) => {
-    console.log('Pay Now pressed for season:', season.name);
-    // TODO: implement payment gateway integration (fiuupayment)
-    // this will redirect users to the payment gateway
-    console.log('Payment gateway integration not yet implemented');
-  };
-
-  const handlePayLater = (season: Season) => {
-    console.log('Pay Later pressed for season:', season.name);
-    // development-only: complete registration without payment
-    console.log('Registration completed without payment (development only)');
-  };
-
-  const handleClosePaymentOptions = () => {
-    setShowPaymentOptions(false);
-    setSelectedSeason(null);
+    console.log('View Standings button pressed');
+    // TODO: Navigate to standings screen
   };
 
   const tabs = ['In Progress', 'Upcoming', 'Past'];
 
-  const renderSeasonCards = () => {
-    if (isLoading) {
-      return (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#863A73" />
-          <Text style={styles.loadingText}>Loading seasons...</Text>
+  const renderSeasonCard = () => {
+    const getSeasonData = () => {
+      switch (activeTab) {
+        case 0: // In Progress
+          return {
+            title: 'Winter Season 2025',
+            badge: '🏆 S1',
+            playerCount: '+95',
+            duration: 'Duration: 1 Dec 2025 – 31 Jan 2026',
+            lastRegistration: 'Last Registration: 27 Nov 2025',
+            entryFee: 'RM59.90',
+            buttonText: 'Register',
+            buttonColor: '#863A73',
+            buttonHandler: handleRegisterPress
+          };
+        case 1: // Upcoming
+          return {
+            title: 'Spring Season 2025',
+            badge: '🌱 S2',
+            playerCount: '+67',
+            duration: 'Duration: 1 Mar 2025 – 30 Apr 2025',
+            lastRegistration: 'Registration Opens: 15 Feb 2025',
+            entryFee: 'RM59.90',
+            buttonText: 'Join Waitlist',
+            buttonColor: '#000000',
+            buttonHandler: handleJoinWaitlistPress
+          };
+        case 2: // Past
+          return {
+            title: 'Fall Season 2024',
+            badge: '🍂 S4',
+            playerCount: '+89',
+            duration: 'Duration: 1 Sep 2024 – 30 Nov 2024',
+            lastRegistration: 'Season Ended: 30 Nov 2024',
+            entryFee: 'RM59.90',
+            buttonText: 'View Standings',
+            buttonColor: '#B2B2B2',
+            buttonHandler: handleViewStandingsPress
+          };
+        default:
+          return null;
+      }
+    };
+
+    const seasonData = getSeasonData();
+    if (!seasonData) return null;
+
+    return (
+      <View style={styles.seasonCard}>
+        <View style={styles.seasonCardHeader}>
+          <Text style={styles.seasonTitle}>{seasonData.title}</Text>
+          <View style={styles.seasonBadge}>
+            <Text style={styles.seasonBadgeText}>{seasonData.badge}</Text>
+          </View>
         </View>
-      );
-    }
-
-    if (error) {
-      return (
-        <View style={styles.errorContainer}>
-          <Text style={styles.errorText}>{error}</Text>
-          <TouchableOpacity 
-            style={styles.retryButton}
-            onPress={fetchSeasons}
-          >
-            <Text style={styles.retryButtonText}>Retry</Text>
-          </TouchableOpacity>
-        </View>
-      );
-    }
-
-    const { active, upcoming, finished } = SeasonService.groupSeasonsByStatus(seasons);
-    
-    let currentSeasons: Season[] = [];
-    let buttonHandler: (season: Season) => void = () => {};
-
-    switch (activeTab) {
-      case 0: // In Progress
-        currentSeasons = active;
-        buttonHandler = handleRegisterPress;
-        break;
-      case 1: // Upcoming
-        currentSeasons = upcoming;
-        buttonHandler = handleJoinWaitlistPress;
-        break;
-      case 2: // Past
-        currentSeasons = finished;
-        buttonHandler = handleViewStandingsPress;
-        break;
-    }
-
-    if (currentSeasons.length === 0) {
-      const emptyMessages = [
-        'No active seasons available',
-        'No upcoming seasons available',
-        'No past seasons available'
-      ];
-      
-      return (
-        <View style={styles.emptyContainer}>
-          <Text style={styles.emptyText}>{emptyMessages[activeTab]}</Text>
-          <Text style={styles.emptySubtext}>
-            Seasons will appear here once they are created by the league administrator.
+        
+        <View style={styles.playerCountRow}>
+          <View style={styles.playerAvatars}>
+            <View style={styles.playerAvatar} />
+            <View style={styles.playerAvatar} />
+            <View style={styles.playerAvatar} />
+            <View style={styles.playerAvatar} />
+            <View style={styles.playerAvatar} />
+          </View>
+          <Text style={styles.playerCountText}>
+            <Text style={styles.playerCountNumber}>{seasonData.playerCount}</Text> players registered
           </Text>
         </View>
-      );
-    }
 
-    return currentSeasons.map((season) => {
-      const buttonText = SeasonService.getButtonText(season.status);
-      const buttonColor = SeasonService.getButtonColor(season.status);
-      const seasonBadge = SeasonService.getSeasonBadge(season.status, season.name);
-      const duration = SeasonService.formatDateRange(season.startDate, season.endDate);
-      const registrationDeadline = season.regiDeadline 
-        ? `Last Registration: ${SeasonService.formatDate(season.regiDeadline)}`
-        : 'Registration: Open';
-      const entryFee = typeof season.entryFee === 'string' 
-        ? `RM${parseFloat(season.entryFee).toFixed(2)}`
-        : `RM${season.entryFee.toFixed(2)}`;
-
-      return (
-        <View key={season.id} style={styles.seasonCard}>
-          <View style={styles.seasonCardHeader}>
-            <Text style={styles.seasonTitle}>{season.name}</Text>
-            <View style={styles.seasonBadge}>
-              <Text style={styles.seasonBadgeText}>{seasonBadge} S{activeTab + 1}</Text>
-            </View>
+        <View style={styles.seasonDetails}>
+          <View style={styles.detailRow}>
+            <CalendarIcon width={16} height={16} style={styles.detailIcon} />
+            <Text style={styles.detailText}>{seasonData.duration}</Text>
           </View>
-          
-          <View style={styles.playerCountRow}>
-            <View style={styles.playerAvatars}>
-              <View style={styles.playerAvatar} />
-              <View style={styles.playerAvatar} />
-              <View style={styles.playerAvatar} />
-              <View style={styles.playerAvatar} />
-              <View style={styles.playerAvatar} />
-            </View>
-            <Text style={styles.playerCountText}>
-              <Text style={styles.playerCountNumber}>+{season.registeredUserCount}</Text> players registered
+          <View style={styles.detailRow}>
+            <ClockIcon width={16} height={16} style={styles.detailIcon} />
+            <Text style={styles.detailText}>{seasonData.lastRegistration}</Text>
+          </View>
+          <View style={styles.detailRow}>
+            <DollarSignIcon width={16} height={16} style={styles.detailIcon} />
+            <Text style={styles.detailText}>
+              Entry Fee: <Text style={styles.highlightText}>{seasonData.entryFee}</Text>
             </Text>
           </View>
-
-          <View style={styles.seasonDetails}>
-            <View style={styles.detailRow}>
-              <CalendarIcon width={16} height={16} style={styles.detailIcon} />
-              <Text style={styles.detailText}>Duration: {duration}</Text>
-            </View>
-            <View style={styles.detailRow}>
-              <ClockIcon width={16} height={16} style={styles.detailIcon} />
-              <Text style={styles.detailText}>{registrationDeadline}</Text>
-            </View>
-            <View style={styles.detailRow}>
-              <DollarSignIcon width={16} height={16} style={styles.detailIcon} />
-              <Text style={styles.detailText}>
-                Entry Fee: <Text style={styles.highlightText}>{entryFee}</Text>
-              </Text>
-            </View>
-          </View>
-
-          <TouchableOpacity 
-            style={[styles.registerButton, { backgroundColor: buttonColor }]}
-            onPress={() => buttonHandler(season)}
-            activeOpacity={0.8}
-          >
-            <Text style={styles.registerButtonText}>{buttonText}</Text>
-          </TouchableOpacity>
         </View>
-      );
-    });
+
+        <TouchableOpacity 
+          style={[styles.registerButton, { backgroundColor: seasonData.buttonColor }]}
+          onPress={seasonData.buttonHandler}
+          activeOpacity={0.8}
+        >
+          <Text style={styles.registerButtonText}>{seasonData.buttonText}</Text>
+        </TouchableOpacity>
+      </View>
+    );
   };
 
   return (
@@ -302,26 +229,27 @@ export default function SeasonsScreen({
           ))}
         </View>
 
-        <ScrollView 
+        <ScrollView
           style={styles.scrollContainer}
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
         >
-          {/* Dynamic Season Cards */}
-          {renderSeasonCards()}
+          {/* Partnership Status - Show only for doubles categories */}
+          {isDoublesCategory && partnership && currentUserId && (
+            <PartnershipCard
+              partnership={partnership}
+              currentUserId={currentUserId}
+              onDissolve={refreshPartnership}
+              showActions={true}
+            />
+          )}
+
+          {/* Dynamic Season Card */}
+          {renderSeasonCard()}
         </ScrollView>
       </View>
       
       <NavBar activeTab={2} onTabPress={() => {}} />
-      
-      {/* Payment Options Bottom Sheet */}
-      <PaymentOptionsBottomSheet
-        visible={showPaymentOptions}
-        onClose={handleClosePaymentOptions}
-        season={selectedSeason}
-        onPayNow={handlePayNow}
-        onPayLater={handlePayLater}
-      />
     </SafeAreaView>
   );
 }
@@ -343,10 +271,9 @@ const styles = StyleSheet.create({
     zIndex: 1,
   },
   categoryTitleContainer: {
-    marginTop: 5,
+    marginTop: 30,
     alignItems: 'flex-start',
     paddingHorizontal: 24,
-    marginBottom: 30,
   },
   categoryTitleText: {
     fontSize: 22,
@@ -488,58 +415,5 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 14,
     fontWeight: '600',
-  },
-  loadingContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 40,
-  },
-  loadingText: {
-    fontSize: 16,
-    color: '#6B7280',
-    marginTop: 12,
-    fontWeight: '500',
-  },
-  errorContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 40,
-  },
-  errorText: {
-    fontSize: 16,
-    color: '#EF4444',
-    marginBottom: 16,
-    fontWeight: '500',
-    textAlign: 'center',
-  },
-  retryButton: {
-    backgroundColor: '#863A73',
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 8,
-  },
-  retryButtonText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  emptyContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 40,
-  },
-  emptyText: {
-    fontSize: 16,
-    color: '#6B7280',
-    fontWeight: '500',
-    textAlign: 'center',
-  },
-  emptySubtext: {
-    fontSize: 14,
-    color: '#9CA3AF',
-    fontWeight: '400',
-    textAlign: 'center',
-    marginTop: 8,
-    lineHeight: 20,
   },
 });
