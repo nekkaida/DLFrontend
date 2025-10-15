@@ -136,7 +136,7 @@ export default function ConnectScreen({ onTabPress }: ConnectScreenProps) {
       console.log('ConnectScreen: Search API response:', authResponse);
 
       if (authResponse && (authResponse as any).data) {
-        const playersData = (authResponse as any).data.data || (authResponse as any).data;
+        const playersData = (authResponse as any).data;
         console.log('ConnectScreen: Setting players data:', playersData);
         setPlayers(playersData);
       }
@@ -164,7 +164,7 @@ export default function ConnectScreen({ onTabPress }: ConnectScreenProps) {
       console.log('ConnectScreen: Favorites API response:', authResponse);
 
       if (authResponse && (authResponse as any).data) {
-        const favoritesData = (authResponse as any).data.data || (authResponse as any).data;
+        const favoritesData = (authResponse as any).data;
         console.log('ConnectScreen: Setting favorites data:', favoritesData);
         setFavorites(favoritesData);
         setFavoritedPlayerIds(favoritesData.map((fav: Favorite) => fav.favoritedId));
