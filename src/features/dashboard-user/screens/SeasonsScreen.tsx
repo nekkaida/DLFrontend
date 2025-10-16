@@ -1,17 +1,24 @@
-import React from 'react';
-import { ScrollView, Text, View, StyleSheet, Dimensions, Platform, TouchableOpacity, Alert } from 'react-native';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { LinearGradient } from 'expo-linear-gradient';
-import { router } from 'expo-router';
-import { NavBar } from '@/shared/components/layout';
-import { SportDropdownHeader } from '@/shared/components/ui/SportDropdownHeader';
-import * as Haptics from 'expo-haptics';
 import CalendarIcon from '@/assets/icons/calendar-icon.svg';
 import ClockIcon from '@/assets/icons/clock-icon.svg';
 import DollarSignIcon from '@/assets/icons/dollarsign-icon.svg';
-import { useActivePartnership } from '@/features/pairing/hooks';
 import { PartnershipCard } from '@/features/pairing/components';
+import { useActivePartnership } from '@/features/pairing/hooks';
+import { useSession } from '@/lib/auth-client';
+import { NavBar } from '@/shared/components/layout';
+import { SportDropdownHeader } from '@/shared/components/ui/SportDropdownHeader';
+import { Season, SeasonService } from '@/src/features/dashboard-user/services/SeasonService';
+import * as Haptics from 'expo-haptics';
+import { LinearGradient } from 'expo-linear-gradient';
+import { router } from 'expo-router';
+import React, { useState } from 'react';
+import { ActivityIndicator, Alert, Dimensions, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { toast } from 'sonner-native';
+import { PaymentOptionsBottomSheet } from '../components';
 
+
+
+PaymentOptionsBottomSheet
 const { width, height } = Dimensions.get('window');
 
 interface SeasonsScreenProps {
@@ -26,29 +33,51 @@ export default function SeasonsScreen({
   category = 'Men\'s Single',
   leagueName = 'PJ League',
   sport = 'pickleball',
-  seasonId = 'season_123', // TODO: Replace with real seasonId
+  seasonId = 'season_123', 
   currentUserId
 }: SeasonsScreenProps) {
   const insets = useSafeAreaInsets();
-  const [activeTab, setActiveTab] = React.useState(0); // 0: In Progress, 1: Upcoming, 2: Past
-
+  const [activeTab, setActiveTab] = React.useState(0); 
+  const [seasons, setSeasons] = useState<Season[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [showPaymentOptions, setShowPaymentOptions] = React.useState(false);
+  const [selectedSeason, setSelectedSeason] = React.useState<Season | null>(null);
+  
   // Check for active partnership for doubles categories
   const isDoublesCategory = category.toLowerCase().includes('double');
+  const { data: session } = useSession();
+  const userId = session?.user.id
+  
   const { partnership, loading: partnershipLoading, refresh: refreshPartnership } = useActivePartnership(
     isDoublesCategory ? seasonId : null,
     currentUserId
   );
 
-  React.useEffect(() => {
-    console.log('SeasonsScreen loaded successfully!');
-    console.log('Category:', category, 'League:', leagueName, 'Sport:', sport);
-  }, [category, leagueName, sport]);
 
+  
   const handleTabPress = (tabIndex: number) => {
     console.log(`Tab ${tabIndex} pressed - ${['In Progress', 'Upcoming', 'Past'][tabIndex]}`);
     setActiveTab(tabIndex);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   };
+
+  React.useEffect(() => {
+  const fetchSeasons = async () => {
+    try {
+      setLoading(true);
+      const fetchedSeasons = await SeasonService.fetchAllSeasons();
+      setSeasons(fetchedSeasons);
+    } catch (err) {
+      setError('Failed to load seasons');
+      console.error('Error fetching seasons:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  fetchSeasons();
+}, []);
 
 
   const handleRegisterPress = () => {
@@ -87,110 +116,301 @@ export default function SeasonsScreen({
     // TODO: Navigate to waitlist screen
   };
 
-  const handleViewStandingsPress = () => {
+  const handleViewStandingsPress = (season: Season) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     console.log('View Standings button pressed');
     // TODO: Navigate to standings screen
+    // router.push(`/standings/${season.id}`);
+  };
+
+  const handlePayNow = (season: Season) => {
+    console.log('Pay Now pressed for season:', season.name);
+    // TODO: implement payment gateway integration (fiuupayment)
+    // this will redirect users to the payment gateway
+    console.log('Payment gateway integration not yet implemented');
+  };
+
+  const handlePayLater = async (season: Season) => {
+    if (!session?.user?.id) {
+    console.warn('No user ID found in session');
+    toast.error('You must be logged in to register');
+    return;
+  }
+
+  try {
+    console.log('Registering user for season (Pay Later):', season.id);
+    const success = await SeasonService.registerForSeason(season.id, session.user.id);
+
+    if (success) {
+      console.log('User registered successfully for season:', season.id);
+      toast.success('Registered successfully!');
+   
+    } else {
+      console.warn('Registration failed for Pay Later:', season.id);
+      toast.error('Registration failed. Please try again.');
+    }
+  } catch (err) {
+    console.error('Error registering for Pay Later:', err);
+    toast.error('An error occurred while registering.');
+  }
+  };
+
+  const handleClosePaymentOptions = () => {
+    setShowPaymentOptions(false);
+    setSelectedSeason(null);
   };
 
   const tabs = ['In Progress', 'Upcoming', 'Past'];
 
-  const renderSeasonCard = () => {
-    const getSeasonData = () => {
-      switch (activeTab) {
-        case 0: // In Progress
-          return {
-            title: 'Winter Season 2025',
-            badge: '🏆 S1',
-            playerCount: '+95',
-            duration: 'Duration: 1 Dec 2025 – 31 Jan 2026',
-            lastRegistration: 'Last Registration: 27 Nov 2025',
-            entryFee: 'RM59.90',
-            buttonText: 'Register',
-            buttonColor: '#863A73',
-            buttonHandler: handleRegisterPress
-          };
-        case 1: // Upcoming
-          return {
-            title: 'Spring Season 2025',
-            badge: '🌱 S2',
-            playerCount: '+67',
-            duration: 'Duration: 1 Mar 2025 – 30 Apr 2025',
-            lastRegistration: 'Registration Opens: 15 Feb 2025',
-            entryFee: 'RM59.90',
-            buttonText: 'Join Waitlist',
-            buttonColor: '#000000',
-            buttonHandler: handleJoinWaitlistPress
-          };
-        case 2: // Past
-          return {
-            title: 'Fall Season 2024',
-            badge: '🍂 S4',
-            playerCount: '+89',
-            duration: 'Duration: 1 Sep 2024 – 30 Nov 2024',
-            lastRegistration: 'Season Ended: 30 Nov 2024',
-            entryFee: 'RM59.90',
-            buttonText: 'View Standings',
-            buttonColor: '#B2B2B2',
-            buttonHandler: handleViewStandingsPress
-          };
-        default:
-          return null;
-      }
-    };
+  //  Mock Season Card by Ken 
 
-    const seasonData = getSeasonData();
-    if (!seasonData) return null;
+  // const renderSeasonCard = () => {
+  //   const getSeasonData = () => {
+  //     switch (activeTab) {
+  //       case 0: // In Progress
+  //         return {
+  //           title: 'Winter Season 2025',
+  //           badge: '🏆 S1',
+  //           playerCount: '+95',
+  //           duration: 'Duration: 1 Dec 2025 – 31 Jan 2026',
+  //           lastRegistration: 'Last Registration: 27 Nov 2025',
+  //           entryFee: 'RM59.90',
+  //           buttonText: 'Register',
+  //           buttonColor: '#863A73',
+  //           buttonHandler: handleRegisterPress
+  //         };
+  //       case 1: // Upcoming
+  //         return {
+  //           title: 'Spring Season 2025',
+  //           badge: '🌱 S2',
+  //           playerCount: '+67',
+  //           duration: 'Duration: 1 Mar 2025 – 30 Apr 2025',
+  //           lastRegistration: 'Registration Opens: 15 Feb 2025',
+  //           entryFee: 'RM59.90',
+  //           buttonText: 'Join Waitlist',
+  //           buttonColor: '#000000',
+  //           buttonHandler: handleJoinWaitlistPress
+  //         };
+  //       case 2: // Past
+  //         return {
+  //           title: 'Fall Season 2024',
+  //           badge: '🍂 S4',
+  //           playerCount: '+89',
+  //           duration: 'Duration: 1 Sep 2024 – 30 Nov 2024',
+  //           lastRegistration: 'Season Ended: 30 Nov 2024',
+  //           entryFee: 'RM59.90',
+  //           buttonText: 'View Standings',
+  //           buttonColor: '#B2B2B2',
+  //           buttonHandler: handleViewStandingsPress
+  //         };
+  //       default:
+  //         return null;
+  //     }
+  //   };
+
+  //   const seasonData = getSeasonData();
+  //   if (!seasonData) return null;
+
+  //   return (
+  //     <View style={styles.seasonCard}>
+  //       <View style={styles.seasonCardHeader}>
+  //         <Text style={styles.seasonTitle}>{seasonData.title}</Text>
+  //         <View style={styles.seasonBadge}>
+  //           <Text style={styles.seasonBadgeText}>{seasonData.badge}</Text>
+  //         </View>
+  //       </View>
+        
+  //       <View style={styles.playerCountRow}>
+  //         <View style={styles.playerAvatars}>
+  //           <View style={styles.playerAvatar} />
+  //           <View style={styles.playerAvatar} />
+  //           <View style={styles.playerAvatar} />
+  //           <View style={styles.playerAvatar} />
+  //           <View style={styles.playerAvatar} />
+  //         </View>
+  //         <Text style={styles.playerCountText}>
+  //           <Text style={styles.playerCountNumber}>{seasonData.playerCount}</Text> players registered
+  //         </Text>
+  //       </View>
+
+  //       <View style={styles.seasonDetails}>
+  //         <View style={styles.detailRow}>
+  //           <CalendarIcon width={16} height={16} style={styles.detailIcon} />
+  //           <Text style={styles.detailText}>{seasonData.duration}</Text>
+  //         </View>
+  //         <View style={styles.detailRow}>
+  //           <ClockIcon width={16} height={16} style={styles.detailIcon} />
+  //           <Text style={styles.detailText}>{seasonData.lastRegistration}</Text>
+  //         </View>
+  //         <View style={styles.detailRow}>
+  //           <DollarSignIcon width={16} height={16} style={styles.detailIcon} />
+  //           <Text style={styles.detailText}>
+  //             Entry Fee: <Text style={styles.highlightText}>{seasonData.entryFee}</Text>
+  //           </Text>
+  //         </View>
+  //       </View>
+
+  //       <TouchableOpacity 
+  //         style={[styles.registerButton, { backgroundColor: seasonData.buttonColor }]}
+  //         onPress={seasonData.buttonHandler}
+  //         activeOpacity={0.8}
+  //       >
+  //         <Text style={styles.registerButtonText}>{seasonData.buttonText}</Text>
+  //       </TouchableOpacity>
+  //     </View>
+  //   );
+  // };
+
+  // Replace the renderSeasonCard function with this:
+
+  const renderSeasonCard = () => {
+  if (loading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#863A73" />
+      </View>
+    );
+  }
+
+  if (error) {
+    return (
+      <View style={styles.errorContainer}>
+        <Text style={styles.errorText}>{error}</Text>
+      </View>
+    );
+  }
+
+  const groupedSeasons = SeasonService.groupSeasonsByStatus(seasons);
+  const currentSeasons =
+    activeTab === 0
+      ? groupedSeasons.active
+      : activeTab === 1
+      ? groupedSeasons.upcoming
+      : groupedSeasons.finished;
+
+  if (currentSeasons.length === 0) {
+    return (
+      <View style={styles.emptyContainer}>
+        <Text style={styles.emptyText}>No seasons available</Text>
+      </View>
+    );
+  }
+
+  return currentSeasons.map((season) => {
+    const isUserRegistered = season.memberships?.some(
+      (m: any) => m.userId === userId
+    );
+
+  function handleViewDivisionPress(season: Season) {
+  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  console.log('Navigating to division view for season:', season.id);
+  router.push({
+    pathname: '/user-dashboard/divisions',
+    params: { 
+      seasonName: season.name,
+      seasonId: season.id
+    }
+  });
+}
 
     return (
-      <View style={styles.seasonCard}>
+      <View key={season.id} style={styles.seasonCard}>
         <View style={styles.seasonCardHeader}>
-          <Text style={styles.seasonTitle}>{seasonData.title}</Text>
+          <Text style={styles.seasonTitle}>{season.name}</Text>
           <View style={styles.seasonBadge}>
-            <Text style={styles.seasonBadgeText}>{seasonData.badge}</Text>
+            <Text style={styles.seasonBadgeText}>
+              {SeasonService.getSeasonBadge(season.status, season.name)}
+            </Text>
           </View>
         </View>
-        
+
         <View style={styles.playerCountRow}>
           <View style={styles.playerAvatars}>
             <View style={styles.playerAvatar} />
             <View style={styles.playerAvatar} />
             <View style={styles.playerAvatar} />
-            <View style={styles.playerAvatar} />
-            <View style={styles.playerAvatar} />
           </View>
           <Text style={styles.playerCountText}>
-            <Text style={styles.playerCountNumber}>{seasonData.playerCount}</Text> players registered
+            <Text style={styles.playerCountNumber}>+{season.registeredUserCount}</Text> players registered
           </Text>
         </View>
 
         <View style={styles.seasonDetails}>
-          <View style={styles.detailRow}>
-            <CalendarIcon width={16} height={16} style={styles.detailIcon} />
-            <Text style={styles.detailText}>{seasonData.duration}</Text>
-          </View>
-          <View style={styles.detailRow}>
-            <ClockIcon width={16} height={16} style={styles.detailIcon} />
-            <Text style={styles.detailText}>{seasonData.lastRegistration}</Text>
-          </View>
+          {season.startDate && season.endDate && (
+            <View style={styles.detailRow}>
+              <CalendarIcon width={16} height={16} style={styles.detailIcon} />
+              <Text style={styles.detailText}>
+                Duration: {SeasonService.formatDateRange(
+                  typeof season.startDate === 'string' ? season.startDate : season.startDate.toISOString(),
+                  typeof season.endDate === 'string' ? season.endDate : season.endDate.toISOString()
+                )}
+              </Text>
+            </View>
+          )}
+
+          {season.regiDeadline && (
+            <View style={styles.detailRow}>
+              <ClockIcon width={16} height={16} style={styles.detailIcon} />
+              <Text style={styles.detailText}>
+                Last Registration: {SeasonService.formatDate(
+                  typeof season.regiDeadline === 'string' 
+                    ? season.regiDeadline 
+                    : season.regiDeadline.toISOString()
+                )}
+              </Text>
+            </View>
+          )}
+
           <View style={styles.detailRow}>
             <DollarSignIcon width={16} height={16} style={styles.detailIcon} />
             <Text style={styles.detailText}>
-              Entry Fee: <Text style={styles.highlightText}>{seasonData.entryFee}</Text>
+              Entry Fee:{" "}
+              <Text style={styles.highlightText}>
+                RM
+                {typeof season.entryFee === "number"
+                  ? season.entryFee.toFixed(2)
+                  : parseFloat(season.entryFee.toString()).toFixed(2)}
+              </Text>
             </Text>
           </View>
+
+          {season.paymentRequired && (
+            <Text style={styles.paymentRequiredText}>
+              * Payment required for registration
+            </Text>
+          )}
         </View>
 
-        <TouchableOpacity 
-          style={[styles.registerButton, { backgroundColor: seasonData.buttonColor }]}
-          onPress={seasonData.buttonHandler}
+        <TouchableOpacity
+          style={[
+            styles.registerButton,
+            { backgroundColor: SeasonService.getButtonColor(season.status) },
+          ]}
+          onPress={() => {
+            if (isUserRegistered) {
+              handleViewDivisionPress(season);
+            } else if (season.status === "ACTIVE") {
+              setSelectedSeason(season);
+              setShowPaymentOptions(true);
+            } else if (season.status === "UPCOMING") {
+              handleJoinWaitlistPress();
+            } else if (season.status === "FINISHED") {
+              handleViewStandingsPress(season);
+            }
+          }}
           activeOpacity={0.8}
         >
-          <Text style={styles.registerButtonText}>{seasonData.buttonText}</Text>
+          <Text style={styles.registerButtonText}>
+            {isUserRegistered
+              ? "View"
+              : SeasonService.getButtonText(season.status)}
+          </Text>
         </TouchableOpacity>
       </View>
     );
-  };
+  });
+};
+
 
   return (
     <SafeAreaView style={styles.container}>
@@ -246,6 +466,14 @@ export default function SeasonsScreen({
 
           {/* Dynamic Season Card */}
           {renderSeasonCard()}
+
+          <PaymentOptionsBottomSheet
+            visible={showPaymentOptions}
+            onClose={handleClosePaymentOptions}
+            season={selectedSeason}
+            onPayNow={handlePayNow}
+            onPayLater={handlePayLater}
+          />
         </ScrollView>
       </View>
       
@@ -415,5 +643,34 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 14,
     fontWeight: '600',
+  },
+  loadingContainer: {
+    padding: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  errorContainer: {
+    padding: 20,
+    alignItems: 'center',
+  },
+  errorText: {
+    color: '#DC2626',
+    fontSize: 16,
+    textAlign: 'center',
+  },
+  emptyContainer: {
+    padding: 20,
+    alignItems: 'center',
+  },
+  emptyText: {
+    color: '#6B7280',
+    fontSize: 16,
+    textAlign: 'center',
+  },
+  paymentRequiredText: {
+    fontSize: 12,
+    color: '#DC2626',
+    fontStyle: 'italic',
+    marginTop: 4,
   },
 });
