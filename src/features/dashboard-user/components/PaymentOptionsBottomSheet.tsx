@@ -1,18 +1,18 @@
-import React, { useCallback, useMemo, useRef, useEffect } from 'react';
+import { Ionicons } from '@expo/vector-icons';
 import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-} from 'react-native';
-import { 
-  BottomSheetModal, 
-  BottomSheetView,
   BottomSheetBackdrop,
-  BottomSheetHandle
+  BottomSheetHandle,
+  BottomSheetModal,
+  BottomSheetView
 } from '@gorhom/bottom-sheet';
 import * as Haptics from 'expo-haptics';
-import { Ionicons } from '@expo/vector-icons';
+import React, { useCallback, useEffect, useMemo, useRef } from 'react';
+import {
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 import { Season } from '../services/SeasonService';
 
 interface PaymentOptionsBottomSheetProps {
@@ -57,13 +57,14 @@ export const PaymentOptionsBottomSheet: React.FC<PaymentOptionsBottomSheetProps>
       <BottomSheetBackdrop
         {...props}
         disappearsOnIndex={-1}
-        appearsOnIndex={0}
+        appearsOnIndex={0}    
         opacity={0.5}
         onPress={onClose}
       />
     ),
     [onClose]
   );
+
 
   const handlePayNow = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -73,13 +74,12 @@ export const PaymentOptionsBottomSheet: React.FC<PaymentOptionsBottomSheetProps>
     }
   };
 
-  const handlePayLater = () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    if (season) {
-      onPayLater(season);
-      onClose();
-    }
-  };
+const handlePayLater = async () => {
+  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+ if (!season) return;
+  onPayLater(season); // calls the function in parent
+  onClose();
+};
 
   if (!season) return null;
 
