@@ -160,14 +160,15 @@ export default function PlayerProfileScreen() {
         },
       });
 
-      if (response && (response as any).success) {
+      const responseData = (response as any).data || response;
+      if (responseData && responseData.success) {
         toast.success('Success', {
           description: 'Pair request sent successfully!',
         });
         router.push('/pairing/requests');
       } else {
         toast.error('Error', {
-          description: (response as any).message || 'Failed to send pair request',
+          description: responseData.message || 'Failed to send pair request',
         });
       }
     } catch (error) {
