@@ -10,6 +10,7 @@ import {
   TouchableOpacity,
   TextInput,
   ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -210,8 +211,31 @@ export default function FindPartnerScreen() {
 
   const handlePlayerPress = (player: Player) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    setSelectedPlayer(player);
-    setModalVisible(true);
+
+    Alert.alert(
+      player.name,
+      'Choose an action',
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+        {
+          text: 'View Profile',
+          onPress: () => {
+            router.push(`/player-profile/${player.id}?seasonId=${seasonId}&seasonName=${encodeURIComponent(seasonData?.name || '')}`);
+          },
+        },
+        {
+          text: 'Send Pair Request',
+          onPress: () => {
+            setSelectedPlayer(player);
+            setModalVisible(true);
+          },
+        },
+      ],
+      { cancelable: true }
+    );
   };
 
   const handleSendRequest = async (message: string) => {
@@ -231,14 +255,16 @@ export default function FindPartnerScreen() {
         },
       });
 
-      if (response && (response as any).success) {
+      // Check both direct response and wrapped response
+      const responseData = (response as any).data || response;
+      if (responseData && responseData.success) {
         toast.success('Success', {
-          description: 'Pair request sent successfully!',
+          description: responseData.message || 'Pair request sent successfully!',
         });
         router.push('/pairing/requests');
       } else {
         toast.error('Error', {
-          description: (response as any).message || 'Failed to send pair request',
+          description: responseData.message || 'Failed to send pair request',
         });
       }
     } catch (error) {
