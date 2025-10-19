@@ -1,30 +1,63 @@
 import { authClient } from '@/lib/auth-client';
 import { getBackendBaseURL } from '@/src/config/network';
 
+export interface SeasonMembership {
+  id: string;
+  userId: string;
+  seasonId: string;
+  divisionId?: string;
+  status: string;
+  joinedAt: Date;
+  withdrawalReason?: string;
+  paymentStatus: 'PENDING' | 'PAID' | 'FAILED';
+}
+
 export interface Season {
   id: string;
   name: string;
-  startDate: string;
-  endDate: string;
-  regiDeadline?: string;
+  startDate?: string | Date;
+  endDate?: string | Date;
+  regiDeadline?: string | Date;
+  entryFee: number | string;
   description?: string;
-  entryFee: number | string; // Backend might return as string
+  registeredUserCount: number;
+  
+  // Bools
+  status: 'UPCOMING' | 'ACTIVE' | 'FINISHED' | 'CANCELLED';
   isActive: boolean;
   paymentRequired: boolean;
   promoCodeSupported: boolean;
   withdrawalEnabled: boolean;
-  status: 'UPCOMING' | 'ACTIVE' | 'FINISHED' | 'CANCELLED';
-  registeredUserCount: number;
-  createdAt: string;
-  updatedAt: string;
-  leagueId: string;
-  categoryId: string;
-  league?: {
-    id: string;
-    name: string;
-    sportType: 'PADDLE' | 'PICKLEBALL' | 'TENNIS';
-    gameType: 'SINGLES' | 'DOUBLES';
-  };
+  
+  // Relations
+  memberships?: SeasonMembership[];
+  categories: Category[];
+  leagues: League[];
+  waitlistId?: string;
+  
+  createdAt: string | Date;
+  updatedAt: string | Date;
+}
+
+export interface Category {
+  id: string;
+  name: string;
+  leagueId?: string;
+  genderRestriction: string;
+  matchFormat?: string;
+  maxPlayers?: number;
+  maxTeams?: number;
+  game_type?: string;
+  gender_category?: string;
+  isActive: boolean;
+}
+
+export interface League {
+  id: string;
+  name: string;
+  sportType: string;
+  gameType: string;
+  status: string;
 }
 
 export interface SeasonResponse {
@@ -43,6 +76,7 @@ export class SeasonService {
       console.log('SeasonService: Fetching all seasons');
       console.log('SeasonService: API URL:', `${backendUrl}/api/season`);
 
+      
       const response = await authClient.$fetch(`${backendUrl}/api/season`, {
         method: 'GET',
       });
@@ -104,35 +138,81 @@ export class SeasonService {
   /**
    * Fetch seasons for a specific category
    */
-  static async fetchSeasonsByCategory(categoryId: string): Promise<Season[]> {
-    try {
-      console.log('SeasonService: Fetching seasons for category:', categoryId);
-      const allSeasons = await this.fetchAllSeasons();
-      console.log('SeasonService: All seasons fetched:', allSeasons.length);
-      
-      const filteredSeasons = allSeasons.filter(season => season.categoryId === categoryId);
-      console.log('SeasonService: Filtered seasons for category:', filteredSeasons.length);
-      console.log('SeasonService: Category IDs in seasons:', allSeasons.map(s => s.categoryId));
-      
-      return filteredSeasons;
-    } catch (error) {
-      console.error('SeasonService: Error fetching seasons by category:', error);
-      return [];
-    }
+static async fetchSeasonsByCategory(categoryId: string): Promise<Season[]> {
+  try {
+    console.log('SeasonService: Fetching seasons for category:', categoryId);
+    const allSeasons = await this.fetchAllSeasons();
+    console.log('SeasonService: All seasons fetched:', allSeasons.length);
+
+    // Filter seasons that include this category
+    const filteredSeasons = allSeasons.filter(season =>
+      season.categories?.some(cat => cat.id === categoryId)
+    );
+
+    console.log('SeasonService: Filtered seasons for category:', filteredSeasons.length);
+    console.log(
+      'SeasonService: Category IDs in seasons:',
+      allSeasons.map(s => s.categories?.map(c => c.id))
+    );
+
+    return filteredSeasons;
+  } catch (error) {
+    console.error('SeasonService: Error fetching seasons by category:', error);
+    return [];
   }
+}
 
   /**
    * Fetch seasons for a specific league
    */
   static async fetchSeasonsByLeague(leagueId: string): Promise<Season[]> {
-    try {
-      const allSeasons = await this.fetchAllSeasons();
-      return allSeasons.filter(season => season.leagueId === leagueId);
-    } catch (error) {
-      console.error('SeasonService: Error fetching seasons by league:', error);
-      return [];
-    }
+  try {
+    const allSeasons = await this.fetchAllSeasons();
+
+    // ✅ Updated for many-to-many
+    const filteredSeasons = allSeasons.filter(season =>
+      season.leagues?.some(league => league.id === leagueId)
+    );
+
+    return filteredSeasons;
+  } catch (error) {
+    console.error('SeasonService: Error fetching seasons by league:', error);
+    return [];
   }
+}
+
+  //Register Player to a season 
+static async registerForSeason(seasonId: string, userId?: string): Promise<boolean> {
+  try {
+    const backendUrl = getBackendBaseURL();
+    console.log('SeasonService: Registering for season:', seasonId);
+
+
+    const body: any = {};
+    if (userId) body.userId = userId; // optional if backend reads from auth token
+    body.seasonId = seasonId;
+
+    const response = await authClient.$fetch(`${backendUrl}/api/season/player/register`, {
+      method: 'POST',
+      body
+    });
+
+    
+    console.log('SeasonService: Registration response:', response);
+
+    // Assuming backend returns { message, membership } or similar
+    if (response && (response as any).membership) {
+      console.log('SeasonService: Registration successful for season:', seasonId);
+      return true;
+    }
+
+    console.warn('SeasonService: Registration response unexpected:', response);
+    return false;
+  } catch (error) {
+    console.error('SeasonService: Error registering for season:', error);
+    throw error;
+  }
+}
 
   /**
    * Get seasons grouped by status
