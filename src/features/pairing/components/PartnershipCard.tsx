@@ -99,7 +99,8 @@ export const PartnershipCard: React.FC<PartnershipCardProps> = ({
                 }
               );
 
-              if ((response as any).success) {
+              const responseData = (response as any).data || response;
+              if (responseData && responseData.success) {
                 toast.success('Partnership Dissolved', {
                   description: 'You can now find a new partner',
                 });
@@ -112,7 +113,7 @@ export const PartnershipCard: React.FC<PartnershipCardProps> = ({
                 router.push(`/pairing/find-partner/${partnership.season.id}`);
               } else {
                 toast.error('Error', {
-                  description: (response as any).message || 'Failed to dissolve partnership',
+                  description: responseData.message || 'Failed to dissolve partnership',
                 });
               }
             } catch (error) {
