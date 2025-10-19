@@ -23,7 +23,7 @@ import { useNavigationManager } from '@core/navigation';
 import * as Haptics from 'expo-haptics';
 import * as ImagePicker from 'expo-image-picker';
 import { manipulateAsync, SaveFormat } from 'expo-image-manipulator';
-import { DropdownModal, InlineDropdown, WinRateCircle, MatchDetailsModal, EloProgressGraph, EditIcon, MatchHistoryButton, AchievementIcon } from '../src/features/profile/components';
+import { DropdownModal, InlineDropdown, WinRateCircle, MatchDetailsModal, EloProgressGraph, EditIcon, MatchHistoryButton, AchievementIcon, ProfileHeaderWithCurve, ProfilePictureSection, ProfileInfoCard, ProfileAchievementsCard } from '../src/features/profile/components';
 import type { GameData, UserData } from '../src/features/profile/types';
 import { CircularImageCropper } from '../src/features/onboarding/components';
 // import { mockEloData, userData, gameTypeOptions } from '../src/features/profile/data/mockData'; // Team lead's original mock data - commented for API implementation
@@ -663,207 +663,38 @@ export default function ProfileAdaptedScreen() {
         }
       >
         {/* Orange Header Background with Curved Bottom */}
-        <View style={styles.headerContainer}>
-          <LinearGradient
-            colors={[theme.colors.primary, '#FFA366']}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.orangeHeader}
-          >
-            <SafeAreaView edges={['top']} style={styles.safeHeader}>
-              <View style={styles.header}>
-                <Pressable 
-                  style={styles.backButton}
-                  onPress={() => {
-                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                    router.back();
-                  }}
-                  accessible={true}
-                  accessibilityLabel="Back"
-                  accessibilityRole="button"
-                >
-                  <Ionicons name="arrow-back" size={24} color="#fff" />
-                </Pressable>
-                <Pressable 
-                  style={styles.settingsIcon}
-                  onPress={handleSettingsPress}
-                  accessible={true}
-                  accessibilityLabel="Settings"
-                  accessibilityRole="button"
-                >
-                  <Ionicons name="settings-outline" size={24} color="#fff" />
-                </Pressable>
-              </View>
-            </SafeAreaView>
-            
-            {/* Concave curve at bottom of orange header - ADJUSTABLE CONCAVITY */}
-            <Svg
-              height={CURVE_CONFIG.HEIGHT}
-              width={width}
-              viewBox={`0 0 ${width} ${CURVE_CONFIG.HEIGHT}`}
-              style={styles.concaveCurve}
-            >
-              <Path
-                d={generateCurvePath(width)}
-                fill="#f0f0f0"
-              />
-            </Svg>
-          </LinearGradient>
-        </View>
+        <ProfileHeaderWithCurve
+          onBack={() => router.back()}
+          onSettings={handleSettingsPress}
+          showSettings={true}
+        />
 
         {/* White Background */}
         <View style={styles.whiteBackground}>
-          {/* Profile Picture Section - Matching edit-profile.tsx style */}
-          <View style={styles.profileSection}>
-            <View style={styles.profileImageContainer}>
-              <View style={styles.profileImageWrapper}>
-                {isUploadingImage ? (
-                  <View style={styles.uploadingContainer}>
-                    <ActivityIndicator size="large" color="#6de9a0" />
-                  </View>
-                ) : profileData?.image ? (
-                  <Image
-                    key={profileData.image} // Force re-render when image URL changes
-                    source={{ uri: profileData.image }}
-                    style={styles.profileImage}
-                    onError={() => {
-                      console.log('Profile image failed to load:', profileData.image);
-                    }}
-                  />
-                ) : (
-                  <View style={styles.defaultProfileImage}>
-                    <Svg width="60" height="60" viewBox="0 0 24 24">
-                      <Path 
-                        fill="#FFFFFF" 
-                        fillRule="evenodd" 
-                        d="M8 7a4 4 0 1 1 8 0a4 4 0 0 1-8 0m0 6a5 5 0 0 0-5 5a3 3 0 0 0 3 3h12a3 3 0 0 0 3-3a5 5 0 0 0-5-5z" 
-                        clipRule="evenodd" 
-                      />
-                    </Svg>
-                  </View>
-                )}
-              </View>
-              <Pressable
-                style={styles.editImageButton}
-                onPress={() => {
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                  pickImage();
-                }}
-                accessible={true}
-                accessibilityLabel="Change profile picture"
-                accessibilityRole="button"
-                disabled={isUploadingImage}
-              >
-                <Ionicons name="camera" size={18} color={theme.colors.neutral.white} />
-              </Pressable>
-            </View>
-          </View>
+          {/* Profile Picture Section */}
+          <ProfilePictureSection
+            imageUri={profileData?.image}
+            isUploading={isUploadingImage}
+            onPickImage={pickImage}
+            isEditable={true}
+          />
 
-          {/* Compact Profile Info Card */}
-          <View style={styles.profileInfoCard}>
-            {/* Name and Gender Row */}
-            <View style={styles.nameRow}>
-              <View style={styles.nameContainer}>
-                <Text style={styles.name}>{userData.name}</Text>
-                {userData.gender && userData.gender !== 'Gender not set' && (
-                  <Ionicons 
-                    name={userData.gender.toLowerCase() === 'male' ? 'male' : 'female'} 
-                    size={16} 
-                    color={userData.gender.toLowerCase() === 'male' ? '#4A90E2' : '#E91E63'} 
-                    style={styles.genderIcon}
-                  />
-                )}
-              </View>
-              <View style={styles.actionIconsRow}>
-                <Pressable style={[styles.actionIcon, styles.addFriendIcon]}>
-                  <Ionicons name="person-add" size={14} color="#20659d" />
-                </Pressable>
-                <Pressable style={styles.actionIcon}>
-                  <Ionicons name="chatbubble" size={14} color={theme.colors.neutral.gray[600]} />
-                </Pressable>
-              </View>
-            </View>
-
-            {/* Username */}
-            <Text style={styles.username}>@{userData.username}</Text>
-
-            {/* Bio */}
-            <Text style={styles.bio}>{userData.bio}</Text>
-
-            {/* Location and Sports Row */}
-            <View style={styles.locationSportsRow}>
-              <View style={styles.locationContainer}>
-                <Ionicons name="location-sharp" size={14} color="#6de9a0" />
-                <Text style={styles.locationText}>{userData.location}</Text>
-              </View>
-              
-              <View style={styles.sportsContainer}>
-                <Text style={styles.sportsLabel}>Sports</Text>
-                <View style={styles.sportsPills}>
-                  {userData.sports?.slice(0, 3).map((sport) => {
-                    const isActive = userData.activeSports?.includes(sport);
-                    
-                    return (
-                      <Pressable 
-                        key={sport}
-                        style={[
-                          styles.sportPill,
-                          { 
-                            backgroundColor: SPORT_COLORS[sport as keyof typeof SPORT_COLORS] || '#6de9a0',
-                            opacity: isActive ? 1 : 0.7,
-                          }
-                        ]}
-                        onPress={() => {
-                          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                          // Handle sport selection
-                        }}
-                      >
-                        <Text style={styles.sportPillText}>
-                          {sport}
-                        </Text>
-                      </Pressable>
-                    );
-                  })}
-                  {userData.sports && userData.sports.length > 3 && (
-                    <Text style={styles.moreSportsText}>+{userData.sports.length - 3}</Text>
-                  )}
-                </View>
-              </View>
-            </View>
-          </View>
+          {/* Profile Info Card */}
+          <ProfileInfoCard
+            name={userData.name}
+            username={userData.username}
+            bio={userData.bio}
+            location={userData.location}
+            gender={userData.gender}
+            sports={userData.sports || []}
+            activeSports={userData.activeSports || []}
+            showActionButtons={false}
+          />
 
           {/* Achievements */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Achievements</Text>
-            <Pressable style={styles.achievementContainer}>
-              <View style={styles.achievementsContent}>
-                {userData.achievements && userData.achievements.length > 0 ? (
-                  userData.achievements.slice(0, 2).map((achievement) => (
-                    <View key={achievement.id} style={styles.achievementItem}>
-                      <AchievementIcon iconName={achievement.icon} />
-                      <View style={styles.achievementTextContainer}>
-                        <Text style={styles.achievementText}>{achievement.title}</Text>
-                        {achievement.unlockedAt && (
-                          <Text style={styles.achievementYear}>
-                            ({new Date(achievement.unlockedAt).getFullYear()})
-                          </Text>
-                        )}
-                      </View>
-                    </View>
-                  ))
-                ) : (
-                  <View style={styles.noAchievementsContainer}>
-                    <Ionicons name="trophy-outline" size={32} color={theme.colors.neutral.gray[400]} />
-                    <Text style={styles.noAchievementsText}>No achievements yet</Text>
-                    <Text style={styles.noAchievementsSubtext}>Keep playing to unlock achievements!</Text>
-                  </View>
-                )}
-              </View>
-              {userData.achievements && userData.achievements.length > 0 && (
-                <Ionicons name="chevron-forward" size={20} color={theme.colors.primary} style={styles.achievementChevron} />
-              )}
-            </Pressable>
-          </View>
+          <ProfileAchievementsCard
+            achievements={userData.achievements || []}
+          />
 
           {/* Sports */}
           <View style={styles.section}>
