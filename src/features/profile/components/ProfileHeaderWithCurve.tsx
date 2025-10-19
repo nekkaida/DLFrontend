@@ -94,34 +94,39 @@ export const ProfileHeaderWithCurve: React.FC<ProfileHeaderWithCurveProps> = ({
 
 const styles = StyleSheet.create({
   headerContainer: {
-    marginBottom: -90,
-    zIndex: 1,
+    height: 290,
+    position: 'relative',
   },
   orangeHeader: {
-    width: '100%',
-    paddingBottom: 0,
+    height: 290,
+    position: 'relative',
   },
   safeHeader: {
-    width: '100%',
+    flex: 1,
+    paddingBottom: 150,
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingHorizontal: theme.spacing.lg,
+    paddingTop: theme.spacing.md,
   },
   backButton: {
+    backgroundColor: 'rgba(255,255,255,0.3)',
+    borderRadius: 20,
+    padding: theme.spacing.sm,
     width: 40,
     height: 40,
-    borderRadius: 20,
     justifyContent: 'center',
     alignItems: 'center',
   },
   settingsIcon: {
+    backgroundColor: 'rgba(255,255,255,0.3)',
+    borderRadius: 20,
+    padding: theme.spacing.sm,
     width: 40,
     height: 40,
-    borderRadius: 20,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -129,6 +134,5 @@ const styles = StyleSheet.create({
     position: 'absolute',
     bottom: 0,
     left: 0,
-    right: 0,
   },
 });
