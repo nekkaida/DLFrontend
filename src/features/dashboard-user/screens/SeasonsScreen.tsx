@@ -11,6 +11,8 @@ import ClockIcon from '@/assets/icons/clock-icon.svg';
 import DollarSignIcon from '@/assets/icons/dollarsign-icon.svg';
 import { useActivePartnership } from '@/features/pairing/hooks';
 import { PartnershipCard } from '@/features/pairing/components';
+import { authClient } from '@/lib/auth-client';
+import { getBackendBaseURL } from '@/config/network';
 
 const { width, height } = Dimensions.get('window');
 
@@ -26,23 +28,64 @@ export default function SeasonsScreen({
   category = 'Men\'s Single',
   leagueName = 'PJ League',
   sport = 'pickleball',
-  seasonId = 'season_123', // TODO: Replace with real seasonId
+  seasonId: propSeasonId,
   currentUserId
 }: SeasonsScreenProps) {
   const insets = useSafeAreaInsets();
   const [activeTab, setActiveTab] = React.useState(0); // 0: In Progress, 1: Upcoming, 2: Past
+  const [seasonId, setSeasonId] = React.useState<string | null>(propSeasonId || null);
+  const [loadingSeasons, setLoadingSeasons] = React.useState(false);
+
+  // Fetch active season if not provided
+  React.useEffect(() => {
+    const fetchActiveSeason = async () => {
+      if (propSeasonId) {
+        setSeasonId(propSeasonId);
+        return;
+      }
+
+      try {
+        setLoadingSeasons(true);
+        const backendUrl = getBackendBaseURL();
+        const response = await authClient.$fetch(`${backendUrl}/api/season`, {
+          method: 'GET',
+        });
+
+        if (response && (response as any).data) {
+          const seasons = (response as any).data;
+          // Find the first ACTIVE season
+          const activeSeason = seasons.find((s: any) => s.status === 'ACTIVE');
+          if (activeSeason) {
+            console.log('Found active season:', activeSeason.name, activeSeason.id);
+            setSeasonId(activeSeason.id);
+          } else if (seasons.length > 0) {
+            // Fallback to first season if no active one
+            console.log('No active season, using first season:', seasons[0].name);
+            setSeasonId(seasons[0].id);
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching seasons:', error);
+      } finally {
+        setLoadingSeasons(false);
+      }
+    };
+
+    fetchActiveSeason();
+  }, [propSeasonId]);
 
   // Check for active partnership for doubles categories
   const isDoublesCategory = category.toLowerCase().includes('double');
   const { partnership, loading: partnershipLoading, refresh: refreshPartnership } = useActivePartnership(
-    isDoublesCategory ? seasonId : null,
+    isDoublesCategory && seasonId ? seasonId : null,
     currentUserId
   );
 
   React.useEffect(() => {
     console.log('SeasonsScreen loaded successfully!');
     console.log('Category:', category, 'League:', leagueName, 'Sport:', sport);
-  }, [category, leagueName, sport]);
+    console.log('Season ID:', seasonId);
+  }, [category, leagueName, sport, seasonId]);
 
   const handleTabPress = (tabIndex: number) => {
     console.log(`Tab ${tabIndex} pressed - ${['In Progress', 'Upcoming', 'Past'][tabIndex]}`);
