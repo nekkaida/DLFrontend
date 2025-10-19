@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { ScrollView, Text, View, StyleSheet, Dimensions, Platform, Image, TouchableOpacity, TextInput, StatusBar, Modal, Pressable } from 'react-native';
+import { ScrollView, Text, View, StyleSheet, Dimensions, Platform, Image, TouchableOpacity, TextInput, StatusBar, Modal, Pressable, ActivityIndicator, Alert } from 'react-native';
 
 const { width, height } = Dimensions.get('window');
 
@@ -15,6 +15,8 @@ import { useSession, authClient } from '@/lib/auth-client';
 import { getBackendBaseURL } from '@/config/network';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
+import { toast } from 'sonner-native';
+import { PartnerChangeRequestModal } from '@/features/pairing/components';
 
 interface ProfileData {
   image?: string;
@@ -48,6 +50,68 @@ interface Favorite {
   };
 }
 
+interface PairRequest {
+  id: string;
+  requesterId: string;
+  recipientId: string;
+  seasonId: string;
+  message: string | null;
+  status: 'PENDING' | 'ACCEPTED' | 'DENIED' | 'EXPIRED' | 'CANCELLED';
+  createdAt: string;
+  respondedAt: string | null;
+  expiresAt: string;
+  requester?: {
+    id: string;
+    name: string;
+    username: string;
+    displayUsername: string | null;
+    image: string | null;
+  };
+  recipient?: {
+    id: string;
+    name: string;
+    username: string;
+    displayUsername: string | null;
+    image: string | null;
+  };
+  season: {
+    id: string;
+    name: string;
+  };
+}
+
+interface PairRequestsData {
+  sent: PairRequest[];
+  received: PairRequest[];
+}
+
+interface Partnership {
+  id: string;
+  player1Id: string;
+  player2Id: string;
+  seasonId: string;
+  createdAt: string;
+  player1: {
+    id: string;
+    name: string;
+    username: string;
+    displayUsername: string | null;
+    image: string | null;
+  };
+  player2: {
+    id: string;
+    name: string;
+    username: string;
+    displayUsername: string | null;
+    image: string | null;
+  };
+  season: {
+    id: string;
+    name: string;
+    status: string;
+  };
+}
+
 interface ConnectScreenProps {
   onTabPress: (tabIndex: number) => void;
 }
@@ -69,12 +133,19 @@ export default function ConnectScreen({ onTabPress }: ConnectScreenProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedPlayer, setSelectedPlayer] = useState<Player | null>(null);
   const [modalVisible, setModalVisible] = useState(false);
-  const [viewMode, setViewMode] = useState<'all' | 'favorites'>('all');
+  const [viewMode, setViewMode] = useState<'all' | 'favorites' | 'requests'>('all');
+  const [requestsTab, setRequestsTab] = useState<'received' | 'sent'>('received');
+  const [favoritesTab, setFavoritesTab] = useState<'friends' | 'pairs'>('friends');
   const [players, setPlayers] = useState<Player[]>([]);
   const [favorites, setFavorites] = useState<Favorite[]>([]);
   const [favoritedPlayerIds, setFavoritedPlayerIds] = useState<string[]>([]);
+  const [partnerships, setPartnerships] = useState<Partnership[]>([]);
+  const [pairRequests, setPairRequests] = useState<PairRequestsData>({ sent: [], received: [] });
   const [isLoading, setIsLoading] = useState(false);
+  const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [searchTimeout, setSearchTimeout] = useState<ReturnType<typeof setTimeout> | null>(null);
+  const [partnerChangeModalVisible, setPartnerChangeModalVisible] = useState(false);
+  const [selectedPartnership, setSelectedPartnership] = useState<Partnership | null>(null);
   // Use safe area insets for proper status bar handling across platforms
   const STATUS_BAR_HEIGHT = insets.top;
 
@@ -135,8 +206,8 @@ export default function ConnectScreen({ onTabPress }: ConnectScreenProps) {
 
       console.log('ConnectScreen: Search API response:', authResponse);
 
-      if (authResponse && (authResponse as any).data) {
-        const playersData = (authResponse as any).data;
+      if (authResponse && (authResponse as any).data && (authResponse as any).data.data) {
+        const playersData = (authResponse as any).data.data;
         console.log('ConnectScreen: Setting players data:', playersData);
         setPlayers(playersData);
       }
@@ -163,14 +234,66 @@ export default function ConnectScreen({ onTabPress }: ConnectScreenProps) {
 
       console.log('ConnectScreen: Favorites API response:', authResponse);
 
-      if (authResponse && (authResponse as any).data) {
-        const favoritesData = (authResponse as any).data;
+      if (authResponse && (authResponse as any).data && (authResponse as any).data.data) {
+        const favoritesData = (authResponse as any).data.data;
         console.log('ConnectScreen: Setting favorites data:', favoritesData);
         setFavorites(favoritesData);
         setFavoritedPlayerIds(favoritesData.map((fav: Favorite) => fav.favoritedId));
       }
     } catch (error) {
       console.error('ConnectScreen: Error fetching favorites:', error);
+    }
+  }, [session?.user?.id]);
+
+  const fetchPairRequests = useCallback(async () => {
+    try {
+      if (!session?.user?.id) {
+        console.log('ConnectScreen: No session user ID available for pair requests');
+        return;
+      }
+
+      const backendUrl = getBackendBaseURL();
+      console.log('ConnectScreen: Fetching pair requests from:', `${backendUrl}/api/pairing/requests`);
+
+      const authResponse = await authClient.$fetch(`${backendUrl}/api/pairing/requests`, {
+        method: 'GET',
+      });
+
+      console.log('ConnectScreen: Pair requests API response:', authResponse);
+
+      if (authResponse && (authResponse as any).data) {
+        const requestsData = (authResponse as any).data.data || (authResponse as any).data;
+        console.log('ConnectScreen: Setting pair requests data:', requestsData);
+        setPairRequests(requestsData);
+      }
+    } catch (error) {
+      console.error('ConnectScreen: Error fetching pair requests:', error);
+    }
+  }, [session?.user?.id]);
+
+  const fetchPartnerships = useCallback(async () => {
+    try {
+      if (!session?.user?.id) {
+        console.log('ConnectScreen: No session user ID available for partnerships');
+        return;
+      }
+
+      const backendUrl = getBackendBaseURL();
+      console.log('ConnectScreen: Fetching partnerships from:', `${backendUrl}/api/pairing/partnerships`);
+
+      const authResponse = await authClient.$fetch(`${backendUrl}/api/pairing/partnerships`, {
+        method: 'GET',
+      });
+
+      console.log('ConnectScreen: Partnerships API response:', authResponse);
+
+      if (authResponse && (authResponse as any).data) {
+        const partnershipsData = (authResponse as any).data.data || (authResponse as any).data;
+        console.log('ConnectScreen: Setting partnerships data:', partnershipsData);
+        setPartnerships(partnershipsData);
+      }
+    } catch (error) {
+      console.error('ConnectScreen: Error fetching partnerships:', error);
     }
   }, [session?.user?.id]);
 
@@ -201,6 +324,148 @@ export default function ConnectScreen({ onTabPress }: ConnectScreenProps) {
     }
   }, [session?.user?.id, favoritedPlayerIds, fetchFavorites]);
 
+  const handleAcceptRequest = useCallback(async (requestId: string) => {
+    try {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      setActionLoading(requestId);
+
+      const backendUrl = getBackendBaseURL();
+      const response = await authClient.$fetch(
+        `${backendUrl}/api/pairing/request/${requestId}/accept`,
+        {
+          method: 'POST',
+        }
+      );
+
+      const responseData = (response as any).data || response;
+      if (responseData && responseData.success) {
+        toast.success('Success', {
+          description: 'Pair request accepted!',
+        });
+        await fetchPairRequests();
+      } else {
+        toast.error('Error', {
+          description: responseData.message || 'Failed to accept request',
+        });
+      }
+    } catch (error) {
+      console.error('Error accepting request:', error);
+      toast.error('Error', {
+        description: 'Failed to accept pair request',
+      });
+    } finally {
+      setActionLoading(null);
+    }
+  }, [fetchPairRequests]);
+
+  const handleDenyRequest = useCallback((requestId: string, requesterName: string, seasonId: string) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+
+    Alert.alert(
+      'Deny Pair Request',
+      `Are you sure you want to deny the pair request from ${requesterName}?`,
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+        {
+          text: 'Deny',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              setActionLoading(requestId);
+
+              const backendUrl = getBackendBaseURL();
+              const response = await authClient.$fetch(
+                `${backendUrl}/api/pairing/request/${requestId}/deny`,
+                {
+                  method: 'POST',
+                }
+              );
+
+              const responseData = (response as any).data || response;
+              if (responseData && responseData.success) {
+                toast.success('Request denied');
+                await fetchPairRequests();
+              } else {
+                toast.error('Error', {
+                  description: responseData.message || 'Failed to deny request',
+                });
+              }
+            } catch (error) {
+              console.error('Error denying request:', error);
+              toast.error('Error', {
+                description: 'Failed to deny pair request',
+              });
+            } finally {
+              setActionLoading(null);
+            }
+          },
+        },
+      ]
+    );
+  }, [fetchPairRequests]);
+
+  const handleCancelRequest = useCallback((requestId: string, recipientName: string) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+
+    Alert.alert(
+      'Cancel Pair Request',
+      `Are you sure you want to cancel your request to ${recipientName}?`,
+      [
+        {
+          text: 'No',
+          style: 'cancel',
+        },
+        {
+          text: 'Yes, Cancel',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              setActionLoading(requestId);
+
+              const backendUrl = getBackendBaseURL();
+              const response = await authClient.$fetch(
+                `${backendUrl}/api/pairing/request/${requestId}`,
+                {
+                  method: 'DELETE',
+                }
+              );
+
+              const responseData = (response as any).data || response;
+              if (responseData && responseData.success) {
+                toast.success('Request cancelled');
+                await fetchPairRequests();
+              } else {
+                toast.error('Error', {
+                  description: responseData.message || 'Failed to cancel request',
+                });
+              }
+            } catch (error) {
+              console.error('Error cancelling request:', error);
+              toast.error('Error', {
+                description: 'Failed to cancel pair request',
+              });
+            } finally {
+              setActionLoading(null);
+            }
+          },
+        },
+      ]
+    );
+  }, [fetchPairRequests]);
+
+  const handleRequestPartnerChange = useCallback((partnership: Partnership) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setSelectedPartnership(partnership);
+    setPartnerChangeModalVisible(true);
+  }, []);
+
+  const handlePartnerChangeSuccess = useCallback(() => {
+    fetchPartnerships();
+  }, [fetchPartnerships]);
+
   // Fetch profile data when component mounts
   useEffect(() => {
     if (session?.user?.id) {
@@ -213,8 +478,10 @@ export default function ConnectScreen({ onTabPress }: ConnectScreenProps) {
     if (session?.user?.id) {
       fetchPlayers();
       fetchFavorites();
+      fetchPairRequests();
+      fetchPartnerships();
     }
-  }, [session?.user?.id, fetchPlayers, fetchFavorites]);
+  }, [session?.user?.id, fetchPlayers, fetchFavorites, fetchPairRequests, fetchPartnerships]);
 
   // Handle search query changes with debounce
   useEffect(() => {
@@ -358,61 +625,312 @@ export default function ConnectScreen({ onTabPress }: ConnectScreenProps) {
               All Players
             </Text>
           </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.tabButton, viewMode === 'requests' && styles.tabButtonActive]}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              setViewMode('requests');
+            }}
+          >
+            <Text style={[styles.tabButtonText, viewMode === 'requests' && styles.tabButtonTextActive]}>
+              Requests
+            </Text>
+          </TouchableOpacity>
         </View>
+
+        {/* Favorites Sub-tabs */}
+        {viewMode === 'favorites' && (
+          <View style={styles.subTabSwitcher}>
+            <TouchableOpacity
+              style={[styles.subTabButton, favoritesTab === 'friends' && styles.subTabButtonActive]}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                setFavoritesTab('friends');
+              }}
+            >
+              <Text style={[styles.subTabButtonText, favoritesTab === 'friends' && styles.subTabButtonTextActive]}>
+                Friends ({favorites.length})
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.subTabButton, favoritesTab === 'pairs' && styles.subTabButtonActive]}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                setFavoritesTab('pairs');
+              }}
+            >
+              <Text style={[styles.subTabButtonText, favoritesTab === 'pairs' && styles.subTabButtonTextActive]}>
+                Pairs ({partnerships.length})
+              </Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {/* Requests Sub-tabs */}
+        {viewMode === 'requests' && (
+          <View style={styles.subTabSwitcher}>
+            <TouchableOpacity
+              style={[styles.subTabButton, requestsTab === 'received' && styles.subTabButtonActive]}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                setRequestsTab('received');
+              }}
+            >
+              <Text style={[styles.subTabButtonText, requestsTab === 'received' && styles.subTabButtonTextActive]}>
+                Received ({pairRequests.received.length})
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.subTabButton, requestsTab === 'sent' && styles.subTabButtonActive]}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                setRequestsTab('sent');
+              }}
+            >
+              <Text style={[styles.subTabButtonText, requestsTab === 'sent' && styles.subTabButtonTextActive]}>
+                Sent ({pairRequests.sent.length})
+              </Text>
+            </TouchableOpacity>
+          </View>
+        )}
 
         <ScrollView
           style={styles.scrollContainer}
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
         >
-          {isLoading ? (
-            <View style={styles.emptyState}>
-              <Text style={styles.emptyStateText}>Loading players...</Text>
-            </View>
-          ) : displayedPlayers.length === 0 && viewMode === 'favorites' ? (
-            <View style={styles.emptyState}>
-              <Ionicons name="heart-outline" size={64} color="#BABABA" />
-              <Text style={styles.emptyStateText}>No favorites yet</Text>
-              <Text style={styles.emptyStateSubtext}>
-                Tap the heart icon on any player to add them to favorites
-              </Text>
-            </View>
-          ) : displayedPlayers.length === 0 && searchQuery.trim().length >= 2 ? (
-            <View style={styles.emptyState}>
-              <Ionicons name="search-outline" size={64} color="#BABABA" />
-              <Text style={styles.emptyStateText}>No players found</Text>
-              <Text style={styles.emptyStateSubtext}>
-                Try adjusting your search query
-              </Text>
-            </View>
-          ) : (
-            displayedPlayers.map((player, index) => (
-              <React.Fragment key={player.id}>
-                <TouchableOpacity
-                  style={styles.connectionItem}
-                  onPress={() => handlePlayerPress(player)}
-                  activeOpacity={0.7}
-                >
-                  {player.image ? (
-                    <Image
-                      source={{ uri: player.image }}
-                      style={styles.avatar}
-                    />
-                  ) : (
-                    <View style={[styles.avatar, styles.defaultAvatarContainer]}>
-                      <Text style={styles.defaultAvatarText}>
-                        {player.name.charAt(0).toUpperCase()}
-                      </Text>
-                    </View>
-                  )}
-                  <View style={styles.connectionContent}>
-                    <Text style={styles.connectionName}>{player.name}</Text>
+          {viewMode === 'requests' ? (
+            // Pair Requests View
+            (() => {
+              const displayedRequests = requestsTab === 'received' ? pairRequests.received : pairRequests.sent;
+              return displayedRequests.length === 0 ? (
+                <View style={styles.emptyState}>
+                  <Ionicons name="people-outline" size={64} color="#BABABA" />
+                  <Text style={styles.emptyStateText}>No {requestsTab} requests</Text>
+                  <Text style={styles.emptyStateSubtext}>
+                    {requestsTab === 'received'
+                      ? 'Pair requests you receive will appear here'
+                      : 'Send a pair request to connect with a partner'}
+                  </Text>
+                </View>
+              ) : (
+                displayedRequests.map((request, index) => {
+                  const player = requestsTab === 'received' ? request.requester : request.recipient;
+                  if (!player) return null;
+                  const isPending = request.status === 'PENDING';
+                  const isActionLoading = actionLoading === request.id;
+                  return (
+                    <React.Fragment key={request.id}>
+                      <View style={styles.requestItemCard}>
+                        <View style={styles.requestItemHeader}>
+                          {player.image ? (
+                            <Image
+                              source={{ uri: player.image }}
+                              style={styles.avatar}
+                            />
+                          ) : (
+                            <View style={[styles.avatar, styles.defaultAvatarContainer]}>
+                              <Text style={styles.defaultAvatarText}>
+                                {player.name.charAt(0).toUpperCase()}
+                              </Text>
+                            </View>
+                          )}
+                          <View style={styles.connectionContent}>
+                            <Text style={styles.connectionName}>{player.name}</Text>
+                            <Text style={styles.requestSeasonText}>{request.season.name}</Text>
+                            <Text style={styles.requestStatusText}>{request.status}</Text>
+                          </View>
+                        </View>
+                        {isPending && (
+                          <View style={styles.requestActionButtons}>
+                            {requestsTab === 'received' ? (
+                              <>
+                                <TouchableOpacity
+                                  style={[styles.requestActionButton, styles.denyButton]}
+                                  onPress={() => handleDenyRequest(request.id, player.name, request.seasonId)}
+                                  disabled={isActionLoading}
+                                >
+                                  {isActionLoading ? (
+                                    <ActivityIndicator size="small" color="#F44336" />
+                                  ) : (
+                                    <Text style={styles.denyButtonText}>Deny</Text>
+                                  )}
+                                </TouchableOpacity>
+                                <TouchableOpacity
+                                  style={[styles.requestActionButton, styles.acceptButton]}
+                                  onPress={() => handleAcceptRequest(request.id)}
+                                  disabled={isActionLoading}
+                                >
+                                  {isActionLoading ? (
+                                    <ActivityIndicator size="small" color="#FFFFFF" />
+                                  ) : (
+                                    <Text style={styles.acceptButtonText}>Accept</Text>
+                                  )}
+                                </TouchableOpacity>
+                              </>
+                            ) : (
+                              <TouchableOpacity
+                                style={[styles.requestActionButton, styles.cancelButton]}
+                                onPress={() => handleCancelRequest(request.id, player.name)}
+                                disabled={isActionLoading}
+                              >
+                                {isActionLoading ? (
+                                  <ActivityIndicator size="small" color="#666666" />
+                                ) : (
+                                  <Text style={styles.cancelButtonText}>Cancel</Text>
+                                )}
+                              </TouchableOpacity>
+                            )}
+                          </View>
+                        )}
+                      </View>
+                      {index < displayedRequests.length - 1 && <View style={styles.divider} />}
+                    </React.Fragment>
+                  );
+                })
+              );
+            })()
+          ) : viewMode === 'favorites' ? (
+            // Favorites View with Friends/Pairs tabs
+            (() => {
+              if (favoritesTab === 'pairs') {
+                // Pairs sub-tab
+                return partnerships.length === 0 ? (
+                  <View style={styles.emptyState}>
+                    <Ionicons name="people-outline" size={64} color="#BABABA" />
+                    <Text style={styles.emptyStateText}>No pairs yet</Text>
+                    <Text style={styles.emptyStateSubtext}>
+                      Your active partnerships will appear here
+                    </Text>
                   </View>
-                  <Ionicons name="chevron-forward" size={20} color="#BABABA" />
-                </TouchableOpacity>
-                {index < displayedPlayers.length - 1 && <View style={styles.divider} />}
-              </React.Fragment>
-            ))
+                ) : (
+                  partnerships.map((partnership, index) => {
+                    const partner = partnership.player1Id === session?.user?.id ? partnership.player2 : partnership.player1;
+                    return (
+                      <React.Fragment key={partnership.id}>
+                        <View style={styles.partnershipCard}>
+                          <TouchableOpacity
+                            style={styles.partnershipInfo}
+                            onPress={() => router.push(`/player-profile/${partner.id}`)}
+                            activeOpacity={0.7}
+                          >
+                            {partner.image ? (
+                              <Image
+                                source={{ uri: partner.image }}
+                                style={styles.avatar}
+                              />
+                            ) : (
+                              <View style={[styles.avatar, styles.defaultAvatarContainer]}>
+                                <Text style={styles.defaultAvatarText}>
+                                  {partner.name.charAt(0).toUpperCase()}
+                                </Text>
+                              </View>
+                            )}
+                            <View style={styles.connectionContent}>
+                              <Text style={styles.connectionName}>{partner.name}</Text>
+                              <Text style={styles.requestSeasonText}>{partnership.season.name}</Text>
+                            </View>
+                            <Ionicons name="chevron-forward" size={20} color="#BABABA" />
+                          </TouchableOpacity>
+                          <TouchableOpacity
+                            style={styles.requestChangeButton}
+                            onPress={() => handleRequestPartnerChange(partnership)}
+                          >
+                            <Ionicons name="swap-horizontal" size={18} color="#863A73" />
+                            <Text style={styles.requestChangeText}>Request Change</Text>
+                          </TouchableOpacity>
+                        </View>
+                        {index < partnerships.length - 1 && <View style={styles.divider} />}
+                      </React.Fragment>
+                    );
+                  })
+                );
+              } else {
+                // Friends sub-tab (existing favorites)
+                return displayedPlayers.length === 0 ? (
+                  <View style={styles.emptyState}>
+                    <Ionicons name="heart-outline" size={64} color="#BABABA" />
+                    <Text style={styles.emptyStateText}>No friends yet</Text>
+                    <Text style={styles.emptyStateSubtext}>
+                      Tap the heart icon on any player to add them as a friend
+                    </Text>
+                  </View>
+                ) : (
+                  displayedPlayers.map((player, index) => (
+                    <React.Fragment key={player.id}>
+                      <TouchableOpacity
+                        style={styles.connectionItem}
+                        onPress={() => handlePlayerPress(player)}
+                        activeOpacity={0.7}
+                      >
+                        {player.image ? (
+                          <Image
+                            source={{ uri: player.image }}
+                            style={styles.avatar}
+                          />
+                        ) : (
+                          <View style={[styles.avatar, styles.defaultAvatarContainer]}>
+                            <Text style={styles.defaultAvatarText}>
+                              {player.name.charAt(0).toUpperCase()}
+                            </Text>
+                          </View>
+                        )}
+                        <View style={styles.connectionContent}>
+                          <Text style={styles.connectionName}>{player.name}</Text>
+                        </View>
+                        <Ionicons name="chevron-forward" size={20} color="#BABABA" />
+                      </TouchableOpacity>
+                      {index < displayedPlayers.length - 1 && <View style={styles.divider} />}
+                    </React.Fragment>
+                  ))
+                );
+              }
+            })()
+          ) : (
+            // All Players View
+            <>
+              {isLoading ? (
+                <View style={styles.emptyState}>
+                  <Text style={styles.emptyStateText}>Loading players...</Text>
+                </View>
+              ) : displayedPlayers.length === 0 && searchQuery.trim().length >= 2 ? (
+                <View style={styles.emptyState}>
+                  <Ionicons name="search-outline" size={64} color="#BABABA" />
+                  <Text style={styles.emptyStateText}>No players found</Text>
+                  <Text style={styles.emptyStateSubtext}>
+                    Try adjusting your search query
+                  </Text>
+                </View>
+              ) : (
+                displayedPlayers.map((player, index) => (
+                  <React.Fragment key={player.id}>
+                    <TouchableOpacity
+                      style={styles.connectionItem}
+                      onPress={() => handlePlayerPress(player)}
+                      activeOpacity={0.7}
+                    >
+                      {player.image ? (
+                        <Image
+                          source={{ uri: player.image }}
+                          style={styles.avatar}
+                        />
+                      ) : (
+                        <View style={[styles.avatar, styles.defaultAvatarContainer]}>
+                          <Text style={styles.defaultAvatarText}>
+                            {player.name.charAt(0).toUpperCase()}
+                          </Text>
+                        </View>
+                      )}
+                      <View style={styles.connectionContent}>
+                        <Text style={styles.connectionName}>{player.name}</Text>
+                      </View>
+                      <Ionicons name="chevron-forward" size={20} color="#BABABA" />
+                    </TouchableOpacity>
+                    {index < displayedPlayers.length - 1 && <View style={styles.divider} />}
+                  </React.Fragment>
+                ))
+              )}
+            </>
           )}
         </ScrollView>
       </View>
@@ -499,6 +1017,15 @@ export default function ConnectScreen({ onTabPress }: ConnectScreenProps) {
           </Pressable>
         </Pressable>
       </Modal>
+
+      {/* Partner Change Request Modal */}
+      <PartnerChangeRequestModal
+        visible={partnerChangeModalVisible}
+        partnership={selectedPartnership}
+        currentUserId={session?.user?.id || ''}
+        onClose={() => setPartnerChangeModalVisible(false)}
+        onSuccess={handlePartnerChangeSuccess}
+      />
     </View>
   );
 }
@@ -605,6 +1132,102 @@ const styles = StyleSheet.create({
   },
   tabButtonTextActive: {
     color: '#FFFFFF',
+  },
+  subTabSwitcher: {
+    flexDirection: 'row',
+    paddingHorizontal: isSmallScreen ? 12 : isTablet ? 24 : 16,
+    paddingBottom: 12,
+    gap: 12,
+  },
+  subTabButton: {
+    flex: 1,
+    paddingVertical: isSmallScreen ? 6 : isTablet ? 10 : 8,
+    paddingHorizontal: isSmallScreen ? 10 : isTablet ? 16 : 12,
+    borderRadius: 6,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E2E2E2',
+    alignItems: 'center',
+  },
+  subTabButtonActive: {
+    backgroundColor: '#FEA04D',
+    borderColor: '#FEA04D',
+  },
+  subTabButtonText: {
+    fontFamily: 'Inter',
+    fontWeight: '500',
+    fontSize: isSmallScreen ? 11 : isTablet ? 14 : 12,
+    color: '#666666',
+  },
+  subTabButtonTextActive: {
+    color: '#FFFFFF',
+  },
+  requestSeasonText: {
+    fontFamily: 'Inter',
+    fontWeight: '400',
+    fontSize: isSmallScreen ? 11 : isTablet ? 14 : 12,
+    color: '#999999',
+    marginTop: 2,
+  },
+  requestStatusText: {
+    fontFamily: 'Inter',
+    fontWeight: '600',
+    fontSize: isSmallScreen ? 11 : isTablet ? 14 : 12,
+    color: '#FEA04D',
+    marginTop: 2,
+  },
+  requestItemCard: {
+    paddingVertical: 12,
+  },
+  requestItemHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  requestActionButtons: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 8,
+    paddingLeft: isSmallScreen ? 48 : isTablet ? 60 : 52,
+  },
+  requestActionButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 8,
+    minWidth: 80,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  denyButton: {
+    backgroundColor: '#FFEBEE',
+    borderWidth: 1,
+    borderColor: '#F44336',
+  },
+  denyButtonText: {
+    fontFamily: 'Inter',
+    fontWeight: '600',
+    fontSize: 13,
+    color: '#F44336',
+  },
+  acceptButton: {
+    backgroundColor: '#4CAF50',
+  },
+  acceptButtonText: {
+    fontFamily: 'Inter',
+    fontWeight: '600',
+    fontSize: 13,
+    color: '#FFFFFF',
+  },
+  cancelButton: {
+    backgroundColor: '#f8fafc',
+    borderWidth: 1,
+    borderColor: '#E2E2E2',
+  },
+  cancelButtonText: {
+    fontFamily: 'Inter',
+    fontWeight: '600',
+    fontSize: 13,
+    color: '#666666',
   },
   emptyState: {
     flex: 1,
@@ -833,5 +1456,33 @@ const styles = StyleSheet.create({
     fontSize: isSmallScreen ? 10 : isTablet ? 13 : 11,
     color: '#6b7280',
     marginTop: 4,
+  },
+  partnershipCard: {
+    paddingVertical: 8,
+  },
+  partnershipInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  requestChangeButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    backgroundColor: '#F5E6F0',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#863A73',
+    marginLeft: isSmallScreen ? 48 : isTablet ? 60 : 52,
+    marginTop: 4,
+    gap: 6,
+  },
+  requestChangeText: {
+    fontFamily: 'Inter',
+    fontWeight: '600',
+    fontSize: 13,
+    color: '#863A73',
   },
 });
