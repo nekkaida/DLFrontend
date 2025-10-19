@@ -82,5 +82,9 @@ coverage/
 # Archive directories (should not be bundled)
 app/archive/
 
+# Backups
+.backups/
+*.backup
+
 package-lock.json
 package.json
