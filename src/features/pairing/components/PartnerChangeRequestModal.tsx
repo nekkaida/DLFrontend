@@ -116,7 +116,8 @@ export const PartnerChangeRequestModal: React.FC<PartnerChangeRequestModalProps>
                 }
               );
 
-              if ((response as any).id) {
+              const responseData = (response as any).data || response;
+              if (responseData && (responseData.id || responseData.success)) {
                 toast.success('Request Submitted', {
                   description:
                     'Your partner change request has been sent to admin for review',
@@ -129,7 +130,7 @@ export const PartnerChangeRequestModal: React.FC<PartnerChangeRequestModalProps>
               } else {
                 toast.error('Error', {
                   description:
-                    (response as any).error || 'Failed to submit partner change request',
+                    responseData.error || responseData.message || 'Failed to submit partner change request',
                 });
               }
             } catch (error) {

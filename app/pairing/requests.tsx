@@ -137,7 +137,8 @@ export default function PairRequestsScreen() {
         }
       );
 
-      if (response && (response as any).success) {
+      const responseData = (response as any).data || response;
+      if (responseData && responseData.success) {
         toast.success('Success', {
           description: 'Pair request accepted! Waiting for payment...',
         });
@@ -145,7 +146,7 @@ export default function PairRequestsScreen() {
         await fetchRequests(false);
       } else {
         toast.error('Error', {
-          description: (response as any).message || 'Failed to accept request',
+          description: responseData.message || 'Failed to accept request',
         });
       }
     } catch (error) {
@@ -184,7 +185,8 @@ export default function PairRequestsScreen() {
                 }
               );
 
-              if (response && (response as any).success) {
+              const responseData = (response as any).data || response;
+              if (responseData && responseData.success) {
                 toast.success('Request denied', {
                   description: 'You can find another partner to pair with',
                 });
@@ -192,7 +194,7 @@ export default function PairRequestsScreen() {
                 router.push(`/pairing/find-partner/${seasonId}`);
               } else {
                 toast.error('Error', {
-                  description: (response as any).message || 'Failed to deny request',
+                  description: responseData.message || 'Failed to deny request',
                 });
               }
             } catch (error) {
@@ -235,12 +237,13 @@ export default function PairRequestsScreen() {
                 }
               );
 
-              if (response && (response as any).success) {
+              const responseData = (response as any).data || response;
+              if (responseData && responseData.success) {
                 toast.success('Request cancelled');
                 await fetchRequests(false);
               } else {
                 toast.error('Error', {
-                  description: (response as any).message || 'Failed to cancel request',
+                  description: responseData.message || 'Failed to cancel request',
                 });
               }
             } catch (error) {
