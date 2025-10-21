@@ -23,7 +23,7 @@ import { useNavigationManager } from '@core/navigation';
 import * as Haptics from 'expo-haptics';
 import * as ImagePicker from 'expo-image-picker';
 import { manipulateAsync, SaveFormat } from 'expo-image-manipulator';
-import { DropdownModal, InlineDropdown, WinRateCircle, MatchDetailsModal, EloProgressGraph, EditIcon, MatchHistoryButton, AchievementIcon, ProfileHeaderWithCurve, ProfilePictureSection, ProfileInfoCard, ProfileAchievementsCard } from '../src/features/profile/components';
+import { DropdownModal, InlineDropdown, WinRateCircle, MatchDetailsModal, EloProgressGraph, EditIcon, MatchHistoryButton, AchievementIcon, ProfileHeaderWithCurve, ProfilePictureSection, ProfileInfoCard, ProfileAchievementsCard, ProfileSportsSection, ProfileSkillLevelCard, ProfileDMRCard, ProfileLeagueStatsCard } from '../src/features/profile/components';
 import type { GameData, UserData } from '../src/features/profile/types';
 import { CircularImageCropper } from '../src/features/onboarding/components';
 // import { mockEloData, userData, gameTypeOptions } from '../src/features/profile/data/mockData'; // Team lead's original mock data - commented for API implementation
@@ -697,84 +697,27 @@ export default function ProfileAdaptedScreen() {
           />
 
           {/* Sports */}
-          <View style={styles.section}>
-            <View style={styles.sportsHeader}>
-              <Text style={styles.sectionTitle}>Sports</Text>
-              <View style={styles.tabs}>
-                {userData.sports?.map((sport) => (
-                  <Pressable
-                    key={sport}
-                    style={[
-                      styles.tab,
-                      activeTab === sport && styles.tabActive
-                    ]}
-                    onPress={() => handleTabPress(sport)}
-                  >
-                    <Text style={[
-                      styles.tabText,
-                      activeTab === sport && styles.tabTextActive
-                    ]}>
-                      {sport}
-                    </Text>
-                  </Pressable>
-                ))}
-              </View>
-            </View>
-          </View>
+          <ProfileSportsSection
+            sports={userData.sports || []}
+            activeTab={activeTab}
+            onTabPress={handleTabPress}
+          />
 
           {/* Skill Level */}
-          <View style={styles.skillLevelSection}>
-            <View style={styles.skillContainer}>
-              <Text style={styles.skillLabel}>Skill Level</Text>
-              <Text style={styles.skillValue}>{userData.skillLevel}</Text>
-            </View>
-          </View>
+          <ProfileSkillLevelCard
+            skillLevel={userData.skillLevel}
+          />
 
           {/* DMR */}
-          <View style={styles.skillLevelSection}>
-            <View style={styles.dmrContainer}>
-              {/* DMR Label and Ratings */}
-              <View style={styles.dmrHeader}>
-                <Text style={styles.skillLabel}>DMR - {activeTab}</Text>
-                <View style={styles.dmrRatingsRow}>
-                  <View style={styles.dmrItemVertical}>
-                    <Text style={styles.dmrTypeLabel}>Singles</Text>
-                    <View style={styles.ratingCircleSmall}>
-                      <Text style={styles.ratingTextSmall}>
-                        {getRatingForType(activeTab || 'pickleball', 'singles') || 'N/A'}
-                      </Text>
-                    </View>
-                  </View>
-                  <View style={styles.dmrItemVertical}>
-                    <Text style={styles.dmrTypeLabel}>Doubles</Text>
-                    <View style={styles.ratingCircleSmall}>
-                      <Text style={styles.ratingTextSmall}>
-                        {getRatingForType(activeTab || 'pickleball', 'doubles') || 'N/A'}
-                      </Text>
-                    </View>
-                  </View>
-                </View>
-              </View>
-              
-              {/* Dropdown above graph */}
-              <View style={styles.dropdownSection}>
-                <InlineDropdown
-                  options={gameTypeOptions}
-                  selectedValue={selectedGameType}
-                  onSelect={(value) => {
-                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                    handleGameTypeSelect(value);
-                  }}
-                />
-              </View>
-              
-              {/* ELO Progress Graph */}
-              <EloProgressGraph 
-                data={mockEloData} 
-                onPointPress={handleGamePointPress}
-              />
-            </View>
-          </View>
+          <ProfileDMRCard
+            activeTab={activeTab}
+            selectedGameType={selectedGameType}
+            gameTypeOptions={gameTypeOptions}
+            onGameTypeSelect={handleGameTypeSelect}
+            getRatingForType={getRatingForType}
+            eloData={mockEloData}
+            onPointPress={handleGamePointPress}
+          />
 
           <MatchHistoryButton
             onPress={() => {
@@ -784,36 +727,13 @@ export default function ProfileAdaptedScreen() {
           />
 
           {/* League Stats Section */}
-          <View style={styles.skillLevelSection}>
-            <View style={styles.leagueStatsContainer}>
-              <View style={styles.statsHeader}>
-                <Text style={styles.skillLabel}>League Stats - {activeTab}</Text>
-                <InlineDropdown
-                  options={gameTypeOptions}
-                  selectedValue={selectedGameType}
-                  onSelect={(value) => {
-                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                    handleGameTypeSelect(value);
-                  }}
-                />
-              </View>
-              
-              {/* Win Rate Circle Chart */}
-              <View style={styles.winRateContainer}>
-                <WinRateCircle winRate={calculateWinRate()} />
-                <View style={styles.winRateLegend}>
-                  <View style={styles.legendItem}>
-                    <View style={[styles.legendColor, { backgroundColor: '#34C759' }]} />
-                    <Text style={styles.legendText}>Wins</Text>
-                  </View>
-                  <View style={styles.legendItem}>
-                    <View style={[styles.legendColor, { backgroundColor: '#FF3B30' }]} />
-                    <Text style={styles.legendText}>Losses</Text>
-                  </View>
-                </View>
-              </View>
-            </View>
-          </View>
+          <ProfileLeagueStatsCard
+            activeTab={activeTab}
+            selectedGameType={selectedGameType}
+            gameTypeOptions={gameTypeOptions}
+            onGameTypeSelect={handleGameTypeSelect}
+            winRate={calculateWinRate()}
+          />
         </View>
       </ScrollView>
       
