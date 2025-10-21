@@ -153,9 +153,33 @@ export default function ConnectScreen({ onTabPress }: ConnectScreenProps) {
     player.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
+  // For favorites view, we need to map favorites to player objects
+  const favoritePlayers: Player[] = favorites
+    .filter(fav => fav && fav.favorited) // Safety check
+    .map(fav => ({
+      id: fav.favorited.id,
+      name: fav.favorited.name,
+      username: fav.favorited.username || fav.favorited.id,
+      displayUsername: fav.favorited.displayUsername || undefined,
+      image: fav.favorited.image,
+      sports: [], // These fields might not be in favorites API response
+      bio: null,
+      area: null,
+      gender: null,
+    }));
+
+  console.log('ConnectScreen: favorites array length:', favorites.length);
+  console.log('ConnectScreen: favoritePlayers array length:', favoritePlayers.length);
+  console.log('ConnectScreen: viewMode:', viewMode);
+  console.log('ConnectScreen: favoritesTab:', favoritesTab);
+
   const displayedPlayers = viewMode === 'favorites'
-    ? filteredPlayers.filter(player => favoritedPlayerIds.includes(player.id))
+    ? favoritePlayers.filter(player =>
+        player.name.toLowerCase().includes(searchQuery.toLowerCase())
+      )
     : filteredPlayers;
+
+  console.log('ConnectScreen: displayedPlayers length:', displayedPlayers.length);
 
   const fetchProfileData = useCallback(async () => {
     try {
@@ -233,12 +257,38 @@ export default function ConnectScreen({ onTabPress }: ConnectScreenProps) {
       });
 
       console.log('ConnectScreen: Favorites API response:', authResponse);
+      console.log('ConnectScreen: Favorites API response.data:', (authResponse as any).data);
+      console.log('ConnectScreen: Favorites API response.data.data:', (authResponse as any).data?.data);
 
-      if (authResponse && (authResponse as any).data && (authResponse as any).data.data) {
-        const favoritesData = (authResponse as any).data.data;
+      if (authResponse && (authResponse as any).data) {
+        // Try to get data from nested structure or direct data
+        const favoritesData = (authResponse as any).data.data || (authResponse as any).data;
         console.log('ConnectScreen: Setting favorites data:', favoritesData);
-        setFavorites(favoritesData);
-        setFavoritedPlayerIds(favoritesData.map((fav: Favorite) => fav.favoritedId));
+        console.log('ConnectScreen: Favorites data length:', Array.isArray(favoritesData) ? favoritesData.length : 'not an array');
+
+        if (Array.isArray(favoritesData)) {
+          // API returns player objects directly, not wrapped in a favorite relationship
+          // Convert to expected Favorite format
+          const formattedFavorites = favoritesData.map((player: any) => ({
+            id: player.id,
+            userId: session?.user?.id || '',
+            favoritedId: player.id,
+            createdAt: player.favoritedAt || new Date().toISOString(),
+            favorited: {
+              id: player.id,
+              name: player.name,
+              username: player.username,
+              displayUsername: player.displayUsername,
+              image: player.image,
+            }
+          }));
+
+          setFavorites(formattedFavorites);
+          setFavoritedPlayerIds(formattedFavorites.map((fav: Favorite) => fav.favoritedId));
+          console.log('ConnectScreen: Favorited player IDs:', formattedFavorites.map((fav: Favorite) => fav.favoritedId));
+        } else {
+          console.error('ConnectScreen: Favorites data is not an array:', favoritesData);
+        }
       }
     } catch (error) {
       console.error('ConnectScreen: Error fetching favorites:', error);
@@ -649,7 +699,7 @@ export default function ConnectScreen({ onTabPress }: ConnectScreenProps) {
               }}
             >
               <Text style={[styles.subTabButtonText, favoritesTab === 'friends' && styles.subTabButtonTextActive]}>
-                Friends ({favorites.length})
+                Favorites ({favorites.length})
               </Text>
             </TouchableOpacity>
             <TouchableOpacity
@@ -846,13 +896,13 @@ export default function ConnectScreen({ onTabPress }: ConnectScreenProps) {
                   })
                 );
               } else {
-                // Friends sub-tab (existing favorites)
+                // Favorites sub-tab (existing favorites)
                 return displayedPlayers.length === 0 ? (
                   <View style={styles.emptyState}>
                     <Ionicons name="heart-outline" size={64} color="#BABABA" />
-                    <Text style={styles.emptyStateText}>No friends yet</Text>
+                    <Text style={styles.emptyStateText}>No favorites yet</Text>
                     <Text style={styles.emptyStateSubtext}>
-                      Tap the heart icon on any player to add them as a friend
+                      Tap the heart icon on any player to add them to your favorites
                     </Text>
                   </View>
                 ) : (

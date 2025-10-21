@@ -9,7 +9,14 @@ export { MatchHistoryButton } from './MatchHistoryButton';
 export { AchievementIcon } from './AchievementIcon';
 
 // New refactored components (match current profile.tsx UI)
+// Phase 1 components
 export { ProfileHeaderWithCurve } from './ProfileHeaderWithCurve';
 export { ProfilePictureSection } from './ProfilePictureSection';
 export { ProfileInfoCard } from './ProfileInfoCard';
 export { ProfileAchievementsCard } from './ProfileAchievementsCard';
+
+// Phase 2 components
+export { ProfileSportsSection } from './ProfileSportsSection';
+export { ProfileSkillLevelCard } from './ProfileSkillLevelCard';
+export { ProfileDMRCard } from './ProfileDMRCard';
+export { ProfileLeagueStatsCard } from './ProfileLeagueStatsCard';
