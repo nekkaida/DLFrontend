@@ -13,7 +13,9 @@ import { useSession, authClient } from '@/lib/auth-client';
 import { getBackendBaseURL } from '@/config/network';
 import { toast } from 'sonner-native';
 import { theme } from '@core/theme/theme';
-import { ProfileHeaderWithCurve, ProfilePictureSection, ProfileInfoCard, ProfileAchievementsCard } from '@/src/features/profile/components';
+import { ProfileHeaderWithCurve, ProfilePictureSection, ProfileInfoCard, ProfileAchievementsCard, ProfileSportsSection, ProfileSkillLevelCard, ProfileDMRCard, ProfileLeagueStatsCard, MatchHistoryButton, MatchDetailsModal } from '@/src/features/profile/components';
+import { useProfileState } from '@/src/features/profile/hooks/useProfileState';
+import { useProfileHandlers } from '@/src/features/profile/hooks/useProfileHandlers';
 import { ProfileDataTransformer } from '@/src/features/profile/services/ProfileDataTransformer';
 import type { UserData } from '@/src/features/profile/types';
 
@@ -29,6 +31,31 @@ export default function PlayerProfileScreen() {
 
   // Check if viewing in pairing context
   const isPairingContext = !!seasonId;
+
+  // Profile state management
+  const {
+    activeTab,
+    selectedGame,
+    modalVisible,
+    selectedGameType,
+    setActiveTab,
+    setSelectedGame,
+    setModalVisible,
+    setSelectedGameType,
+  } = useProfileState();
+
+  // Profile handlers
+  const {
+    handleGameTypeSelect,
+    handleTabPress,
+    handleGamePointPress,
+    handleModalClose,
+  } = useProfileHandlers({
+    setSelectedGameType,
+    setActiveTab,
+    setSelectedGame,
+    setModalVisible,
+  });
 
   const fetchPlayerProfile = useCallback(async () => {
     try {
@@ -107,6 +134,75 @@ export default function PlayerProfileScreen() {
         achievements: [],
       };
 
+  // Helper function to get rating values from skillRatings
+  const getRatingForType = (sport: string, type: 'singles' | 'doubles') => {
+    if (userData?.skillRatings && userData.skillRatings[sport.toLowerCase()]) {
+      const rating = userData.skillRatings[sport.toLowerCase()];
+
+      // Check for specific singles/doubles rating first
+      if (type === 'singles' && rating.singles) {
+        return Math.round(rating.singles * 1000); // Convert to display format
+      } else if (type === 'doubles' && rating.doubles) {
+        return Math.round(rating.doubles * 1000); // Convert to display format
+      } else if (rating.rating) {
+        // Fallback to general rating if specific type not available
+        return Math.round(rating.rating * 1000);
+      }
+    }
+    return 0; // Default to 0 if no rating available
+  };
+
+  const gameTypeOptions = ['Singles', 'Doubles']; // Static options
+
+  // Calculate win rate from match history - placeholder until match system is implemented
+  const calculateWinRate = () => {
+    if (userData.name === 'Loading...') return 0; // Still loading
+
+    // Check if user has match data
+    const hasMatches = profileData?.totalMatches && profileData.totalMatches > 0;
+    if (hasMatches) {
+      // TODO: Calculate actual win rate from match history when matches exist
+      return 0; // For now, return 0 until we have match data
+    }
+    return 0; // No matches yet
+  };
+
+  // Create ELO data based on actual rating values only
+  const createEloData = () => {
+    const currentSport = activeTab || userData.sports?.[0] || 'pickleball';
+    const currentGameType = selectedGameType.toLowerCase();
+    const currentRating = getRatingForType(currentSport, currentGameType as 'singles' | 'doubles');
+
+    // Return single point with current rating if no matches played
+    return [{
+      date: 'Current Rating',
+      time: '',
+      rating: currentRating || 1400, // Use actual rating or default
+      opponent: 'No matches played',
+      result: '-' as any,
+      score: '-',
+      ratingChange: 0,
+      league: `${currentSport} ${currentGameType}`,
+      player1: userData.name || 'Player',
+      player2: 'No opponent',
+      scores: {
+        set1: { player1: null, player2: null },
+        set2: { player1: null, player2: null },
+        set3: { player1: null, player2: null }
+      },
+      status: 'pending'
+    }];
+  };
+
+  const mockEloData = createEloData();
+
+  // Update activeTab to player's first sport when userData is loaded
+  useEffect(() => {
+    if (userData?.sports && userData.sports.length > 0 && userData.sports[0] !== 'No sports yet' && !activeTab) {
+      setActiveTab(userData.sports[0]);
+    }
+  }, [userData?.sports, activeTab, setActiveTab]);
+
   if (isLoading && !profileData) {
     return (
       <View style={styles.loadingContainer}>
@@ -164,9 +260,55 @@ export default function PlayerProfileScreen() {
             achievements={userData.achievements || []}
           />
 
-          {/* TODO: Add rest of profile sections (Sports, DMR, League Stats, etc.) */}
+          {/* Sports */}
+          <ProfileSportsSection
+            sports={userData.sports || []}
+            activeTab={activeTab}
+            onTabPress={handleTabPress}
+          />
+
+          {/* Skill Level */}
+          <ProfileSkillLevelCard
+            skillLevel={userData.skillLevel}
+          />
+
+          {/* DMR */}
+          <ProfileDMRCard
+            activeTab={activeTab}
+            selectedGameType={selectedGameType}
+            gameTypeOptions={gameTypeOptions}
+            onGameTypeSelect={handleGameTypeSelect}
+            getRatingForType={getRatingForType}
+            eloData={mockEloData}
+            onPointPress={handleGamePointPress}
+          />
+
+          {/* Match History Button */}
+          <MatchHistoryButton
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              toast('Match history coming soon!');
+            }}
+          />
+
+          {/* League Stats Section */}
+          <ProfileLeagueStatsCard
+            activeTab={activeTab}
+            selectedGameType={selectedGameType}
+            gameTypeOptions={gameTypeOptions}
+            onGameTypeSelect={handleGameTypeSelect}
+            winRate={calculateWinRate()}
+          />
         </View>
       </ScrollView>
+
+      {/* Match Details Modal */}
+      {modalVisible && selectedGame && (
+        <MatchDetailsModal
+          match={selectedGame}
+          onClose={handleModalClose}
+        />
+      )}
     </View>
   );
 }
