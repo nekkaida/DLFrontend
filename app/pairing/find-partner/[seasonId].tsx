@@ -10,7 +10,6 @@ import {
   TouchableOpacity,
   TextInput,
   ActivityIndicator,
-  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -20,7 +19,7 @@ import * as Haptics from 'expo-haptics';
 import { useSession, authClient } from '@/lib/auth-client';
 import { getBackendBaseURL } from '@/config/network';
 import { toast } from 'sonner-native';
-import { PairRequestModal } from '@/src/features/pairing/components';
+import { PairRequestModal, PlayerActionModal } from '@/src/features/pairing/components';
 
 const { width } = Dimensions.get('window');
 const isSmallScreen = width < 375;
@@ -61,6 +60,13 @@ interface SeasonData {
   league?: {
     name: string;
   };
+  categories?: Array<{
+    id: string;
+    name: string;
+    genderRestriction?: 'MALE' | 'FEMALE' | 'MIXED' | 'OPEN';
+    gender_category?: 'MALE' | 'FEMALE' | 'MIXED';
+    game_type?: 'SINGLES' | 'DOUBLES';
+  }>;
 }
 
 const SPORT_COLORS: { [key: string]: string } = {
@@ -82,7 +88,8 @@ export default function FindPartnerScreen() {
   const [isLoading, setIsLoading] = useState(false);
   const [searchTimeout, setSearchTimeout] = useState<NodeJS.Timeout | null>(null);
   const [seasonData, setSeasonData] = useState<SeasonData | null>(null);
-  const [modalVisible, setModalVisible] = useState(false);
+  const [pairRequestModalVisible, setPairRequestModalVisible] = useState(false);
+  const [playerActionModalVisible, setPlayerActionModalVisible] = useState(false);
   const [selectedPlayer, setSelectedPlayer] = useState<Player | null>(null);
 
   const fetchSeasonData = useCallback(async () => {
@@ -94,8 +101,12 @@ export default function FindPartnerScreen() {
         method: 'GET',
       });
 
+      console.log('FindPartner: Season data response:', response);
+
       if (response && (response as any).data) {
-        setSeasonData((response as any).data);
+        const seasonData = (response as any).data;
+        console.log('FindPartner: Season categories:', seasonData.categories);
+        setSeasonData(seasonData);
       }
     } catch (error) {
       console.error('Error fetching season data:', error);
@@ -211,31 +222,17 @@ export default function FindPartnerScreen() {
 
   const handlePlayerPress = (player: Player) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setSelectedPlayer(player);
+    setPlayerActionModalVisible(true);
+  };
 
-    Alert.alert(
-      player.name,
-      'Choose an action',
-      [
-        {
-          text: 'Cancel',
-          style: 'cancel',
-        },
-        {
-          text: 'View Profile',
-          onPress: () => {
-            router.push(`/player-profile/${player.id}?seasonId=${seasonId}&seasonName=${encodeURIComponent(seasonData?.name || '')}`);
-          },
-        },
-        {
-          text: 'Send Pair Request',
-          onPress: () => {
-            setSelectedPlayer(player);
-            setModalVisible(true);
-          },
-        },
-      ],
-      { cancelable: true }
-    );
+  const handleViewProfile = () => {
+    if (!selectedPlayer) return;
+    router.push(`/player-profile/${selectedPlayer.id}?seasonId=${seasonId}&seasonName=${encodeURIComponent(seasonData?.name || '')}`);
+  };
+
+  const handleOpenPairRequestModal = () => {
+    setPairRequestModalVisible(true);
   };
 
   const handleSendRequest = async (message: string) => {
@@ -280,15 +277,41 @@ export default function FindPartnerScreen() {
     router.back();
   };
 
+  // Get gender restriction from season's category
+  const categoryGender = seasonData?.categories?.[0]?.gender_category ||
+                         seasonData?.categories?.[0]?.genderRestriction;
+
+  console.log('FindPartner: Category gender restriction:', categoryGender);
+
+  // Filter players by gender based on category
+  const filterByGender = (playerList: Player[]) => {
+    if (!categoryGender || categoryGender === 'MIXED' || categoryGender === 'OPEN') {
+      console.log('FindPartner: No gender filtering (MIXED/OPEN category)');
+      return playerList;
+    }
+
+    const filtered = playerList.filter(player => {
+      const playerGender = player.gender?.toUpperCase();
+      const matches = playerGender === categoryGender;
+      console.log(`FindPartner: Player ${player.name} (${playerGender}) - ${matches ? 'SHOW' : 'HIDE'} (category: ${categoryGender})`);
+      return matches;
+    });
+
+    console.log(`FindPartner: Filtered ${playerList.length} players to ${filtered.length} matching ${categoryGender}`);
+    return filtered;
+  };
+
   const displayedPlayers = activeTab === 'search'
-    ? players
-    : favorites
-        .filter(fav => fav.favorited) // Filter out any favorites with undefined favorited
-        .map(fav => ({
-          ...fav.favorited,
-          sports: fav.favorited.sports || [],
-          skillRatings: fav.favorited.skillRatings || {},
-        } as Player));
+    ? filterByGender(players)
+    : filterByGender(
+        favorites
+          .filter(fav => fav.favorited) // Filter out any favorites with undefined favorited
+          .map(fav => ({
+            ...fav.favorited,
+            sports: fav.favorited.sports || [],
+            skillRatings: fav.favorited.skillRatings || {},
+          } as Player))
+      );
 
   return (
     <SafeAreaView style={styles.container}>
@@ -426,10 +449,21 @@ export default function FindPartnerScreen() {
         )}
       </ScrollView>
 
+      {/* Player Action Modal */}
+      <PlayerActionModal
+        visible={playerActionModalVisible}
+        onClose={() => setPlayerActionModalVisible(false)}
+        onViewProfile={handleViewProfile}
+        onSendRequest={handleOpenPairRequestModal}
+        playerName={selectedPlayer?.name || ''}
+        playerImage={selectedPlayer?.image}
+        playerBio={selectedPlayer?.bio}
+      />
+
       {/* Pair Request Modal */}
       <PairRequestModal
-        visible={modalVisible}
-        onClose={() => setModalVisible(false)}
+        visible={pairRequestModalVisible}
+        onClose={() => setPairRequestModalVisible(false)}
         onSend={handleSendRequest}
         recipientName={selectedPlayer?.name || ''}
         seasonName={seasonData?.name || ''}
