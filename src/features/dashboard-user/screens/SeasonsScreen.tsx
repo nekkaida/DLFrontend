@@ -1,7 +1,6 @@
 import CalendarIcon from '@/assets/icons/calendar-icon.svg';
 import ClockIcon from '@/assets/icons/clock-icon.svg';
 import DollarSignIcon from '@/assets/icons/dollarsign-icon.svg';
-import { PartnershipCard } from '@/features/pairing/components';
 import { useActivePartnership } from '@/features/pairing/hooks';
 import { useSession } from '@/lib/auth-client';
 import { NavBar } from '@/shared/components/layout';
@@ -11,7 +10,7 @@ import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import React, { useState } from 'react';
-import { ActivityIndicator, Alert, Dimensions, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Dimensions, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { toast } from 'sonner-native';
 import { PaymentOptionsBottomSheet } from '../components';
@@ -23,7 +22,9 @@ const { width, height } = Dimensions.get('window');
 
 interface SeasonsScreenProps {
   category?: string;
+  categoryId?: string;
   leagueName?: string;
+  leagueId?: string;
   sport?: 'pickleball' | 'tennis';
   seasonId?: string;
   currentUserId?: string;
@@ -31,9 +32,11 @@ interface SeasonsScreenProps {
 
 export default function SeasonsScreen({
   category = 'Men\'s Single',
+  categoryId,
   leagueName = 'PJ League',
+  leagueId,
   sport = 'pickleball',
-  seasonId = 'season_123', 
+  seasonId = 'season_123',
   currentUserId
 }: SeasonsScreenProps) {
   const insets = useSafeAreaInsets();
@@ -48,11 +51,6 @@ export default function SeasonsScreen({
   const isDoublesCategory = category.toLowerCase().includes('double');
   const { data: session } = useSession();
   const userId = session?.user.id
-  
-  const { partnership, loading: partnershipLoading, refresh: refreshPartnership } = useActivePartnership(
-    isDoublesCategory ? seasonId : null,
-    currentUserId
-  );
 
 
   
@@ -66,7 +64,14 @@ export default function SeasonsScreen({
   const fetchSeasons = async () => {
     try {
       setLoading(true);
-      const fetchedSeasons = await SeasonService.fetchAllSeasons();
+      console.log('SeasonsScreen: Fetching seasons for categoryId:', categoryId);
+
+      // If categoryId is provided, fetch filtered seasons; otherwise fetch all
+      const fetchedSeasons = categoryId
+        ? await SeasonService.fetchSeasonsByCategory(categoryId)
+        : await SeasonService.fetchAllSeasons();
+
+      console.log('SeasonsScreen: Fetched seasons count:', fetchedSeasons.length);
       setSeasons(fetchedSeasons);
     } catch (err) {
       setError('Failed to load seasons');
@@ -77,7 +82,7 @@ export default function SeasonsScreen({
   };
 
   fetchSeasons();
-}, []);
+}, [categoryId]);
 
 
   const handleRegisterPress = () => {
@@ -296,10 +301,49 @@ export default function SeasonsScreen({
     );
   }
 
-  return currentSeasons.map((season) => {
-    const isUserRegistered = season.memberships?.some(
-      (m: any) => m.userId === userId
-    );
+  return currentSeasons.map((season) => (
+    <SeasonCard
+      key={season.id}
+      season={season}
+      userId={userId}
+      isDoublesCategory={isDoublesCategory}
+      setSelectedSeason={setSelectedSeason}
+      setShowPaymentOptions={setShowPaymentOptions}
+      handleJoinWaitlistPress={handleJoinWaitlistPress}
+      handleViewStandingsPress={handleViewStandingsPress}
+    />
+  ));
+};
+
+// Separate component to properly use hooks
+interface SeasonCardProps {
+  season: Season;
+  userId: string | undefined;
+  isDoublesCategory: boolean;
+  setSelectedSeason: (season: Season | null) => void;
+  setShowPaymentOptions: (show: boolean) => void;
+  handleJoinWaitlistPress: () => void;
+  handleViewStandingsPress: (season: Season) => void;
+}
+
+const SeasonCard: React.FC<SeasonCardProps> = ({
+  season,
+  userId,
+  isDoublesCategory,
+  setSelectedSeason,
+  setShowPaymentOptions,
+  handleJoinWaitlistPress,
+  handleViewStandingsPress,
+}) => {
+  const isUserRegistered = season.memberships?.some(
+    (m: any) => m.userId === userId
+  );
+
+  // Check partnership for this specific season
+  const { partnership } = useActivePartnership(
+    isDoublesCategory ? season.id : null,
+    userId
+  );
 
   function handleViewDivisionPress(season: Season) {
   Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -384,8 +428,15 @@ export default function SeasonsScreen({
             if (isUserRegistered) {
               handleViewDivisionPress(season);
             } else if (season.status === "ACTIVE") {
-              setSelectedSeason(season);
-              setShowPaymentOptions(true);
+              // Check if this is doubles category and user doesn't have a partnership yet
+              if (isDoublesCategory && !partnership) {
+                // Navigate to Find Partner screen
+                router.push(`/pairing/find-partner/${season.id}`);
+              } else {
+                // Either has partnership (doubles) or is singles - show payment
+                setSelectedSeason(season);
+                setShowPaymentOptions(true);
+              }
             } else if (season.status === "UPCOMING") {
               handleJoinWaitlistPress();
             } else if (season.status === "FINISHED") {
@@ -397,12 +448,15 @@ export default function SeasonsScreen({
           <Text style={styles.registerButtonText}>
             {isUserRegistered
               ? "View"
+              : isDoublesCategory && !partnership
+              ? "Find Partner"
+              : isDoublesCategory && partnership
+              ? "Pay"
               : SeasonService.getButtonText(season.status)}
           </Text>
         </TouchableOpacity>
       </View>
     );
-  });
 };
 
 
@@ -448,16 +502,6 @@ export default function SeasonsScreen({
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
         >
-          {/* Partnership Status - Show only for doubles categories */}
-          {isDoublesCategory && partnership && currentUserId && (
-            <PartnershipCard
-              partnership={partnership}
-              currentUserId={currentUserId}
-              onDissolve={refreshPartnership}
-              showActions={true}
-            />
-          )}
-
           {/* Dynamic Season Card */}
           {renderSeasonCard()}
 
