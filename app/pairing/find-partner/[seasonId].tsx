@@ -282,11 +282,13 @@ export default function FindPartnerScreen() {
 
   const displayedPlayers = activeTab === 'search'
     ? players
-    : favorites.map(fav => ({
-        ...fav.favorited,
-        sports: fav.favorited.sports || [],
-        skillRatings: fav.favorited.skillRatings || {},
-      } as Player));
+    : favorites
+        .filter(fav => fav.favorited) // Filter out any favorites with undefined favorited
+        .map(fav => ({
+          ...fav.favorited,
+          sports: fav.favorited.sports || [],
+          skillRatings: fav.favorited.skillRatings || {},
+        } as Player));
 
   return (
     <SafeAreaView style={styles.container}>

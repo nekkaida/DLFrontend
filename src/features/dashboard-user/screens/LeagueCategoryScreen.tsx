@@ -7,6 +7,8 @@ import { NavBar } from '@/shared/components/layout';
 import { SportDropdownHeader } from '@/shared/components/ui/SportDropdownHeader';
 import * as Haptics from 'expo-haptics';
 import { CategoryService, Category } from '@/src/features/dashboard-user/services/CategoryService';
+import { useSession } from '@/lib/auth-client';
+import { questionnaireAPI } from '@/src/features/onboarding/services/api';
 
 const { width, height } = Dimensions.get('window');
 
@@ -19,31 +21,51 @@ interface LeagueCategoryScreenProps {
   gameType?: 'SINGLES' | 'DOUBLES';
 }
 
-export default function LeagueCategoryScreen({ 
+export default function LeagueCategoryScreen({
   leagueId,
-  leagueName = 'Subang League', 
-  playerCount = 28, 
+  leagueName = 'Subang League',
+  playerCount = 28,
   season = 'S1',
   sport = 'pickleball',
   gameType = 'SINGLES'
 }: LeagueCategoryScreenProps) {
   const insets = useSafeAreaInsets();
+  const { data: session } = useSession();
   const [activeTab, setActiveTab] = React.useState(2);
   const [categories, setCategories] = React.useState<Category[]>([]);
   const [isLoading, setIsLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
+  const [userGender, setUserGender] = React.useState<string | null>(null);
+
+  // Fetch user profile to get gender
+  React.useEffect(() => {
+    const fetchUserGender = async () => {
+      if (!session?.user?.id) return;
+
+      try {
+        const { user } = await questionnaireAPI.getUserProfile(session.user.id);
+        setUserGender(user.gender?.toUpperCase() || null);
+        console.log('Fetched user gender from profile:', user.gender);
+      } catch (error) {
+        console.error('Error fetching user profile:', error);
+      }
+    };
+
+    fetchUserGender();
+  }, [session?.user?.id]);
 
   React.useEffect(() => {
     console.log('LeagueCategoryScreen loaded successfully!');
     console.log('League:', leagueName, 'Players:', playerCount, 'Season:', season, 'Sport:', sport, 'GameType:', gameType);
-    
+    console.log('User gender from profile:', userGender);
+
     // Fetch categories if leagueId is provided
     if (leagueId) {
       fetchCategories();
     } else {
       setIsLoading(false);
     }
-  }, [leagueId, leagueName, playerCount, season, sport, gameType]);
+  }, [leagueId, leagueName, playerCount, season, sport, gameType, userGender]);
 
   const fetchCategories = async () => {
     if (!leagueId) return;
@@ -52,15 +74,48 @@ export default function LeagueCategoryScreen({
       setIsLoading(true);
       setError(null);
       console.log('Fetching categories for league:', leagueId);
-      
+      console.log('User gender:', userGender);
+
       const fetchedCategories = await CategoryService.fetchLeagueCategories(leagueId);
       console.log('Fetched categories:', fetchedCategories);
-      
-      // Show all active categories
-      const activeCategories = CategoryService.filterCategoriesByGameType(fetchedCategories, gameType);
-      console.log('Active categories:', activeCategories);
-      
-      setCategories(activeCategories);
+
+      // Filter by game type first
+      const gameTypeFiltered = CategoryService.filterCategoriesByGameType(fetchedCategories, gameType);
+      console.log('Game type filtered:', gameTypeFiltered);
+
+      // Filter by user gender - show only categories user can join
+      const genderFiltered = gameTypeFiltered.filter(category => {
+        const genderCategory = category.gender_category?.toUpperCase();
+        const genderRestriction = category.genderRestriction?.toUpperCase();
+
+        // Use either gender_category or genderRestriction field
+        const categoryGender = genderCategory || genderRestriction;
+
+        console.log(`\n--- Filtering Category: ${category.name} ---`);
+        console.log(`  gender_category: ${category.gender_category}`);
+        console.log(`  genderRestriction: ${category.genderRestriction}`);
+        console.log(`  Resolved categoryGender: ${categoryGender}`);
+        console.log(`  User gender: ${userGender}`);
+
+        // Show if category is MIXED (open to all)
+        if (categoryGender === 'MIXED' || categoryGender === 'OPEN') {
+          console.log(`  ✅ SHOW (MIXED/OPEN)`);
+          return true;
+        }
+
+        // Show if category matches user's gender
+        if (userGender && categoryGender === userGender) {
+          console.log(`  ✅ SHOW (Gender match: ${categoryGender} === ${userGender})`);
+          return true;
+        }
+
+        // Hide if no match
+        console.log(`  ❌ HIDE (No match: ${categoryGender} !== ${userGender})`);
+        return false;
+      });
+
+      console.log('Gender filtered categories:', genderFiltered);
+      setCategories(genderFiltered);
     } catch (err) {
       console.error('Error fetching categories:', err);
       setError('Failed to load categories');
