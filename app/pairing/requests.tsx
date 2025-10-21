@@ -129,6 +129,9 @@ export default function PairRequestsScreen() {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       setActionLoading(requestId);
 
+      // Find the request being accepted to get season info
+      const acceptedRequest = requests.received.find(r => r.id === requestId);
+
       const backendUrl = getBackendBaseURL();
       const response = await authClient.$fetch(
         `${backendUrl}/api/pairing/request/${requestId}/accept`,
@@ -140,10 +143,22 @@ export default function PairRequestsScreen() {
       const responseData = (response as any).data || response;
       if (responseData && responseData.success) {
         toast.success('Success', {
-          description: 'Pair request accepted! Waiting for payment...',
+          description: 'Partnership created! Ready to pay.',
         });
-        // Refresh the list
-        await fetchRequests(false);
+
+        // Navigate back to seasons screen so user can proceed to payment
+        if (acceptedRequest?.seasonId) {
+          router.push({
+            pathname: '/user-dashboard/seasons',
+            params: {
+              seasonId: acceptedRequest.seasonId,
+              // Pass additional params if available from season data
+            }
+          });
+        } else {
+          // Fallback: just refresh the list
+          await fetchRequests(false);
+        }
       } else {
         toast.error('Error', {
           description: responseData.message || 'Failed to accept request',
