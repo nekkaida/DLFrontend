@@ -147,7 +147,7 @@ export default function SeasonsScreen({
    
     } else {
       console.warn('Registration failed for Pay Later:', season.id);
-      toast.error('Registration failed. Please try again.');
+      // toast.error('Registration failed. Please try again.');
     }
   } catch (err) {
     console.error('Error registering for Pay Later:', err);
@@ -303,14 +303,8 @@ export default function SeasonsScreen({
 
   function handleViewDivisionPress(season: Season) {
   Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-  console.log('Navigating to division view for season:', season.id);
-  router.push({
-    pathname: '/user-dashboard/divisions',
-    params: { 
-      seasonName: season.name,
-      seasonId: season.id
-    }
-  });
+  console.log('View button pressed for season:', season.id);
+  toast.info('Division Chat coming soon!');
 }
 
     return (
