@@ -58,6 +58,99 @@ const generateCurvePath = (width: number): string => {
   return `M0,${HEIGHT} L0,${START_Y} Q${safeWidth/2},${DEPTH} ${safeWidth},${START_Y} L${safeWidth},${START_Y} L${safeWidth},${HEIGHT} Z`;
 };
 
+// Match Details Box Component
+const MatchDetailsBox: React.FC<{ match: any; profileData: any }> = ({ match, profileData }) => {
+  if (!match) {
+    return (
+      <View style={styles.matchDetailsBox}>
+        <View style={styles.emptyMatchDetails}>
+          <Text style={styles.emptyMatchDetailsText}>Click a point on the graph to view match details</Text>
+        </View>
+      </View>
+    );
+  }
+
+
+  return (
+    <View style={styles.matchDetailsBox}>
+      <View style={styles.matchDetailsContent}>
+        {/* Top Row: Date (left) and Rating Change (right) */}
+        <View style={styles.matchTopRow}>
+          <Text style={styles.matchDateText}>{match.date}</Text>
+          <View style={styles.matchRatingChangeContainer}>
+            <Text style={[styles.matchRatingChangeText, { color: match.ratingChange > 0 ? '#34C759' : '#FF3B30' }]}>
+              {match.ratingChange > 0 ? '+' : ''}{match.ratingChange} pts
+            </Text>
+            {match.ratingChange > 0 && (
+              <Text style={styles.matchRatingChangeArrow}>↗</Text>
+            )}
+          </View>
+        </View>
+        
+        {/* Players and Sets */}
+        <View style={styles.matchPlayersContainer}>
+          {/* Player Names Column with Profile Icons */}
+          <View style={styles.matchPlayerColumn}>
+            <View style={styles.matchPlayerRow}>
+              {profileData?.image ? (
+                <Image
+                  source={{ uri: profileData.image }}
+                  style={styles.matchProfileImage}
+                  onError={() => console.log('Profile image failed to load')}
+                />
+              ) : (
+                <View style={styles.matchDefaultProfileIcon}>
+                  <Text style={styles.matchProfileIconText}>{match.player1?.charAt(0) || 'Y'}</Text>
+                </View>
+              )}
+              <Text style={styles.matchPlayerName}>{match.player1 || 'You'}</Text>
+            </View>
+            <View style={styles.matchPlayerRow}>
+              <View style={styles.matchDefaultProfileIcon}>
+                <Text style={styles.matchProfileIconText}>{match.player2?.charAt(0) || 'O'}</Text>
+              </View>
+              <Text style={styles.matchPlayerName}>{match.player2 || 'Opponent'}</Text>
+            </View>
+          </View>
+          
+          {/* Set 1 */}
+          <View style={styles.matchSetColumn}>
+            <Text style={styles.matchSetHeader}>Set 1</Text>
+            <Text style={styles.matchScore}>
+              {match.scores?.set1?.player1 !== null ? match.scores.set1.player1 : '-'}
+            </Text>
+            <Text style={styles.matchScore}>
+              {match.scores?.set1?.player2 !== null ? match.scores.set1.player2 : '-'}
+            </Text>
+          </View>
+          
+          {/* Set 2 */}
+          <View style={styles.matchSetColumn}>
+            <Text style={styles.matchSetHeader}>Set 2</Text>
+            <Text style={styles.matchScore}>
+              {match.scores?.set2?.player1 !== null ? match.scores.set2.player1 : '-'}
+            </Text>
+            <Text style={styles.matchScore}>
+              {match.scores?.set2?.player2 !== null ? match.scores.set2.player2 : '-'}
+            </Text>
+          </View>
+          
+          {/* Set 3 */}
+          <View style={styles.matchSetColumn}>
+            <Text style={styles.matchSetHeader}>Set 3</Text>
+            <Text style={styles.matchScore}>
+              {match.scores?.set3?.player1 !== null ? match.scores.set3.player1 : '-'}
+            </Text>
+            <Text style={styles.matchScore}>
+              {match.scores?.set3?.player2 !== null ? match.scores.set3.player2 : '-'}
+            </Text>
+          </View>
+        </View>
+      </View>
+    </View>
+  );
+};
+
 // ELO Progress Graph Component
 
 // Custom Edit Icon SVG Component
@@ -74,6 +167,7 @@ export default function ProfileAdaptedScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [showCropper, setShowCropper] = useState(false);
   const [selectedImageUri, setSelectedImageUri] = useState<string | null>(null);
+  const [selectedMatch, setSelectedMatch] = useState<any>(null);
   
   const {
     activeTab,
@@ -92,7 +186,7 @@ export default function ProfileAdaptedScreen() {
     handleGameTypeSelect,
     handleLeagueSelect,
     handleTabPress,
-    handleGamePointPress,
+    handleGamePointPress: originalHandleGamePointPress,
     handleModalClose,
     handleMatchHistoryPress,
   } = useProfileHandlers({
@@ -101,6 +195,12 @@ export default function ProfileAdaptedScreen() {
     setSelectedGame,
     setModalVisible,
   });
+
+  // Enhanced game point press handler to also set selected match
+  const handleGamePointPress = (game: any) => {
+    originalHandleGamePointPress(game);
+    setSelectedMatch(game);
+  };
   
   // API functions to fetch real data from backend
   const fetchAchievements = async () => {
@@ -629,7 +729,7 @@ export default function ProfileAdaptedScreen() {
         set2: { player1: null, player2: null }, 
         set3: { player1: null, player2: null } 
       },
-      status: 'pending'
+      status: 'upcoming' as const
     }];
   };
   
@@ -697,11 +797,30 @@ export default function ProfileAdaptedScreen() {
           />
 
           {/* Sports */}
-          <ProfileSportsSection
-            sports={userData.sports || []}
-            activeTab={activeTab}
-            onTabPress={handleTabPress}
-          />
+          <View style={styles.section}>
+            <View style={styles.sportsHeader}>
+              <Text style={styles.sectionTitle}>Sports</Text>
+              <View style={styles.tabs}>
+                {userData.sports?.map((sport) => (
+                  <Pressable
+                    key={sport}
+                    style={[
+                      styles.tab,
+                      activeTab === sport && styles.tabActive
+                    ]}
+                    onPress={() => handleTabPress(sport)}
+                  >
+                    <Text style={[
+                      styles.tabText,
+                      activeTab === sport && styles.tabTextActive
+                    ]}>
+                      {sport}
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
+            </View>
+          </View>
 
           {/* Skill Level */}
           <ProfileSkillLevelCard
@@ -709,15 +828,53 @@ export default function ProfileAdaptedScreen() {
           />
 
           {/* DMR */}
-          <ProfileDMRCard
-            activeTab={activeTab}
-            selectedGameType={selectedGameType}
-            gameTypeOptions={gameTypeOptions}
-            onGameTypeSelect={handleGameTypeSelect}
-            getRatingForType={getRatingForType}
-            eloData={mockEloData}
-            onPointPress={handleGamePointPress}
-          />
+          <View style={styles.skillLevelSection}>
+            <View style={styles.dmrContainer}>
+              {/* DMR Label and Ratings */}
+              <View style={styles.dmrHeader}>
+                <Text style={styles.skillLabel}>DMR - {activeTab}</Text>
+                <View style={styles.dmrRatingsRow}>
+                  <View style={styles.dmrItemVertical}>
+                    <Text style={styles.dmrTypeLabel}>Singles</Text>
+                    <View style={styles.ratingCircleSmall}>
+                      <Text style={styles.ratingTextSmall}>
+                        {getRatingForType(activeTab || 'pickleball', 'singles') || 'N/A'}
+                      </Text>
+                    </View>
+                  </View>
+                  <View style={styles.dmrItemVertical}>
+                    <Text style={styles.dmrTypeLabel}>Doubles</Text>
+                    <View style={styles.ratingCircleSmall}>
+                      <Text style={styles.ratingTextSmall}>
+                        {getRatingForType(activeTab || 'pickleball', 'doubles') || 'N/A'}
+                      </Text>
+                    </View>
+                  </View>
+                </View>
+              </View>
+              
+              {/* Dropdown above graph */}
+              <View style={styles.dropdownSection}>
+                <InlineDropdown
+                  options={gameTypeOptions}
+                  selectedValue={selectedGameType}
+                  onSelect={(value) => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    handleGameTypeSelect(value);
+                  }}
+                />
+              </View>
+              
+              {/* Match Details Box */}
+              <MatchDetailsBox match={selectedMatch} profileData={profileData} />
+              
+              {/* ELO Progress Graph */}
+              <EloProgressGraph 
+                data={mockEloData} 
+                onPointPress={handleGamePointPress}
+              />
+            </View>
+          </View>
 
           <MatchHistoryButton
             onPress={() => {
@@ -738,12 +895,12 @@ export default function ProfileAdaptedScreen() {
       </ScrollView>
       
       {/* Match Details Modal */}
-      {modalVisible && selectedGame && (
+      {/* {modalVisible && selectedGame && (
         <MatchDetailsModal
           match={selectedGame}
           onClose={handleModalClose}
         />
-      )}
+      )} */}
 
       {/* Circular Image Cropper Modal */}
       {selectedImageUri && (
@@ -943,7 +1100,7 @@ const styles = StyleSheet.create({
   },
   name: {
     fontSize: 20,
-    fontWeight: '700' as any,
+    fontWeight: '700' as const,
     color: '#1a1a1a',
     fontFamily: theme.typography.fontFamily.primary,
     letterSpacing: -0.3,
@@ -953,7 +1110,7 @@ const styles = StyleSheet.create({
     marginBottom: theme.spacing.sm,
     fontSize: 14,
     fontFamily: theme.typography.fontFamily.primary,
-    fontWeight: '500' as any,
+    fontWeight: '500' as const,
   },
   bio: {
     color: '#9ca3af',
@@ -987,7 +1144,7 @@ const styles = StyleSheet.create({
   },
   sportsLabel: {
     fontSize: 11,
-    fontWeight: '600' as any,
+    fontWeight: '600' as const,
     color: theme.colors.neutral.gray[500],
     marginBottom: theme.spacing.xs,
     fontFamily: theme.typography.fontFamily.primary,
@@ -1010,14 +1167,14 @@ const styles = StyleSheet.create({
     color: theme.colors.neutral.white,
     fontSize: 10,
     fontFamily: theme.typography.fontFamily.primary,
-    fontWeight: '600' as any,
+    fontWeight: '600' as const,
     opacity: 0.95,
   },
   moreSportsText: {
     color: theme.colors.neutral.gray[500],
     fontSize: 10,
     fontFamily: theme.typography.fontFamily.primary,
-    fontWeight: '500' as any,
+    fontWeight: '500' as const,
     marginLeft: theme.spacing.xs,
     alignSelf: 'center',
   },
@@ -1027,7 +1184,7 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontSize: 18,
-    fontWeight: '700' as any,
+    fontWeight: '700' as const,
     color: '#111827',
     marginBottom: theme.spacing.md,
     fontFamily: theme.typography.fontFamily.primary,
@@ -1120,11 +1277,11 @@ const styles = StyleSheet.create({
     color: '#9ca3af',
     fontSize: 14,
     fontFamily: theme.typography.fontFamily.primary,
-    fontWeight: '500' as any,
+    fontWeight: '500' as const,
   },
   tabTextActive: {
     color: theme.colors.primary,
-    fontWeight: '600' as any,
+    fontWeight: '600' as const,
   },
   skillContainer: {
     backgroundColor: '#ffffff',
@@ -1236,11 +1393,8 @@ const styles = StyleSheet.create({
   ratingTextSmall: {
     color: '#111827',
     fontSize: 14,
-    fontWeight: '700' as any,
+    fontWeight: '700' as const,
     fontFamily: theme.typography.fontFamily.primary,
-  },
-  dropdownSection: {
-    marginBottom: theme.spacing.md,
   },
   ratingCircle: {
     width: 80,
@@ -1253,16 +1407,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   ratingText: {
-    color: theme.colors.neutral.gray[900],
+    color: theme.colors.neutral.gray[700],
     fontSize: theme.typography.fontSize.base,
-    fontWeight: 'bold' as any,
+    fontWeight: 'bold' as const,
     fontFamily: theme.typography.fontFamily.primary,
   },
   skillLabel: {
     color: '#111827',
     fontSize: 16,
     fontFamily: theme.typography.fontFamily.primary,
-    fontWeight: '600' as any,
+    fontWeight: '600' as const,
   },
   dmrLabel: {
     textAlign: 'center',
@@ -1272,7 +1426,7 @@ const styles = StyleSheet.create({
     color: '#6b7280',
     fontSize: 14,
     fontFamily: theme.typography.fontFamily.primary,
-    fontWeight: '500' as any,
+    fontWeight: '500' as const,
   },
   statsSection: {
     marginTop: theme.spacing.xl,
@@ -1292,7 +1446,7 @@ const styles = StyleSheet.create({
   statNumber: {
     fontSize: theme.typography.fontSize.xl,
     fontWeight: theme.typography.fontWeight.bold as any,
-    color: theme.colors.neutral.gray[900],
+    color: theme.colors.neutral.gray[700],
     fontFamily: theme.typography.fontFamily.primary,
   },
   statLabel: {
@@ -1318,7 +1472,7 @@ const styles = StyleSheet.create({
   },
   matchHistoryText: {
     fontSize: theme.typography.fontSize.xl,
-    fontWeight: '500' as any,
+    fontWeight: '500' as const,
     color: theme.colors.neutral.gray[600],
     fontFamily: theme.typography.fontFamily.primary,
     marginLeft: theme.spacing.sm,
@@ -1384,7 +1538,7 @@ const styles = StyleSheet.create({
   modalTitle: {
     fontSize: theme.typography.fontSize.lg,
     fontWeight: theme.typography.fontWeight.bold as any,
-    color: theme.colors.neutral.gray[900],
+    color: theme.colors.neutral.gray[700],
     fontFamily: theme.typography.fontFamily.primary,
   },
   modalCloseButton: {
@@ -1628,5 +1782,128 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderWidth: 4,
     borderColor: theme.colors.neutral.white,
+  },
+  // Match Details Box Styles
+  matchDetailsBox: {
+    backgroundColor: '#ffffff',
+    borderRadius: 12,
+    marginTop: theme.spacing.sm,
+    marginBottom: theme.spacing.sm,
+    borderWidth: 1,
+    borderColor: '#f1f5f9',
+    shadowColor: theme.colors.neutral.black,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.03,
+    shadowRadius: 4,
+    elevation: 1,
+  },
+  matchDetailsContent: {
+    padding: theme.spacing.md,
+  },
+  emptyMatchDetails: {
+    padding: theme.spacing.lg,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  emptyMatchDetailsText: {
+    fontSize: theme.typography.fontSize.sm,
+    color: theme.colors.neutral.gray[500],
+    fontFamily: theme.typography.fontFamily.primary,
+    textAlign: 'center',
+    fontStyle: 'italic',
+  },
+  matchTopRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: theme.spacing.sm,
+  },
+  matchDateText: {
+    fontSize: theme.typography.fontSize.sm,
+    color: theme.colors.neutral.gray[600],
+    fontFamily: theme.typography.fontFamily.primary,
+    fontWeight: theme.typography.fontWeight.medium,
+  },
+  matchRatingChangeContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  matchRatingChangeText: {
+    fontSize: theme.typography.fontSize.sm,
+    fontWeight: theme.typography.fontWeight.semibold,
+    fontFamily: theme.typography.fontFamily.primary,
+  },
+  matchRatingChangeArrow: {
+    fontSize: 12,
+    color: '#34C759',
+    fontWeight: theme.typography.fontWeight.bold,
+  },
+  matchPlayersContainer: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: theme.spacing.sm,
+  },
+  matchPlayerColumn: {
+    flex: 1,
+    gap: theme.spacing.sm,
+  },
+  matchPlayerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.spacing.sm,
+    paddingVertical: theme.spacing.xs,
+  },
+  matchProfileImage: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+  },
+  matchDefaultProfileIcon: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: theme.colors.neutral.gray[300],
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  matchProfileIconText: {
+    fontSize: 12,
+    fontWeight: '600' as const,
+    color: theme.colors.neutral.white,
+    fontFamily: theme.typography.fontFamily.primary,
+  },
+  matchPlayerName: {
+    fontSize: 14,
+    fontWeight: '500' as const,
+    color: theme.colors.neutral.gray[700],
+    fontFamily: theme.typography.fontFamily.primary,
+  },
+  matchSetColumn: {
+    alignItems: 'center',
+    gap: theme.spacing.xs,
+    minWidth: 50,
+  },
+  matchSetHeader: {
+    fontSize: 11,
+    fontWeight: '500' as const,
+    color: theme.colors.neutral.gray[600],
+    fontFamily: theme.typography.fontFamily.primary,
+    marginBottom: theme.spacing.xs,
+    textTransform: 'uppercase',
+  },
+  matchScore: {
+    fontSize: 16,
+    fontWeight: '600' as const,
+    color: theme.colors.neutral.gray[700],
+    fontFamily: theme.typography.fontFamily.primary,
+    textAlign: 'center',
+    minHeight: 20,
+    paddingVertical: theme.spacing.xs,
+    backgroundColor: theme.colors.neutral.white,
+    borderRadius: 6,
+    minWidth: 36,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
   },
 });
