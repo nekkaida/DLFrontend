@@ -8,6 +8,7 @@ import { SportDropdownHeader } from '@/shared/components/ui/SportDropdownHeader'
 import * as Haptics from 'expo-haptics';
 import { CategoryService, Category } from '@/src/features/dashboard-user/services/CategoryService';
 import { useSession } from '@/lib/auth-client';
+import { questionnaireAPI } from '@/src/features/onboarding/services/api';
 
 const { width, height } = Dimensions.get('window');
 
@@ -34,18 +35,29 @@ export default function LeagueCategoryScreen({
   const [categories, setCategories] = React.useState<Category[]>([]);
   const [isLoading, setIsLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
+  const [userGender, setUserGender] = React.useState<string | null>(null);
 
-  // Get user gender from session
-  const userGender = session?.user?.gender?.toUpperCase(); // 'MALE' or 'FEMALE'
+  // Fetch user profile to get gender
+  React.useEffect(() => {
+    const fetchUserGender = async () => {
+      if (!session?.user?.id) return;
+
+      try {
+        const { user } = await questionnaireAPI.getUserProfile(session.user.id);
+        setUserGender(user.gender?.toUpperCase() || null);
+        console.log('Fetched user gender from profile:', user.gender);
+      } catch (error) {
+        console.error('Error fetching user profile:', error);
+      }
+    };
+
+    fetchUserGender();
+  }, [session?.user?.id]);
 
   React.useEffect(() => {
     console.log('LeagueCategoryScreen loaded successfully!');
     console.log('League:', leagueName, 'Players:', playerCount, 'Season:', season, 'Sport:', sport, 'GameType:', gameType);
-    console.log('=== SESSION DEBUG ===');
-    console.log('Full session object:', JSON.stringify(session, null, 2));
-    console.log('session?.user:', session?.user);
-    console.log('Available user keys:', session?.user ? Object.keys(session.user) : 'No user');
-    console.log('User gender:', userGender);
+    console.log('User gender from profile:', userGender);
 
     // Fetch categories if leagueId is provided
     if (leagueId) {
