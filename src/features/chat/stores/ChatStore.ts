@@ -6,9 +6,9 @@ interface ChatActions {
   setCurrentThread: (thread: Thread | null) => void;
   addMessage: (message: Message) => void;
   updateThread: (thread: Thread) => void;
-  loadThreads: () => Promise<void>;
+  loadThreads: (userId: string) => Promise<void>;
   loadMessages: (threadId: string) => Promise<void>;
-  sendMessage: (threadId: string, content: string) => void;
+  sendMessage: (threadId: string, senderId: string, content: string) => Promise<void>;
   setConnectionStatus: (connected: boolean) => void;
   setError: (error: string | null) => void;
   setLoading: (loading: boolean) => void;
@@ -50,16 +50,20 @@ export const useChatStore = create<ChatState & ChatActions>((set, get) => ({
     set({ threads: updatedThreads });
   },
   
-  loadThreads: async () => {
-    console.log('ChatStore: Loading threads...');
+  loadThreads: async (userId: string) => {
+    console.log('ChatStore: Loading threads for user:', userId);
     try {
       set({ isLoading: true, error: null });
-      const threads = await ChatService.getThreads();
+      const threads = await ChatService.getThreads(userId);
       console.log('ChatStore: Loaded threads:', threads.length);
       set({ threads, isLoading: false });
     } catch (error) {
       console.error('ChatStore: Error loading threads:', error);
-      set({ error: 'Failed to load threads', isLoading: false });
+      set({ 
+        error: 'Failed to load threads', 
+        isLoading: false,
+        threads: [] // Clear threads on error
+      });
     }
   },
   
@@ -83,8 +87,24 @@ export const useChatStore = create<ChatState & ChatActions>((set, get) => ({
     }
   },
   
-  sendMessage: (threadId, content) => {
-    console.log('ChatStore: Sending message:', { threadId, content });
+  sendMessage: async (threadId, senderId, content) => {
+    console.log('ChatStore: Sending message:', { threadId, senderId, content });
+    try {
+      const message = await ChatService.sendMessage(threadId, senderId, content);
+      
+      // Add the message to local state immediately
+      const { messages } = get();
+      const threadMessages = messages[threadId] || [];
+      set({
+        messages: {
+          ...messages,
+          [threadId]: [...threadMessages, message],
+        },
+      });
+    } catch (error) {
+      console.error('ChatStore: Error sending message:', error);
+      set({ error: 'Failed to send message' });
+    }
   },
   
   setConnectionStatus: (connected) => {

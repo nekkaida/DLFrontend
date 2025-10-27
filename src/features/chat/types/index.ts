@@ -3,6 +3,8 @@ export interface User {
   name: string;
   avatar?: string;
   isOnline?: boolean;
+  username?: string;
+  email?: string;
   lastSeen?: Date;
 }
 
@@ -11,18 +13,24 @@ export interface Message {
   threadId: string;
   senderId: string;
   content: string;
-  messageType: 'text' | 'image' | 'file' | 'system';
   timestamp: Date;
   isRead: boolean;
   isDelivered: boolean;
   replyTo?: string;
-  metadata?: Record<string, any>;
+  metadata?: {
+    isEdited?: boolean;
+    isDeleted?: boolean;
+    sender?: any;
+    readBy?: any[];
+    updatedAt?: string;
+    [key: string]: any;
+  };
 }
 
 export interface Thread {
   id: string;
   name?: string;
-  type: 'direct' | 'group' | 'league' | 'season';
+  type: 'direct' | 'group' | 'division';
   participants: User[];
   lastMessage?: Message;
   unreadCount: number;
@@ -30,9 +38,11 @@ export interface Thread {
   createdAt: Date;
   updatedAt: Date;
   metadata?: {
-    leagueId?: string;
-    seasonId?: string;
-    avatar?: string;
+    avatarUrl?: string;
+    divisionId?: string;
+    isGroup?: boolean;
+    messageCount?: number;
+    [key: string]: any;
   };
 }
 
@@ -43,9 +53,4 @@ export interface ChatState {
   isConnected: boolean;
   isLoading: boolean;
   error: string | null;
-}
-
-export interface SocketMessage {
-  type: 'message' | 'thread_update' | 'user_online' | 'user_offline' | 'typing' | 'read_receipt';
-  payload: any;
 }

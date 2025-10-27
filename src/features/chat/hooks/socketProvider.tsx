@@ -1,6 +1,6 @@
+import { SocketService } from '@/lib/socket-service';
 import React, { createContext, useContext, useEffect } from 'react';
-import { SocketService } from '../services/SocketService';
-import { useChatStore } from '../stores/useChatStore';
+import { useChatStore } from '../stores/ChatStore';
 
 interface ChatContextType {
   isConnected: boolean;

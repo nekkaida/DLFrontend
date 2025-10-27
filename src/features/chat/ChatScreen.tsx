@@ -2,7 +2,6 @@ import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { MessageInput } from './components/chat-input';
-import { ThreadList } from './components/chat-list';
 import { MessageWindow } from './components/chat-window';
 import { useChatStore } from './stores/ChatStore';
 import { Thread } from './types';
@@ -27,7 +26,7 @@ export const ChatScreen: React.FC = () => {
 
   useEffect(() => {
     console.log('ChatScreen: Component mounted, loading threads...');
-    loadThreads();
+    // loadThreads();
     setConnectionStatus(true);
   }, []);
 
@@ -65,9 +64,10 @@ export const ChatScreen: React.FC = () => {
   };
 
   const handleSendMessage = (content: string) => {
-    if (currentThread) {
-      sendMessage(currentThread.id, content);
-    }
+    // if (currentThread) {
+    //   sendMessage(currentThread.id, content);
+    // }
+    console.log("tests")
   };
 
   const handleBackToThreads = () => {
@@ -115,7 +115,7 @@ export const ChatScreen: React.FC = () => {
               onPress={handleBackToThreads}
               activeOpacity={0.7}
             >
-              <Ionicons name="arrow-back" size={24} color="#111827" />
+            <Ionicons name="arrow-back" size={24} color="#111827" />
             </TouchableOpacity>
             <View style={styles.chatHeaderContent}>
               <Text style={styles.chatHeaderTitle}>{currentThread.name}</Text>
@@ -153,10 +153,10 @@ export const ChatScreen: React.FC = () => {
               )}
             </View>
           </View>
-          <ThreadList 
+          {/* <ThreadList 
             threads={filteredThreads}
             onThreadSelect={handleThreadSelect} 
-          />
+          /> */}
         </View>
       )}
     </View>

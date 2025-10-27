@@ -19,7 +19,7 @@ export const MessageWindow: React.FC<MessageWindowProps> = ({
   const flatListRef = useRef<FlatList>(null);
 
   const user = session?.user;
-  
+
   useEffect(() => {
     if (messages.length > 0) {
       flatListRef.current?.scrollToIndex({ index: 0, animated: true });
