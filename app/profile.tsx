@@ -1,39 +1,32 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  Pressable,
-  Image,
-  Dimensions,
-  Platform,
-  Modal,
-  Alert,
-  ActivityIndicator,
-  RefreshControl,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { LinearGradient } from 'expo-linear-gradient';
-import Svg, { Path, Defs, LinearGradient as SvgLinearGradient, Stop, Line, Circle, Polyline, G, Text as SvgText } from 'react-native-svg';
-import { Ionicons } from '@expo/vector-icons';
-import { theme } from '@core/theme/theme';
-import { router, useFocusEffect } from 'expo-router';
 import { useNavigationManager } from '@core/navigation';
+import { theme } from '@core/theme/theme';
 import * as Haptics from 'expo-haptics';
-import * as ImagePicker from 'expo-image-picker';
 import { manipulateAsync, SaveFormat } from 'expo-image-manipulator';
-import { DropdownModal, InlineDropdown, WinRateCircle, MatchDetailsModal, EloProgressGraph, EditIcon, MatchHistoryButton, AchievementIcon, ProfileHeaderWithCurve, ProfilePictureSection, ProfileInfoCard, ProfileAchievementsCard, ProfileSportsSection, ProfileSkillLevelCard, ProfileDMRCard, ProfileLeagueStatsCard } from '../src/features/profile/components';
-import type { GameData, UserData } from '../src/features/profile/types';
+import * as ImagePicker from 'expo-image-picker';
+import { router, useFocusEffect } from 'expo-router';
+import React, { useCallback, useEffect, useState } from 'react';
+import {
+  Alert,
+  Dimensions,
+  Image,
+  Platform,
+  Pressable,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View
+} from 'react-native';
 import { CircularImageCropper } from '../src/features/onboarding/components';
+import { EloProgressGraph, InlineDropdown, MatchHistoryButton, ProfileAchievementsCard, ProfileHeaderWithCurve, ProfileInfoCard, ProfileLeagueStatsCard, ProfilePictureSection, ProfileSkillLevelCard } from '../src/features/profile/components';
 // import { mockEloData, userData, gameTypeOptions } from '../src/features/profile/data/mockData'; // Team lead's original mock data - commented for API implementation
-import { useProfileState } from '../src/features/profile/hooks/useProfileState';
-import { useProfileHandlers } from '../src/features/profile/hooks/useProfileHandlers';
-import { ProfileDataTransformer } from '../src/features/profile/services/ProfileDataTransformer';
-import { useSession, authClient } from '@/lib/auth-client';
 import { getBackendBaseURL } from '@/config/network';
+import { authClient, useSession } from '@/lib/auth-client';
 import * as SecureStore from 'expo-secure-store';
 import { toast } from 'sonner-native';
+import { useProfileHandlers } from '../src/features/profile/hooks/useProfileHandlers';
+import { useProfileState } from '../src/features/profile/hooks/useProfileState';
+import { ProfileDataTransformer } from '../src/features/profile/services/ProfileDataTransformer';
 
 const { width } = Dimensions.get('window');
 
@@ -242,7 +235,7 @@ export default function ProfileAdaptedScreen() {
         return;
       }
       
-      console.log('Current session:', session);
+    
       
       const backendUrl = getBackendBaseURL();
       console.log('Fetching profile data from:', `${backendUrl}/api/player/profile/me`);
@@ -628,6 +621,7 @@ export default function ProfileAdaptedScreen() {
     }, [loadData])
   );
 
+    console.log('Current session:', session?.user.id);
   // Refresh function for pull-to-refresh
   const onRefresh = useCallback(async () => {
     console.log('ProfileScreen: Refreshing profile data...');
