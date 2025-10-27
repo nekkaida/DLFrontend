@@ -1,17 +1,18 @@
-import React, { useEffect } from 'react';
-import { ScrollView, Text, View, StyleSheet, Dimensions, Platform, Image, TouchableOpacity, RefreshControl, StatusBar, BackHandler } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { LinearGradient } from 'expo-linear-gradient';
-import { router } from 'expo-router';
-import { useDashboard } from '../DashboardContext';
-import { NavBar } from '@/shared/components/layout';
-import { useSession, authClient } from '@/lib/auth-client';
-import { getBackendBaseURL } from '@/config/network';
-import * as Haptics from 'expo-haptics';
-import ConnectScreen from './ConnectScreen';
 import TennisIcon from '@/assets/images/033-TENNIS 1.svg';
 import PadelIcon from '@/assets/images/036-PADEL 1.svg';
 import PickleballIcon from '@/assets/images/045-PICKLEBALL.svg';
+import { getBackendBaseURL } from '@/config/network';
+import { authClient, useSession } from '@/lib/auth-client';
+import { NavBar } from '@/shared/components/layout';
+import * as Haptics from 'expo-haptics';
+import { LinearGradient } from 'expo-linear-gradient';
+import { router } from 'expo-router';
+import React, { useEffect } from 'react';
+import { BackHandler, Dimensions, Image, Platform, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { ChatScreen } from '../../chat/ChatScreen';
+import { useDashboard } from '../DashboardContext';
+import ConnectScreen from './ConnectScreen';
 
 
 const SPORT_CONFIG = {
@@ -276,8 +277,8 @@ export default function DashboardScreen() {
   }
 
   // later delete this
-  if (currentView === 'friendly' || currentView === 'myGames' || currentView === 'chat') {
-    const title = currentView === 'friendly' ? 'Friendly' : currentView === 'myGames' ? 'My Games' : 'Chat';
+  if (currentView === 'friendly' || currentView === 'myGames') {
+    const title = currentView === 'friendly' ? 'Friendly' : 'My Games';
     return (
       <View style={styles.container}>
         <LinearGradient
@@ -295,6 +296,27 @@ export default function DashboardScreen() {
             <Text style={{ fontSize: 18, fontWeight: '700', color: '#1A1C1E' }}>{title}</Text>
             <Text style={{ marginTop: 8, color: '#6B7280' }}>Content coming soon</Text>
           </View>
+        </View>
+        <NavBar activeTab={activeTab} onTabPress={handleTabPress} />
+      </View>
+    );
+  }
+
+  if (currentView === 'chat') {
+    return (
+      <View style={styles.container}>
+        <LinearGradient
+          colors={['#FDEDE0', '#FFFFFF']}
+          locations={[0, 1]}
+          style={styles.backgroundGradient}
+        />
+        <View style={[styles.contentContainer, { paddingTop: STATUS_BAR_HEIGHT }]}> 
+          <View style={styles.headerSection}>
+            <View style={styles.headerContainer}>
+              <Text style={styles.logoText}>DEUCE</Text>
+            </View>
+          </View>
+          <ChatScreen />
         </View>
         <NavBar activeTab={activeTab} onTabPress={handleTabPress} />
       </View>
