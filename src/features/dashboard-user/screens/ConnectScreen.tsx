@@ -16,7 +16,7 @@ import { getBackendBaseURL } from '@/config/network';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { toast } from 'sonner-native';
-import { PartnerChangeRequestModal } from '@/features/pairing/components';
+import { PartnerChangeRequestModal, GeneralPairRequestModal } from '@/features/pairing/components';
 
 interface ProfileData {
   image?: string;
@@ -112,6 +112,94 @@ interface Partnership {
   };
 }
 
+interface GeneralPairRequest {
+  id: string;
+  requesterId: string;
+  recipientId: string;
+  message: string | null;
+  status: 'PENDING' | 'ACCEPTED' | 'DENIED' | 'EXPIRED' | 'CANCELLED';
+  createdAt: string;
+  respondedAt: string | null;
+  expiresAt: string;
+  requester?: {
+    id: string;
+    name: string;
+    username: string;
+    displayUsername: string | null;
+    image: string | null;
+  };
+  recipient?: {
+    id: string;
+    name: string;
+    username: string;
+    displayUsername: string | null;
+    image: string | null;
+  };
+}
+
+interface GeneralPairRequestsData {
+  sent: GeneralPairRequest[];
+  received: GeneralPairRequest[];
+}
+
+interface SeasonInvitation {
+  id: string;
+  senderId: string;
+  recipientId: string;
+  generalPartnershipId: string;
+  seasonId: string;
+  message: string | null;
+  status: 'PENDING' | 'ACCEPTED' | 'DENIED' | 'EXPIRED' | 'CANCELLED';
+  createdAt: string;
+  respondedAt: string | null;
+  expiresAt: string;
+  sender?: {
+    id: string;
+    name: string;
+    username: string;
+    displayUsername: string | null;
+    image: string | null;
+  };
+  recipient?: {
+    id: string;
+    name: string;
+    username: string;
+    displayUsername: string | null;
+    image: string | null;
+  };
+  season: {
+    id: string;
+    name: string;
+  };
+}
+
+interface SeasonInvitationsData {
+  sent: SeasonInvitation[];
+  received: SeasonInvitation[];
+}
+
+interface GeneralPartnership {
+  id: string;
+  player1Id: string;
+  player2Id: string;
+  status: 'ACTIVE' | 'DISSOLVED';
+  createdAt: string;
+  player1: {
+    id: string;
+    name: string;
+    username: string;
+    displayUsername: string | null;
+    image: string | null;
+  };
+  player2: {
+    id: string;
+    name: string;
+    username: string;
+    displayUsername: string | null;
+    image: string | null;
+  };
+}
+
 interface ConnectScreenProps {
   onTabPress: (tabIndex: number) => void;
 }
@@ -141,11 +229,16 @@ export default function ConnectScreen({ onTabPress }: ConnectScreenProps) {
   const [favoritedPlayerIds, setFavoritedPlayerIds] = useState<string[]>([]);
   const [partnerships, setPartnerships] = useState<Partnership[]>([]);
   const [pairRequests, setPairRequests] = useState<PairRequestsData>({ sent: [], received: [] });
+  const [generalPairRequests, setGeneralPairRequests] = useState<GeneralPairRequestsData>({ sent: [], received: [] });
+  const [seasonInvitations, setSeasonInvitations] = useState<SeasonInvitationsData>({ sent: [], received: [] });
+  const [generalPartnerships, setGeneralPartnerships] = useState<GeneralPartnership[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [searchTimeout, setSearchTimeout] = useState<ReturnType<typeof setTimeout> | null>(null);
   const [partnerChangeModalVisible, setPartnerChangeModalVisible] = useState(false);
   const [selectedPartnership, setSelectedPartnership] = useState<Partnership | null>(null);
+  const [generalPairRequestModalVisible, setGeneralPairRequestModalVisible] = useState(false);
+  const [generalPairRequestRecipient, setGeneralPairRequestRecipient] = useState<{ id: string; name: string } | null>(null);
   // Use safe area insets for proper status bar handling across platforms
   const STATUS_BAR_HEIGHT = insets.top;
 
@@ -347,6 +440,69 @@ export default function ConnectScreen({ onTabPress }: ConnectScreenProps) {
     }
   }, [session?.user?.id]);
 
+  const fetchGeneralPairRequests = useCallback(async () => {
+    try {
+      if (!session?.user?.id) {
+        console.log('ConnectScreen: No session user ID available for general pair requests');
+        return;
+      }
+
+      const backendUrl = getBackendBaseURL();
+      const authResponse = await authClient.$fetch(`${backendUrl}/api/pairing/general/requests`, {
+        method: 'GET',
+      });
+
+      if (authResponse && (authResponse as any).data) {
+        const requestsData = (authResponse as any).data.data || (authResponse as any).data;
+        setGeneralPairRequests(requestsData);
+      }
+    } catch (error) {
+      console.error('ConnectScreen: Error fetching general pair requests:', error);
+    }
+  }, [session?.user?.id]);
+
+  const fetchSeasonInvitations = useCallback(async () => {
+    try {
+      if (!session?.user?.id) {
+        console.log('ConnectScreen: No session user ID available for season invitations');
+        return;
+      }
+
+      const backendUrl = getBackendBaseURL();
+      const authResponse = await authClient.$fetch(`${backendUrl}/api/pairing/season/invitations`, {
+        method: 'GET',
+      });
+
+      if (authResponse && (authResponse as any).data) {
+        const invitationsData = (authResponse as any).data.data || (authResponse as any).data;
+        setSeasonInvitations(invitationsData);
+      }
+    } catch (error) {
+      console.error('ConnectScreen: Error fetching season invitations:', error);
+    }
+  }, [session?.user?.id]);
+
+  const fetchGeneralPartnerships = useCallback(async () => {
+    try {
+      if (!session?.user?.id) {
+        console.log('ConnectScreen: No session user ID available for general partnerships');
+        return;
+      }
+
+      const backendUrl = getBackendBaseURL();
+      const authResponse = await authClient.$fetch(`${backendUrl}/api/pairing/general/partnerships`, {
+        method: 'GET',
+      });
+
+      if (authResponse && (authResponse as any).data) {
+        const partnershipsData = (authResponse as any).data.data || (authResponse as any).data;
+        setGeneralPartnerships(partnershipsData);
+      }
+    } catch (error) {
+      console.error('ConnectScreen: Error fetching general partnerships:', error);
+    }
+  }, [session?.user?.id]);
+
   const toggleFavorite = useCallback(async (playerId: string) => {
     try {
       if (!session?.user?.id) {
@@ -516,6 +672,250 @@ export default function ConnectScreen({ onTabPress }: ConnectScreenProps) {
     fetchPartnerships();
   }, [fetchPartnerships]);
 
+  // General Pair Request Handlers
+  const handleAcceptGeneralPairRequest = useCallback(async (requestId: string) => {
+    try {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      setActionLoading(requestId);
+
+      const backendUrl = getBackendBaseURL();
+      const response = await authClient.$fetch(
+        `${backendUrl}/api/pairing/general/request/${requestId}/accept`,
+        {
+          method: 'POST',
+        }
+      );
+
+      const responseData = (response as any).data || response;
+      if (responseData && responseData.message) {
+        toast.success('Success', {
+          description: 'General pair request accepted!',
+        });
+        await fetchGeneralPairRequests();
+        await fetchGeneralPartnerships();
+      }
+    } catch (error) {
+      console.error('Error accepting general pair request:', error);
+      toast.error('Error', {
+        description: 'Failed to accept request',
+      });
+    } finally {
+      setActionLoading(null);
+    }
+  }, [fetchGeneralPairRequests, fetchGeneralPartnerships]);
+
+  const handleDenyGeneralPairRequest = useCallback((requestId: string, requesterName: string) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+
+    Alert.alert(
+      'Deny General Pair Request',
+      `Are you sure you want to deny the pair request from ${requesterName}?`,
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+        {
+          text: 'Deny',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              setActionLoading(requestId);
+
+              const backendUrl = getBackendBaseURL();
+              const response = await authClient.$fetch(
+                `${backendUrl}/api/pairing/general/request/${requestId}/deny`,
+                {
+                  method: 'POST',
+                }
+              );
+
+              const responseData = (response as any).data || response;
+              if (responseData && responseData.message) {
+                toast.success('Request denied');
+                await fetchGeneralPairRequests();
+              }
+            } catch (error) {
+              console.error('Error denying general pair request:', error);
+              toast.error('Error', {
+                description: 'Failed to deny request',
+              });
+            } finally {
+              setActionLoading(null);
+            }
+          },
+        },
+      ]
+    );
+  }, [fetchGeneralPairRequests]);
+
+  const handleCancelGeneralPairRequest = useCallback((requestId: string, recipientName: string) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+
+    Alert.alert(
+      'Cancel Pair Request',
+      `Are you sure you want to cancel your request to ${recipientName}?`,
+      [
+        {
+          text: 'No',
+          style: 'cancel',
+        },
+        {
+          text: 'Yes, Cancel',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              setActionLoading(requestId);
+
+              const backendUrl = getBackendBaseURL();
+              const response = await authClient.$fetch(
+                `${backendUrl}/api/pairing/general/request/${requestId}`,
+                {
+                  method: 'DELETE',
+                }
+              );
+
+              const responseData = (response as any).data || response;
+              if (responseData && responseData.message) {
+                toast.success('Request cancelled');
+                await fetchGeneralPairRequests();
+              }
+            } catch (error) {
+              console.error('Error cancelling general pair request:', error);
+              toast.error('Error', {
+                description: 'Failed to cancel request',
+              });
+            } finally {
+              setActionLoading(null);
+            }
+          },
+        },
+      ]
+    );
+  }, [fetchGeneralPairRequests]);
+
+  // Season Invitation Handlers
+  const handleAcceptSeasonInvitation = useCallback(async (invitationId: string) => {
+    try {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      setActionLoading(invitationId);
+
+      const backendUrl = getBackendBaseURL();
+      const response = await authClient.$fetch(
+        `${backendUrl}/api/pairing/season/invitation/${invitationId}/accept`,
+        {
+          method: 'POST',
+        }
+      );
+
+      const responseData = (response as any).data || response;
+      if (responseData && responseData.message) {
+        toast.success('Success', {
+          description: 'Season invitation accepted!',
+        });
+        await fetchSeasonInvitations();
+        await fetchPartnerships();
+      }
+    } catch (error) {
+      console.error('Error accepting season invitation:', error);
+      toast.error('Error', {
+        description: 'Failed to accept invitation',
+      });
+    } finally {
+      setActionLoading(null);
+    }
+  }, [fetchSeasonInvitations, fetchPartnerships]);
+
+  const handleDenySeasonInvitation = useCallback((invitationId: string, senderName: string) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+
+    Alert.alert(
+      'Deny Season Invitation',
+      `Are you sure you want to deny the season invitation from ${senderName}?`,
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+        {
+          text: 'Deny',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              setActionLoading(invitationId);
+
+              const backendUrl = getBackendBaseURL();
+              const response = await authClient.$fetch(
+                `${backendUrl}/api/pairing/season/invitation/${invitationId}/deny`,
+                {
+                  method: 'POST',
+                }
+              );
+
+              const responseData = (response as any).data || response;
+              if (responseData && responseData.message) {
+                toast.success('Invitation denied');
+                await fetchSeasonInvitations();
+              }
+            } catch (error) {
+              console.error('Error denying season invitation:', error);
+              toast.error('Error', {
+                description: 'Failed to deny invitation',
+              });
+            } finally {
+              setActionLoading(null);
+            }
+          },
+        },
+      ]
+    );
+  }, [fetchSeasonInvitations]);
+
+  const handleCancelSeasonInvitation = useCallback((invitationId: string, recipientName: string) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+
+    Alert.alert(
+      'Cancel Season Invitation',
+      `Are you sure you want to cancel your invitation to ${recipientName}?`,
+      [
+        {
+          text: 'No',
+          style: 'cancel',
+        },
+        {
+          text: 'Yes, Cancel',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              setActionLoading(invitationId);
+
+              const backendUrl = getBackendBaseURL();
+              const response = await authClient.$fetch(
+                `${backendUrl}/api/pairing/season/invitation/${invitationId}`,
+                {
+                  method: 'DELETE',
+                }
+              );
+
+              const responseData = (response as any).data || response;
+              if (responseData && responseData.message) {
+                toast.success('Invitation cancelled');
+                await fetchSeasonInvitations();
+              }
+            } catch (error) {
+              console.error('Error cancelling season invitation:', error);
+              toast.error('Error', {
+                description: 'Failed to cancel invitation',
+              });
+            } finally {
+              setActionLoading(null);
+            }
+          },
+        },
+      ]
+    );
+  }, [fetchSeasonInvitations]);
+
   // Fetch profile data when component mounts
   useEffect(() => {
     if (session?.user?.id) {
@@ -530,8 +930,11 @@ export default function ConnectScreen({ onTabPress }: ConnectScreenProps) {
       fetchFavorites();
       fetchPairRequests();
       fetchPartnerships();
+      fetchGeneralPairRequests();
+      fetchSeasonInvitations();
+      fetchGeneralPartnerships();
     }
-  }, [session?.user?.id, fetchPlayers, fetchFavorites, fetchPairRequests, fetchPartnerships]);
+  }, [session?.user?.id, fetchPlayers, fetchFavorites, fetchPairRequests, fetchPartnerships, fetchGeneralPairRequests, fetchSeasonInvitations, fetchGeneralPartnerships]);
 
   // Handle search query changes with debounce
   useEffect(() => {
@@ -597,6 +1000,77 @@ export default function ConnectScreen({ onTabPress }: ConnectScreenProps) {
     closeModal();
     router.push(`/player-profile/${selectedPlayer?.id}` as any);
   }, [selectedPlayer, closeModal]);
+
+  const handleRequestToPair = useCallback(() => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+
+    // Save the selected player info before closing modal (which clears selectedPlayer)
+    if (selectedPlayer?.id && selectedPlayer?.name) {
+      setGeneralPairRequestRecipient({
+        id: selectedPlayer.id,
+        name: selectedPlayer.name
+      });
+    }
+
+    closeModal();
+    // Open modal after closing player modal
+    setTimeout(() => {
+      setGeneralPairRequestModalVisible(true);
+    }, 300);
+  }, [closeModal, selectedPlayer]);
+
+  const handleSendGeneralPairRequest = useCallback(async (message: string) => {
+    console.log('🔵 handleSendGeneralPairRequest called', {
+      message,
+      recipientId: generalPairRequestRecipient?.id,
+      userId: session?.user?.id
+    });
+
+    try {
+      if (!generalPairRequestRecipient?.id || !session?.user?.id) {
+        console.log('❌ Missing recipient or session user');
+        return;
+      }
+
+      const backendUrl = getBackendBaseURL();
+      console.log('🔵 Making API call to:', `${backendUrl}/api/pairing/general/request`);
+
+      const response = await authClient.$fetch(
+        `${backendUrl}/api/pairing/general/request`,
+        {
+          method: 'POST',
+          body: {
+            recipientId: generalPairRequestRecipient.id,
+            message: message || undefined,
+          },
+        }
+      );
+
+      console.log('✅ API response:', response);
+
+      const responseData = (response as any).data || response;
+      if (responseData && responseData.message) {
+        console.log('✅ Success - showing toast');
+        toast.success('Success', {
+          description: 'Pair request sent!',
+        });
+
+        // Refresh requests to show the new request
+        await fetchGeneralPairRequests();
+
+        // Clear the saved recipient
+        setGeneralPairRequestRecipient(null);
+      } else {
+        console.log('⚠️ Unexpected response format:', responseData);
+      }
+    } catch (error) {
+      console.error('❌ Error sending general pair request:', error);
+      toast.error('Error', {
+        description: 'Failed to send pair request',
+      });
+      throw error;
+    }
+  }, [generalPairRequestRecipient, session?.user?.id, fetchGeneralPairRequests]);
 
   return (
     <View style={styles.container}>
@@ -710,7 +1184,7 @@ export default function ConnectScreen({ onTabPress }: ConnectScreenProps) {
               }}
             >
               <Text style={[styles.subTabButtonText, favoritesTab === 'pairs' && styles.subTabButtonTextActive]}>
-                Pairs ({partnerships.length})
+                Pairs ({generalPartnerships.length})
               </Text>
             </TouchableOpacity>
           </View>
@@ -727,7 +1201,7 @@ export default function ConnectScreen({ onTabPress }: ConnectScreenProps) {
               }}
             >
               <Text style={[styles.subTabButtonText, requestsTab === 'received' && styles.subTabButtonTextActive]}>
-                Received ({pairRequests.received.length})
+                Received ({pairRequests.received.length + generalPairRequests.received.length + seasonInvitations.received.length})
               </Text>
             </TouchableOpacity>
             <TouchableOpacity
@@ -738,7 +1212,7 @@ export default function ConnectScreen({ onTabPress }: ConnectScreenProps) {
               }}
             >
               <Text style={[styles.subTabButtonText, requestsTab === 'sent' && styles.subTabButtonTextActive]}>
-                Sent ({pairRequests.sent.length})
+                Sent ({pairRequests.sent.length + generalPairRequests.sent.length + seasonInvitations.sent.length})
               </Text>
             </TouchableOpacity>
           </View>
@@ -750,27 +1224,46 @@ export default function ConnectScreen({ onTabPress }: ConnectScreenProps) {
           showsVerticalScrollIndicator={false}
         >
           {viewMode === 'requests' ? (
-            // Pair Requests View
+            // Requests View - Merged (Season Pair Requests + General Pair Requests + Season Invitations)
             (() => {
-              const displayedRequests = requestsTab === 'received' ? pairRequests.received : pairRequests.sent;
-              return displayedRequests.length === 0 ? (
+              // Merge all request types with a 'type' field for identification
+              const mergedRequests = [
+                ...(requestsTab === 'received' ? pairRequests.received : pairRequests.sent).map(r => ({ ...r, type: 'season-pair' as const })),
+                ...(requestsTab === 'received' ? generalPairRequests.received : generalPairRequests.sent).map(r => ({ ...r, type: 'general-pair' as const })),
+                ...(requestsTab === 'received' ? seasonInvitations.received : seasonInvitations.sent).map(r => ({ ...r, type: 'season-invitation' as const }))
+              ].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
+              return mergedRequests.length === 0 ? (
                 <View style={styles.emptyState}>
                   <Ionicons name="people-outline" size={64} color="#BABABA" />
                   <Text style={styles.emptyStateText}>No {requestsTab} requests</Text>
                   <Text style={styles.emptyStateSubtext}>
                     {requestsTab === 'received'
-                      ? 'Pair requests you receive will appear here'
-                      : 'Send a pair request to connect with a partner'}
+                      ? 'Requests you receive will appear here'
+                      : 'Send requests to connect with partners'}
                   </Text>
                 </View>
               ) : (
-                displayedRequests.map((request, index) => {
-                  const player = requestsTab === 'received' ? request.requester : request.recipient;
+                mergedRequests.map((request, index) => {
+                  const isSeasonPair = request.type === 'season-pair';
+                  const isGeneralPair = request.type === 'general-pair';
+                  const isSeasonInvitation = request.type === 'season-invitation';
+
+                  const player = requestsTab === 'received'
+                    ? (isSeasonInvitation ? (request as any).sender : (request as any).requester)
+                    : (isSeasonInvitation ? (request as any).recipient : (request as any).recipient);
+
                   if (!player) return null;
+
                   const isPending = request.status === 'PENDING';
                   const isActionLoading = actionLoading === request.id;
+
+                  // Determine type label and season name
+                  const typeLabel = isGeneralPair ? 'General Partnership' : isSeasonInvitation ? 'Season Invitation' : 'Season Partnership';
+                  const seasonName = (isSeasonPair || isSeasonInvitation) ? (request as any).season?.name : null;
+
                   return (
-                    <React.Fragment key={request.id}>
+                    <React.Fragment key={`${request.type}-${request.id}`}>
                       <View style={styles.requestItemCard}>
                         <View style={styles.requestItemHeader}>
                           {player.image ? (
@@ -787,7 +1280,8 @@ export default function ConnectScreen({ onTabPress }: ConnectScreenProps) {
                           )}
                           <View style={styles.connectionContent}>
                             <Text style={styles.connectionName}>{player.name}</Text>
-                            <Text style={styles.requestSeasonText}>{request.season.name}</Text>
+                            <Text style={styles.requestSeasonText}>{typeLabel}</Text>
+                            {seasonName && <Text style={styles.requestSeasonText}>{seasonName}</Text>}
                             <Text style={styles.requestStatusText}>{request.status}</Text>
                           </View>
                         </View>
@@ -797,7 +1291,11 @@ export default function ConnectScreen({ onTabPress }: ConnectScreenProps) {
                               <>
                                 <TouchableOpacity
                                   style={[styles.requestActionButton, styles.denyButton]}
-                                  onPress={() => handleDenyRequest(request.id, player.name, request.seasonId)}
+                                  onPress={() => {
+                                    if (isSeasonPair) handleDenyRequest(request.id, player.name, (request as any).seasonId);
+                                    else if (isGeneralPair) handleDenyGeneralPairRequest(request.id, player.name);
+                                    else if (isSeasonInvitation) handleDenySeasonInvitation(request.id, player.name);
+                                  }}
                                   disabled={isActionLoading}
                                 >
                                   {isActionLoading ? (
@@ -808,7 +1306,11 @@ export default function ConnectScreen({ onTabPress }: ConnectScreenProps) {
                                 </TouchableOpacity>
                                 <TouchableOpacity
                                   style={[styles.requestActionButton, styles.acceptButton]}
-                                  onPress={() => handleAcceptRequest(request.id)}
+                                  onPress={() => {
+                                    if (isSeasonPair) handleAcceptRequest(request.id);
+                                    else if (isGeneralPair) handleAcceptGeneralPairRequest(request.id);
+                                    else if (isSeasonInvitation) handleAcceptSeasonInvitation(request.id);
+                                  }}
                                   disabled={isActionLoading}
                                 >
                                   {isActionLoading ? (
@@ -821,7 +1323,11 @@ export default function ConnectScreen({ onTabPress }: ConnectScreenProps) {
                             ) : (
                               <TouchableOpacity
                                 style={[styles.requestActionButton, styles.cancelButton]}
-                                onPress={() => handleCancelRequest(request.id, player.name)}
+                                onPress={() => {
+                                  if (isSeasonPair) handleCancelRequest(request.id, player.name);
+                                  else if (isGeneralPair) handleCancelGeneralPairRequest(request.id, player.name);
+                                  else if (isSeasonInvitation) handleCancelSeasonInvitation(request.id, player.name);
+                                }}
                                 disabled={isActionLoading}
                               >
                                 {isActionLoading ? (
@@ -834,7 +1340,7 @@ export default function ConnectScreen({ onTabPress }: ConnectScreenProps) {
                           </View>
                         )}
                       </View>
-                      {index < displayedRequests.length - 1 && <View style={styles.divider} />}
+                      {index < mergedRequests.length - 1 && <View style={styles.divider} />}
                     </React.Fragment>
                   );
                 })
@@ -844,53 +1350,44 @@ export default function ConnectScreen({ onTabPress }: ConnectScreenProps) {
             // Favorites View with Friends/Pairs tabs
             (() => {
               if (favoritesTab === 'pairs') {
-                // Pairs sub-tab
-                return partnerships.length === 0 ? (
+                // Pairs sub-tab - showing general partnerships
+                return generalPartnerships.length === 0 ? (
                   <View style={styles.emptyState}>
                     <Ionicons name="people-outline" size={64} color="#BABABA" />
                     <Text style={styles.emptyStateText}>No pairs yet</Text>
                     <Text style={styles.emptyStateSubtext}>
-                      Your active partnerships will appear here
+                      Request to pair with players to create general partnerships
                     </Text>
                   </View>
                 ) : (
-                  partnerships.map((partnership, index) => {
+                  generalPartnerships.map((partnership, index) => {
                     const partner = partnership.player1Id === session?.user?.id ? partnership.player2 : partnership.player1;
                     return (
                       <React.Fragment key={partnership.id}>
-                        <View style={styles.partnershipCard}>
-                          <TouchableOpacity
-                            style={styles.partnershipInfo}
-                            onPress={() => router.push(`/player-profile/${partner.id}`)}
-                            activeOpacity={0.7}
-                          >
-                            {partner.image ? (
-                              <Image
-                                source={{ uri: partner.image }}
-                                style={styles.avatar}
-                              />
-                            ) : (
-                              <View style={[styles.avatar, styles.defaultAvatarContainer]}>
-                                <Text style={styles.defaultAvatarText}>
-                                  {partner.name.charAt(0).toUpperCase()}
-                                </Text>
-                              </View>
-                            )}
-                            <View style={styles.connectionContent}>
-                              <Text style={styles.connectionName}>{partner.name}</Text>
-                              <Text style={styles.requestSeasonText}>{partnership.season.name}</Text>
+                        <TouchableOpacity
+                          style={styles.connectionItem}
+                          onPress={() => router.push(`/player-profile/${partner.id}`)}
+                          activeOpacity={0.7}
+                        >
+                          {partner.image ? (
+                            <Image
+                              source={{ uri: partner.image }}
+                              style={styles.avatar}
+                            />
+                          ) : (
+                            <View style={[styles.avatar, styles.defaultAvatarContainer]}>
+                              <Text style={styles.defaultAvatarText}>
+                                {partner.name.charAt(0).toUpperCase()}
+                              </Text>
                             </View>
-                            <Ionicons name="chevron-forward" size={20} color="#BABABA" />
-                          </TouchableOpacity>
-                          <TouchableOpacity
-                            style={styles.requestChangeButton}
-                            onPress={() => handleRequestPartnerChange(partnership)}
-                          >
-                            <Ionicons name="swap-horizontal" size={18} color="#863A73" />
-                            <Text style={styles.requestChangeText}>Request Change</Text>
-                          </TouchableOpacity>
-                        </View>
-                        {index < partnerships.length - 1 && <View style={styles.divider} />}
+                          )}
+                          <View style={styles.connectionContent}>
+                            <Text style={styles.connectionName}>{partner.name}</Text>
+                            <Text style={styles.requestSeasonText}>General Partnership</Text>
+                          </View>
+                          <Ionicons name="chevron-forward" size={20} color="#BABABA" />
+                        </TouchableOpacity>
+                        {index < generalPartnerships.length - 1 && <View style={styles.divider} />}
                       </React.Fragment>
                     );
                   })
@@ -1061,6 +1558,11 @@ export default function ConnectScreen({ onTabPress }: ConnectScreenProps) {
                     <Ionicons name="person" size={20} color="#FEA04D" />
                     <Text style={styles.modalActionButtonText}>View Profile</Text>
                   </TouchableOpacity>
+
+                  <TouchableOpacity style={styles.modalActionButton} onPress={handleRequestToPair}>
+                    <Ionicons name="people" size={20} color="#FEA04D" />
+                    <Text style={styles.modalActionButtonText}>Request to Pair</Text>
+                  </TouchableOpacity>
                 </View>
               </>
             )}
@@ -1075,6 +1577,17 @@ export default function ConnectScreen({ onTabPress }: ConnectScreenProps) {
         currentUserId={session?.user?.id || ''}
         onClose={() => setPartnerChangeModalVisible(false)}
         onSuccess={handlePartnerChangeSuccess}
+      />
+
+      {/* General Pair Request Modal */}
+      <GeneralPairRequestModal
+        visible={generalPairRequestModalVisible}
+        recipientName={generalPairRequestRecipient?.name || ''}
+        onClose={() => {
+          setGeneralPairRequestModalVisible(false);
+          setGeneralPairRequestRecipient(null);
+        }}
+        onSend={handleSendGeneralPairRequest}
       />
     </View>
   );
@@ -1487,11 +2000,12 @@ const styles = StyleSheet.create({
   },
   modalActionButtons: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     justifyContent: 'center',
     gap: 12,
   },
   modalActionButton: {
-    flex: 1,
+    width: '47%',
     alignItems: 'center',
     paddingVertical: 12,
     paddingHorizontal: 8,
