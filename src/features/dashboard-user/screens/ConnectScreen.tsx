@@ -16,7 +16,7 @@ import { getBackendBaseURL } from '@/config/network';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { toast } from 'sonner-native';
-import { PartnerChangeRequestModal, GeneralPairRequestModal } from '@/features/pairing/components';
+import { PartnerChangeRequestModal, FriendRequestModal } from '@/features/pairing/components';
 
 interface ProfileData {
   image?: string;
@@ -36,18 +36,44 @@ interface Player {
   gender?: string | null;
 }
 
-interface Favorite {
-  id: string;
-  userId: string;
-  favoritedId: string;
-  createdAt: string;
-  favorited: {
+interface Friend {
+  friendshipId: string;
+  friend: {
     id: string;
     name: string;
     username: string;
     displayUsername: string | null;
     image: string | null;
   };
+  friendsSince: string;
+}
+
+interface FriendRequest {
+  id: string;
+  requesterId: string;
+  recipientId: string;
+  status: 'PENDING' | 'ACCEPTED' | 'REJECTED' | 'BLOCKED';
+  createdAt: string;
+  respondedAt: string | null;
+  requester?: {
+    id: string;
+    name: string;
+    username: string;
+    displayUsername: string | null;
+    image: string | null;
+  };
+  recipient?: {
+    id: string;
+    name: string;
+    username: string;
+    displayUsername: string | null;
+    image: string | null;
+  };
+}
+
+interface FriendRequestsData {
+  sent: FriendRequest[];
+  received: FriendRequest[];
 }
 
 interface PairRequest {
