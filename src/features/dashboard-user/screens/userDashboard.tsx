@@ -213,7 +213,6 @@ export default function DashboardScreen() {
     console.log(`DashboardScreen: Setting activeTab to ${tabIndex}`);
     setActiveTab(tabIndex);
     console.log(`Tab ${tabIndex} pressed - ${['Connect', 'Friendly', 'Leagues', 'My Games', 'Chat'][tabIndex]}`);
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
 
     // Absolute in-app view switching per tab
     if (tabIndex === 0) {

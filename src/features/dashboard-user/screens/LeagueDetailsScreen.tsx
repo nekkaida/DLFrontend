@@ -154,7 +154,6 @@ export default function LeagueDetailsScreen({
   };
 
   const handleTabPress = (tabIndex: number) => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setActiveTab(tabIndex);
   };
 
@@ -251,7 +250,7 @@ export default function LeagueDetailsScreen({
     const getButtonConfig = () => {
       if (isUserRegistered) {
         return {
-          text: 'View Division',
+          text: 'View Leaderboard',
           color: '#FEA04D',
           onPress: () => handleViewStandingsPress(season)
         };
@@ -291,15 +290,30 @@ export default function LeagueDetailsScreen({
       : '';
 
     return (
-      <LinearGradient
+      <TouchableOpacity
         key={season.id}
-        colors={['#A04DFE', '#FEA04D']}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 0, y: 1 }}
-        style={styles.seasonCardWrapper}
+        onPress={() => {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          router.push({
+            pathname: '/user-dashboard/season-details' as any,
+            params: {
+              seasonId: season.id,
+              seasonName: season.name,
+              leagueId: leagueId,
+              sport: sport
+            }
+          });
+        }}
+        activeOpacity={0.9}
       >
-        <View style={styles.seasonCard}>
-          <View style={styles.seasonCardHeader}>
+        <LinearGradient
+          colors={['#A04DFE', '#FEA04D']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 0, y: 1 }}
+          style={styles.seasonCardWrapper}
+        >
+          <View style={styles.seasonCard}>
+            <View style={styles.seasonCardHeader}>
             <Text style={styles.seasonTitle}>{season.name}</Text>
           {categoryDisplayName && (
             <LinearGradient
@@ -393,8 +407,9 @@ export default function LeagueDetailsScreen({
               </Text>
             )}
           </View>
-        </View>
-      </LinearGradient>
+          </View>
+        </LinearGradient>
+      </TouchableOpacity>
     );
   };
 

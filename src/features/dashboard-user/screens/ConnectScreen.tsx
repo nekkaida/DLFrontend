@@ -988,7 +988,6 @@ export default function ConnectScreen({ onTabPress }: ConnectScreenProps) {
     console.log(`ConnectScreen: Setting activeTab to ${tabIndex}`);
     setActiveTab(tabIndex);
     console.log(`Tab ${tabIndex} pressed - ${['Connect', 'Friendly', 'Leagues', 'My Games', 'Chat'][tabIndex]}`);
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
 
     // Call parent's onTabPress to update currentView
     onTabPress(tabIndex);
