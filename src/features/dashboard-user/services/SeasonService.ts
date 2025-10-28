@@ -1,6 +1,12 @@
 import { authClient } from '@/lib/auth-client';
 import { getBackendBaseURL } from '@/src/config/network';
 
+export interface SeasonUser {
+  id: string;
+  name?: string;
+  image?: string;
+}
+
 export interface SeasonMembership {
   id: string;
   userId: string;
@@ -10,6 +16,7 @@ export interface SeasonMembership {
   joinedAt: Date;
   withdrawalReason?: string;
   paymentStatus: 'PENDING' | 'PAID' | 'FAILED';
+  user?: SeasonUser;
 }
 
 export interface Season {
@@ -34,6 +41,9 @@ export interface Season {
   categories: Category[];
   leagues: League[];
   waitlistId?: string;
+  _count?: {
+    memberships: number;
+  };
   
   createdAt: string | Date;
   updatedAt: string | Date;
