@@ -52,7 +52,7 @@ export default function SeasonsScreen({
   const waitingForPartnerBottomSheetRef = React.useRef<BottomSheet>(null);
   const partnershipDetailsBottomSheetRef = React.useRef<BottomSheet>(null);
 
-  const [generalPartnerships, setGeneralPartnerships] = React.useState<any[]>([]);
+  const [friends, setFriends] = React.useState<any[]>([]);
   const [pendingInvitation, setPendingInvitation] = React.useState<any>(null);
   const [seasonPartnership, setSeasonPartnership] = React.useState<any>(null);
   const [bottomSheetLoading, setBottomSheetLoading] = React.useState(false);
@@ -139,27 +139,27 @@ export default function SeasonsScreen({
     // router.push(`/standings/${season.id}`);
   };
 
-  // Fetch general partnerships
-  const fetchGeneralPartnerships = React.useCallback(async () => {
-    console.log('🔵🔵🔵 fetchGeneralPartnerships called, userId:', userId);
+  // Fetch friends
+  const fetchFriends = React.useCallback(async () => {
+    console.log('🔵🔵🔵 fetchFriends called, userId:', userId);
     if (!userId) {
       console.log('❌ No userId, returning early');
       return;
     }
     try {
-      console.log('🔵 Fetching general partnerships...');
+      console.log('🔵 Fetching friends...');
       const backendUrl = getBackendBaseURL();
       console.log('🔵 Backend URL:', backendUrl);
-      const response = await authClient.$fetch(`${backendUrl}/api/pairing/general/partnerships`, {
+      const response = await authClient.$fetch(`${backendUrl}/api/pairing/friends`, {
         method: 'GET',
       });
-      console.log('📦 Partnerships API response:', response);
+      console.log('📦 Friends API response:', response);
       const data = (response as any).data?.data || (response as any).data || [];
-      console.log('✅ Partnerships data:', data);
-      console.log('📊 Partnerships count:', data.length);
-      setGeneralPartnerships(data);
+      console.log('✅ Friends data:', data);
+      console.log('📊 Friends count:', data.length);
+      setFriends(data);
     } catch (error) {
-      console.error('❌ Error fetching general partnerships:', error);
+      console.error('❌ Error fetching friends:', error);
     }
   }, [userId]);
 
@@ -185,7 +185,7 @@ export default function SeasonsScreen({
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setCurrentSeasonForBottomSheet(seasonId);
     setBottomSheetLoading(true);
-    await fetchGeneralPartnerships();
+    await fetchFriends();
     setBottomSheetLoading(false);
     console.log('🔵 Opening bottom sheet...');
     choosePartnerBottomSheetRef.current?.snapToIndex(0);
@@ -698,7 +698,7 @@ const SeasonCard: React.FC<SeasonCardProps> = ({
       {/* Bottom Sheets for Partner Selection Flow */}
       <ChoosePartnerBottomSheet
         bottomSheetRef={choosePartnerBottomSheetRef}
-        partnerships={generalPartnerships}
+        friends={friends}
         currentUserId={userId || ''}
         seasonId={currentSeasonForBottomSheet || ''}
         isLoading={bottomSheetLoading}
