@@ -1,8 +1,13 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Dimensions, Platform } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { HandshakeIcon } from '@/shared/components/icons';
+import { 
+  NavBarChatIcon, 
+  NavBarLeagueIcon, 
+  NavBarConnectIcon, 
+  NavBarMyGamesIcon, 
+  NavBarFriendlyIcon 
+} from '@/shared/components/icons';
 
 const { width } = Dimensions.get('window');
 
@@ -27,11 +32,11 @@ export default function NavBar({ activeTab = 2, onTabPress }: NavBarProps) {
   console.log(`NavBar: Received activeTab prop: ${activeTab}`);
 
   const tabs = [
-    { icon: 'handshake', iconFilled: 'handshake', label: 'Connect', index: 0 },
-    { icon: 'people-outline', iconFilled: 'people', label: 'Friendly', index: 1 },
-    { icon: 'trophy-outline', iconFilled: 'trophy', label: 'Leagues', index: 2 },
-    { icon: 'game-controller-outline', iconFilled: 'game-controller', label: 'My Games', index: 3 },
-    { icon: 'chatbubble-outline', iconFilled: 'chatbubble', label: 'Chat', index: 4 },
+    { label: 'Connect', index: 0 },
+    { label: 'Friendly', index: 1 },
+    { label: 'Leagues', index: 2 },
+    { label: 'My Games', index: 3 },
+    { label: 'Chat', index: 4 },
   ];
 
   const handleTabPress = (tabIndex: number) => {
@@ -101,22 +106,30 @@ export default function NavBar({ activeTab = 2, onTabPress }: NavBarProps) {
               hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
             >
               <View style={styles.iconContainer}>
-                {tab.icon === 'handshake' ? (
-                  <HandshakeIcon size={24} color={isActive ? '#FEA04D' : '#BABABA'} />
-                ) : (
-                  <Ionicons
-                    name={isActive ? (tab.iconFilled as any) : (tab.icon as any)}
-                    size={24}
-                    color={isActive ? '#863A73' : '#BABABA'}
-                  />
-                )}
+                {(() => {
+                  const iconColor = isActive ? '#933FF2' : '#BABABA';
+                  switch(tab.index) {
+                    case 0: // Connect
+                      return <NavBarConnectIcon width={24} height={24} fill={iconColor} />;
+                    case 1: // Friendly
+                      return <NavBarFriendlyIcon width={24} height={24} fill={iconColor} />;
+                    case 2: // Leagues
+                      return <NavBarLeagueIcon width={24} height={24} fill={iconColor} />;
+                    case 3: // My Games
+                      return <NavBarMyGamesIcon width={24} height={24} fill={iconColor} />;
+                    case 4: // Chat
+                      return <NavBarChatIcon width={24} height={24} fill={iconColor} />;
+                    default:
+                      return null;
+                  }
+                })()}
               </View>
               <Text
                 style={[
                   styles.tabLabel,
                   {
-                    color: tab.icon === 'handshake' ? (isActive ? '#FEA04D' : '#BABABA') : (isActive ? '#863A73' : '#BABABA'),
-                    fontWeight: isActive ? '700' : '500'
+                    color: isActive ? '#933FF2' : '#BABABA',
+                    fontWeight: isActive ? '500' : '400'
                   },
                 ]}
               >
@@ -174,7 +187,6 @@ const styles = StyleSheet.create({
     zIndex: 10000, // Ensure individual tabs are above everything
   },
 
-
   iconContainer: {
     width: 24,
     height: 24,
@@ -186,7 +198,7 @@ const styles = StyleSheet.create({
   tabLabel: {
     fontFamily: 'Inter',
     fontStyle: 'normal',
-    fontWeight: '500',
+    fontWeight: '400',
     fontSize: 10,
     lineHeight: 12,
     textAlign: 'center',

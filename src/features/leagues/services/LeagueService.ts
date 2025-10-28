@@ -15,6 +15,28 @@ export interface League {
   memberCount?: number;
   seasonCount?: number;
   categoryCount?: number;
+  categories?: Array<{
+    id: string;
+    name: string;
+    genderRestriction?: string;
+    game_type?: string;
+    gender_category?: string;
+  }>;
+  // memberships?: Array<{
+  //   id: string;
+  //   userId: string;
+  //   leagueId: string;
+  //   joinedAt: string;
+  //   user: {
+  //     id: string;
+  //     name: string;
+  //     image?: string;
+  //   };
+  // }>;
+  // _count?: {
+  //   memberships: number;
+  //   seasons: number;
+  // };
 }
 
 export interface LeagueResponse {
@@ -137,8 +159,16 @@ export class LeagueService {
       // handle the apiResponse structure from backend
       if (response && typeof response === 'object') {
         const apiResponse = response as any;
+        
+        // Handle authClient.$fetch wrapped response structure
+        if (apiResponse.data && apiResponse.data.success && apiResponse.data.data && apiResponse.data.data.league) {
+          console.log('LeagueService: Setting league data (wrapped):', apiResponse.data.data.league);
+          return apiResponse.data.data.league as League;
+        }
+        
+        // Handle direct API response structure
         if (apiResponse.success && apiResponse.data && apiResponse.data.league) {
-          console.log('LeagueService: Setting league data:', apiResponse.data.league);
+          console.log('LeagueService: Setting league data (direct):', apiResponse.data.league);
           return apiResponse.data.league as League;
         }
       }
@@ -151,55 +181,12 @@ export class LeagueService {
     }
   }
 
-  // join a league
+  // join a league (deprecated - players now join seasons instead)
   static async joinLeague(leagueId: string, userId: string): Promise<boolean> {
-    try {
-      const backendUrl = getBackendBaseURL();
-      console.log('LeagueService: Joining league at:', `${backendUrl}/api/league/join`);
-
-      const response = await authClient.$fetch(`${backendUrl}/api/league/join`, {
-        method: 'POST',
-        body: {
-          leagueId: leagueId,
-          userId: userId
-        }
-      });
-
-      console.log('LeagueService: Join league API response:', response);
-
-      // handle the apiResponse structure from backend
-      if (response && typeof response === 'object') {
-        const apiResponse = response as any;
-        
-        console.log('LeagueService: Debug - apiResponse.success:', apiResponse.success);
-        console.log('LeagueService: Debug - apiResponse.data:', apiResponse.data);
-        console.log('LeagueService: Debug - apiResponse.data?.message:', apiResponse.data?.message);
-        console.log('LeagueService: Debug - apiResponse.data?.membership:', apiResponse.data?.membership);
-        console.log('LeagueService: Debug - apiResponse.message:', apiResponse.message);
-        console.log('LeagueService: Debug - apiResponse.error:', apiResponse.error);
-        
-        // check for success indicators in the response
-        if (apiResponse.success || 
-            (apiResponse.data?.message?.includes('Successfully joined')) ||
-            (apiResponse.data?.membership && apiResponse.data !== null) ||
-            (apiResponse.message?.includes('Successfully joined'))) {
-          console.log('LeagueService: Successfully joined league');
-          return true;
-        }
-        
-        // handle case where user is already a member
-        if (apiResponse.error?.status === 409 && 
-            apiResponse.error?.message?.includes('already joined')) {
-          console.log('LeagueService: User is already a member of this league');
-          return true; // treat as success since user is already in the league
-        }
-      }
-      
-      console.error('LeagueService: Failed to join league');
-      return false;
-    } catch (error) {
-      console.error('LeagueService: Error joining league:', error);
-      return false;
-    }
+    console.log('LeagueService: League joining is deprecated. Players should join seasons instead.');
+    console.log('LeagueService: Please use SeasonService.joinSeason() to join individual seasons.');
+    
+    // Return false to indicate this operation is not supported
+    return false;
   }
 }

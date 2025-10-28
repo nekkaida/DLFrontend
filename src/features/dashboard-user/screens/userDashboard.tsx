@@ -1,37 +1,36 @@
-import TennisIcon from '@/assets/images/033-TENNIS 1.svg';
-import PadelIcon from '@/assets/images/036-PADEL 1.svg';
-import PickleballIcon from '@/assets/images/045-PICKLEBALL.svg';
+import LocationIcon from '@/assets/icons/location-purple.svg';
+import SearchIcon from '@/assets/icons/search-icon.svg';
 import { getBackendBaseURL } from '@/config/network';
 import { authClient, useSession } from '@/lib/auth-client';
 import { NavBar } from '@/shared/components/layout';
+import { SportSwitcher } from '@/shared/components/ui/SportSwitcher';
+import { LeagueCard, useLeagues } from '@/src/features/leagues';
 import * as Haptics from 'expo-haptics';
-import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
-import React, { useEffect } from 'react';
-import { BackHandler, Dimensions, Image, Platform, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { default as React, default as React, useEffect } from 'react';
+import { Animated, BackHandler, Dimensions, Image, Platform, RefreshControl, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { ChatScreen } from '../../chat/ChatScreen';
 import { useDashboard } from '../DashboardContext';
 import ConnectScreen from './ConnectScreen';
 
 
 const SPORT_CONFIG = {
-  Pickleball: {
+  pickleball: {
     color: '#A04DFE',
-    Icon: PickleballIcon,
-    route: '/user-dashboard/pickleball' as const,
+    gradientColors: ['#B98FAF', '#FFFFFF'],
+    apiType: 'PICKLEBALL' as const,
     displayName: 'Pickleball'
   },
-  Tennis: {
+  tennis: {
     color: '#A2E047',
-    Icon: TennisIcon,
-    route: '/user-dashboard/tennis' as const,
+    gradientColors: ['#A2E047', '#FFFFFF'],
+    apiType: 'TENNIS' as const,
     displayName: 'Tennis'
   },
-  Padel: {
+  padel: {
     color: '#4DABFE',
-    Icon: PadelIcon,
-    route: '/user-dashboard/pickleball' as const, // using pickleball route for now until padel route is created
+    gradientColors: ['#4DABFE', '#FFFFFF'],
+    apiType: 'PADDLE' as const,
     displayName: 'Padel'
   }
 } as const;
@@ -51,6 +50,10 @@ export default function DashboardScreen() {
   const [currentView, setCurrentView] = React.useState<'dashboard' | 'connect' | 'friendly' | 'myGames' | 'chat'>('dashboard');
   const [refreshing, setRefreshing] = React.useState(false);
   const [profileData, setProfileData] = React.useState<any>(null);
+  const [selectedSport, setSelectedSport] = React.useState<'pickleball' | 'tennis' | 'padel'>('pickleball');
+  const [locationFilterOpen, setLocationFilterOpen] = React.useState(false);
+  const [searchTerm, setSearchTerm] = React.useState('');
+  const scrollY = React.useRef(new Animated.Value(0)).current;
   // Use safe area insets for proper status bar handling across platforms
   const STATUS_BAR_HEIGHT = insets.top;
 
@@ -58,12 +61,11 @@ export default function DashboardScreen() {
   const getUserSelectedSports = () => {
     if (!profileData?.sports) return [];
     
-    const sports = profileData.sports.map((sport: string) => 
-      sport.charAt(0).toUpperCase() + sport.slice(1)
-    );
+    // Convert to lowercase to match our config keys
+    const sports = profileData.sports.map((sport: string) => sport.toLowerCase());
     
-    // Define the order of sports
-    const preferredOrder = ['Pickleball', 'Tennis', 'Padel'];
+    // Define the order of sports (priority)
+    const preferredOrder = ['pickleball', 'tennis', 'padel'];
     
     // Filter to only include sports that are configured and sort by order
     const configuredSports = sports.filter((sport: string) => sport in SPORT_CONFIG);
@@ -87,32 +89,41 @@ export default function DashboardScreen() {
     });
   };
 
-  // Helper function to get button label for a sport
-  const getSportButtonLabel = (sport: string) => {
-    // Check if questionnaire is completed for this sport
-    const sportLower = sport.toLowerCase();
-    const questionnaireStatus = profileData?.questionnaireStatus?.[sportLower];
-    
-    if (questionnaireStatus?.isCompleted) {
-      return 'Enter League';
-    } else {
-      return 'Complete Questionnaire';
+  // Set default selected sport when profile data loads
+  React.useEffect(() => {
+    if (profileData?.sports && profileData.sports.length > 0) {
+      const availableSports = getUserSelectedSports();
+      if (availableSports.length > 0 && !availableSports.includes(selectedSport)) {
+        setSelectedSport(availableSports[0] as 'pickleball' | 'tennis' | 'padel');
+      }
     }
-  };
+  }, [profileData?.sports]);
 
-  // Helper function to handle sport button press
-  const handleSportButtonPress = (sport: string, route: string) => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    
-    const sportLower = sport.toLowerCase();
-    const questionnaireStatus = profileData?.questionnaireStatus?.[sportLower];
-    
-    if (questionnaireStatus?.isCompleted) {
-      // Navigate to league dashboard
-      router.push(route as any);
+  // Get current sport configuration
+  const currentSportConfig = SPORT_CONFIG[selectedSport];
+  
+  // Fetch leagues data for current sport
+  const { leagues, isLoading, error, refetch, joinLeague } = useLeagues({
+    sportType: currentSportConfig?.apiType,
+    autoFetch: true
+  });
+
+  const handleJoinLeague = async (leagueId: string) => {
+    const success = await joinLeague(leagueId);
+    if (success) {
+      console.log('Successfully joined league:', leagueId);
+      // Navigate to league details screen with league information
+      const league = leagues.find(l => l.id === leagueId);
+      router.push({
+        pathname: '/user-dashboard/league-details',
+        params: { 
+          leagueId: leagueId,
+          leagueName: league?.name || 'League',
+          sport: selectedSport
+        }
+      });
     } else {
-      // Navigate to questionnaire for this sport
-      router.push(`/onboarding/skill-assessment?sport=${sportLower}&sportIndex=0&fromDashboard=true` as any);
+      console.log('Failed to join league:', leagueId);
     }
   };
 
@@ -202,7 +213,6 @@ export default function DashboardScreen() {
     console.log(`DashboardScreen: Setting activeTab to ${tabIndex}`);
     setActiveTab(tabIndex);
     console.log(`Tab ${tabIndex} pressed - ${['Connect', 'Friendly', 'Leagues', 'My Games', 'Chat'][tabIndex]}`);
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
 
     // Absolute in-app view switching per tab
     if (tabIndex === 0) {
@@ -256,8 +266,11 @@ export default function DashboardScreen() {
       // Add haptic feedback for refresh
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       
-      // Fetch fresh profile data
-      await fetchProfileData();
+      // Fetch fresh profile data and leagues
+      await Promise.all([
+        fetchProfileData(),
+        refetch()
+      ]);
       
       console.log('DashboardScreen: Dashboard data refreshed successfully');
       
@@ -266,7 +279,7 @@ export default function DashboardScreen() {
     } finally {
       setRefreshing(false);
     }
-  }, [session?.user?.id]);
+  }, [session?.user?.id, refetch]);
 
 
   // use this for swtiching between tabs
@@ -281,17 +294,46 @@ export default function DashboardScreen() {
     const title = currentView === 'friendly' ? 'Friendly' : 'My Games';
     return (
       <View style={styles.container}>
-        <LinearGradient
-          colors={['#FDEDE0', '#FFFFFF']}
-          locations={[0, 1]}
-          style={styles.backgroundGradient}
-        />
-        <View style={[styles.contentContainer, { paddingTop: STATUS_BAR_HEIGHT }]}> 
-          <View style={styles.headerSection}>
-            <View style={styles.headerContainer}>
-              <Text style={styles.logoText}>DEUCE</Text>
-            </View>
-          </View>
+        <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
+        
+        <View style={[styles.headerContainer, { paddingTop: STATUS_BAR_HEIGHT }]}>
+          {/* Profile picture moved to left */}
+          <TouchableOpacity 
+            style={styles.profilePicture}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              router.push('/profile');
+            }}
+          >
+            {(profileData?.image || session?.user?.image) ? (
+              <Image 
+                source={{ uri: profileData?.image || session?.user?.image }}
+                style={styles.profileImage}
+                onError={() => {
+                  console.log('Profile image failed to load:', profileData?.image || session?.user?.image);
+                }}
+              />
+            ) : (
+              <View style={styles.defaultAvatarContainer}>
+                <Text style={styles.defaultAvatarText}>
+                  {(profileData?.name || session?.user?.name)?.charAt(0)?.toUpperCase() || 'U'}
+                </Text>
+              </View>
+            )}
+          </TouchableOpacity>
+          
+          {/* Sports switcher in center */}
+          <SportSwitcher
+            currentSport={selectedSport}
+            availableSports={getUserSelectedSports()}
+            onSportChange={setSelectedSport}
+          />
+          
+          {/* Empty space on right for balance */}
+          <View style={styles.headerRight} />
+        </View>
+        
+        <View style={styles.contentContainer}>
           <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
             <Text style={{ fontSize: 18, fontWeight: '700', color: '#1A1C1E' }}>{title}</Text>
             <Text style={{ marginTop: 8, color: '#6B7280' }}>Content coming soon</Text>
@@ -302,205 +344,179 @@ export default function DashboardScreen() {
     );
   }
 
-  if (currentView === 'chat') {
-    return (
-      <View style={styles.container}>
-        <LinearGradient
-          colors={['#FDEDE0', '#FFFFFF']}
-          locations={[0, 1]}
-          style={styles.backgroundGradient}
+  return (
+    <View style={styles.container}>
+      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
+      
+      <View style={[styles.headerContainer, { paddingTop: STATUS_BAR_HEIGHT }]}>
+        {/* Profile picture moved to left */}
+        <TouchableOpacity 
+          style={styles.profilePicture}
+          onPress={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            router.push('/profile');
+          }}
+        >
+          {(profileData?.image || session?.user?.image) ? (
+            <Image 
+              source={{ uri: profileData?.image || session?.user?.image }}
+              style={styles.profileImage}
+              onError={() => {
+                console.log('Profile image failed to load:', profileData?.image || session?.user?.image);
+              }}
+            />
+          ) : (
+            <View style={styles.defaultAvatarContainer}>
+              <Text style={styles.defaultAvatarText}>
+                {(profileData?.name || session?.user?.name)?.charAt(0)?.toUpperCase() || 'U'}
+              </Text>
+            </View>
+          )}
+        </TouchableOpacity>
+        
+        {/* Sports switcher in center */}
+        <SportSwitcher
+          currentSport={selectedSport}
+          availableSports={getUserSelectedSports()}
+          onSportChange={setSelectedSport}
         />
-        <View style={[styles.contentContainer, { paddingTop: STATUS_BAR_HEIGHT }]}> 
-          <View style={styles.headerSection}>
-            <View style={styles.headerContainer}>
-              <Text style={styles.logoText}>DEUCE</Text>
+        
+        {/* Empty space on right for balance */}
+        <View style={styles.headerRight} />
+      </View>
+
+      <View style={styles.contentContainer}>
+        <View style={styles.contentBox}>
+          <Animated.ScrollView 
+            style={styles.scrollContainer}
+            contentContainerStyle={styles.scrollContent}
+            showsVerticalScrollIndicator={false}
+            refreshControl={
+              <RefreshControl
+                refreshing={refreshing}
+                onRefresh={onRefresh}
+                tintColor="#6de9a0"
+                colors={["#6de9a0"]}
+                progressBackgroundColor="#ffffff"
+              />
+            }
+            scrollEventThrottle={16}
+            onScroll={Animated.event(
+              [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+              { useNativeDriver: true }
+            )}
+          >
+          
+          {/* Recommended League Header with filter */}
+          <View style={styles.recommendedHeaderRow}>
+            <Text style={styles.recommendedLeagueText}>Recommended league</Text>
+            <View style={styles.locationRow}>
+              <LocationIcon width={11} height={10} style={styles.locationIcon} />
+              <Text style={styles.locationFilterText}>Based on your location</Text>
             </View>
           </View>
-          <ChatScreen />
-        </View>
-        <NavBar activeTab={activeTab} onTabPress={handleTabPress} />
-      </View>
-    );
-  }
 
-  return (
-    <View
-      style={styles.container}
-      onLayout={(event) => {
-          const { x, y, width: layoutWidth, height: layoutHeight } = event.nativeEvent.layout;
-          console.log('=== Container Layout Debug ===');
-          console.log(`Container layout:`, {
-            x,
-            y,
-            width: layoutWidth,
-            height: layoutHeight
-          });
-          console.log(`Container top position: ${y}px`);
-          console.log(`Container bottom position: ${y + layoutHeight}px`);
-          console.log(`Available space for content: ${layoutHeight}px`);
-          console.log(`NavBar space reserved: 83px`);
-          console.log(`Actual content space: ${layoutHeight - 83}px`);
-          console.log('==============================');
-        }}
-      >
-              <LinearGradient
-          colors={['#FDEDE0', '#FFFFFF']}
-          locations={[0, 1]}
-          style={styles.backgroundGradient}
-        />
-
-
-      <View style={[styles.contentContainer, { paddingTop: STATUS_BAR_HEIGHT }]}>
-         <View style={styles.headerSection}>
-           <View style={styles.headerContainer}>
-             <Text style={styles.logoText}>DEUCE</Text>
-             <View style={styles.headerRight}>
-               {/* Logout button removed - now available in settings page */}
-               <TouchableOpacity 
-                 style={styles.profilePicture}
-                 onPress={() => {
-                   Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                   router.push('/profile');
-                 }}
-               >
-                 {(profileData?.image || session?.user?.image) ? (
-                   <Image 
-                     source={{ uri: profileData?.image || session?.user?.image }}
-                     style={styles.profileImage}
-                     onError={() => {
-                       console.log('Profile image failed to load:', profileData?.image || session?.user?.image);
-                     }}
-                   />
-                 ) : (
-                   <View style={styles.defaultAvatarContainer}>
-                     <Text style={styles.defaultAvatarText}>
-                       {(profileData?.name || session?.user?.name)?.charAt(0)?.toUpperCase() || 'U'}
-                     </Text>
-                   </View>
-                 )}
-               </TouchableOpacity>
-             </View>
-           </View>
-         </View>
-
-       
-        <ScrollView 
-          style={styles.scrollContainer}
-          contentContainerStyle={styles.scrollContent}
-          showsVerticalScrollIndicator={false}
-          refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={onRefresh}
-              tintColor="#6de9a0"
-              colors={["#6de9a0"]}
-              progressBackgroundColor="#ffffff"
-            />
-          }
-        >
-            
-            <View style={styles.sportSelectionHeader}>
-              <Text style={styles.sportSelectionText}>Select a Sport</Text>
+          {/* Featured League Card */}
+          {isLoading ? (
+            <View style={styles.featuredSkeleton} />
+          ) : error ? (
+            <View style={styles.errorContainer}>
+              <Text style={styles.errorText}>Failed to load leagues</Text>
+              <TouchableOpacity style={styles.retryButton} onPress={refetch}>
+                <Text style={styles.retryButtonText}>Retry</Text>
+              </TouchableOpacity>
             </View>
+          ) : leagues.length > 0 ? (
+            <Animated.View style={[styles.parallaxWrapper, {
+              transform: [
+                { translateY: scrollY.interpolate({ inputRange: [-100, 0, 200], outputRange: [-30, 0, 20], extrapolate: 'clamp' }) },
+                { scale: scrollY.interpolate({ inputRange: [-100, 0], outputRange: [1.05, 1], extrapolate: 'clamp' }) }
+              ]
+            }]}>
+              <LeagueCard 
+                league={leagues[0]} 
+                variant="featured"
+                onJoinPress={handleJoinLeague}
+              />
+            </Animated.View>
+          ) : (
+            <View style={styles.noLeaguesContainer}>
+              <Text style={styles.noLeaguesText}>No {currentSportConfig?.displayName.toLowerCase()} leagues available</Text>
+              <Text style={styles.noLeaguesSubtext}>Check back later for new leagues!</Text>
+            </View>
+          )}
 
-            <View style={styles.sportCardsContainer}>
-              {getUserSelectedSports().length > 0 ? (
-                getUserSelectedSports().map((sport: string) => {
-                  const sportConfig = SPORT_CONFIG[sport as keyof typeof SPORT_CONFIG];
-                  if (!sportConfig) return null;
+          {/* Other leagues near you */}
+          {leagues.length > 1 && (
+            <>
+              <View style={styles.otherLeaguesHeaderRow}>
+                <Text style={styles.sectionTitle}>Other leagues near you</Text>
+                <Text style={styles.arrowText}>→</Text>
+              </View>
 
+              {/* Search field */}
+              <View style={styles.searchContainer}>
+                <View style={styles.searchInputContainer}>
+                  <SearchIcon width={20} height={20} style={styles.searchIcon} />
+                  <TextInput
+                    style={styles.searchInput}
+                    placeholder="Search leagues..."
+                    placeholderTextColor="#BABABA"
+                    value={searchTerm}
+                    onChangeText={setSearchTerm}
+                  />
+                </View>
+              </View>
+
+              {(() => {
+                const filteredLeagues = leagues.slice(1).filter((league) => {
+                  if (!searchTerm.trim()) return true;
+                  const search = searchTerm.toLowerCase();
                   return (
-                    <View key={sport} style={styles.sportCard}>
-                      <View style={styles.sportCardHeader}>
-                      <View style={styles.sportIconContainer}>
-                        <View style={[styles.sportIcon, { backgroundColor: '#FFFFFF' }]}>
-                          <sportConfig.Icon 
-                            width={isSmallScreen ? 24 : isTablet ? 36 : 30} 
-                            height={isSmallScreen ? 24 : isTablet ? 36 : 30} 
-                          />
-                        </View>
+                    league.name?.toLowerCase().includes(search) ||
+                    league.location?.toLowerCase().includes(search)
+                  );
+                });
+
+                // If there arei 2 leagues, display them side by side
+                if (filteredLeagues.length === 2) {
+                  return (
+                    <View style={styles.sideBySideContainer}>
+                      <View style={styles.halfWidthCard}>
+                        <LeagueCard
+                          league={filteredLeagues[0]}
+                          variant="regular"
+                          size="large"
+                          onJoinPress={handleJoinLeague}
+                        />
                       </View>
-                        <View style={styles.sportInfo}>
-                          <Text style={[styles.sportName, { color: sportConfig.color }]}>
-                            {sportConfig.displayName}
-                          </Text>
-                        </View>
-                        <View style={styles.playerCount}>
-                          <View style={styles.playerDot} />
-                          <Text style={styles.playerCountText}>1 players joined</Text>
-                        </View>
+                      <View style={styles.halfWidthCard}>
+                        <LeagueCard
+                          league={filteredLeagues[1]}
+                          variant="regular"
+                          size="large"
+                          onJoinPress={handleJoinLeague}
+                        />
                       </View>
-                      <TouchableOpacity
-                        style={[styles.sportButton, { backgroundColor: sportConfig.color }]}
-                        onPress={() => handleSportButtonPress(sport, sportConfig.route)}
-                        activeOpacity={0.8}
-                      >
-                        <Text style={styles.sportButtonText}>{getSportButtonLabel(sport)}</Text>
-                      </TouchableOpacity>
                     </View>
                   );
-                })
-              ) : (
-                <View style={styles.noSportsCard}>
-                  <Text style={styles.noSportsText}>No sports selected yet</Text>
-                  <Text style={styles.noSportsSubtext}>Complete your profile to see your sports</Text>
-                </View>
-              )}
-            </View>
+                }
 
-          {/* <View style={styles.newsSection}>
-            <Text style={styles.sectionTitle}>Latest News</Text>
-            
-            <View style={styles.newsCard}>
-              <View style={styles.newsCardHeader}>
-                <View style={styles.newsIconContainer}>
-                  <Text style={styles.newsIconText}>📰</Text>
-                </View>
-                <View style={styles.newsInfo}>
-                  <Text style={styles.newsTitle}>Tournament Updates</Text>
-                  <Text style={styles.newsSubtitle}>New season starting soon</Text>
-                </View>
-                <View style={styles.newsTime}>
-                  <Text style={styles.newsTimeText}>2h ago</Text>
-                </View>
-              </View>
-              <Text style={styles.newsPlaceholder}>News content will appear here</Text>
-            </View>
+                // Otherwise, display vertically
+                return filteredLeagues.map((league) => (
+                  <LeagueCard
+                    key={league.id}
+                    league={league}
+                    variant="regular"
+                    onJoinPress={handleJoinLeague}
+                  />
+                ));
+              })()}
+            </>
+          )}
 
-            <View style={styles.newsCard}>
-              <View style={styles.newsCardHeader}>
-                <View style={styles.newsIconContainer}>
-                  <Text style={styles.newsIconText}>🏆</Text>
-                </View>
-                <View style={styles.newsInfo}>
-                  <Text style={styles.newsTitle}>Championship Results</Text>
-                  <Text style={styles.newsSubtitle}>Final standings announced</Text>
-                </View>
-                <View style={styles.newsTime}>
-                  <Text style={styles.newsTimeText}>1d ago</Text>
-                </View>
-              </View>
-              <Text style={styles.newsPlaceholder}>Championship details will appear here</Text>
-            </View>
-
-            <View style={styles.newsCard}>
-              <View style={styles.newsCardHeader}>
-                <View style={styles.newsIconContainer}>
-                  <Text style={styles.newsIconText}>🎯</Text>
-                </View>
-                <View style={styles.newsInfo}>
-                  <Text style={styles.newsTitle}>Training Tips</Text>
-                  <Text style={styles.newsSubtitle}>Improve your game</Text>
-                </View>
-                <View style={styles.newsTime}>
-                  <Text style={styles.newsTimeText}>3d ago</Text>
-                </View>
-              </View>
-              <Text style={styles.newsPlaceholder}>Training content will appear here</Text>
-            </View>
-          </View> */}
-        </ScrollView>
-
+          </Animated.ScrollView>
+        </View>
       </View>
       <NavBar activeTab={activeTab} onTabPress={handleTabPress} />
     </View>
@@ -521,37 +537,44 @@ const styles = StyleSheet.create({
   },
   contentContainer: {
     flex: 1,
+    backgroundColor: '#FFFFFF',
     zIndex: 1,
+  },
+  contentBox: {
+    flex: 1,
+    backgroundColor: '#F5F5F5',
+    borderWidth: 1,
+    borderColor: '#D5D5D5',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    // marginTop: 0,
+    overflow: 'hidden',
   },
   headerSection: {
     paddingHorizontal: isSmallScreen ? 16 : isTablet ? 32 : 24,
     paddingTop: Platform.OS === 'ios' ? 16 : 20,
     paddingBottom: isSmallScreen ? 20 : 30,
+    backgroundColor: '#FFFFFF',
   },
   headerContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     width: '100%',
-  },
-  logoText: {
-    fontFamily: Platform.OS === 'ios' ? 'Helvetica Neue' : 'sans-serif',
-    fontStyle: 'italic',
-    fontWeight: '700',
-    fontSize: isSmallScreen ? 20 : isTablet ? 28 : 24,
-    lineHeight: isSmallScreen ? 20 : isTablet ? 28 : 24,
-    color: '#FE9F4D',
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: isSmallScreen ? 16 : isTablet ? 24 : 20,
+    paddingVertical: isSmallScreen ? 4 : isTablet ? 8 : 6,
+    minHeight: isSmallScreen ? 36 : isTablet ? 44 : 40,
   },
   headerRight: {
-    flexDirection: 'row',
+    width: 48,
     alignItems: 'center',
-    gap: 12,
+    justifyContent: 'center',
   },
-  // logoutButton styles removed - logout now in settings page
   profilePicture: {
-    width: isSmallScreen ? 36 : isTablet ? 48 : 40,
-    height: isSmallScreen ? 36 : isTablet ? 48 : 40,
-    borderRadius: isSmallScreen ? 18 : isTablet ? 24 : 20,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     overflow: 'hidden',
     shadowColor: '#000',
     shadowOffset: {
@@ -563,21 +586,21 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   profileImage: {
-    width: isSmallScreen ? 36 : isTablet ? 48 : 40,
-    height: isSmallScreen ? 36 : isTablet ? 48 : 40,
-    borderRadius: isSmallScreen ? 18 : isTablet ? 24 : 20,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
   },
   defaultAvatarContainer: {
-    width: isSmallScreen ? 36 : isTablet ? 48 : 40,
-    height: isSmallScreen ? 36 : isTablet ? 48 : 40,
-    borderRadius: isSmallScreen ? 18 : isTablet ? 24 : 20,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     backgroundColor: '#6de9a0',
     justifyContent: 'center',
     alignItems: 'center',
   },
   defaultAvatarText: {
     color: '#FFFFFF',
-    fontSize: isSmallScreen ? 14 : isTablet ? 18 : 16,
+    fontSize: 18,
     fontWeight: 'bold',
     fontFamily: 'System',
   },
@@ -588,15 +611,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: isSmallScreen ? 16 : isTablet ? 32 : 20,
     paddingBottom: 120,
   },
-  sportSelectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 0,
-    gap: 12,
-    width: 156,
-    height: 21,
-    marginBottom: 20,
-  },
   sportSelectionText: {
     fontFamily: 'Inter',
     fontStyle: 'normal',
@@ -604,74 +618,6 @@ const styles = StyleSheet.create({
     fontSize: isSmallScreen ? 14 : isTablet ? 18 : 16,
     lineHeight: isSmallScreen ? 20 : isTablet ? 24 : 22,
     color: '#1A1C1E',
-  },
-  sportCardsContainer: {
-    marginBottom: 20,
-  },
-  sportCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: isSmallScreen ? 16 : isTablet ? 24 : 20,
-    marginBottom: 16,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  sportCardHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  sportIconContainer: {
-    marginRight: 16,
-  },
-  sportIcon: {
-    width: isSmallScreen ? 40 : isTablet ? 56 : 48,
-    height: isSmallScreen ? 40 : isTablet ? 56 : 48,
-    borderRadius: isSmallScreen ? 20 : isTablet ? 28 : 24,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  sportIconText: {
-    fontSize: 24,
-  },
-  sportInfo: {
-    flex: 1,
-  },
-  sportName: {
-    fontSize: isSmallScreen ? 16 : isTablet ? 20 : 18,
-    fontWeight: '700',
-  },
-  playerCount: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  playerDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: '#10B981',
-    marginRight: 8,
-  },
-  playerCountText: {
-    fontSize: isSmallScreen ? 12 : isTablet ? 16 : 14,
-    color: '#6B7280',
-  },
-  sportButton: {
-    borderRadius: 12,
-    paddingVertical: isSmallScreen ? 12 : isTablet ? 16 : 14,
-    paddingHorizontal: isSmallScreen ? 16 : isTablet ? 24 : 20,
-    alignItems: 'center',
-  },
-  sportButtonText: {
-    color: '#FFFFFF',
-    fontSize: isSmallScreen ? 12 : isTablet ? 16 : 14,
-    fontWeight: '600',
   },
   cardContainer: {
     flexDirection: 'row',
@@ -742,7 +688,8 @@ const styles = StyleSheet.create({
     fontSize: isSmallScreen ? 16 : isTablet ? 20 : 18,
     color: '#333333',
     fontWeight: 'bold',
-    marginBottom: 16,
+    marginTop: 10,
+    marginBottom: 2,
   },
   actionButtonsContainer: {
     flexDirection: 'row',
@@ -843,32 +790,137 @@ const styles = StyleSheet.create({
     backgroundColor: '#F9FAFB',
     borderRadius: 8,
   },
-  noSportsCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: isSmallScreen ? 32 : isTablet ? 48 : 40,
+  recommendedHeaderRow: {
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
+    marginBottom: 12,
+    marginTop: 20,
   },
-  noSportsText: {
-    fontSize: isSmallScreen ? 16 : isTablet ? 20 : 18,
+  recommendedLeagueText: {
+    fontFamily: 'Inter',
+    fontStyle: 'normal',
     fontWeight: '700',
+    fontSize: isSmallScreen ? 14 : isTablet ? 18 : 16,
+    lineHeight: isSmallScreen ? 20 : isTablet ? 24 : 22,
     color: '#1A1C1E',
+    textAlign: 'center',
     marginBottom: 8,
+  },
+  locationRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  locationIcon: {
+    marginRight: 6,
+  },
+  locationFilterText: {
+    fontSize: isSmallScreen ? 10 : isTablet ? 14 : 12,
+    color: '#A04DFE',
+    textAlign: 'center',
+    fontWeight: '500',
+
+  },
+  otherLeaguesHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
+  searchContainer: {
+    marginBottom: 16,
+  },
+  searchInputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F9FAFB',
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#BABABA',
+    paddingHorizontal: 16,
+    paddingVertical: 0,
+    height: 48,
+    minHeight: 48,
+    maxHeight: 48,
+  },
+  searchIcon: {
+    marginRight: 12,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 16, 
+    color: '#1F2937',
+    paddingVertical: 12,
+    textAlignVertical: 'center',
+    includeFontPadding: false,
+  },
+  arrowText: {
+    fontSize: 18,
+    color: '#9CA3AF',
+  },
+  parallaxWrapper: {
+    borderRadius: 16,
+    overflow: 'hidden',
+  },
+  featuredSkeleton: {
+    height: 180,
+    borderRadius: 16,
+    backgroundColor: '#F3F4F6',
+    marginBottom: 20,
+  },
+  errorContainer: {
+    backgroundColor: '#FEF2F2',
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: '#FECACA',
+  },
+  errorText: {
+    color: '#DC2626',
+    fontSize: 14,
+    fontWeight: '600',
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  retryButton: {
+    backgroundColor: '#DC2626',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 8,
+    alignSelf: 'center',
+  },
+  retryButtonText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  noLeaguesContainer: {
+    backgroundColor: '#F9FAFB',
+    borderRadius: 16,
+    padding: 24,
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    alignItems: 'center',
+  },
+  noLeaguesText: {
+    color: '#374151',
+    fontSize: 16,
+    fontWeight: '600',
+    textAlign: 'center',
+    marginBottom: 4,
+  },
+  noLeaguesSubtext: {
+    color: '#6B7280',
+    fontSize: 12,
     textAlign: 'center',
   },
-  noSportsSubtext: {
-    fontSize: isSmallScreen ? 12 : isTablet ? 16 : 14,
-    color: '#6B7280',
-    textAlign: 'center',
+  sideBySideContainer: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 16,
+  },
+  halfWidthCard: {
+    flex: 1,
   },
 });
-
-
