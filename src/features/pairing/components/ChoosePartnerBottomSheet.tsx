@@ -18,37 +18,30 @@ const { width } = Dimensions.get('window');
 const isSmallScreen = width < 375;
 const isTablet = width > 768;
 
-interface Partner {
-  id: string;
-  name: string;
-  username?: string;
-  displayUsername?: string | null;
-  image?: string | null;
-  area?: string | null;
-  gender?: string | null;
-  dmr?: number; // Calculated DMR from questionnaire
-}
-
-interface GeneralPartnership {
-  id: string;
-  player1Id: string;
-  player2Id: string;
-  player1: Partner;
-  player2: Partner;
+interface Friend {
+  friendshipId: string;
+  friend: {
+    id: string;
+    name: string;
+    username: string;
+    displayUsername: string | null;
+    image: string | null;
+  };
+  friendsSince: string;
 }
 
 interface ChoosePartnerBottomSheetProps {
   bottomSheetRef: React.RefObject<BottomSheet>;
-  partnerships: GeneralPartnership[];
+  friends: Friend[];
   currentUserId: string;
   seasonId: string;
   isLoading?: boolean;
-  onSendInvitation: (partnershipId: string, partnerId: string) => Promise<void>;
+  onSendInvitation: (friendshipId: string, friendId: string) => Promise<void>;
 }
 
 export const ChoosePartnerBottomSheet: React.FC<ChoosePartnerBottomSheetProps> = ({
   bottomSheetRef,
-  partnerships,
+  friends,
   currentUserId,
   seasonId,
   isLoading = false,
@@ -58,19 +51,19 @@ export const ChoosePartnerBottomSheet: React.FC<ChoosePartnerBottomSheetProps> =
 
   React.useEffect(() => {
     console.log('🔵 ChoosePartnerBottomSheet received props:', {
-      partnerships: partnerships.length,
+      friends: friends.length,
       currentUserId,
       seasonId,
       isLoading,
-      partnershipsData: partnerships
+      friendsData: friends
     });
-  }, [partnerships, currentUserId, seasonId, isLoading]);
+  }, [friends, currentUserId, seasonId, isLoading]);
 
-  const handleSendInvitation = useCallback(async (partnershipId: string, partnerId: string) => {
+  const handleSendInvitation = useCallback(async (friendshipId: string, friendId: string) => {
     try {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-      setSendingId(partnershipId);
-      await onSendInvitation(partnershipId, partnerId);
+      setSendingId(friendshipId);
+      await onSendInvitation(friendshipId, friendId);
     } catch (error) {
       console.error('Error sending season invitation:', error);
     } finally {
@@ -90,43 +83,33 @@ export const ChoosePartnerBottomSheet: React.FC<ChoosePartnerBottomSheetProps> =
     []
   );
 
-  const renderPartnershipItem = ({ item }: { item: GeneralPartnership }) => {
-    const partner = item.player1Id === currentUserId ? item.player2 : item.player1;
-    const isSending = sendingId === item.id;
-    const dmr = partner.dmr || 0;
+  const renderFriendItem = ({ item }: { item: Friend }) => {
+    const isSending = sendingId === item.friendshipId;
 
     return (
       <View style={styles.partnershipItem}>
         <View style={styles.partnerInfo}>
-          {partner.image ? (
-            <Image source={{ uri: partner.image }} style={styles.avatar} />
+          {item.friend.image ? (
+            <Image source={{ uri: item.friend.image }} style={styles.avatar} />
           ) : (
             <View style={[styles.avatar, styles.defaultAvatar]}>
               <Text style={styles.defaultAvatarText}>
-                {partner.name.charAt(0).toUpperCase()}
+                {item.friend.name.charAt(0).toUpperCase()}
               </Text>
             </View>
           )}
           <View style={styles.partnerDetails}>
-            <Text style={styles.partnerName}>{partner.name}</Text>
+            <Text style={styles.partnerName}>{item.friend.name}</Text>
             <View style={styles.partnerMeta}>
-              {dmr > 0 && (
-                <View style={styles.dmrBadge}>
-                  <Text style={styles.dmrText}>DMR: {dmr.toFixed(1)}</Text>
-                </View>
-              )}
-              {partner.area && (
-                <View style={styles.locationBadge}>
-                  <Ionicons name="location-outline" size={12} color="#666666" />
-                  <Text style={styles.locationText}>{partner.area}</Text>
-                </View>
-              )}
+              <Text style={styles.locationText}>
+                Friends since {new Date(item.friendsSince).toLocaleDateString()}
+              </Text>
             </View>
           </View>
         </View>
         <TouchableOpacity
           style={[styles.inviteButton, isSending && styles.inviteButtonDisabled]}
-          onPress={() => handleSendInvitation(item.id, partner.id)}
+          onPress={() => handleSendInvitation(item.friendshipId, item.friend.id)}
           disabled={isSending}
         >
           {isSending ? (
@@ -156,28 +139,28 @@ export const ChoosePartnerBottomSheet: React.FC<ChoosePartnerBottomSheetProps> =
         <View style={styles.header}>
           <Text style={styles.title}>Choose a Partner</Text>
           <Text style={styles.subtitle}>
-            Select from your general partnerships to invite to this season
+            Select a friend to invite to this season
           </Text>
         </View>
 
         {isLoading ? (
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color="#FEA04D" />
-            <Text style={styles.loadingText}>Loading partnerships...</Text>
+            <Text style={styles.loadingText}>Loading friends...</Text>
           </View>
-        ) : partnerships.length === 0 ? (
+        ) : friends.length === 0 ? (
           <View style={styles.emptyContainer}>
             <Ionicons name="people-outline" size={64} color="#BABABA" />
-            <Text style={styles.emptyText}>No general partnerships yet</Text>
+            <Text style={styles.emptyText}>No friends yet</Text>
             <Text style={styles.emptySubtext}>
-              Go to Connect → All Players to create general partnerships first
+              Go to Community → All Players to add friends first
             </Text>
           </View>
         ) : (
           <FlatList
-            data={partnerships}
-            renderItem={renderPartnershipItem}
-            keyExtractor={(item) => item.id}
+            data={friends}
+            renderItem={renderFriendItem}
+            keyExtractor={(item) => item.friendshipId}
             contentContainerStyle={styles.listContent}
             showsVerticalScrollIndicator={false}
           />
