@@ -127,7 +127,6 @@ export default function LeagueCategoryScreen({
   const handleTabPress = (tabIndex: number) => {
     console.log(`Tab ${tabIndex} pressed - ${['Favourite', 'Friendly', 'Leagues', 'My Games', 'Chat'][tabIndex]}`);
     setActiveTab(tabIndex);
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   };
 
   const handleCategoryPress = (category: Category) => {

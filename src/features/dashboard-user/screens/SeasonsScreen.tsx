@@ -57,7 +57,6 @@ export default function SeasonsScreen({
   const handleTabPress = (tabIndex: number) => {
     console.log(`Tab ${tabIndex} pressed - ${['In Progress', 'Upcoming', 'Past'][tabIndex]}`);
     setActiveTab(tabIndex);
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   };
 
   React.useEffect(() => {
@@ -90,7 +89,7 @@ export default function SeasonsScreen({
     console.log('Register button pressed for category:', category);
 
     if (isDoublesCategory) {
-      // Check if user already has an active partnership
+      // Check if user already has an active partnership, will fix later
       if (partnership) {
         const partnerName = partnership.player1Id === currentUserId
           ? partnership.player2.name

@@ -62,7 +62,6 @@ export default function DashboardScreen() {
   const handleTabPress = (tabIndex: number) => {
     console.log(`Tab ${tabIndex} pressed - ${['Favourite', 'Friendly', 'Leagues', 'My Games', 'Chat'][tabIndex]}`);
     setActiveTab(tabIndex);
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   };
 
   const handleJoinLeague = async (leagueId: string) => {
