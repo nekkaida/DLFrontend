@@ -1,11 +1,12 @@
+import { Ionicons } from "@expo/vector-icons";
 import React from "react";
 import {
-    ActivityIndicator,
-    FlatList,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  FlatList,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from "react-native";
 import { useChatStore } from "../stores/ChatStore";
 import { Thread } from "../types";
@@ -70,6 +71,12 @@ export const ThreadList: React.FC<ThreadListProps> = ({ onThreadSelect }) => {
 
   const renderEmpty = () => (
     <View style={styles.emptyContainer}>
+       <Ionicons
+      name="chatbubble-outline" 
+      size={56}
+      color="#888"
+      style={styles.emptyIcon}
+    />
       <Text style={styles.emptyText}>No chats yet</Text>
       <Text style={styles.emptySubtext}>Start a conversation!</Text>
     </View>
@@ -117,28 +124,32 @@ const styles = StyleSheet.create({
     color: "#6B7280",
   },
   threadItem: {
-    flexDirection: "row",
+    flexDirection: 'row',
     padding: 16,
     borderBottomWidth: 1,
-    borderBottomColor: "#F3F4F6",
-    backgroundColor: "#FFFFFF",
+    borderBottomColor: '#F1F5F9',
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
   },
   avatarContainer: {
-    position: "relative",
+    position: 'relative',
     marginRight: 12,
   },
   avatarPlaceholder: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    backgroundColor: "#863A73",
-    justifyContent: "center",
-    alignItems: "center",
+    width: 48, 
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#863A73', 
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+   emptyIcon: {
+    marginBottom: 12,
   },
   avatarText: {
-    color: "#FFFFFF",
-    fontSize: 18,
-    fontWeight: "600",
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '600',
   },
   unreadBadge: {
     position: "absolute",
@@ -158,6 +169,7 @@ const styles = StyleSheet.create({
   },
   threadContent: {
     flex: 1,
+    justifyContent: 'center',
   },
   threadHeader: {
     flexDirection: "row",
@@ -170,15 +182,18 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "600",
     color: "#111827",
+    marginBottom: 2,
   },
   timestamp: {
     fontSize: 12,
     color: "#6B7280",
+    fontWeight: '600',
+    marginTop: 1, 
   },
   participantCount: {
     fontSize: 12,
-    color: "#6B7280",
-    marginBottom: 4,
+    color: '#9CA3AF',
+    marginBottom: 2,
   },
   lastMessage: {
     fontSize: 14,

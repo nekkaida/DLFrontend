@@ -7,53 +7,85 @@ interface MessageBubbleProps {
   message: Message;
   isCurrentUser: boolean;
   showAvatar: boolean;
+  isLastInGroup?: boolean;
 }
 
 export const MessageBubble: React.FC<MessageBubbleProps> = ({
   message,
   isCurrentUser,
   showAvatar,
+  isLastInGroup = true,
 }) => {
+  // Extract sender name from metadata for group chats
+  const senderName = message.metadata?.sender?.name || 
+                    message.metadata?.sender?.username || 
+                    'Unknown';
+  
   return (
-    <View style={[styles.container, isCurrentUser && styles.currentUserContainer]}>
-      {!isCurrentUser && showAvatar && (
+    <View style={[
+      styles.container, 
+      isCurrentUser ? styles.currentUserContainer : styles.otherUserContainer
+    ]}>
+      {/* Avatar for other users - only show on last message in group */}
+      {!isCurrentUser && isLastInGroup && (
         <View style={styles.avatarContainer}>
           <View style={styles.avatar}>
-            <Text style={styles.avatarText}>U</Text>
+            <Text style={styles.avatarText}>
+              {senderName.charAt(0).toUpperCase()}
+            </Text>
           </View>
         </View>
       )}
       
-      <View style={[
-        styles.bubble,
-        isCurrentUser ? styles.currentUserBubble : styles.otherUserBubble,
-        !showAvatar && !isCurrentUser && styles.bubbleWithoutAvatar,
-      ]}>
-        <Text style={[
-          styles.messageText,
-          isCurrentUser ? styles.currentUserText : styles.otherUserText,
-        ]}>
-          {message.content}
-        </Text>
+      {/* Spacer when no avatar is shown */}
+      {!isCurrentUser && !isLastInGroup && (
+        <View style={styles.avatarSpacer} />
+      )}
+      
+      <View style={styles.messageContainer}>
+        {/* Sender name for group chats (other users only) */}
+        {!isCurrentUser && showAvatar && (
+          <Text style={styles.senderName}>{senderName}</Text>
+        )}
         
-        <View style={styles.messageFooter}>
+        <View style={[
+          styles.bubble,
+          isCurrentUser ? styles.currentUserBubble : styles.otherUserBubble,
+          // Adjust border radius based on position in message group
+          isCurrentUser ? {
+            borderBottomRightRadius: isLastInGroup ? 6 : 18,
+            borderTopRightRadius: showAvatar ? 18 : 6,
+          } : {
+            borderBottomLeftRadius: isLastInGroup ? 6 : 18,
+            borderTopLeftRadius: showAvatar ? 18 : 6,
+          }
+        ]}>
           <Text style={[
-            styles.timestamp,
-            isCurrentUser ? styles.currentUserTimestamp : styles.otherUserTimestamp,
+            styles.messageText,
+            isCurrentUser ? styles.currentUserText : styles.otherUserText,
           ]}>
-            {format(new Date(message.timestamp), 'HH:mm')}
+            {message.content}
           </Text>
           
-          {isCurrentUser && (
-            <View style={styles.statusContainer}>
-              {message.isDelivered && (
-                <Text style={styles.deliveryStatus}>✓</Text>
-              )}
-              {message.isRead && (
-                <Text style={styles.readStatus}>✓</Text>
-              )}
-            </View>
-          )}
+          <View style={styles.messageFooter}>
+            <Text style={[
+              styles.timestamp,
+              isCurrentUser ? styles.currentUserTimestamp : styles.otherUserTimestamp,
+            ]}>
+              {format(new Date(message.timestamp), 'HH:mm')}
+            </Text>
+            
+            {isCurrentUser && (
+              <View style={styles.statusContainer}>
+                {message.isDelivered && (
+                  <Text style={styles.deliveryStatus}>✓</Text>
+                )}
+                {message.isRead && (
+                  <Text style={styles.readStatus}>✓</Text>
+                )}
+              </View>
+            )}
+          </View>
         </View>
       </View>
     </View>
@@ -63,48 +95,61 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
 const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
-    marginVertical: 2,
+    marginVertical: 1,
     paddingHorizontal: 4,
   },
   currentUserContainer: {
     justifyContent: 'flex-end',
   },
+  otherUserContainer: {
+    justifyContent: 'flex-start',
+  },
   avatarContainer: {
     marginRight: 8,
     alignSelf: 'flex-end',
+    marginBottom: 2,
+  },
+  avatarSpacer: {
+    width: 40,
   },
   avatar: {
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: '#863A73',
+    backgroundColor: '#E5E7EB',
     justifyContent: 'center',
     alignItems: 'center',
   },
   avatarText: {
-    color: '#FFFFFF',
+    color: '#6B7280',
     fontSize: 12,
     fontWeight: '600',
   },
-  bubble: {
+  messageContainer: {
     maxWidth: '75%',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 18,
-    marginVertical: 1,
+    marginBottom: 2,
+  },
+  senderName: {
+    fontSize: 12,
+    color: '#6B7280',
+    marginBottom: 2,
+    marginLeft: 4,
+    fontWeight: '500',
+  },
+  bubble: {
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 20,
+    minHeight: 40,
+    justifyContent: 'center',
   },
   currentUserBubble: {
     backgroundColor: '#863A73',
-    borderBottomRightRadius: 6,
+    alignSelf: 'flex-end',
   },
   otherUserBubble: {
-    backgroundColor: '#FFFFFF',
-    borderBottomLeftRadius: 6,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-  },
-  bubbleWithoutAvatar: {
-    marginLeft: 40,
+    backgroundColor: '#F3F4F6',
+    alignSelf: 'flex-start',
   },
   messageText: {
     fontSize: 15,
@@ -120,13 +165,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'flex-end',
-    marginTop: 4,
+    marginTop: 2,
   },
   timestamp: {
     fontSize: 11,
+    marginTop: 2,
   },
   currentUserTimestamp: {
-    color: 'rgba(255, 255, 255, 0.8)',
+    color: 'rgba(255, 255, 255, 0.7)',
   },
   otherUserTimestamp: {
     color: '#9CA3AF',
@@ -137,7 +183,7 @@ const styles = StyleSheet.create({
   },
   deliveryStatus: {
     fontSize: 10,
-    color: 'rgba(255, 255, 255, 0.8)',
+    color: 'rgba(255, 255, 255, 0.7)',
   },
   readStatus: {
     fontSize: 10,

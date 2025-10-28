@@ -1,7 +1,8 @@
 import { useSession } from '@/lib/auth-client';
 import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, KeyboardAvoidingView, Platform, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MessageInput } from './components/chat-input';
 import { ThreadList } from './components/chat-list';
 import { MessageWindow } from './components/chat-window';
@@ -12,6 +13,7 @@ export const ChatScreen: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const { data: session} = useSession();
   const [filteredThreads, setFilteredThreads] = useState<Thread[]>([]);
+  const insets = useSafeAreaInsets();
   
   const user = session?.user
   
@@ -29,8 +31,7 @@ export const ChatScreen: React.FC = () => {
     setConnectionStatus,
   } = useChatStore();
 
-
-   useEffect(() => {
+  useEffect(() => {
     if (!user?.id) return;
     loadThreads(user.id);
     setConnectionStatus(true);
@@ -68,13 +69,17 @@ export const ChatScreen: React.FC = () => {
     setCurrentThread(thread);
   };
 
-  const handleSendMessage = (content: string) => {
-    if (currentThread) {
-      sendMessage(currentThread.id, content);
-    }
-    console.log("tests")
-  };
+const handleSendMessage = (content: string) => {
+  if (!currentThread || !user?.id) return;
 
+  console.log('Sending message:', {
+    threadId: currentThread.id,
+    senderId: user.id,
+    content,
+  });
+
+  sendMessage(currentThread.id, user.id, content);
+};
   const handleBackToThreads = () => {
     setCurrentThread(null);
     setSearchQuery('');
@@ -113,7 +118,11 @@ export const ChatScreen: React.FC = () => {
   return (
     <View style={styles.container}>
       {currentThread ? (
-        <View style={styles.chatContainer}>
+        <KeyboardAvoidingView 
+          style={styles.chatContainer}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+        >
           <View style={styles.chatHeader}>
             <TouchableOpacity 
               style={styles.backButton}
@@ -124,22 +133,28 @@ export const ChatScreen: React.FC = () => {
             </TouchableOpacity>
             <View style={styles.chatHeaderContent}>
               <Text style={styles.chatHeaderTitle}>{currentThread.name}</Text>
-              <Text style={styles.chatHeaderSubtitle}>
-                {currentThread.participants.length} participants
-              </Text>
+              {currentThread.type === 'group' && (
+                <Text style={styles.chatHeaderSubtitle}>
+                  {currentThread.participants.length} participants
+                </Text>
+              )}
             </View>
             <TouchableOpacity style={styles.headerAction}>
               <Ionicons name="ellipsis-vertical" size={20} color="#6B7280" />
             </TouchableOpacity>
           </View>
+          
           <MessageWindow
             messages={messages[currentThread.id] || []}
             threadId={currentThread.id}
           />
-          <MessageInput onSendMessage={handleSendMessage} />
-        </View>
+          
+          <View style={{ paddingBottom: insets.bottom }}>
+            <MessageInput onSendMessage={handleSendMessage} />
+          </View>
+        </KeyboardAvoidingView>
       ) : (
-        <View style={styles.threadsContainer}>
+        <View style={[styles.threadsContainer, { paddingBottom: insets.bottom }]}>
           <View style={styles.searchContainer}>
             <View style={styles.searchBar}>
               <Ionicons name="search" size={20} color="#6B7280" style={styles.searchIcon} />

@@ -1,6 +1,6 @@
 import { useSession } from '@/lib/auth-client';
 import React, { useEffect, useRef } from 'react';
-import { FlatList, StyleSheet, Text, View } from 'react-native';
+import { Dimensions, FlatList, StyleSheet, Text, View } from 'react-native';
 import { Message } from '../types';
 import { MessageBubble } from './chat-bubble';
 
@@ -9,6 +9,8 @@ interface MessageWindowProps {
   threadId: string;
   onLoadMore?: () => void;
 }
+
+const { height: screenHeight } = Dimensions.get('window');
 
 export const MessageWindow: React.FC<MessageWindowProps> = ({
   messages,
@@ -29,52 +31,60 @@ export const MessageWindow: React.FC<MessageWindowProps> = ({
   const renderMessage = ({ item, index }: { item: Message; index: number }) => {
     const isCurrentUser = item.senderId === user?.id;
     const previousMessage = messages[index + 1];
+    const nextMessage = messages[index - 1];
+    
     const showAvatar = !previousMessage || previousMessage.senderId !== item.senderId;
+    const isLastInGroup = !nextMessage || nextMessage.senderId !== item.senderId;
     
     return (
       <MessageBubble
         message={item}
         isCurrentUser={isCurrentUser}
         showAvatar={showAvatar}
+        isLastInGroup={isLastInGroup}
       />
     );
   };
 
   const renderEmpty = () => (
-    <View style={styles.emptyContainer}>
+    <View style={[styles.emptyContainer ]}>
       <Text style={styles.emptyText}>No messages yet</Text>
       <Text style={styles.emptySubtext}>Start the conversation!</Text>
     </View>
   );
 
   return (
-    <FlatList
-      ref={flatListRef}
-      data={messages}
-      renderItem={renderMessage}
-      keyExtractor={(item) => item.id}
-      style={styles.container}
-      contentContainerStyle={styles.contentContainer}
-      inverted
-      showsVerticalScrollIndicator={false}
-      onEndReached={onLoadMore}
-      onEndReachedThreshold={0.1}
-      ListEmptyComponent={renderEmpty}
-    />
+    <View style={[styles.container, { height: screenHeight * 0.65 }]}>
+      <FlatList
+        ref={flatListRef}
+        data={messages}
+        renderItem={renderMessage}
+        keyExtractor={(item) => item.id}
+        style={styles.messagesList}
+        contentContainerStyle={styles.contentContainer}
+        inverted
+        showsVerticalScrollIndicator={false}
+        onEndReached={onLoadMore}
+        onEndReachedThreshold={0.1}
+        ListEmptyComponent={renderEmpty}
+      />
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
+    backgroundColor: '#FFFFFF',
+  },
+  messagesList: {
     flex: 1,
-    backgroundColor: '#F9FAFB',
   },
   contentContainer: {
     paddingHorizontal: 16,
-    paddingVertical: 8,
+    paddingVertical: 12,
+    flexGrow: 1,
   },
   emptyContainer: {
-    flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     paddingVertical: 50,

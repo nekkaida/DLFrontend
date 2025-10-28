@@ -1,12 +1,12 @@
 import { Ionicons } from '@expo/vector-icons';
 import React, { useRef, useState } from 'react';
 import {
-    KeyboardAvoidingView,
-    Platform,
-    StyleSheet,
-    TextInput,
-    TouchableOpacity,
-    View
+  KeyboardAvoidingView,
+  Platform,
+  StyleSheet,
+  TextInput,
+  TouchableOpacity,
+  View
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -106,7 +106,6 @@ const styles = StyleSheet.create({
     borderTopColor: '#E5E7EB',
     paddingTop: 12,
     paddingHorizontal: 16,
-    paddingBottom: 12,
   },
   inputContainer: {
     flexDirection: 'row',
