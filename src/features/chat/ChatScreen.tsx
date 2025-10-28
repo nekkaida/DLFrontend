@@ -1,14 +1,19 @@
+import { useSession } from '@/lib/auth-client';
 import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { MessageInput } from './components/chat-input';
+import { ThreadList } from './components/chat-list';
 import { MessageWindow } from './components/chat-window';
 import { useChatStore } from './stores/ChatStore';
 import { Thread } from './types';
 
 export const ChatScreen: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
+  const { data: session} = useSession();
   const [filteredThreads, setFilteredThreads] = useState<Thread[]>([]);
+  
+  const user = session?.user
   
   const {
     currentThread,
@@ -24,14 +29,14 @@ export const ChatScreen: React.FC = () => {
     setConnectionStatus,
   } = useChatStore();
 
-  useEffect(() => {
-    console.log('ChatScreen: Component mounted, loading threads...');
-    // loadThreads();
+
+   useEffect(() => {
+    if (!user?.id) return;
+    loadThreads(user.id);
     setConnectionStatus(true);
-  }, []);
+  }, [user]);
 
   useEffect(() => {
-    console.log('ChatScreen: threads changed:', threads?.length || 0);
     setFilteredThreads(threads || []);
   }, [threads]);
 
@@ -64,9 +69,9 @@ export const ChatScreen: React.FC = () => {
   };
 
   const handleSendMessage = (content: string) => {
-    // if (currentThread) {
-    //   sendMessage(currentThread.id, content);
-    // }
+    if (currentThread) {
+      sendMessage(currentThread.id, content);
+    }
     console.log("tests")
   };
 
@@ -153,10 +158,10 @@ export const ChatScreen: React.FC = () => {
               )}
             </View>
           </View>
-          {/* <ThreadList 
+           <ThreadList 
             threads={filteredThreads}
             onThreadSelect={handleThreadSelect} 
-          /> */}
+          /> 
         </View>
       )}
     </View>
