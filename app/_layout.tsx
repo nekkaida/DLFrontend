@@ -1,13 +1,13 @@
-import { ThemeProvider, DarkTheme, DefaultTheme } from '@react-navigation/native';
+import { useColorScheme } from '@/hooks/useColorScheme';
+import { NavigationInterceptor } from '@core/navigation/NavigationInterceptor';
+import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
+import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { useFonts } from 'expo-font';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import 'react-native-reanimated';
-import { useColorScheme } from '@/hooks/useColorScheme';
-import { NavigationInterceptor } from '@core/navigation/NavigationInterceptor';
-import { Toaster } from 'sonner-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
+import 'react-native-reanimated';
+import { Toaster } from 'sonner-native';
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();

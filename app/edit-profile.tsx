@@ -1,27 +1,26 @@
-import React, { useState, useEffect } from 'react';
-import {
-  StyleSheet,
-  View,
-  ScrollView,
-  Text,
-  TextInput,
-  Pressable,
-  Image,
-  Platform,
-  Alert,
-  KeyboardAvoidingView,
-  ActivityIndicator,
-} from 'react-native';
-import Svg, { Path } from 'react-native-svg';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { LinearGradient } from 'expo-linear-gradient';
-import { Ionicons } from '@expo/vector-icons';
+import { getBackendBaseURL } from '@/config/network';
+import { authClient, useSession } from '@/lib/auth-client';
 import { theme } from '@core/theme/theme';
-import { router } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import * as ImagePicker from 'expo-image-picker';
-import { useSession, authClient } from '@/lib/auth-client';
-import { getBackendBaseURL } from '@/config/network';
+import { LinearGradient } from 'expo-linear-gradient';
+import { router } from 'expo-router';
+import React, { useEffect, useState } from 'react';
+import {
+  ActivityIndicator,
+  Image,
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import Svg, { Path } from 'react-native-svg';
 import { toast } from 'sonner-native';
 
 // BackgroundGradient Component (consistent with profile and settings)
@@ -71,6 +70,7 @@ export default function EditProfileScreen() {
         return;
       }
 
+      console.log(" user info", session.user.id)
       try {
         const backendUrl = getBackendBaseURL();
         const response = await authClient.$fetch(`${backendUrl}/api/player/profile/me`, {
