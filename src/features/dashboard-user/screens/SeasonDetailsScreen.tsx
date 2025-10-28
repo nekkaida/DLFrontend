@@ -9,6 +9,7 @@ import { authClient } from '@/lib/auth-client';
 import { useSession } from '@/lib/auth-client';
 import * as Haptics from 'expo-haptics';
 import { SeasonService, Season } from '@/src/features/dashboard-user/services/SeasonService';
+import { LeagueService } from '@/src/features/leagues/services/LeagueService';
 import { PaymentOptionsBottomSheet } from '../components';
 import { toast } from 'sonner-native';
 import LeagueInfoIcon from '@/assets/icons/league-info.svg';
@@ -18,6 +19,7 @@ import InfoIcon3 from '@/assets/icons/info-icon-3.svg';
 import InfoIcon4 from '@/assets/icons/info-icon-4.svg';
 import InfoIcon5 from '@/assets/icons/info-icon-5.svg';
 import InfoIcon6 from '@/assets/icons/info-icon-6.svg';
+import BackButtonIcon from '@/assets/icons/back-button.svg';
 
 const { width } = Dimensions.get('window');
 
@@ -39,6 +41,7 @@ export default function SeasonDetailsScreen({
 }: SeasonDetailsScreenProps) {
   const { data: session } = useSession();
   const [season, setSeason] = React.useState<Season | null>(null);
+  const [league, setLeague] = React.useState<any>(null);
   const [isLoading, setIsLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
   const [profileData, setProfileData] = React.useState<any>(null);
@@ -90,6 +93,16 @@ export default function SeasonDetailsScreen({
 
       if (foundSeason) {
         setSeason(foundSeason);
+        
+        // Fetch league data if leagueId is available
+        if (leagueId) {
+          try {
+            const leagueData = await LeagueService.fetchLeagueById(leagueId);
+            setLeague(leagueData);
+          } catch (err) {
+            console.error('Error fetching league data:', err);
+          }
+        }
       } else {
         setError('Season not found');
       }
@@ -300,53 +313,63 @@ export default function SeasonDetailsScreen({
                 style={styles.seasonHeaderGradient}
               >
                 <View style={styles.seasonHeaderContent}>
-                  <TouchableOpacity 
-                    style={styles.backButtonIcon}
-                    onPress={() => {
-                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                      router.back();
-                    }}
-                  >
-                    <Text style={styles.backButtonIconText}>←</Text>
-                  </TouchableOpacity>
-                  <View style={styles.seasonHeaderTextContainerWrapper}>
-                    <View style={styles.seasonHeaderTextContainer}>
-                      <Text style={styles.seasonName}>{season?.name || seasonName}</Text>
-                      <View style={styles.playerCountContainer}>
-                        <View style={styles.statusCircle} />
-                        <Text style={styles.playerCount}>
-                          {`${season?._count?.memberships || season?.memberships?.length || 0} players`}
-                        </Text>
-                      </View>
-                      
-                      {season?.memberships && season.memberships.length > 0 && (
-                        <View style={styles.profilePicturesContainer}>
-                          {season.memberships.slice(0, 6).map((membership: any) => (
-                            <View key={membership.id} style={styles.memberProfilePicture}>
-                              {membership.user?.image ? (
-                                <Image
-                                  source={{ uri: membership.user.image }}
-                                  style={styles.memberProfileImage}
-                                />
-                              ) : (
-                                <View style={styles.defaultMemberProfileImage}>
-                                  <Text style={styles.defaultMemberProfileText}>
-                                    {membership.user?.name?.charAt(0)?.toUpperCase() || 'U'}
-                                  </Text>
-                                </View>
-                              )}
-                            </View>
-                          ))}
-                          {season._count?.memberships && season._count.memberships > 6 && (
-                            <View style={styles.remainingCount}>
-                              <Text style={styles.remainingCountText}>
-                                +{season._count.memberships - 6}
-                              </Text>
-                            </View>
-                          )}
-                        </View>
-                      )}
+                  <View style={styles.topRow}>
+                    <View style={styles.backButtonContainer}>
+                      <TouchableOpacity 
+                        style={styles.backButtonIcon}
+                        onPress={() => {
+                          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                          router.back();
+                        }}
+                      >
+                        <BackButtonIcon width={12} height={19} />
+                      </TouchableOpacity>
                     </View>
+                    <View style={styles.leagueNameContainer}>
+                      <Text style={styles.leagueName} numberOfLines={2}>{league?.name || 'League'}</Text>
+                    </View>
+                  </View>
+                  <View style={styles.bannerContainer}>
+                    <View style={styles.nameBanner}>
+                      <Text style={styles.seasonName}>
+                        {season?.categories?.[0]?.name ? `${season.categories[0].name} | ` : ''}
+                        <Text style={styles.seasonNameHighlight}>{season?.name || seasonName}</Text>
+                      </Text>
+                    </View>
+                    <View style={styles.playerCountContainer}>
+                      <View style={styles.statusCircle} />
+                      <Text style={styles.playerCount}>
+                        {`${season?._count?.memberships || season?.memberships?.length || 0} players`}
+                      </Text>
+                    </View>
+                    
+                    {season?.memberships && season.memberships.length > 0 && (
+                      <View style={styles.profilePicturesContainer}>
+                        {season.memberships.slice(0, 6).map((membership: any) => (
+                          <View key={membership.id} style={styles.memberProfilePicture}>
+                            {membership.user?.image ? (
+                              <Image
+                                source={{ uri: membership.user.image }}
+                                style={styles.memberProfileImage}
+                              />
+                            ) : (
+                              <View style={styles.defaultMemberProfileImage}>
+                                <Text style={styles.defaultMemberProfileText}>
+                                  {membership.user?.name?.charAt(0)?.toUpperCase() || 'U'}
+                                </Text>
+                              </View>
+                            )}
+                          </View>
+                        ))}
+                        {season._count?.memberships && season._count.memberships > 6 && (
+                          <View style={styles.remainingCount}>
+                            <Text style={styles.remainingCountText}>
+                              +{season._count.memberships - 6}
+                            </Text>
+                          </View>
+                        )}
+                      </View>
+                    )}
                   </View>
                 </View>
               </LinearGradient>
@@ -557,42 +580,66 @@ const styles = StyleSheet.create({
     borderRadius: 0,
     padding: 20,
     paddingTop: 24,
-    paddingBottom: 24,
+    paddingBottom: 32,
   },
   seasonHeaderContent: {
-    position: 'relative',
-    minHeight: 100,
+    gap: 12,
   },
-  backButtonIcon: {
-    position: 'absolute',
-    left: 0,
-    top: '50%',
-    transform: [{ translateY: -20 }],
+  topRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginTop: 2,
+    gap: 12,
+  },
+  backButtonContainer: {
     width: 40,
     height: 40,
     justifyContent: 'center',
     alignItems: 'center',
-    zIndex: 1,
   },
-  backButtonIconText: {
-    fontSize: 24,
-    fontWeight: '600',
-    color: '#000000',
+  backButtonIcon: {
+    width: '100%',
+    height: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  seasonHeaderTextContainerWrapper: {
+  leagueNameContainer: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
+    paddingRight: 52, // Offset to balance the back button width + gap
   },
-  seasonHeaderTextContainer: {
+  bannerContainer: {
+    alignItems: 'center',
+    width: '100%',
+  },
+  nameBanner: {
+    backgroundColor: '#331850',
+    paddingVertical: 8,
+    paddingHorizontal: 20,
+    borderRadius: 0,
+    width: Dimensions.get('window').width,
+    marginHorizontal: -20,
+    marginBottom: 20,
     alignItems: 'center',
   },
-  seasonName: {
+  leagueName: {
     fontSize: isSmallScreen ? 18 : isTablet ? 22 : 20,
     fontWeight: '700',
     color: '#FDFDFD',
     textAlign: 'center',
-    marginBottom: 8,
+  },
+  seasonName: {
+    fontSize: isSmallScreen ? 14 : isTablet ? 16 : 15,
+    fontWeight: '600',
+    color: '#FEA04D',
+    textAlign: 'center',
+  },
+  seasonNameHighlight: {
+    fontSize: isSmallScreen ? 14 : isTablet ? 16 : 15,
+    fontWeight: '600',
+    color: '#FEA04D',
+    textAlign: 'center',
   },
   playerCountContainer: {
     flexDirection: 'row',
@@ -618,7 +665,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     flexWrap: 'wrap',
-    gap: 4,
   },
   headerProfilePicture: {
     width: 48,

@@ -18,6 +18,7 @@ import { PaymentOptionsBottomSheet } from '../components';
 import { useActivePartnership } from '@/features/pairing/hooks';
 import { toast } from 'sonner-native';
 import LeagueInfoIcon from '@/assets/icons/league-info.svg';
+import BackButtonIcon from '@/assets/icons/back-button.svg';
 
 const { width } = Dimensions.get('window');
 
@@ -530,22 +531,27 @@ export default function LeagueDetailsScreen({
               style={styles.leagueHeaderGradient}
             >
               <View style={styles.leagueHeaderContent}>
-                <TouchableOpacity 
-                  style={styles.backButtonIcon}
-                  onPress={() => {
-                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                    router.back();
-                  }}
-                >
-                  <Text style={styles.backButtonIconText}>←</Text>
-                </TouchableOpacity>
-                <View style={styles.leagueHeaderTextContainerWrapper}>
-                  <View style={styles.leagueHeaderTextContainer}>
-                  <Text style={styles.leagueName}>{league?.name || leagueName}</Text>
+                <View style={styles.topRow}>
+                  <View style={styles.backButtonContainer}>
+                    <TouchableOpacity 
+                      style={styles.backButtonIcon}
+                      onPress={() => {
+                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                        router.back();
+                      }}
+                    >
+                      <BackButtonIcon width={12} height={19} />
+                    </TouchableOpacity>
+                  </View>
+                  <View style={styles.leagueNameContainer}>
+                    <Text style={styles.leagueName} numberOfLines={2}>{league?.name || leagueName}</Text>
+                  </View>
+                </View>
+                <View style={styles.leagueInfoContainer}>
                   <View style={styles.playerCountContainer}>
                     <View style={styles.statusCircle} />
                     <Text style={styles.playerCount}>
-                      {league?._count?.memberships || league?.memberships?.length || 0} players
+                      {league?.totalSeasonMemberships || 0} players
                     </Text>
                   </View>
                   
@@ -577,7 +583,6 @@ export default function LeagueDetailsScreen({
                       )}
                     </View>
                   )}
-                  </View>
                 </View>
               </View>
               </LinearGradient>
@@ -751,32 +756,35 @@ const styles = StyleSheet.create({
     paddingBottom: 24,
   },
   leagueHeaderContent: {
-    position: 'relative',
-    minHeight: 100,
+    gap: 12,
   },
-  backButtonIcon: {
-    position: 'absolute',
-    left: 0,
-    top: '50%',
-    transform: [{ translateY: -20 }],
+  topRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginTop: 2,
+    gap: 12,
+  },
+  backButtonContainer: {
     width: 40,
     height: 40,
     justifyContent: 'center',
     alignItems: 'center',
-    zIndex: 1,
   },
-  backButtonIconText: {
-    fontSize: 24,
-    fontWeight: '600',
-    color: '#000000',
+  backButtonIcon: {
+    width: '100%',
+    height: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  leagueHeaderTextContainerWrapper: {
+  leagueNameContainer: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
+    paddingRight: 52, // Offset to balance the back button width + gap
   },
-  leagueHeaderTextContainer: {
+  leagueInfoContainer: {
     alignItems: 'center',
+    width: '100%',
   },
   leagueName: {
     fontSize: isSmallScreen ? 18 : isTablet ? 22 : 20,
