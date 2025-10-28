@@ -69,17 +69,18 @@ export const ChatScreen: React.FC = () => {
     setCurrentThread(thread);
   };
 
-const handleSendMessage = (content: string) => {
-  if (!currentThread || !user?.id) return;
+  const handleSendMessage = (content: string) => {
+    if (!currentThread || !user?.id) return;
 
-  console.log('Sending message:', {
-    threadId: currentThread.id,
-    senderId: user.id,
-    content,
-  });
+    console.log('Sending message:', {
+      threadId: currentThread.id,
+      senderId: user.id,
+      content,
+    });
 
-  sendMessage(currentThread.id, user.id, content);
-};
+    sendMessage(currentThread.id, user.id, content);
+  };
+
   const handleBackToThreads = () => {
     setCurrentThread(null);
     setSearchQuery('');
@@ -88,6 +89,47 @@ const handleSendMessage = (content: string) => {
   const clearSearch = () => {
     setSearchQuery('');
   };
+
+  const handleMatch = () => {
+    console.log('Create match button pressed');
+    // TO DO ADD MATCH LOGIC LATER
+  };
+
+  const handleEmojiPress = () => {
+    console.log('Emoji pressed');
+  };
+
+  // Get header content based on chat type
+  const getHeaderContent = () => {
+    if (!currentThread || !user?.id) return { title: 'Chat', subtitle: null };
+
+    if (currentThread.type === 'group') {
+      // Group chat: show group name and participant count
+      return {
+        title: currentThread.name || 'Group Chat',
+        subtitle: `${currentThread.participants.length} participants`
+      };
+    } else {
+      // Direct chat: show other participant's name and username
+      const otherParticipant = currentThread.participants.find(
+        participant => participant.id !== user.id
+      );
+      
+      if (otherParticipant) {
+        return {
+          title: otherParticipant.name || otherParticipant.username || 'Unknown User',
+          subtitle: otherParticipant.username ? `@${otherParticipant.username}` : null
+        };
+      } else {
+        return {
+          title: 'Chat',
+          subtitle: null
+        };
+      }
+    }
+  };
+
+  const headerContent = getHeaderContent();
 
   console.log('ChatScreen: Rendering - currentThread:', currentThread?.name, 'threads count:', threads?.length);
 
@@ -129,16 +171,20 @@ const handleSendMessage = (content: string) => {
               onPress={handleBackToThreads}
               activeOpacity={0.7}
             >
-            <Ionicons name="arrow-back" size={24} color="#111827" />
+              <Ionicons name="arrow-back" size={24} color="#111827" />
             </TouchableOpacity>
+            
             <View style={styles.chatHeaderContent}>
-              <Text style={styles.chatHeaderTitle}>{currentThread.name}</Text>
-              {currentThread.type === 'group' && (
-                <Text style={styles.chatHeaderSubtitle}>
-                  {currentThread.participants.length} participants
+              <Text style={styles.chatHeaderTitle} numberOfLines={1}>
+                {headerContent.title}
+              </Text>
+              {headerContent.subtitle && (
+                <Text style={styles.chatHeaderSubtitle} numberOfLines={1}>
+                  {headerContent.subtitle}
                 </Text>
               )}
             </View>
+            
             <TouchableOpacity style={styles.headerAction}>
               <Ionicons name="ellipsis-vertical" size={20} color="#6B7280" />
             </TouchableOpacity>
@@ -147,10 +193,15 @@ const handleSendMessage = (content: string) => {
           <MessageWindow
             messages={messages[currentThread.id] || []}
             threadId={currentThread.id}
+            isGroupChat={currentThread.type === 'group'}
           />
           
           <View style={{ paddingBottom: insets.bottom }}>
-            <MessageInput onSendMessage={handleSendMessage} />
+            <MessageInput 
+              onSendMessage={handleSendMessage}
+              onhandleMatch={handleMatch}
+              onEmojiPress={handleEmojiPress}
+            />
           </View>
         </KeyboardAvoidingView>
       ) : (
@@ -231,6 +282,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#E5E7EB',
     backgroundColor: '#FFFFFF',
+    minHeight: 60, // Ensure consistent height
   },
   backButton: {
     marginRight: 12,
@@ -238,16 +290,19 @@ const styles = StyleSheet.create({
   },
   chatHeaderContent: {
     flex: 1,
+    justifyContent: 'center', // Center content vertically
   },
   chatHeaderTitle: {
     fontSize: 18,
     fontWeight: '600',
     color: '#111827',
+    lineHeight: 22,
   },
   chatHeaderSubtitle: {
     fontSize: 14,
     color: '#6B7280',
     marginTop: 2,
+    lineHeight: 16,
   },
   headerAction: {
     padding: 4,

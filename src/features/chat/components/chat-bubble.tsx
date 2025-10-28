@@ -8,6 +8,7 @@ interface MessageBubbleProps {
   isCurrentUser: boolean;
   showAvatar: boolean;
   isLastInGroup?: boolean;
+  isGroupChat?: boolean;
 }
 
 export const MessageBubble: React.FC<MessageBubbleProps> = ({
@@ -15,8 +16,8 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
   isCurrentUser,
   showAvatar,
   isLastInGroup = true,
+  isGroupChat = false,
 }) => {
-  // Extract sender name from metadata for group chats
   const senderName = message.metadata?.sender?.name || 
                     message.metadata?.sender?.username || 
                     'Unknown';
@@ -26,8 +27,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
       styles.container, 
       isCurrentUser ? styles.currentUserContainer : styles.otherUserContainer
     ]}>
-      {/* Avatar for other users - only show on last message in group */}
-      {!isCurrentUser && isLastInGroup && (
+      {!isCurrentUser && isLastInGroup && isGroupChat && (
         <View style={styles.avatarContainer}>
           <View style={styles.avatar}>
             <Text style={styles.avatarText}>
@@ -36,22 +36,19 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
           </View>
         </View>
       )}
-      
-      {/* Spacer when no avatar is shown */}
-      {!isCurrentUser && !isLastInGroup && (
+      {!isCurrentUser && !isLastInGroup && isGroupChat && (
         <View style={styles.avatarSpacer} />
       )}
       
       <View style={styles.messageContainer}>
-        {/* Sender name for group chats (other users only) */}
-        {!isCurrentUser && showAvatar && (
+        {/* Sender name for GROUP chats only*/}
+        {!isCurrentUser && showAvatar && isGroupChat && (
           <Text style={styles.senderName}>{senderName}</Text>
         )}
         
         <View style={[
           styles.bubble,
           isCurrentUser ? styles.currentUserBubble : styles.otherUserBubble,
-          // Adjust border radius based on position in message group
           isCurrentUser ? {
             borderBottomRightRadius: isLastInGroup ? 6 : 18,
             borderTopRightRadius: showAvatar ? 18 : 6,
