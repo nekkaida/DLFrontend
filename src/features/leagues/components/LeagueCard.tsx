@@ -3,6 +3,7 @@ import { View, Text, TouchableOpacity, StyleSheet, Image, Dimensions, Platform }
 import { League } from '../services/LeagueService';
 import * as Haptics from 'expo-haptics';
 import { router } from 'expo-router';
+import { LinearGradient } from 'expo-linear-gradient';
 
 const { width } = Dimensions.get('window');
 
@@ -14,16 +15,52 @@ interface LeagueCardProps {
   league: League;
   onJoinPress?: (leagueId: string) => void;
   variant?: 'featured' | 'regular';
+  size?: 'compact' | 'large';
 }
 
-export function LeagueCard({ league, onJoinPress, variant = 'regular' }: LeagueCardProps) {
+interface LeagueGridProps {
+  leagues: League[];
+  onJoinPress?: (leagueId: string) => void;
+}
+
+export function LeagueGrid({ leagues, onJoinPress }: LeagueGridProps) {
+  if (leagues.length === 2) {
+    return (
+      <View style={styles.gridContainer}>
+        {leagues.map((league) => (
+          <LeagueCard 
+            key={league.id} 
+            league={league} 
+            onJoinPress={onJoinPress} 
+            variant="regular" 
+          />
+        ))}
+      </View>
+    );
+  }
+  
+  return (
+    <>
+      {leagues.map((league) => (
+        <LeagueCard 
+          key={league.id} 
+          league={league} 
+          onJoinPress={onJoinPress} 
+          variant="regular" 
+        />
+      ))}
+    </>
+  );
+}
+
+export function LeagueCard({ league, onJoinPress, variant = 'regular', size = 'compact' }: LeagueCardProps) {
   const handleJoinPress = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     if (onJoinPress) {
       onJoinPress(league.id);
     } else {
-      // Default navigation to category screen
-      router.push('/user-dashboard/category');
+      // Default navigation to league details screen
+      router.push('/user-dashboard/league-details');
     }
   };
 
@@ -75,96 +112,180 @@ export function LeagueCard({ league, onJoinPress, variant = 'regular' }: LeagueC
   if (variant === 'featured') {
     return (
       <TouchableOpacity activeOpacity={0.9} style={styles.featuredCard}>
-        <View style={styles.featuredWhiteCard}>
+        <LinearGradient
+          colors={['#A04DFE', '#212427']}
+          style={styles.featuredWhiteCard}
+        >
           <View style={styles.featuredContent}>
-            {/* Header with league name and status */}
+            {/* Header with league name */}
             <View style={styles.featuredHeader}>
               <View style={styles.featuredTitleSection}>
                 <Text style={styles.featuredLeagueName}>{league.name}</Text>
-                <View style={styles.gameTypeChip}>
-                  <Text style={styles.gameTypeText}>{league.gameType}</Text>
-                </View>
+                {/* Categories chips */}
+                {league.categories && league.categories.length > 0 && (
+                  <View style={styles.categoriesContainer}>
+                    {league.categories.map((category) => (
+                      <View key={category.id} style={styles.categoryChip}>
+                        <Text style={styles.categoryText}>{category.name}</Text>
+                      </View>
+                    ))}
+                  </View>
+                )}
               </View>
-              <View style={[styles.statusBadge, { backgroundColor: getStatusColor(league.status) }]}>
+              {/* Comment out status badge */}
+              {/* <View style={[styles.statusBadge, { backgroundColor: getStatusColor(league.status) }]}>
                 <Text style={styles.statusText}>{getStatusText(league.status)}</Text>
-              </View>
+              </View> */}
             </View>
             
-            {/* Description */}
-            <View style={styles.featuredInfo}>
-              {league.description && (
-                <Text style={styles.featuredDescription} numberOfLines={2}>
-                  {league.description}
-                </Text>
-              )}
-            </View>
+            {/* Profile pictures section below categories */}
+            {league.memberships && league.memberships.length > 0 && (
+              <View style={styles.profilePicturesSection}>
+                <View style={styles.profilePicturesContainer}>
+                  {league.memberships.slice(0, 6).map((membership) => (
+                    <View key={membership.id} style={styles.profilePicture}>
+                      {membership.user.image ? (
+                        <Image 
+                          source={{ uri: membership.user.image }}
+                          style={styles.profileImage}
+                        />
+                      ) : (
+                        <View style={styles.defaultProfileImage}>
+                          <Text style={styles.defaultProfileText}>
+                            {membership.user.name?.charAt(0)?.toUpperCase() || 'U'}
+                          </Text>
+                        </View>
+                      )}
+                    </View>
+                  ))}
+                  {league._count?.memberships && league._count.memberships > 6 && (
+                    <View style={styles.remainingCount}>
+                      <Text style={styles.remainingCountText}>
+                        +{league._count.memberships - 6}
+                      </Text>
+                    </View>
+                  )}
+                </View>
+              </View>
+            )}
             
             {/* Bottom section with stats and CTA */}
             <View style={styles.featuredBottom}>
               <View style={styles.statsRow}>
+                <View style={styles.statusCircle} />
                 <Text style={styles.memberCountText}>
-                  {league.memberCount || 0} players joined
+                  {league._count?.memberships || 0} players
                 </Text>
               </View>
               
-              <TouchableOpacity 
-                style={styles.featuredCta} 
-                onPress={handleJoinPress}
-              >
-                <Text style={styles.featuredCtaText}>Join Now</Text>
-              </TouchableOpacity>
+              <View style={styles.ctaSection}>
+                <Text style={styles.registrationText}>Registration open</Text>
+                <TouchableOpacity 
+                  style={styles.featuredCta} 
+                  onPress={handleJoinPress}
+                >
+                  <Text style={styles.featuredCtaText}>Join Now</Text>
+                </TouchableOpacity>
+              </View>
             </View>
           </View>
-        </View>
+        </LinearGradient>
       </TouchableOpacity>
     );
   }
 
+  const cardContentStyle = size === 'large' ? styles.regularCardContentLarge : styles.regularCardContent;
+  const leagueNameStyle = size === 'large' ? styles.regularLeagueNameLarge : styles.regularLeagueName;
+  const registrationTextStyle = size === 'large' ? styles.regularRegistrationTextLarge : styles.regularRegistrationText;
+  const registrationSectionStyle = size === 'large' ? styles.regularRegistrationSectionLarge : styles.regularRegistrationSection;
+  const playerCountStyle = size === 'large' ? styles.regularPlayerCountLarge : styles.regularPlayerCount;
+
   return (
-    <View style={styles.regularCard}>
-      <View style={styles.regularCardContent}>
+    <TouchableOpacity 
+      activeOpacity={0.9} 
+      style={styles.regularCard}
+      onPress={handleJoinPress}
+    >
+      <View style={cardContentStyle}>
         {/* Header with league name and status */}
         <View style={styles.regularHeader}>
           <View style={styles.regularTitleSection}>
-            <Text style={styles.regularLeagueName}>{league.name}</Text>
-            <View style={styles.gameTypeChip}>
+            <Text style={leagueNameStyle}>{league.name}</Text>
+            {/* Comment out category chip */}
+            {/* <View style={styles.gameTypeChip}>
               <Text style={styles.gameTypeText}>{league.gameType}</Text>
-            </View>
+            </View> */}
           </View>
-          <View style={[styles.statusBadge, { backgroundColor: getStatusColor(league.status) }]}>
+          {/* Comment out status chip */}
+          {/* <View style={[styles.statusBadge, { backgroundColor: getStatusColor(league.status) }]}>
             <Text style={styles.statusText}>{getStatusText(league.status)}</Text>
-          </View>
+          </View> */}
         </View>
         
-        {/* Description */}
-        <View style={styles.regularInfo}>
+        {/* Comment out description */}
+        {/* <View style={styles.regularInfo}>
           {league.description && (
             <Text style={styles.regularDescription} numberOfLines={1}>
               {league.description}
             </Text>
           )}
+        </View> */}
+        
+        {/* Player count with green circle */}
+        <View style={playerCountStyle}>
+          <View style={styles.statusCircle} />
+          <Text style={styles.regularPlayerCountText}>
+            {league._count?.memberships || 0} players
+          </Text>
         </View>
         
-        {/* Bottom section with stats and CTA */}
-        <View style={styles.regularBottom}>
-          <View style={styles.regularStats}>
-            <Text style={styles.regularStatText}>
-              {league.memberCount || 0} players joined
-            </Text>
+        {/* Profile pictures section */}
+        {league.memberships && league.memberships.length > 0 && (
+          <View style={styles.regularProfilePicturesSection}>
+            <View style={styles.regularProfilePicturesContainer}>
+              {league.memberships.slice(0, 6).map((membership) => (
+                <View key={membership.id} style={styles.regularProfilePicture}>
+                  {membership.user.image ? (
+                    <Image 
+                      source={{ uri: membership.user.image }}
+                      style={styles.regularProfileImage}
+                    />
+                  ) : (
+                    <View style={styles.regularDefaultProfileImage}>
+                      <Text style={styles.regularDefaultProfileText}>
+                        {membership.user.name?.charAt(0)?.toUpperCase() || 'U'}
+                      </Text>
+                    </View>
+                  )}
+                </View>
+              ))}
+              {league._count?.memberships && league._count.memberships > 6 && (
+                <View style={styles.regularRemainingCount}>
+                  <Text style={styles.regularRemainingCountText}>
+                    +{league._count.memberships - 6}
+                  </Text>
+                </View>
+              )}
+            </View>
           </View>
-          <TouchableOpacity 
-            style={styles.regularCta} 
-            onPress={handleJoinPress}
-          >
-            <Text style={styles.regularCtaText}>Join Now</Text>
-          </TouchableOpacity>
+        )}
+        
+        {/* Registration open text */}
+        <View style={registrationSectionStyle}>
+          <Text style={registrationTextStyle}>Registration open</Text>
         </View>
       </View>
-    </View>
+    </TouchableOpacity>
   );
 }
 
 const styles = StyleSheet.create({
+  gridContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+    gap: 12,
+  },
   featuredCard: {
     marginBottom: 20,
     borderRadius: 16,
@@ -172,7 +293,7 @@ const styles = StyleSheet.create({
   },
   featuredWhiteCard: {
     width: '100%',
-    height: 180,
+    height: 200,
     backgroundColor: '#FFFFFF',
     borderRadius: 16,
     borderWidth: 1,
@@ -202,7 +323,7 @@ const styles = StyleSheet.create({
     marginRight: 8,
   },
   featuredLeagueName: {
-    color: '#111827',
+    color: '#FDFDFD',
     fontSize: isSmallScreen ? 16 : isTablet ? 20 : 18,
     fontWeight: '700',
     marginBottom: 4,
@@ -249,28 +370,121 @@ const styles = StyleSheet.create({
   },
   statsRow: {
     flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   memberCountText: {
-    color: '#6B7280',
+    color: '#FDFDFD',
     fontSize: isSmallScreen ? 11 : isTablet ? 14 : 12,
     fontWeight: '600',
+    marginLeft: 8,
+  },
+  statusCircle: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#6EC531',
+  },
+  profilePicturesSection: {
+    marginTop: 1,
+    marginBottom: 12,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  profilePicturesContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 4, 
+  },
+  profilePicture: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    overflow: 'hidden',
+  },
+  profileImage: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+  },
+  defaultProfileImage: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#6de9a0',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  defaultProfileText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: 'bold',
+  },
+  remainingCount: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  remainingCountText: {
+    color: '#1C1A1A',
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  ctaSection: {
+    alignItems: 'flex-end',
+  },
+  registrationText: {
+    color: '#F2F2F2',
+    fontSize: isSmallScreen ? 10 : isTablet ? 12 : 11,
+    fontWeight: '500',
+    marginBottom: 8,
   },
   featuredCta: {
-    backgroundColor: '#111827',
-    paddingHorizontal: isSmallScreen ? 12 : isTablet ? 18 : 14,
-    paddingVertical: isSmallScreen ? 6 : isTablet ? 10 : 8,
-    borderRadius: 18,
+    backgroundColor: '#FEA04D',
+    paddingHorizontal: isSmallScreen ? 16 : isTablet ? 24 : 20,
+    paddingVertical: isSmallScreen ? 8 : isTablet ? 12 : 10,
+    borderRadius: 12,
     marginLeft: 12,
   },
   featuredCtaText: {
-    color: '#FFFFFF',
+    color: '#1C1A1A',
     fontSize: isSmallScreen ? 11 : isTablet ? 14 : 12,
     fontWeight: '700',
+  },
+  categoriesContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+    marginTop: 8,
+  },
+  categoryChip: {
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    borderRadius: 12,
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  categoryText: {
+    color: '#FEA04D',
+    fontSize: isSmallScreen ? 10 : isTablet ? 12 : 11,
+    fontWeight: '600',
+    textAlign: 'center',
   },
   
   // Regular card styles
   regularCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#A04DFE',
     borderRadius: 16,
     overflow: 'hidden',
     marginBottom: 12,
@@ -284,10 +498,15 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.05,
     shadowRadius: 4,
     elevation: 2,
+    flex: 1,
   },
   regularCardContent: {
     paddingHorizontal: isSmallScreen ? 14 : isTablet ? 18 : 16,
     paddingVertical: isSmallScreen ? 10 : isTablet ? 14 : 12,
+  },
+  regularCardContentLarge: {
+    paddingHorizontal: isSmallScreen ? 16 : isTablet ? 22 : 20,
+    paddingVertical: isSmallScreen ? 14 : isTablet ? 18 : 16,
   },
   regularHeader: {
     flexDirection: 'row',
@@ -302,7 +521,13 @@ const styles = StyleSheet.create({
   regularLeagueName: {
     fontSize: isSmallScreen ? 13 : isTablet ? 16 : 14,
     fontWeight: '700',
-    color: '#111827',
+    color: '#0F0F0F',
+    marginBottom: 2,
+  },
+  regularLeagueNameLarge: {
+    fontSize: isSmallScreen ? 15 : isTablet ? 18 : 16,
+    fontWeight: '700',
+    color: '#0F0F0F',
     marginBottom: 2,
   },
   regularInfo: {
@@ -317,27 +542,101 @@ const styles = StyleSheet.create({
     fontSize: isSmallScreen ? 10 : isTablet ? 12 : 11,
     color: '#9CA3AF',
   },
-  regularBottom: {
+  regularPlayerCount: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  regularPlayerCountLarge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 8,
+    marginBottom: 8,
+  },
+  regularPlayerCountText: {
+    color: '#FFFFFF',
+    fontSize: isSmallScreen ? 11 : isTablet ? 14 : 12,
+    fontWeight: '600',
+    marginLeft: 8,
+  },
+  regularProfilePicturesSection: {
+    marginBottom: 8,
+  },
+  regularProfilePicturesContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 4,
+  },
+  regularProfilePicture: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    overflow: 'hidden',
+  },
+  regularProfileImage: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+  },
+  regularDefaultProfileImage: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: '#6de9a0',
+    justifyContent: 'center',
     alignItems: 'center',
   },
-  regularStats: {
-    flex: 1,
+  regularDefaultProfileText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: 'bold',
   },
-  regularStatText: {
-    color: '#6B7280',
-    fontSize: isSmallScreen ? 10 : isTablet ? 13 : 11,
+  regularRemainingCount: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  regularRemainingCountText: {
+    color: '#1C1A1A',
+    fontSize: 10,
+    fontWeight: '700',
+  },
+  regularRegistrationSection: {
+    marginBottom: 8,
+  },
+  regularRegistrationSectionLarge: {
+    marginTop: 10,
+    marginBottom: 8,
+    alignItems: 'center',
+  },
+  regularRegistrationText: {
+    color: '#0F0F0F',
+    fontSize: isSmallScreen ? 10 : isTablet ? 12 : 11,
     fontWeight: '500',
   },
+  regularRegistrationTextLarge: {
+    color: '#0F0F0F',
+    fontSize: isSmallScreen ? 11 : isTablet ? 13 : 12,
+    fontWeight: '500',
+    textAlign: 'center',
+  },
+  regularBottom: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    alignItems: 'center',
+  },
   regularCta: {
-    backgroundColor: '#111827',
+    backgroundColor: '#FEA04D',
     paddingHorizontal: isSmallScreen ? 12 : isTablet ? 16 : 14,
     paddingVertical: isSmallScreen ? 6 : isTablet ? 8 : 7,
     borderRadius: 12,
   },
   regularCtaText: {
-    color: '#FFFFFF',
+    color: '#1C1A1A',
     fontSize: isSmallScreen ? 10 : isTablet ? 13 : 11,
     fontWeight: '700',
   },

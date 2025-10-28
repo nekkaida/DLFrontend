@@ -1,5 +1,5 @@
 import React from 'react';
-import { ScrollView, Text, View, StyleSheet, Dimensions, Platform, Image, TouchableOpacity, ImageBackground, Animated, ActivityIndicator } from 'react-native';
+import { ScrollView, Text, View, StyleSheet, Dimensions, Platform, Image, TouchableOpacity, ImageBackground, Animated, ActivityIndicator, TextInput } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useDashboard } from '../DashboardContext';
@@ -8,6 +8,7 @@ import * as Haptics from 'expo-haptics';
 import { router } from 'expo-router';
 import { SportDropdownHeader } from '@/src/shared/components/ui/SportDropdownHeader';
 import { useLeagues, LeagueCard } from '@/src/features/leagues';
+import SearchIcon from '@/assets/icons/search-icon.svg';
 
 const { width, height } = Dimensions.get('window');
 
@@ -68,15 +69,14 @@ export default function DashboardScreen() {
     const success = await joinLeague(leagueId);
     if (success) {
       console.log('Successfully joined league:', leagueId);
-      // Navigate to category screen with league information
+      // Navigate to league details screen with league information
       const league = leagues.find(l => l.id === leagueId);
       router.push({
-        pathname: '/user-dashboard/category',
+        pathname: '/user-dashboard/league-details',
         params: { 
           leagueId: leagueId,
           leagueName: league?.name || 'League',
-          sport: 'pickleball',
-          gameType: league?.gameType || 'SINGLES'
+          sport: 'pickleball'
         }
       });
     } else {
@@ -177,6 +177,18 @@ export default function DashboardScreen() {
                   <Text style={styles.arrowText}>→</Text>
                 </View>
 
+                {/* Search field */}
+                <View style={styles.searchContainer}>
+                  <View style={styles.searchInputContainer}>
+                    <SearchIcon width={20} height={20} style={styles.searchIcon} />
+                    <TextInput
+                      style={styles.searchInput}
+                      placeholder="Search city or town..."
+                      placeholderTextColor="#BABABA"
+                    />
+                  </View>
+                </View>
+
                 {leagues.slice(1).map((league) => (
                   <LeagueCard
                     key={league.id}
@@ -258,6 +270,33 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     marginBottom: 12,
+  },
+  searchContainer: {
+    marginBottom: 16,
+  },
+  searchInputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F9FAFB',
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#BABABA',
+    paddingHorizontal: 16,
+    paddingVertical: 0,
+    height: 48,
+    minHeight: 48,
+    maxHeight: 48,
+  },
+  searchIcon: {
+    marginRight: 12,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 16,
+    color: '#1F2937',
+    paddingVertical: 12, 
+    textAlignVertical: 'center',
+    includeFontPadding: false,
   },
   arrowText: {
     fontSize: 18,

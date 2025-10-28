@@ -15,6 +15,28 @@ export interface League {
   memberCount?: number;
   seasonCount?: number;
   categoryCount?: number;
+  categories?: Array<{
+    id: string;
+    name: string;
+    genderRestriction?: string;
+    game_type?: string;
+    gender_category?: string;
+  }>;
+  memberships?: Array<{
+    id: string;
+    userId: string;
+    leagueId: string;
+    joinedAt: string;
+    user: {
+      id: string;
+      name: string;
+      image?: string;
+    };
+  }>;
+  _count?: {
+    memberships: number;
+    seasons: number;
+  };
 }
 
 export interface LeagueResponse {
@@ -137,8 +159,16 @@ export class LeagueService {
       // handle the apiResponse structure from backend
       if (response && typeof response === 'object') {
         const apiResponse = response as any;
+        
+        // Handle authClient.$fetch wrapped response structure
+        if (apiResponse.data && apiResponse.data.success && apiResponse.data.data && apiResponse.data.data.league) {
+          console.log('LeagueService: Setting league data (wrapped):', apiResponse.data.data.league);
+          return apiResponse.data.data.league as League;
+        }
+        
+        // Handle direct API response structure
         if (apiResponse.success && apiResponse.data && apiResponse.data.league) {
-          console.log('LeagueService: Setting league data:', apiResponse.data.league);
+          console.log('LeagueService: Setting league data (direct):', apiResponse.data.league);
           return apiResponse.data.league as League;
         }
       }
