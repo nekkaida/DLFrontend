@@ -158,10 +158,10 @@ export function LeagueCard({ league, onJoinPress, variant = 'regular', size = 'c
                       )}
                     </View>
                   ))}
-                  {league._count?.memberships && league._count.memberships > 6 && (
+                  {league.totalSeasonMemberships && league.totalSeasonMemberships > 6 && (
                     <View style={styles.remainingCount}>
                       <Text style={styles.remainingCountText}>
-                        +{league._count.memberships - 6}
+                        +{league.totalSeasonMemberships - 6}
                       </Text>
                     </View>
                   )}
@@ -174,7 +174,7 @@ export function LeagueCard({ league, onJoinPress, variant = 'regular', size = 'c
               <View style={styles.statsRow}>
                 <View style={styles.statusCircle} />
                 <Text style={styles.memberCountText}>
-                  {league._count?.memberships || 0} players
+                  {league.totalSeasonMemberships || 0} players
                 </Text>
               </View>
               
@@ -235,7 +235,7 @@ export function LeagueCard({ league, onJoinPress, variant = 'regular', size = 'c
         <View style={playerCountStyle}>
           <View style={styles.statusCircle} />
           <Text style={styles.regularPlayerCountText}>
-            {league._count?.memberships || 0} players
+            {league.totalSeasonMemberships || 0} players
           </Text>
         </View>
         
@@ -259,10 +259,10 @@ export function LeagueCard({ league, onJoinPress, variant = 'regular', size = 'c
                   )}
                 </View>
               ))}
-              {league._count?.memberships && league._count.memberships > 6 && (
+              {league.totalSeasonMemberships && league.totalSeasonMemberships > 6 && (
                 <View style={styles.regularRemainingCount}>
                   <Text style={styles.regularRemainingCountText}>
-                    +{league._count.memberships - 6}
+                    +{league.totalSeasonMemberships - 6}
                   </Text>
                 </View>
               )}
