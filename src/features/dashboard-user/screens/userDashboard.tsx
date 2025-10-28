@@ -8,7 +8,7 @@ import { NavBar } from '@/shared/components/layout';
 import { useSession, authClient } from '@/lib/auth-client';
 import { getBackendBaseURL } from '@/config/network';
 import * as Haptics from 'expo-haptics';
-import ConnectScreen from './ConnectScreen';
+import CommunityScreen from '@/features/community/screens/CommunityScreen';
 import TennisIcon from '@/assets/images/033-TENNIS 1.svg';
 import PadelIcon from '@/assets/images/036-PADEL 1.svg';
 import PickleballIcon from '@/assets/images/045-PICKLEBALL.svg';
@@ -271,7 +271,7 @@ export default function DashboardScreen() {
   // use this for swtiching between tabs
   if (currentView === 'connect') {
     return (
-      <ConnectScreen onTabPress={handleTabPress} />
+      <CommunityScreen onTabPress={handleTabPress} />
     );
   }
 
