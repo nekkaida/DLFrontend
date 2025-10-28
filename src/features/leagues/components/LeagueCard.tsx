@@ -111,7 +111,7 @@ export function LeagueCard({ league, onJoinPress, variant = 'regular', size = 'c
 
   if (variant === 'featured') {
     return (
-      <TouchableOpacity activeOpacity={0.9} style={styles.featuredCard}>
+      <TouchableOpacity activeOpacity={0.9} style={styles.featuredCard} onPress={handleJoinPress}>
         <LinearGradient
           colors={['#A04DFE', '#212427']}
           style={styles.featuredWhiteCard}
@@ -178,7 +178,8 @@ export function LeagueCard({ league, onJoinPress, variant = 'regular', size = 'c
                 </Text>
               </View>
               
-              <View style={styles.ctaSection}>
+              {/* Comment out CTA section */}
+              {/* <View style={styles.ctaSection}>
                 <Text style={styles.registrationText}>Registration open</Text>
                 <TouchableOpacity 
                   style={styles.featuredCta} 
@@ -186,6 +187,9 @@ export function LeagueCard({ league, onJoinPress, variant = 'regular', size = 'c
                 >
                   <Text style={styles.featuredCtaText}>Join Now</Text>
                 </TouchableOpacity>
+              </View> */}
+              <View style={styles.ctaSection}>
+                <Text style={styles.registrationText}>Registration open</Text>
               </View>
             </View>
           </View>
