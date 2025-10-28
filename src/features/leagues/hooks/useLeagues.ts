@@ -55,23 +55,10 @@ export function useLeagues(options: UseLeaguesOptions = {}): UseLeaguesReturn {
   }, [sportType]);
 
   const joinLeague = useCallback(async (leagueId: string): Promise<boolean> => {
-    try {
-      if (!session?.user?.id) {
-        console.error('useLeagues: No user session available for joining league');
-        return false;
-      }
-      
-      const success = await LeagueService.joinLeague(leagueId, session.user.id);
-      if (success) {
-        // Refresh the leagues list to update member counts
-        await fetchLeagues();
-      }
-      return success;
-    } catch (err) {
-      console.error('useLeagues: Error joining league:', err);
-      return false;
-    }
-  }, [fetchLeagues, session?.user?.id]);
+    console.warn('useLeagues: joinLeague is deprecated. League membership model has been removed.');
+    console.warn('useLeagues: Users should navigate to league details and join specific seasons instead.');
+    return false;
+  }, []);
 
   useEffect(() => {
     if (autoFetch) {

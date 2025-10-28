@@ -15,6 +15,7 @@ export interface League {
   memberCount?: number;
   seasonCount?: number;
   categoryCount?: number;
+  totalSeasonMemberships?: number; // Total count of season memberships across all seasons in this league
   categories?: Array<{
     id: string;
     name: string;
@@ -181,12 +182,14 @@ export class LeagueService {
     }
   }
 
-  // join a league (deprecated - players now join seasons instead)
+  // Note: League membership has been removed from the backend architecture.
+  // Users now join seasons directly, not leagues.
+  // To join a league, navigate to the league details page and select a season to join.
+  
   static async joinLeague(leagueId: string, userId: string): Promise<boolean> {
-    console.log('LeagueService: League joining is deprecated. Players should join seasons instead.');
-    console.log('LeagueService: Please use SeasonService.joinSeason() to join individual seasons.');
-    
-    // Return false to indicate this operation is not supported
+    console.warn('LeagueService: joinLeague is deprecated. League membership model has been removed.');
+    console.warn('LeagueService: Users should join seasons directly instead.');
+    console.warn('LeagueService: Please navigate to league details and join a specific season.');
     return false;
   }
 }

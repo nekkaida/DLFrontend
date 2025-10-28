@@ -25,7 +25,7 @@ export default function DashboardScreen() {
   const scrollY = React.useRef(new Animated.Value(0)).current;
 
   // Fetch leagues data
-  const { leagues, isLoading, error, refetch, joinLeague } = useLeagues({
+  const { leagues, isLoading, error, refetch } = useLeagues({
     sportType: 'PICKLEBALL',
     autoFetch: true
   });
@@ -65,23 +65,18 @@ export default function DashboardScreen() {
   };
 
   const handleJoinLeague = async (leagueId: string) => {
-    const success = await joinLeague(leagueId);
-    if (success) {
-      console.log('Successfully joined league:', leagueId);
-      // Navigate to league details screen with league information
-      const league = leagues.find(l => l.id === leagueId);
-      router.push({
-        pathname: '/user-dashboard/league-details',
-        params: { 
-          leagueId: leagueId,
-          leagueName: league?.name || 'League',
-          sport: 'pickleball'
-        }
-      });
-    } else {
-      console.log('Failed to join league:', leagueId);
-      // You could show an error toast here
-    }
+    // Navigate directly to league details where user can join specific seasons
+    // Note: League membership has been removed - users join seasons directly
+    const league = leagues.find(l => l.id === leagueId);
+    console.log('Navigating to league details:', leagueId);
+    router.push({
+      pathname: '/user-dashboard/league-details',
+      params: { 
+        leagueId: leagueId,
+        leagueName: league?.name || 'League',
+        sport: 'pickleball'
+      }
+    });
   };
 
   return (
