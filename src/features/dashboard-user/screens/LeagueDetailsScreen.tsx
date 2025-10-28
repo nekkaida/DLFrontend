@@ -267,7 +267,7 @@ export default function LeagueDetailsScreen({
       if (season.status === 'UPCOMING') {
         return {
           text: 'Join Waitlist',
-          color: '#000000',
+          color: '#F2F2F2',
           onPress: handleJoinWaitlistPress
         };
       }
