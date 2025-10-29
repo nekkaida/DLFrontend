@@ -24,6 +24,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import ConnectScreen from "./ConnectScreen";
+import { ChatScreen } from "@/src/features/chat/ChatScreen";
 
 const SPORT_CONFIG = {
   pickleball: {
@@ -341,6 +342,16 @@ export default function DashboardScreen() {
   // use this for swtiching between tabs
   if (currentView === "connect") {
     return <ConnectScreen onTabPress={handleTabPress} />;
+  }
+
+  if (currentView === "chat") {
+    return (
+      <View style={styles.container}>
+        <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
+        <ChatScreen />
+        <NavBar activeTab={activeTab} onTabPress={handleTabPress} />
+      </View>
+    );
   }
 
   // later delete this
