@@ -659,7 +659,7 @@ const styles = StyleSheet.create({
   },
   contentBox: {
     flex: 1,
-    backgroundColor: "#F5F5F5",
+    backgroundColor: "#F6FAFC",
     borderWidth: 1,
     borderColor: "#D5D5D5",
     borderTopLeftRadius: 20,

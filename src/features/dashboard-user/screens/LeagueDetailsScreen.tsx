@@ -165,8 +165,32 @@ export default function LeagueDetailsScreen({
 
   const handleRegisterPress = (season: Season) => {
     console.log('Register button pressed for season:', season.id);
-    setSelectedSeason(season);
-    setShowPaymentOptions(true);
+    
+    // Check if this is a doubles season by checking category name
+    const isDoublesSeason = season.categories?.some(cat => 
+      cat.name?.toLowerCase().includes('doubles') || 
+      cat.matchFormat?.toLowerCase().includes('doubles') || 
+      (cat as any).game_type === 'DOUBLES'
+    );
+    
+    console.log('Is doubles season?', isDoublesSeason, 'Categories:', season.categories?.map(c => c.name));
+    
+    if (isDoublesSeason) {
+      // Navigate to doubles team pairing screen
+      router.push({
+        pathname: '/user-dashboard/doubles-team-pairing' as any,
+        params: {
+          seasonId: season.id,
+          seasonName: season.name,
+          leagueId: leagueId,
+          sport: sport
+        }
+      });
+    } else {
+      // Show payment options for singles
+      setSelectedSeason(season);
+      setShowPaymentOptions(true);
+    }
   };
 
   const handleJoinWaitlistPress = () => {
@@ -1160,7 +1184,7 @@ const styles = StyleSheet.create({
   },
   contentBox: {
     flex: 1,
-    backgroundColor: '#F5F5F5',
+    backgroundColor: '#F6FAFC',
     borderWidth: 1,
     borderColor: '#D5D5D5',
     borderTopLeftRadius: 20,
