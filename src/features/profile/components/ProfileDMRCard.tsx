@@ -4,6 +4,7 @@ import * as Haptics from 'expo-haptics';
 import { theme } from '@core/theme/theme';
 import { InlineDropdown } from './InlineDropdown';
 import { EloProgressGraph } from './EloProgressGraph';
+import { MatchDetailsBox } from './MatchDetailsBox';
 import type { GameData } from '../types';
 
 interface ProfileDMRCardProps {
@@ -14,6 +15,8 @@ interface ProfileDMRCardProps {
   getRatingForType: (sport: string, type: 'singles' | 'doubles') => number;
   eloData: GameData[];
   onPointPress: (game: GameData) => void;
+  selectedMatch: any | null;
+  profileData: any;
 }
 
 export const ProfileDMRCard: React.FC<ProfileDMRCardProps> = ({
@@ -24,6 +27,8 @@ export const ProfileDMRCard: React.FC<ProfileDMRCardProps> = ({
   getRatingForType,
   eloData,
   onPointPress,
+  selectedMatch,
+  profileData,
 }) => {
   return (
     <View style={styles.skillLevelSection}>
@@ -62,6 +67,9 @@ export const ProfileDMRCard: React.FC<ProfileDMRCardProps> = ({
             }}
           />
         </View>
+
+        {/* Match Details Box */}
+        <MatchDetailsBox match={selectedMatch} profileData={profileData} />
 
         {/* ELO Progress Graph */}
         <EloProgressGraph
