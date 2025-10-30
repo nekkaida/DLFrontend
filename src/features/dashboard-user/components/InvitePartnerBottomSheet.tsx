@@ -62,7 +62,7 @@ export const InvitePartnerBottomSheet: React.FC<InvitePartnerBottomSheetProps> =
   const fetchPlayers = useCallback(async () => {
     try {
       if (!seasonId) return;
-      
+
       setIsLoading(true);
       const backendUrl = getBackendBaseURL();
       const response = await authClient.$fetch(`${backendUrl}/api/player/discover/${seasonId}`, {
@@ -70,9 +70,18 @@ export const InvitePartnerBottomSheet: React.FC<InvitePartnerBottomSheetProps> =
       });
 
       if (response && (response as any).data) {
-        const playersData = (response as any).data.data || (response as any).data;
+        const responseData = (response as any).data;
+        // New backend returns { players, usedFallback, totalCount, friendsCount }
+        const playersData = responseData.players || responseData.data || responseData;
         setPlayers(playersData);
         setFilteredPlayers(playersData);
+
+        // Show info toast if fallback was used
+        if (responseData.usedFallback) {
+          toast.info('No Friends Available', {
+            description: 'Showing all eligible players since you have no friends to pair with',
+          });
+        }
       }
     } catch (error) {
       console.error('Error fetching players:', error);
