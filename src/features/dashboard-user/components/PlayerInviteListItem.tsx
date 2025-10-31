@@ -12,6 +12,7 @@ interface Player {
   skillRatings?: any;
   bio?: string | null;
   area?: string | null;
+  gender?: 'MALE' | 'FEMALE' | null;
 }
 
 interface PlayerInviteListItemProps {
@@ -30,20 +31,31 @@ export const PlayerInviteListItem: React.FC<PlayerInviteListItemProps> = ({ play
     if (!player.skillRatings) return 'N/A';
     const sportKeys = Object.keys(player.skillRatings);
     if (sportKeys.length === 0) return 'N/A';
-    
+
     // Get the first available sport rating
     const firstSport = player.skillRatings[sportKeys[0]];
     const doublesRating = firstSport?.doubles;
-    
+
     if (doublesRating) {
       return Math.round(doublesRating * 1000).toString();
     }
-    
+
     return 'N/A';
   };
 
+  // Get gender icon
+  const getGenderIcon = () => {
+    if (player.gender === 'MALE') {
+      return '♂';
+    } else if (player.gender === 'FEMALE') {
+      return '♀';
+    }
+    return '';
+  };
+
   return (
-    <TouchableOpacity style={styles.container} onPress={handlePress} activeOpacity={0.7}>
+    <View style={styles.container}>
+      {/* Avatar - Left most */}
       {player.image ? (
         <Image source={{ uri: player.image }} style={styles.avatar} />
       ) : (
@@ -53,20 +65,36 @@ export const PlayerInviteListItem: React.FC<PlayerInviteListItemProps> = ({ play
           </Text>
         </View>
       )}
-      
-      <View style={styles.playerInfo}>
-        <Text style={styles.playerName}>{player.name}</Text>
-        {player.displayUsername && (
-          <Text style={styles.playerUsername}>@{player.displayUsername}</Text>
-        )}
-        <View style={styles.ratingRow}>
-          <Text style={styles.ratingLabel}>Doubles DMR:</Text>
-          <Text style={styles.ratingValue}>{getDoublesDMR()}</Text>
+
+      {/* Content Column - Name, Gender, DMR, Location */}
+      <View style={styles.contentColumn}>
+        {/* Name and Gender Row */}
+        <View style={styles.nameRow}>
+          <Text style={styles.playerName} numberOfLines={1}>
+            {player.name}
+          </Text>
+          {player.gender && (
+            <Text style={styles.genderIcon}>{getGenderIcon()}</Text>
+          )}
         </View>
+
+        {/* DMR */}
+        <Text style={styles.dmrText}>DMR: {getDoublesDMR()}</Text>
+
+        {/* Location */}
+        {player.area && (
+          <View style={styles.locationRow}>
+            <Ionicons name="location" size={12} color="#FEA04D" />
+            <Text style={styles.locationText}>{player.area}</Text>
+          </View>
+        )}
       </View>
-      
-      <Ionicons name="chevron-forward" size={20} color="#BABABA" />
-    </TouchableOpacity>
+
+      {/* Invite Button - Right most */}
+      <TouchableOpacity style={styles.inviteButton} onPress={handlePress} activeOpacity={0.7}>
+        <Text style={styles.inviteButtonText}>Invite</Text>
+      </TouchableOpacity>
+    </View>
   );
 };
 
@@ -76,52 +104,73 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 12,
     paddingHorizontal: 16,
+    minHeight: 80,
   },
   avatar: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    marginRight: 12,
   },
   defaultAvatar: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+    width: 50,
+    height: 50,
+    borderRadius: 25,
     backgroundColor: '#6de9a0',
     justifyContent: 'center',
     alignItems: 'center',
+    marginRight: 12,
   },
   defaultAvatarText: {
     color: '#FFFFFF',
-    fontSize: 22,
+    fontSize: 20,
     fontWeight: 'bold',
   },
-  playerInfo: {
+  contentColumn: {
     flex: 1,
-    marginLeft: 12,
+    justifyContent: 'center',
+  },
+  nameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 4,
+    gap: 6,
   },
   playerName: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#1A1C1E',
-    marginBottom: 2,
-  },
-  playerUsername: {
     fontSize: 14,
+    fontWeight: '600',
+    color: '#1A1C1E',
+    flex: 1,
+  },
+  genderIcon: {
+    fontSize: 14,
+    color: '#86868B',
+  },
+  dmrText: {
+    fontSize: 12,
     color: '#86868B',
     marginBottom: 4,
   },
-  ratingRow: {
+  locationRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: 4,
   },
-  ratingLabel: {
-    fontSize: 13,
-    color: '#86868B',
+  locationText: {
+    fontSize: 11,
+    color: '#FEA04D',
+    fontWeight: '500',
   },
-  ratingValue: {
+  inviteButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    backgroundColor: '#A04DFE',
+    borderRadius: 8,
+    marginLeft: 12,
+  },
+  inviteButtonText: {
+    color: '#FFFFFF',
     fontSize: 13,
     fontWeight: '600',
-    color: '#1A1C1E',
   },
 });
