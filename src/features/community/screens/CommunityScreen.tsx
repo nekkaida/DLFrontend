@@ -6,6 +6,7 @@ import { useSession } from '@/lib/auth-client';
 import { NavBar } from '@/shared/components/layout';
 import * as Haptics from 'expo-haptics';
 import { toast } from 'sonner-native';
+import { router } from 'expo-router';
 import { CommunityHeader, SearchBar, TabSwitcher, PlayerInfoModal, FriendRequestModal } from '../components';
 import { AllPlayersView, FriendsView, InvitationsView } from '../views';
 import { useProfile, usePlayers, useFriends, useSeasonInvitations } from '../hooks';
@@ -161,9 +162,24 @@ export default function CommunityScreen({ onTabPress }: CommunityScreenProps) {
   }, [friendRequestRecipient, sendFriendRequest]);
 
   const handleAcceptSeasonInvitation = useCallback(async (invitationId: string) => {
-    await acceptSeasonInvitation(invitationId, () => {
+    await acceptSeasonInvitation(invitationId, (partnershipData) => {
       // Refresh friends and invitations after accepting
       fetchFriends();
+
+      // Navigate to DoublesTeamPairingScreen if partnership was created
+      if (partnershipData?.season) {
+        const seasonId = partnershipData.season.id;
+        const seasonName = partnershipData.season.name;
+
+        // Navigate to the season pairing screen
+        router.push({
+          pathname: '/(tabs)/seasons/[seasonId]/doubles-pairing',
+          params: {
+            seasonId,
+            seasonName,
+          },
+        });
+      }
     });
   }, [acceptSeasonInvitation, fetchFriends]);
 
@@ -239,7 +255,13 @@ export default function CommunityScreen({ onTabPress }: CommunityScreenProps) {
         </ScrollView>
       </View>
 
-      <NavBar activeTab={activeTab} onTabPress={handleTabPress} />
+      <NavBar
+        activeTab={activeTab}
+        onTabPress={handleTabPress}
+        badgeCounts={{
+          connect: seasonInvitations.received.length + friendRequests.received.length,
+        }}
+      />
 
       {/* Player Info Modal */}
       <PlayerInfoModal
