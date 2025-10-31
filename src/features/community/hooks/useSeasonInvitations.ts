@@ -29,7 +29,7 @@ export const useSeasonInvitations = () => {
     }
   }, [session?.user?.id]);
 
-  const acceptSeasonInvitation = useCallback(async (invitationId: string, onSuccess?: () => void) => {
+  const acceptSeasonInvitation = useCallback(async (invitationId: string, onSuccess?: (partnershipData?: any) => void) => {
     try {
       setActionLoading(invitationId);
 
@@ -47,7 +47,8 @@ export const useSeasonInvitations = () => {
           description: 'Season invitation accepted!',
         });
         await fetchSeasonInvitations();
-        onSuccess?.();
+        // Pass partnership data to onSuccess callback
+        onSuccess?.(responseData.data);
       }
     } catch (error) {
       console.error('Error accepting season invitation:', error);
