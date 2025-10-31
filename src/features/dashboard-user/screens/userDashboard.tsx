@@ -23,7 +23,7 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import ConnectScreen from "./ConnectScreen";
+import CommunityScreen from "@/src/features/community/screens/CommunityScreen";
 import { ChatScreen } from "@/src/features/chat/ChatScreen";
 
 const SPORT_CONFIG = {
@@ -341,7 +341,7 @@ export default function DashboardScreen() {
 
   // use this for swtiching between tabs
   if (currentView === "connect") {
-    return <ConnectScreen onTabPress={handleTabPress} />;
+    return <CommunityScreen onTabPress={handleTabPress} />;
   }
 
   if (currentView === "chat") {

@@ -13,6 +13,7 @@ import { SeasonService, Season } from '@/src/features/dashboard-user/services/Se
 import { LeagueService } from '@/src/features/leagues/services/LeagueService';
 import { PaymentOptionsBottomSheet, InvitePartnerBottomSheet } from '../components';
 import { toast } from 'sonner-native';
+import { SocketService } from '@/lib/socket-service';
 import BackButtonIcon from '@/assets/icons/back-button.svg';
 import TeamPlusIcon from '@/assets/icons/teamp_plus.svg';
 import TeamUpBulbIcon from '@/assets/icons/teamup_bulb.svg';
@@ -54,6 +55,14 @@ export default function DoublesTeamPairingScreen({
   const [selectedSport, setSelectedSport] = React.useState<'pickleball' | 'tennis' | 'padel'>('pickleball');
   const [showInvitePartnerSheet, setShowInvitePartnerSheet] = React.useState(false);
   const [showPaymentOptions, setShowPaymentOptions] = React.useState(false);
+
+  // Season invitation/partnership state
+  const [invitationStatus, setInvitationStatus] = React.useState<'none' | 'pending_sent' | 'pending_received' | 'accepted' | 'declined' | 'expired'>('none');
+  const [partnershipStatus, setPartnershipStatus] = React.useState<'none' | 'active'>('none');
+  const [currentInvitation, setCurrentInvitation] = React.useState<any>(null);
+  const [currentPartnership, setCurrentPartnership] = React.useState<any>(null);
+  const [isPairingLoading, setIsPairingLoading] = React.useState(false);
+
   const insets = useSafeAreaInsets();
   const STATUS_BAR_HEIGHT = insets.top;
 
@@ -84,6 +93,136 @@ export default function DoublesTeamPairingScreen({
   React.useEffect(() => {
     setSelectedSport(sport);
   }, [sport]);
+
+  // Debug: Log state changes
+  React.useEffect(() => {
+    console.log('🔍 DoublesTeamPairing State:', {
+      invitationStatus,
+      partnershipStatus,
+      selectedPartner: selectedPartner?.name || 'none',
+      isPairingLoading,
+      disabled: invitationStatus !== 'none' || partnershipStatus === 'active'
+    });
+  }, [invitationStatus, partnershipStatus, selectedPartner, isPairingLoading]);
+
+  // Check pairing status when screen loads
+  React.useEffect(() => {
+    if (seasonId && userId) {
+      checkPairingStatus();
+    }
+  }, [seasonId, userId]);
+
+  // Setup Socket.IO listeners for real-time updates
+  React.useEffect(() => {
+    const socketService = SocketService.getInstance();
+
+    // Handler for when user receives a new season invitation
+    const handleInvitationReceived = (data: any) => {
+      console.log('DoublesTeamPairing: Received invitation:', data);
+      if (data.season?.id === seasonId) {
+        toast.info('New season invitation!', {
+          description: `${data.sender?.name} invited you to join this season.`,
+        });
+        checkPairingStatus(); // Refresh status
+      }
+    };
+
+    // Handler for when sent invitation is accepted
+    const handleInvitationAccepted = (data: any) => {
+      console.log('DoublesTeamPairing: Invitation accepted:', data);
+      if (data.partnership?.season?.id === seasonId) {
+        toast.success('Invitation accepted!', {
+          description: `${data.acceptedBy?.name} accepted your invitation.`,
+        });
+        checkPairingStatus(); // Refresh status
+      }
+    };
+
+    // Handler for partnership creation
+    const handlePartnershipCreated = (data: any) => {
+      console.log('DoublesTeamPairing: Partnership created:', data);
+      if (data.partnership?.season?.id === seasonId) {
+        toast.success('Partnership created!', {
+          description: 'You can now register your team.',
+        });
+        checkPairingStatus(); // Refresh status
+      }
+    };
+
+    // Register listeners
+    socketService.on('season_invitation_received', handleInvitationReceived);
+    socketService.on('season_invitation_accepted', handleInvitationAccepted);
+    socketService.on('partnership_created', handlePartnershipCreated);
+
+    // Cleanup listeners on unmount
+    return () => {
+      socketService.off('season_invitation_received', handleInvitationReceived);
+      socketService.off('season_invitation_accepted', handleInvitationAccepted);
+      socketService.off('partnership_created', handlePartnershipCreated);
+    };
+  }, [seasonId]);
+
+  const checkPairingStatus = async () => {
+    if (!seasonId || !userId) return;
+
+    try {
+      setIsPairingLoading(true);
+      const backendUrl = getBackendBaseURL();
+
+      // Check for active partnership
+      const partnershipResponse = await authClient.$fetch(
+        `${backendUrl}/api/pairing/partnership/active/${seasonId}`,
+        { method: 'GET' }
+      );
+
+      const partnershipData = (partnershipResponse as any)?.data?.data || (partnershipResponse as any)?.data;
+      console.log('🔎 Partnership response:', { partnershipData, hasData: !!partnershipData });
+
+      if (partnershipData && partnershipData.id) {
+        // Active partnership exists
+        setPartnershipStatus('active');
+        setCurrentPartnership(partnershipData);
+        setInvitationStatus('accepted');
+
+        // Set partner based on role
+        const partner = partnershipData.captainId === userId
+          ? partnershipData.partner
+          : partnershipData.captain;
+        setSelectedPartner(partner);
+        return;
+      }
+
+      // No partnership, check for pending invitation
+      const invitationResponse = await authClient.$fetch(
+        `${backendUrl}/api/pairing/season/invitation/pending/${seasonId}`,
+        { method: 'GET' }
+      );
+
+      const invitationData = (invitationResponse as any)?.data?.data || (invitationResponse as any)?.data;
+      console.log('🔎 Invitation response:', { invitationData, hasData: !!invitationData });
+
+      if (invitationData && invitationData.id) {
+        setCurrentInvitation(invitationData);
+
+        // Determine invitation status based on direction
+        if (invitationData.direction === 'sent') {
+          setInvitationStatus('pending_sent');
+          setSelectedPartner(invitationData.recipient);
+        } else {
+          setInvitationStatus('pending_received');
+          setSelectedPartner(invitationData.sender);
+        }
+      } else {
+        // No invitation or partnership
+        setInvitationStatus('none');
+        setPartnershipStatus('none');
+      }
+    } catch (error) {
+      console.error('Error checking pairing status:', error);
+    } finally {
+      setIsPairingLoading(false);
+    }
+  };
 
   const fetchSeasonData = async () => {
     if (!seasonId) {
@@ -121,15 +260,58 @@ export default function DoublesTeamPairingScreen({
   };
 
   const handleInvitePartner = () => {
+    console.log('🎯 Invite Partner tapped!', { invitationStatus, partnershipStatus });
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    setShowInvitePartnerSheet(true);
+    // Small delay to prevent immediate backdrop tap
+    setTimeout(() => {
+      setShowInvitePartnerSheet(true);
+    }, 100);
   };
 
-  const handlePartnerSelected = (player: Player) => {
-    setSelectedPartner(player);
-    toast.success('Partner selected!', {
-      description: `${player.name} has been selected as your partner.`,
-    });
+  const handlePartnerSelected = async (player: Player) => {
+    console.log('🎯 handlePartnerSelected called with player:', player.name, 'userId:', userId, 'seasonId:', seasonId);
+
+    if (!userId || !seasonId) {
+      console.log('❌ Missing userId or seasonId, aborting');
+      return;
+    }
+
+    try {
+      console.log('✅ Setting selected partner:', player.name);
+      setSelectedPartner(player);
+
+      // Send season invitation
+      const backendUrl = getBackendBaseURL();
+      const invitationPayload = {
+        recipientId: player.id,
+        seasonId: seasonId,
+        message: null
+      };
+      console.log('📤 Sending invitation with payload:', invitationPayload);
+
+      const response = await authClient.$fetch(
+        `${backendUrl}/api/pairing/season/invitation`,
+        {
+          method: 'POST',
+          body: invitationPayload
+        }
+      );
+
+      console.log('✅ Invitation API response:', response);
+      const responseData = (response as any)?.data || response;
+      if (responseData) {
+        toast.success('Invitation sent!', {
+          description: `Season invitation sent to ${player.name}.`,
+        });
+
+        // Refresh pairing status to show pending state
+        await checkPairingStatus();
+      }
+    } catch (error) {
+      console.error('Error sending season invitation:', error);
+      toast.error('Failed to send invitation');
+      setSelectedPartner(null);
+    }
   };
 
   const handleRegisterTeam = () => {
@@ -195,15 +377,44 @@ export default function DoublesTeamPairingScreen({
     if (!profileData?.skillRatings) return 'N/A';
     const sportKeys = Object.keys(profileData.skillRatings);
     if (sportKeys.length === 0) return 'N/A';
-    
+
     const firstSport = profileData.skillRatings[sportKeys[0]];
     const doublesRating = firstSport?.doubles;
-    
+
     if (doublesRating) {
       return Math.round(doublesRating * 1000).toString();
     }
-    
+
     return 'N/A';
+  };
+
+  const getTeamDMR = () => {
+    // Only calculate Team DMR when partnership is ACTIVE
+    if (!selectedPartner || partnershipStatus !== 'active') {
+      return '-';
+    }
+
+    // Get current user's DMR
+    const userDMR = getDoublesDMR();
+    if (userDMR === 'N/A') return 'N/A';
+
+    // Get partner's DMR
+    const partnerSkillRatings = selectedPartner?.skillRatings;
+    if (!partnerSkillRatings) return 'N/A';
+
+    const sportKeys = Object.keys(partnerSkillRatings);
+    if (sportKeys.length === 0) return 'N/A';
+
+    const firstSport = partnerSkillRatings[sportKeys[0]];
+    const partnerDoublesRating = firstSport?.doubles;
+
+    if (!partnerDoublesRating) return 'N/A';
+
+    const partnerDMR = Math.round(partnerDoublesRating * 1000);
+
+    // Calculate Team DMR (average of both players)
+    const teamDMR = Math.round((parseInt(userDMR) + partnerDMR) / 2);
+    return teamDMR.toString();
   };
 
   return (
@@ -299,6 +510,7 @@ export default function DoublesTeamPairingScreen({
               style={styles.scrollContainer}
               contentContainerStyle={styles.scrollContent}
               showsVerticalScrollIndicator={false}
+              onTouchStart={() => console.log('📜 ScrollView touch detected')}
             >
               <View style={styles.teamUpCard}>
                 <Text style={styles.teamUpTitle}>Team up!</Text>
@@ -309,11 +521,17 @@ export default function DoublesTeamPairingScreen({
                   </Text>
                 </View>
 
-                <View style={styles.playerPairContainer}>
+                <View
+                  style={styles.playerPairContainer}
+                  onLayout={(event) => {
+                    const { x, y, width, height } = event.nativeEvent.layout;
+                    console.log('📦 playerPairContainer layout:', { x, y, width, height });
+                  }}
+                >
                   {/* Current Player */}
                   <View style={styles.playerCard}>
                     {profileData?.image || session?.user?.image ? (
-                      <Image 
+                      <Image
                         source={{ uri: profileData?.image || session?.user?.image }}
                         style={styles.playerAvatar}
                       />
@@ -328,6 +546,14 @@ export default function DoublesTeamPairingScreen({
                       {profileData?.name || session?.user?.name || 'You'}
                     </Text>
                     <Text style={styles.playerDMR}>DMR: {getDoublesDMR()}</Text>
+
+                    {/* Show role label during pending invitations */}
+                    {invitationStatus === 'pending_sent' && (
+                      <Text style={styles.roleLabel}>Team Captain</Text>
+                    )}
+                    {invitationStatus === 'pending_received' && (
+                      <Text style={styles.roleLabel}>Team Member</Text>
+                    )}
                   </View>
 
                   {/* Plus Icon */}
@@ -336,29 +562,84 @@ export default function DoublesTeamPairingScreen({
                   </View>
 
                   {/* Partner Placeholder or Selected Partner */}
-                  <TouchableOpacity 
+                  <TouchableOpacity
                     style={styles.partnerCard}
-                    onPress={handleInvitePartner}
+                    onPress={() => {
+                      console.log('👆 Partner card tapped!', {
+                        disabled: invitationStatus !== 'none' || partnershipStatus === 'active',
+                        invitationStatus,
+                        partnershipStatus
+                      });
+                      handleInvitePartner();
+                    }}
+                    onPressIn={() => console.log('🖐️ TouchableOpacity PressIn detected')}
+                    onPressOut={() => console.log('🖐️ TouchableOpacity PressOut detected')}
+                    onLayout={(event) => {
+                      const { x, y, width, height } = event.nativeEvent.layout;
+                      console.log('📐 Partner card layout:', { x, y, width, height });
+                    }}
                     activeOpacity={0.7}
+                    disabled={invitationStatus !== 'none' || partnershipStatus === 'active'}
                   >
                     {selectedPartner ? (
                       <>
-                        {selectedPartner.image ? (
-                          <Image 
-                            source={{ uri: selectedPartner.image }}
-                            style={styles.playerAvatar}
-                          />
-                        ) : (
-                          <View style={styles.defaultAvatar}>
-                            <Text style={styles.defaultAvatarText}>
-                              {selectedPartner.name.charAt(0).toUpperCase()}
-                            </Text>
-                          </View>
-                        )}
-                        <Text style={styles.playerName} numberOfLines={1}>
+                        <View
+                          style={[
+                            invitationStatus === 'pending_sent' && styles.pendingAvatarContainer,
+                            invitationStatus === 'pending_received' && styles.pendingAvatarContainer,
+                            { opacity: invitationStatus === 'pending_sent' || invitationStatus === 'pending_received' ? 0.5 : 1 }
+                          ]}
+                        >
+                          {selectedPartner.image ? (
+                            <Image
+                              source={{ uri: selectedPartner.image }}
+                              style={styles.playerAvatar}
+                            />
+                          ) : (
+                            <View style={styles.defaultAvatar}>
+                              <Text style={styles.defaultAvatarText}>
+                                {selectedPartner.name.charAt(0).toUpperCase()}
+                              </Text>
+                            </View>
+                          )}
+                        </View>
+                        <Text
+                          style={[
+                            styles.playerName,
+                            { opacity: invitationStatus === 'pending_sent' || invitationStatus === 'pending_received' ? 0.6 : 1 }
+                          ]}
+                          numberOfLines={1}
+                        >
                           {selectedPartner.name}
                         </Text>
-                        <Text style={styles.partnerLabel}>Partner</Text>
+
+                        {/* Show "Pending..." during pending states, DMR when active */}
+                        {(invitationStatus === 'pending_sent' || invitationStatus === 'pending_received') && (
+                          <Text style={[styles.playerDMR, { opacity: 0.6 }]}>Pending...</Text>
+                        )}
+
+                        {partnershipStatus === 'active' && (
+                          <>
+                            <Text style={styles.playerDMR}>
+                              DMR: {(() => {
+                                const partnerSkillRatings = selectedPartner?.skillRatings;
+                                if (!partnerSkillRatings) return 'N/A';
+                                const sportKeys = Object.keys(partnerSkillRatings);
+                                if (sportKeys.length === 0) return 'N/A';
+                                const firstSport = partnerSkillRatings[sportKeys[0]];
+                                const partnerDoublesRating = firstSport?.doubles;
+                                if (!partnerDoublesRating) return 'N/A';
+                                return Math.round(partnerDoublesRating * 1000).toString();
+                              })()}
+                            </Text>
+                            <TouchableOpacity style={styles.unlinkButton} onPress={() => {
+                              // TODO: Implement unlink functionality
+                              console.log('Unlink partner');
+                            }}>
+                              <Text style={styles.unlinkButtonText}>Unlink</Text>
+                            </TouchableOpacity>
+                          </>
+                        )}
                       </>
                     ) : (
                       <>
@@ -378,7 +659,7 @@ export default function DoublesTeamPairingScreen({
                     end={{ x: 1, y: 0 }}
                     style={styles.teamDMRChip}
                   >
-                    <Text style={styles.teamDMRText}>Team DMR:</Text>
+                    <Text style={styles.teamDMRText}>Team DMR: {getTeamDMR()}</Text>
                   </LinearGradient>
                 </View>
               </View>
@@ -393,14 +674,31 @@ export default function DoublesTeamPairingScreen({
         <View style={[styles.stickyButtonContainer, { paddingBottom: insets.bottom }]}>
           <TouchableOpacity
             style={[
-              styles.stickyButton, 
-              { backgroundColor: selectedPartner ? '#FEA04D' : '#B2B2B2' }
+              styles.stickyButton,
+              {
+                backgroundColor:
+                  partnershipStatus === 'active'
+                    ? '#FEA04D'
+                    : invitationStatus === 'pending_sent' || invitationStatus === 'pending_received'
+                    ? '#B2B2B2'
+                    : selectedPartner
+                    ? '#B2B2B2'
+                    : '#B2B2B2',
+              },
             ]}
             onPress={handleRegisterTeam}
-            disabled={!selectedPartner}
+            disabled={partnershipStatus !== 'active'}
             activeOpacity={0.8}
           >
-            <Text style={styles.stickyButtonText}>Register Team</Text>
+            <Text style={styles.stickyButtonText}>
+              {partnershipStatus === 'active'
+                ? 'Register Team'
+                : invitationStatus === 'pending_sent'
+                ? 'Waiting for Partner'
+                : invitationStatus === 'pending_received'
+                ? 'Accept in Invitations Tab'
+                : 'Select Partner First'}
+            </Text>
           </TouchableOpacity>
         </View>
       )}
@@ -646,20 +944,31 @@ const styles = StyleSheet.create({
   playerCard: {
     flex: 1,
     alignItems: 'center',
+    minHeight: 180,
+    justifyContent: 'flex-start',
   },
   partnerCard: {
     flex: 1,
     alignItems: 'center',
+    minHeight: 180,
+    justifyContent: 'flex-start',
+  },
+  pendingAvatarContainer: {
+    borderWidth: 2,
+    borderStyle: 'dashed',
+    borderColor: '#FFA500',
+    borderRadius: 35,
+    padding: 2,
   },
   playerAvatar: {
-    width: 70,
-    height: 70,
-    borderRadius: 35,
+    width: 80,
+    height: 80,
+    borderRadius: 40,
   },
   defaultAvatar: {
-    width: 70,
-    height: 70,
-    borderRadius: 35,
+    width: 80,
+    height: 80,
+    borderRadius: 40,
     backgroundColor: '#6de9a0',
     justifyContent: 'center',
     alignItems: 'center',
@@ -670,9 +979,9 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   placeholderCircle: {
-    width: 70,
-    height: 70,
-    borderRadius: 35,
+    width: 80,
+    height: 80,
+    borderRadius: 40,
     borderWidth: 2,
     borderStyle: 'dashed',
     borderColor: '#BABABA',
@@ -703,6 +1012,36 @@ const styles = StyleSheet.create({
     fontSize: isSmallScreen ? 11 : 12,
     color: '#86868B',
     marginTop: 4,
+  },
+  roleLabel: {
+    fontSize: isSmallScreen ? 10 : 11,
+    color: '#A04DFE',
+    marginTop: 6,
+    fontWeight: '600',
+  },
+  unlinkButton: {
+    marginTop: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    backgroundColor: '#FF3B30',
+    borderRadius: 6,
+  },
+  unlinkButtonText: {
+    color: '#FFFFFF',
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  statusLabel: {
+    fontSize: isSmallScreen ? 11 : 12,
+    color: '#FFA500',
+    marginTop: 4,
+    fontWeight: '600',
+  },
+  statusLabelReceived: {
+    fontSize: isSmallScreen ? 11 : 12,
+    color: '#A04DFE',
+    marginTop: 4,
+    fontWeight: '600',
   },
   plusContainer: {
     width: 56,

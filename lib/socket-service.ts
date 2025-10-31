@@ -106,6 +106,22 @@ export class SocketService {
         this.emit('read_receipt', data);
       });
 
+      // Season invitation events
+      this.socket.on('season_invitation_received', (data) => {
+        console.log('SocketService: Season invitation received:', data);
+        this.emit('season_invitation_received', data);
+      });
+
+      this.socket.on('season_invitation_accepted', (data) => {
+        console.log('SocketService: Season invitation accepted:', data);
+        this.emit('season_invitation_accepted', data);
+      });
+
+      this.socket.on('partnership_created', (data) => {
+        console.log('SocketService: Partnership created:', data);
+        this.emit('partnership_created', data);
+      });
+
       // Join user to their personal room for notifications
       if (session.data.user?.id) {
         this.socket.emit('join_user_room', { userId: session.data.user.id });

@@ -14,10 +14,10 @@ import { ActivityIndicator, Dimensions, ScrollView, StyleSheet, Text, TouchableO
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { toast } from 'sonner-native';
 import { PaymentOptionsBottomSheet } from '../components';
-
-
-
-PaymentOptionsBottomSheet
+import BottomSheet from '@gorhom/bottom-sheet';
+import { ChoosePartnerBottomSheet, WaitingForPartnerBottomSheet, PartnershipDetailsBottomSheet } from '@/features/pairing/components';
+import { authClient } from '@/lib/auth-client';
+import { getBackendBaseURL } from '@/config/network';
 const { width, height } = Dimensions.get('window');
 
 interface SeasonsScreenProps {
@@ -40,13 +40,24 @@ export default function SeasonsScreen({
   currentUserId
 }: SeasonsScreenProps) {
   const insets = useSafeAreaInsets();
-  const [activeTab, setActiveTab] = React.useState(0); 
+  const [activeTab, setActiveTab] = React.useState(0);
   const [seasons, setSeasons] = useState<Season[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showPaymentOptions, setShowPaymentOptions] = React.useState(false);
   const [selectedSeason, setSelectedSeason] = React.useState<Season | null>(null);
-  
+
+  // Bottom sheet refs and state
+  const choosePartnerBottomSheetRef = React.useRef<BottomSheet>(null);
+  const waitingForPartnerBottomSheetRef = React.useRef<BottomSheet>(null);
+  const partnershipDetailsBottomSheetRef = React.useRef<BottomSheet>(null);
+
+  const [friends, setFriends] = React.useState<any[]>([]);
+  const [pendingInvitation, setPendingInvitation] = React.useState<any>(null);
+  const [seasonPartnership, setSeasonPartnership] = React.useState<any>(null);
+  const [bottomSheetLoading, setBottomSheetLoading] = React.useState(false);
+  const [currentSeasonForBottomSheet, setCurrentSeasonForBottomSheet] = React.useState<string | null>(null);
+
   // Check for active partnership for doubles categories
   const isDoublesCategory = category.toLowerCase().includes('double');
   const { data: session } = useSession();
@@ -126,6 +137,143 @@ export default function SeasonsScreen({
     // TODO: Navigate to standings screen
     // router.push(`/standings/${season.id}`);
   };
+
+  // Fetch friends
+  const fetchFriends = React.useCallback(async () => {
+    console.log('🔵🔵🔵 fetchFriends called, userId:', userId);
+    if (!userId) {
+      console.log('❌ No userId, returning early');
+      return;
+    }
+    try {
+      console.log('🔵 Fetching friends...');
+      const backendUrl = getBackendBaseURL();
+      console.log('🔵 Backend URL:', backendUrl);
+      const response = await authClient.$fetch(`${backendUrl}/api/pairing/friends`, {
+        method: 'GET',
+      });
+      console.log('📦 Friends API response:', response);
+      const data = (response as any).data?.data || (response as any).data || [];
+      console.log('✅ Friends data:', data);
+      console.log('📊 Friends count:', data.length);
+      setFriends(data);
+    } catch (error) {
+      console.error('❌ Error fetching friends:', error);
+    }
+  }, [userId]);
+
+  // Fetch pending season invitation for a specific season
+  const fetchPendingInvitation = React.useCallback(async (seasonId: string) => {
+    if (!userId) return null;
+    try {
+      const backendUrl = getBackendBaseURL();
+      const response = await authClient.$fetch(
+        `${backendUrl}/api/pairing/season/invitation/pending/${seasonId}`,
+        { method: 'GET' }
+      );
+      return (response as any).data?.data || (response as any).data;
+    } catch (error) {
+      console.error('Error fetching pending invitation:', error);
+      return null;
+    }
+  }, [userId]);
+
+  // Handle choose partner button press
+  const handleChoosePartner = async (seasonId: string) => {
+    console.log('🔵 Choose Partner clicked for season:', seasonId);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setCurrentSeasonForBottomSheet(seasonId);
+    setBottomSheetLoading(true);
+    await fetchFriends();
+    setBottomSheetLoading(false);
+    console.log('🔵 Opening bottom sheet...');
+    choosePartnerBottomSheetRef.current?.snapToIndex(0);
+  };
+
+  // Handle waiting for partner button press
+  const handleWaitingForPartner = async (seasonId: string) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setCurrentSeasonForBottomSheet(seasonId);
+    setBottomSheetLoading(true);
+    const invitation = await fetchPendingInvitation(seasonId);
+    setPendingInvitation(invitation);
+    setBottomSheetLoading(false);
+    waitingForPartnerBottomSheetRef.current?.snapToIndex(0);
+  };
+
+  // Handle view partnership details button press
+  const handleViewPartnership = async (partnership: any) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setSeasonPartnership(partnership);
+    partnershipDetailsBottomSheetRef.current?.snapToIndex(0);
+  };
+
+  // Send season invitation
+  const handleSendSeasonInvitation = React.useCallback(async (partnershipId: string, partnerId: string) => {
+    if (!userId || !currentSeasonForBottomSheet) return;
+    try {
+      const backendUrl = getBackendBaseURL();
+      const response = await authClient.$fetch(`${backendUrl}/api/pairing/season/invitation`, {
+        method: 'POST',
+        body: {
+          recipientId: partnerId,
+          generalPartnershipId: partnershipId,
+          seasonId: currentSeasonForBottomSheet,
+        },
+      });
+      const data = (response as any).data || response;
+      if (data && data.message) {
+        toast.success('Season invitation sent!');
+        choosePartnerBottomSheetRef.current?.close();
+        // Refresh to show "Waiting for Partner" button
+        const invitation = await fetchPendingInvitation(currentSeasonForBottomSheet);
+        setPendingInvitation(invitation);
+      }
+    } catch (error) {
+      console.error('Error sending season invitation:', error);
+      toast.error('Failed to send invitation');
+    }
+  }, [userId, currentSeasonForBottomSheet, fetchPendingInvitation]);
+
+  // Cancel season invitation
+  const handleCancelSeasonInvitation = React.useCallback(async (invitationId: string) => {
+    try {
+      const backendUrl = getBackendBaseURL();
+      const response = await authClient.$fetch(
+        `${backendUrl}/api/pairing/season/invitation/${invitationId}`,
+        { method: 'DELETE' }
+      );
+      const data = (response as any).data || response;
+      if (data && data.message) {
+        toast.success('Invitation cancelled');
+        waitingForPartnerBottomSheetRef.current?.close();
+        setPendingInvitation(null);
+      }
+    } catch (error) {
+      console.error('Error cancelling invitation:', error);
+      toast.error('Failed to cancel invitation');
+    }
+  }, []);
+
+  // Unlink season partnership
+  const handleUnlinkPartnership = React.useCallback(async (partnershipId: string) => {
+    try {
+      const backendUrl = getBackendBaseURL();
+      const response = await authClient.$fetch(
+        `${backendUrl}/api/pairing/partnership/${partnershipId}/dissolve`,
+        { method: 'POST' }
+      );
+      const data = (response as any).data || response;
+      if (data && data.success) {
+        toast.success('Partnership unlinked');
+        partnershipDetailsBottomSheetRef.current?.close();
+        setSeasonPartnership(null);
+      }
+    } catch (error) {
+      console.error('Error unlinking partnership:', error);
+      toast.error('Failed to unlink partnership');
+    }
+  }, []);
 
   const handlePayNow = (season: Season) => {
     console.log('Pay Now pressed for season:', season.name);
@@ -423,16 +571,48 @@ const SeasonCard: React.FC<SeasonCardProps> = ({
             styles.registerButton,
             { backgroundColor: SeasonService.getButtonColor(season.status) },
           ]}
-          onPress={() => {
+          onPress={async () => {
+            console.log('🔴🔴🔴 BUTTON CLICKED!', {
+              seasonId: season.id,
+              seasonName: season.name,
+              isUserRegistered,
+              status: season.status,
+              isDoublesCategory,
+              partnership: partnership?.id
+            });
+
             if (isUserRegistered) {
+              console.log('→ Path: View Division');
               handleViewDivisionPress(season);
             } else if (season.status === "ACTIVE") {
-              // Check if this is doubles category and user doesn't have a partnership yet
-              if (isDoublesCategory && !partnership) {
-                // Navigate to Find Partner screen
-                router.push(`/pairing/find-partner/${season.id}`);
+              // Doubles category: New three-state flow
+              if (isDoublesCategory) {
+                console.log('→ Path: Doubles Category Flow');
+                if (partnership) {
+                  console.log('→ State 3: Has Partnership');
+                  // State 3: Partnership confirmed - show details
+                  handleViewPartnership(partnership);
+                } else {
+                  console.log('→ Checking for pending invitation...');
+                  // Check for pending invitation
+                  const pendingInvite = await fetchPendingInvitation(season.id);
+                  console.log('→ Pending invite result:', pendingInvite);
+                  // Check if pendingInvite has actual data (not just {data: null})
+                  const hasInvite = pendingInvite && pendingInvite.data !== null && pendingInvite.data !== undefined;
+                  console.log('→ Has valid invite?', hasInvite);
+                  if (hasInvite) {
+                    console.log('→ State 2: Has Pending Invite');
+                    // State 2: Waiting for partner
+                    handleWaitingForPartner(season.id);
+                  } else {
+                    console.log('→ State 1: Choose a Partner - Calling handleChoosePartner');
+                    // State 1: Choose a partner
+                    handleChoosePartner(season.id);
+                  }
+                }
               } else {
-                // Either has partnership (doubles) or is singles - show payment
+                console.log('→ Path: Singles Payment');
+                // Singles category - show payment
                 setSelectedSeason(season);
                 setShowPaymentOptions(true);
               }
@@ -447,10 +627,10 @@ const SeasonCard: React.FC<SeasonCardProps> = ({
           <Text style={styles.registerButtonText}>
             {isUserRegistered
               ? "View"
-              : isDoublesCategory && !partnership
-              ? "Find Partner"
               : isDoublesCategory && partnership
-              ? "Pay"
+              ? "View"
+              : isDoublesCategory
+              ? "Choose a Partner"
               : SeasonService.getButtonText(season.status)}
           </Text>
         </TouchableOpacity>
@@ -513,7 +693,33 @@ const SeasonCard: React.FC<SeasonCardProps> = ({
           />
         </ScrollView>
       </View>
-      
+
+      {/* Bottom Sheets for Partner Selection Flow */}
+      <ChoosePartnerBottomSheet
+        bottomSheetRef={choosePartnerBottomSheetRef}
+        friends={friends}
+        currentUserId={userId || ''}
+        seasonId={currentSeasonForBottomSheet || ''}
+        isLoading={bottomSheetLoading}
+        onSendInvitation={handleSendSeasonInvitation}
+      />
+
+      <WaitingForPartnerBottomSheet
+        bottomSheetRef={waitingForPartnerBottomSheetRef}
+        invitation={pendingInvitation}
+        currentUserId={userId || ''}
+        isLoading={bottomSheetLoading}
+        onCancelInvitation={handleCancelSeasonInvitation}
+      />
+
+      <PartnershipDetailsBottomSheet
+        bottomSheetRef={partnershipDetailsBottomSheetRef}
+        partnership={seasonPartnership}
+        currentUserId={userId || ''}
+        isLoading={bottomSheetLoading}
+        onUnlink={handleUnlinkPartnership}
+      />
+
       <NavBar activeTab={2} onTabPress={() => {}} />
     </SafeAreaView>
   );
@@ -533,7 +739,6 @@ const styles = StyleSheet.create({
   },
   contentContainer: {
     flex: 1,
-    zIndex: 1,
   },
   categoryTitleContainer: {
     marginTop: 30,

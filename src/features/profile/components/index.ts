@@ -3,6 +3,7 @@ export { DropdownModal } from './DropdownModal';
 export { InlineDropdown } from './InlineDropdown';
 export { WinRateCircle } from './WinRateCircle';
 export { MatchDetailsModal } from './MatchDetailsModal';
+export { MatchDetailsBox } from './MatchDetailsBox';
 export { EloProgressGraph } from './EloProgressGraph';
 export { EditIcon } from './EditIcon';
 export { MatchHistoryButton } from './MatchHistoryButton';

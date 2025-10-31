@@ -28,6 +28,7 @@ interface Player {
   skillRatings?: any;
   bio?: string | null;
   area?: string | null;
+  gender?: 'MALE' | 'FEMALE' | null;
 }
 
 interface InvitePartnerBottomSheetProps {
@@ -45,7 +46,6 @@ export const InvitePartnerBottomSheet: React.FC<InvitePartnerBottomSheetProps> =
 }) => {
   const bottomSheetModalRef = useRef<BottomSheetModal>(null);
   const [players, setPlayers] = useState<Player[]>([]);
-  const [filteredPlayers, setFilteredPlayers] = useState<Player[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -59,23 +59,62 @@ export const InvitePartnerBottomSheet: React.FC<InvitePartnerBottomSheetProps> =
     }
   }, [onClose]);
 
-  const fetchPlayers = useCallback(async () => {
+  const fetchPlayers = useCallback(async (query: string = '') => {
     try {
-      if (!seasonId) return;
-      
+      console.log('🔄 fetchPlayers called with seasonId:', seasonId, '| search query:', query);
+      if (!seasonId) {
+        console.log('❌ No seasonId provided, aborting fetch');
+        return;
+      }
+
       setIsLoading(true);
       const backendUrl = getBackendBaseURL();
-      const response = await authClient.$fetch(`${backendUrl}/api/player/discover/${seasonId}`, {
+      const url = query.trim()
+        ? `${backendUrl}/api/player/discover/${seasonId}?q=${encodeURIComponent(query)}`
+        : `${backendUrl}/api/player/discover/${seasonId}`;
+      console.log('📡 Fetching players from:', url);
+      const response = await authClient.$fetch(url, {
         method: 'GET',
       });
+      console.log('✅ API Response received:', response);
 
       if (response && (response as any).data) {
-        const playersData = (response as any).data.data || (response as any).data;
-        setPlayers(playersData);
-        setFilteredPlayers(playersData);
+        const responseData = (response as any).data;
+        console.log('📦 Response data structure:', responseData);
+
+        // Backend returns { data: { players: [...], friendsCount, totalCount, usedFallback } }
+        // Extract the players array from the nested data object
+        let playersArray: Player[] = [];
+
+        if (Array.isArray(responseData.players)) {
+          // Direct players array
+          playersArray = responseData.players;
+        } else if (responseData.data && Array.isArray(responseData.data.players)) {
+          // Nested in data.players
+          playersArray = responseData.data.players;
+        } else if (Array.isArray(responseData.data)) {
+          // data is the array itself
+          playersArray = responseData.data;
+        } else if (Array.isArray(responseData)) {
+          // responseData is the array
+          playersArray = responseData;
+        }
+
+        console.log('👥 Players array extracted:', playersArray);
+        setPlayers(playersArray);
+        console.log('✅ Players state updated with', playersArray.length, 'players');
+
+        // Show info toast if fallback was used
+        if (responseData.usedFallback) {
+          toast.info('No Friends Available', {
+            description: 'Showing all eligible players since you have no friends to pair with',
+          });
+        }
+      } else {
+        console.log('⚠️ Unexpected response format:', response);
       }
     } catch (error) {
-      console.error('Error fetching players:', error);
+      console.error('❌ Error fetching players:', error);
       toast.error('Error', {
         description: 'Failed to load available players',
       });
@@ -92,19 +131,12 @@ export const InvitePartnerBottomSheet: React.FC<InvitePartnerBottomSheetProps> =
     }
 
     searchTimeoutRef.current = setTimeout(() => {
-      if (text.trim().length === 0) {
-        setFilteredPlayers(players);
-      } else {
-        const filtered = players.filter(player => {
-          const nameMatch = player.name.toLowerCase().includes(text.toLowerCase());
-          const usernameMatch = player.username?.toLowerCase().includes(text.toLowerCase());
-          const displayUsernameMatch = player.displayUsername?.toLowerCase().includes(text.toLowerCase());
-          return nameMatch || usernameMatch || displayUsernameMatch;
-        });
-        setFilteredPlayers(filtered);
-      }
-    }, 300);
-  }, [players]);
+      // If search is empty, fetch friends only
+      // If search has text, fetch all eligible non-friends
+      console.log('🔍 Search query changed to:', text);
+      fetchPlayers(text);
+    }, 500);
+  }, [fetchPlayers]);
 
   const handlePlayerSelect = useCallback((player: Player) => {
     onPlayerSelect(player);
@@ -118,17 +150,20 @@ export const InvitePartnerBottomSheet: React.FC<InvitePartnerBottomSheetProps> =
         disappearsOnIndex={-1}
         appearsOnIndex={0}
         opacity={0.5}
-        onPress={onClose}
+        pressBehavior="close"
       />
     ),
-    [onClose]
+    []
   );
 
   useEffect(() => {
+    console.log('🎬 Bottom sheet effect triggered - visible:', visible, 'seasonId:', seasonId);
     if (visible && seasonId) {
+      console.log('✅ Opening bottom sheet and fetching players');
       bottomSheetModalRef.current?.present();
       fetchPlayers();
     } else {
+      console.log('❌ Closing bottom sheet');
       bottomSheetModalRef.current?.dismiss();
     }
   }, [visible, seasonId, fetchPlayers]);
@@ -137,6 +172,7 @@ export const InvitePartnerBottomSheet: React.FC<InvitePartnerBottomSheetProps> =
     <BottomSheetModal
       ref={bottomSheetModalRef}
       snapPoints={snapPoints}
+      index={0}
       onChange={handleSheetChanges}
       backdropComponent={renderBackdrop}
       handleComponent={(props) => (
@@ -146,6 +182,10 @@ export const InvitePartnerBottomSheet: React.FC<InvitePartnerBottomSheetProps> =
       )}
       backgroundStyle={styles.bottomSheetBackground}
       style={styles.bottomSheetContainer}
+      enablePanDownToClose={true}
+      enableDismissOnClose={true}
+      android_keyboardInputMode="adjustResize"
+      keyboardBlurBehavior="restore"
     >
       <BottomSheetView style={styles.contentContainer}>
         <View style={styles.header}>
@@ -172,7 +212,7 @@ export const InvitePartnerBottomSheet: React.FC<InvitePartnerBottomSheetProps> =
               <ActivityIndicator size="large" color="#A04DFE" />
               <Text style={styles.emptyStateText}>Loading players...</Text>
             </View>
-          ) : filteredPlayers.length === 0 ? (
+          ) : players.length === 0 ? (
             <View style={styles.emptyState}>
               <Ionicons name="people-outline" size={48} color="#BABABA" />
               <Text style={styles.emptyStateText}>
@@ -184,7 +224,7 @@ export const InvitePartnerBottomSheet: React.FC<InvitePartnerBottomSheetProps> =
             </View>
           ) : (
             <BottomSheetFlatList
-              data={filteredPlayers}
+              data={players}
               renderItem={({ item }) => (
                 <PlayerInviteListItem
                   player={item}
