@@ -14,9 +14,16 @@ const { width } = Dimensions.get('window');
 interface NavBarProps {
   activeTab?: number;
   onTabPress?: (tabIndex: number) => void;
+  badgeCounts?: {
+    connect?: number;
+    friendly?: number;
+    leagues?: number;
+    myGames?: number;
+    chat?: number;
+  };
 }
 
-export default function NavBar({ activeTab = 2, onTabPress }: NavBarProps) {
+export default function NavBar({ activeTab = 2, onTabPress, badgeCounts }: NavBarProps) {
   // Get safe area insets
   const insets = useSafeAreaInsets();
 
@@ -94,6 +101,17 @@ export default function NavBar({ activeTab = 2, onTabPress }: NavBarProps) {
       >
         {tabs.map((tab) => {
           const isActive = tab.index === activeTab;
+          // Get badge count for this tab
+          let badgeCount = 0;
+          if (badgeCounts) {
+            switch(tab.index) {
+              case 0: badgeCount = badgeCounts.connect || 0; break;
+              case 1: badgeCount = badgeCounts.friendly || 0; break;
+              case 2: badgeCount = badgeCounts.leagues || 0; break;
+              case 3: badgeCount = badgeCounts.myGames || 0; break;
+              case 4: badgeCount = badgeCounts.chat || 0; break;
+            }
+          }
           // console.log(`NavBar: Tab ${tab.index} (${tab.label}) isActive: ${isActive}`); // Commented out to reduce console spam
           return (
             <TouchableOpacity
@@ -123,6 +141,13 @@ export default function NavBar({ activeTab = 2, onTabPress }: NavBarProps) {
                       return null;
                   }
                 })()}
+                {badgeCount > 0 && (
+                  <View style={styles.badge}>
+                    <Text style={styles.badgeText}>
+                      {badgeCount > 99 ? '99+' : badgeCount}
+                    </Text>
+                  </View>
+                )}
               </View>
               <Text
                 style={[
@@ -215,5 +240,23 @@ const styles = StyleSheet.create({
     height: 5,
     backgroundColor: '#000000',
     borderRadius: 100,
+  },
+  badge: {
+    position: 'absolute',
+    top: -4,
+    right: -8,
+    backgroundColor: '#DC2626',
+    borderRadius: 10,
+    minWidth: 18,
+    height: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 4,
+  },
+  badgeText: {
+    color: '#FFFFFF',
+    fontSize: 10,
+    fontWeight: '600',
+    fontFamily: 'Inter',
   },
 });
