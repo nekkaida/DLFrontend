@@ -213,8 +213,8 @@ static async registerForSeason(seasonId: string, userId?: string, payLater: bool
 
     const apiResponse = response as any;
     
+    // Check for singles registration response (has membership)
     let membership = null;
-    
     if (apiResponse?.data?.data?.membership) {
       membership = apiResponse.data.data.membership;
     } else if (apiResponse?.data?.membership) {
@@ -223,7 +223,22 @@ static async registerForSeason(seasonId: string, userId?: string, payLater: bool
       membership = apiResponse.membership;
     }
 
-    if (membership) {
+    // Check for doubles registration response (has partnership and memberships)
+    let partnership = null;
+    let memberships = null;
+    if (apiResponse?.data?.data?.partnership || apiResponse?.data?.data?.memberships) {
+      partnership = apiResponse.data.data.partnership;
+      memberships = apiResponse.data.data.memberships;
+    } else if (apiResponse?.data?.partnership || apiResponse?.data?.memberships) {
+      partnership = apiResponse.data.partnership;
+      memberships = apiResponse.data.memberships;
+    } else if (apiResponse?.partnership || apiResponse?.memberships) {
+      partnership = apiResponse.partnership;
+      memberships = apiResponse.memberships;
+    }
+
+    // Success if we have either membership (singles) or partnership/memberships (doubles)
+    if (membership || (partnership && memberships)) {
       console.log('SeasonService: Registration successful for season:', seasonId);
       return true;
     }

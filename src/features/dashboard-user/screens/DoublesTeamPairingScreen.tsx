@@ -1,5 +1,5 @@
 import React from 'react';
-import { ScrollView, Text, View, StyleSheet, Dimensions, TouchableOpacity, ActivityIndicator, Image, StatusBar } from 'react-native';
+import { ScrollView, Text, View, StyleSheet, Dimensions, TouchableOpacity, ActivityIndicator, Image, StatusBar, Alert } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
@@ -224,14 +224,16 @@ export default function DoublesTeamPairingScreen({
     }
   };
 
-  const fetchSeasonData = async () => {
+  const fetchSeasonData = async (showLoading: boolean = true) => {
     if (!seasonId) {
       setIsLoading(false);
       return;
     }
 
     try {
-      setIsLoading(true);
+      if (showLoading) {
+        setIsLoading(true);
+      }
       setError(null);
 
       const allSeasons = await SeasonService.fetchAllSeasons();
@@ -255,7 +257,9 @@ export default function DoublesTeamPairingScreen({
       console.error('Error fetching season data:', err);
       setError('Failed to load season details');
     } finally {
-      setIsLoading(false);
+      if (showLoading) {
+        setIsLoading(false);
+      }
     }
   };
 
@@ -349,17 +353,26 @@ export default function DoublesTeamPairingScreen({
         toast.success('Team registered successfully!');
 
         // Close payment bottomsheet
-        setIsBottomSheetVisible(false);
+        setShowPaymentOptions(false);
 
-        // Navigate to leaderboard after successful registration
-        router.push({
-          pathname: '/leaderboard',
-          params: {
-            seasonId: season.id,
-            seasonName: season.name,
-            leagueId: leagueId || ''
+        // Navigate back to LeagueDetailsScreen after a short delay to allow toast to show
+        // Using router.replace to replace the current route and ensure LeagueDetailsScreen refreshes
+        setTimeout(() => {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          if (leagueId) {
+            router.replace({
+              pathname: '/user-dashboard/league-details' as any,
+              params: {
+                leagueId: leagueId,
+                leagueName: league?.name || 'League',
+                sport: sport || 'pickleball'
+              }
+            });
+          } else {
+            // Fallback to going back if leagueId is not available
+            router.back();
           }
-        });
+        }, 500);
       } else {
         console.warn('Registration failed');
         toast.error('Registration failed. Please try again.');
@@ -368,6 +381,66 @@ export default function DoublesTeamPairingScreen({
       console.error('Error registering team:', err);
       toast.error('An error occurred while registering.');
     }
+  };
+
+  const handleUnlink = () => {
+    if (!currentPartnership || !selectedPartner) {
+      toast.error('Missing partnership information');
+      return;
+    }
+
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+
+    Alert.alert(
+      'Unlink Partnership',
+      `Are you sure you want to unlink from ${selectedPartner.name} for this season? This action cannot be undone.`,
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+        {
+          text: 'Unlink',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              const backendUrl = getBackendBaseURL();
+              const response = await authClient.$fetch(
+                `${backendUrl}/api/pairing/partnership/${currentPartnership.id}/dissolve`,
+                {
+                  method: 'POST',
+                }
+              );
+
+              const responseData = (response as any).data || response;
+              if (responseData && responseData.success) {
+                toast.success('Partnership Unlinked', {
+                  description: 'You can now find a new partner',
+                });
+
+                // Reset partnership state
+                setPartnershipStatus('none');
+                setCurrentPartnership(null);
+                setSelectedPartner(null);
+                setInvitationStatus('none');
+
+                // Refresh partnership status
+                await checkPairingStatus();
+              } else {
+                toast.error('Error', {
+                  description: responseData.message || 'Failed to unlink partnership',
+                });
+              }
+            } catch (error) {
+              console.error('Error unlinking partnership:', error);
+              toast.error('Error', {
+                description: 'Failed to unlink partnership',
+              });
+            }
+          },
+        },
+      ]
+    );
   };
 
   const getUserSelectedSports = () => {
@@ -644,10 +717,7 @@ export default function DoublesTeamPairingScreen({
                                 return Math.round(partnerDoublesRating * 1000).toString();
                               })()}
                             </Text>
-                            <TouchableOpacity style={styles.unlinkButton} onPress={() => {
-                              // TODO: Implement unlink functionality
-                              console.log('Unlink partner');
-                            }}>
+                            <TouchableOpacity style={styles.unlinkButton} onPress={handleUnlink}>
                               <Text style={styles.unlinkButtonText}>Unlink</Text>
                             </TouchableOpacity>
                           </>
@@ -682,38 +752,46 @@ export default function DoublesTeamPairingScreen({
       </View>
       
       {/* Sticky Button */}
-      {!isLoading && !error && season && (
-        <View style={[styles.stickyButtonContainer, { paddingBottom: insets.bottom }]}>
-          <TouchableOpacity
-            style={[
-              styles.stickyButton,
-              {
-                backgroundColor:
-                  partnershipStatus === 'active'
-                    ? '#FEA04D'
-                    : invitationStatus === 'pending_sent' || invitationStatus === 'pending_received'
-                    ? '#B2B2B2'
-                    : selectedPartner
-                    ? '#B2B2B2'
-                    : '#B2B2B2',
-              },
-            ]}
-            onPress={handleRegisterTeam}
-            disabled={partnershipStatus !== 'active'}
-            activeOpacity={0.8}
-          >
-            <Text style={styles.stickyButtonText}>
-              {partnershipStatus === 'active'
-                ? 'Register Team'
-                : invitationStatus === 'pending_sent'
-                ? 'Waiting for Partner'
-                : invitationStatus === 'pending_received'
-                ? 'Accept in Invitations Tab'
-                : 'Select Partner First'}
-            </Text>
-          </TouchableOpacity>
-        </View>
-      )}
+      {!isLoading && !error && season && (() => {
+        const isCaptain = currentPartnership?.captainId === userId;
+        
+        return (
+          <View style={[styles.stickyButtonContainer, { paddingBottom: insets.bottom }]}>
+            <TouchableOpacity
+              style={[
+                styles.stickyButton,
+                {
+                  backgroundColor:
+                    partnershipStatus === 'active' && isCaptain
+                      ? '#FEA04D'
+                      : partnershipStatus === 'active' && !isCaptain
+                      ? '#B2B2B2'
+                      : invitationStatus === 'pending_sent' || invitationStatus === 'pending_received'
+                      ? '#B2B2B2'
+                      : selectedPartner
+                      ? '#B2B2B2'
+                      : '#B2B2B2',
+                },
+              ]}
+              onPress={handleRegisterTeam}
+              disabled={partnershipStatus !== 'active' || !isCaptain}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.stickyButtonText}>
+                {partnershipStatus === 'active' && isCaptain
+                  ? 'Register Team'
+                  : partnershipStatus === 'active' && !isCaptain
+                  ? 'Waiting for Team Captain'
+                  : invitationStatus === 'pending_sent'
+                  ? 'Waiting for Partner'
+                  : invitationStatus === 'pending_received'
+                  ? 'Accept in Invitations Tab'
+                  : 'Select Partner First'}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        );
+      })()}
 
       <InvitePartnerBottomSheet
         visible={showInvitePartnerSheet}
