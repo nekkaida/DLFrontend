@@ -4,7 +4,7 @@ import * as Haptics from 'expo-haptics';
 import { manipulateAsync, SaveFormat } from 'expo-image-manipulator';
 import * as ImagePicker from 'expo-image-picker';
 import { router, useFocusEffect } from 'expo-router';
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState, useRef } from 'react';
 import {
   Alert,
   Dimensions,
@@ -50,6 +50,7 @@ export default function ProfileScreen() {
   const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [selectedImageUri, setSelectedImageUri] = useState<string | null>(null);
   const [showCropper, setShowCropper] = useState(false);
+  const hasInitializedSport = useRef(false);
 
   // Profile state and handlers
   const {
@@ -57,9 +58,11 @@ export default function ProfileScreen() {
     selectedGameType,
     selectedMatch,
     gameTypeOptions,
+    modalVisible,
     setActiveTab,
     setSelectedGameType,
-    setSelectedMatch,
+    setSelectedGame,
+    setModalVisible,
   } = useProfileState();
 
   const {
@@ -70,7 +73,8 @@ export default function ProfileScreen() {
   } = useProfileHandlers({
     setActiveTab,
     setSelectedGameType,
-    setSelectedMatch,
+    setSelectedGame,
+    setModalVisible,
   });
 
   const navigateTo = useNavigationManager();
@@ -132,6 +136,18 @@ export default function ProfileScreen() {
 
   // Transform profile data for display
   const userData = ProfileDataTransformer.transformProfileToUserData(profileData, achievements);
+
+  // Auto-select first available sport when profile data loads
+  useEffect(() => {
+    if (!hasInitializedSport.current && userData?.sports && userData.sports.length > 0 && userData.sports[0] !== 'No sports yet') {
+      const firstSport = userData.sports[0];
+      // Only update if the current activeTab is the default 'Tennis' or not in the sports list
+      if (activeTab === 'Tennis' || !userData.sports.includes(activeTab)) {
+        setActiveTab(firstSport);
+        hasInitializedSport.current = true;
+      }
+    }
+  }, [userData?.sports, activeTab, setActiveTab]);
 
   // Image handling functions
   const handleCropComplete = async (croppedImageUri: string) => {
@@ -291,7 +307,12 @@ export default function ProfileScreen() {
   // Helper functions
   const getRatingForType = (sport: string, type: 'singles' | 'doubles') => {
     const normalizedSport = sport.toLowerCase();
-    return profileData?.skillRatings?.[normalizedSport]?.[type] || 0;
+    const rating = profileData?.skillRatings?.[normalizedSport]?.[type];
+    // Ratings are stored divided by 1000 in the database, multiply by 1000 to display
+    if (rating !== undefined && rating !== null) {
+      return Math.round(rating * 1000);
+    }
+    return 0;
   };
 
   const calculateWinRate = () => {

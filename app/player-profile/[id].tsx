@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View,
   StyleSheet,
@@ -13,7 +13,7 @@ import { useSession, authClient } from '@/lib/auth-client';
 import { getBackendBaseURL } from '@/config/network';
 import { toast } from 'sonner-native';
 import { theme } from '@core/theme/theme';
-import { ProfileHeaderWithCurve, ProfilePictureSection, ProfileInfoCard, ProfileAchievementsCard, ProfileSportsSection, ProfileSkillLevelCard, ProfileDMRCard, ProfileLeagueStatsCard, MatchHistoryButton, MatchDetailsModal } from '@/src/features/profile/components';
+import { ProfileHeaderWithCurve, ProfilePictureSection, ProfileInfoCard, ProfileAchievementsCard, ProfileSportsSection, ProfileSkillLevelCard, ProfileDMRCard, ProfileLeagueStatsCard, MatchHistoryButton } from '@/src/features/profile/components';
 import { useProfileState } from '@/src/features/profile/hooks/useProfileState';
 import { useProfileHandlers } from '@/src/features/profile/hooks/useProfileHandlers';
 import { ProfileDataTransformer } from '@/src/features/profile/services/ProfileDataTransformer';
@@ -35,26 +35,26 @@ export default function PlayerProfileScreen() {
   // Profile state management
   const {
     activeTab,
-    selectedGame,
-    modalVisible,
+    selectedMatch,
     selectedGameType,
+    gameTypeOptions,
     setActiveTab,
     setSelectedGame,
-    setModalVisible,
     setSelectedGameType,
   } = useProfileState();
+  
+  const hasInitializedSport = useRef(false);
 
   // Profile handlers
   const {
     handleGameTypeSelect,
     handleTabPress,
     handleGamePointPress,
-    handleModalClose,
   } = useProfileHandlers({
     setSelectedGameType,
     setActiveTab,
     setSelectedGame,
-    setModalVisible,
+    setModalVisible: () => {}, // No-op since we don't use modal in friend profiles
   });
 
   const fetchPlayerProfile = useCallback(async () => {
@@ -136,23 +136,14 @@ export default function PlayerProfileScreen() {
 
   // Helper function to get rating values from skillRatings
   const getRatingForType = (sport: string, type: 'singles' | 'doubles') => {
-    if (userData?.skillRatings && userData.skillRatings[sport.toLowerCase()]) {
-      const rating = userData.skillRatings[sport.toLowerCase()];
-
-      // Check for specific singles/doubles rating first
-      if (type === 'singles' && rating.singles) {
-        return Math.round(rating.singles * 1000); // Convert to display format
-      } else if (type === 'doubles' && rating.doubles) {
-        return Math.round(rating.doubles * 1000); // Convert to display format
-      } else if (rating.rating) {
-        // Fallback to general rating if specific type not available
-        return Math.round(rating.rating * 1000);
-      }
+    const normalizedSport = sport.toLowerCase();
+    const rating = profileData?.skillRatings?.[normalizedSport]?.[type];
+    // Ratings are stored divided by 1000 in the database, multiply by 1000 to display
+    if (rating !== undefined && rating !== null) {
+      return Math.round(rating * 1000);
     }
-    return 0; // Default to 0 if no rating available
+    return 0;
   };
-
-  const gameTypeOptions = ['Singles', 'Doubles']; // Static options
 
   // Calculate win rate from match history - placeholder until match system is implemented
   const calculateWinRate = () => {
@@ -190,16 +181,21 @@ export default function PlayerProfileScreen() {
         set2: { player1: null, player2: null },
         set3: { player1: null, player2: null }
       },
-      status: 'pending'
+      status: 'upcoming' as const
     }];
   };
 
   const mockEloData = createEloData();
 
-  // Update activeTab to player's first sport when userData is loaded
+  // Auto-select first available sport when profile data loads
   useEffect(() => {
-    if (userData?.sports && userData.sports.length > 0 && userData.sports[0] !== 'No sports yet' && !activeTab) {
-      setActiveTab(userData.sports[0]);
+    if (!hasInitializedSport.current && userData?.sports && userData.sports.length > 0 && userData.sports[0] !== 'No sports yet') {
+      const firstSport = userData.sports[0];
+      // Only update if the current activeTab is the default 'Tennis' or not in the sports list
+      if (activeTab === 'Tennis' || !userData.sports.includes(activeTab)) {
+        setActiveTab(firstSport);
+        hasInitializedSport.current = true;
+      }
     }
   }, [userData?.sports, activeTab, setActiveTab]);
 
@@ -281,6 +277,8 @@ export default function PlayerProfileScreen() {
             getRatingForType={getRatingForType}
             eloData={mockEloData}
             onPointPress={handleGamePointPress}
+            selectedMatch={selectedMatch}
+            profileData={profileData}
           />
 
           {/* Match History Button */}
@@ -301,14 +299,6 @@ export default function PlayerProfileScreen() {
           />
         </View>
       </ScrollView>
-
-      {/* Match Details Modal */}
-      {modalVisible && selectedGame && (
-        <MatchDetailsModal
-          match={selectedGame}
-          onClose={handleModalClose}
-        />
-      )}
     </View>
   );
 }
