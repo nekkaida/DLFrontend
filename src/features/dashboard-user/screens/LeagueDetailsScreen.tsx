@@ -95,6 +95,57 @@ export default function LeagueDetailsScreen({
     }
   }, [categories, selectedCategoryId]);
 
+  // Helper function to check if a category is visible to the user based on gender
+  const isCategoryVisibleToUser = (category: any): boolean => {
+    if (!category) {
+      return false;
+    }
+
+    // Primary check: Use gender fields from backend (most reliable)
+    const genderCategory = category.gender_category?.toUpperCase();
+    const genderRestriction = category.genderRestriction?.toUpperCase();
+    const categoryGender = genderCategory || genderRestriction;
+
+    // Check if it's a doubles category
+    const isDoubles = CategoryService.getEffectiveGameType(category, 'SINGLES') === 'DOUBLES';
+
+    if (!userGender) {
+      // If no user gender, only show MIXED/OPEN categories
+      return categoryGender === 'MIXED' || categoryGender === 'OPEN';
+    }
+
+    const normalizedUserGender = userGender.toUpperCase();
+
+    // Female users can see: FEMALE/WOMEN categories (any game type) OR MIXED DOUBLES
+    if (normalizedUserGender === 'FEMALE') {
+      // Check by gender fields
+      if (categoryGender === 'FEMALE' || categoryGender === 'WOMEN') {
+        return true;
+      }
+      // Check for MIXED doubles
+      if (categoryGender === 'MIXED' && isDoubles) {
+        return true;
+      }
+      return false;
+    }
+
+    // Male users can see: MALE/MEN categories (any game type) OR MIXED DOUBLES
+    if (normalizedUserGender === 'MALE') {
+      // Check by gender fields
+      if (categoryGender === 'MALE' || categoryGender === 'MEN') {
+        return true;
+      }
+      // Check for MIXED doubles
+      if (categoryGender === 'MIXED' && isDoubles) {
+        return true;
+      }
+      return false;
+    }
+
+    // For OPEN categories, show to everyone
+    return categoryGender === 'OPEN';
+  };
+
   const fetchAllData = async () => {
     if (!leagueId) {
       setIsLoading(false);
@@ -116,53 +167,59 @@ export default function LeagueDetailsScreen({
       console.log('Fetched categories:', categoriesData);
       console.log('Fetched seasons:', seasonsData);
 
-      // Use categories from API call, or fallback to league data categories if API call failed/returned empty
-      let allCategories: Category[] = categoriesData || [];
-      if (allCategories.length === 0 && leagueData?.categories && Array.isArray(leagueData.categories)) {
-        // Convert league data categories to Category format
-        allCategories = leagueData.categories
-          .filter((cat: any) => cat.isActive !== false)
-          .map((cat: any) => ({
-            id: cat.id,
-            name: cat.name || '',
-            genderRestriction: cat.genderRestriction || 'OPEN',
-            game_type: cat.game_type,
-            gender_category: cat.gender_category,
-            isActive: cat.isActive !== false,
-            categoryOrder: cat.categoryOrder || 0,
-            matchFormat: cat.matchFormat,
-            createdAt: cat.createdAt,
-            updatedAt: cat.updatedAt,
-            leagues: [],
-            seasons: []
-          })) as Category[];
-      }
-
-      // Filter categories by user gender (same logic as LeagueCategoryScreen)
-      // userGender is guaranteed to not be undefined at this point due to useEffect guard
-      const effectiveUserGender: string | null = userGender === undefined ? null : userGender;
-      const genderFiltered = filterCategoriesByGender(allCategories, effectiveUserGender);
-      
-      if (genderFiltered.length === 0 && allCategories.length > 0) {
-        // If gender filtering removed all categories, show all active categories as fallback
-        setCategories(allCategories.filter((cat: any) => cat.isActive !== false));
-      } else {
-        setCategories(genderFiltered);
-      }
+      // Set league data to state
+      setLeague(leagueData);
 
       // Filter seasons to only those belonging to this league
       const leagueSeasons = seasonsData.filter(season =>
         season.leagues?.some(l => l.id === leagueId)
       );
+
+      // Filter seasons by gender first
+      const genderFilteredSeasons = leagueSeasons.filter(season => {
+        // If season has no categories, skip it
+        if (!season.categories || !Array.isArray(season.categories) || season.categories.length === 0) {
+          return false;
+        }
+        
+        // Check if any category in the season is visible to the user
+        return season.categories.some(category => 
+          category && isCategoryVisibleToUser(category)
+        );
+      });
+
+      // Set seasons (all league seasons - we'll filter by gender in getFilteredSeasons)
       setSeasons(leagueSeasons);
 
-      // Set default selected category from filtered categories
-      const finalCategories = genderFiltered.length === 0 && allCategories.length > 0 
-        ? allCategories.filter((cat: any) => cat.isActive !== false)
-        : genderFiltered;
+      // Extract unique categories from gender-filtered seasons
+      const availableCategoriesMap = new Map<string, Category>();
+      genderFilteredSeasons.forEach(season => {
+        if (season.categories && Array.isArray(season.categories)) {
+          season.categories.forEach(category => {
+            if (category && category.id && isCategoryVisibleToUser(category)) {
+              // Only add category if it's not already in the map
+              if (!availableCategoriesMap.has(category.id)) {
+                availableCategoriesMap.set(category.id, category as Category);
+              }
+            }
+          });
+        }
+      });
+
+      const availableCategories = Array.from(availableCategoriesMap.values());
       
-      if (finalCategories.length > 0) {
-        setSelectedCategoryId(finalCategories[0].id);
+      // Sort categories by categoryOrder if available
+      availableCategories.sort((a, b) => {
+        const orderA = (a as any).categoryOrder || 0;
+        const orderB = (b as any).categoryOrder || 0;
+        return orderA - orderB;
+      });
+
+      setCategories(availableCategories);
+
+      // Set default selected category from available categories
+      if (availableCategories.length > 0) {
+        setSelectedCategoryId(availableCategories[0].id);
       } else {
         setSelectedCategoryId(null);
       }
@@ -175,62 +232,7 @@ export default function LeagueDetailsScreen({
   };
 
   const filterCategoriesByGender = (categories: Category[], userGender: string | null): Category[] => {
-    if (!userGender) {
-      // If no user gender, show only MIXED/OPEN categories
-      return categories.filter(category => {
-        const genderCategory = category.gender_category?.toUpperCase();
-        const genderRestriction = category.genderRestriction?.toUpperCase();
-        const categoryGender = genderCategory || genderRestriction;
-        return categoryGender === 'MIXED' || categoryGender === 'OPEN';
-      });
-    }
-
-    const normalizedUserGender = userGender.toUpperCase();
-    
-    return categories.filter(category => {
-      const genderCategory = category.gender_category?.toUpperCase();
-      const genderRestriction = category.genderRestriction?.toUpperCase();
-      const categoryGender = genderCategory || genderRestriction;
-      const categoryName = category.name?.toLowerCase() || '';
-
-      // Show if MIXED/OPEN (open to all)
-      if (categoryGender === 'MIXED' || categoryGender === 'OPEN') {
-        return true;
-      }
-
-      // Parse category name for gender patterns (handle both "Men's" and "Male's" naming)
-      const isMenCategory = categoryName.includes("men's") || categoryName.includes("men ") || 
-                            categoryName.includes("male's") || categoryName.includes("male ");
-      const isWomenCategory = categoryName.includes("women's") || categoryName.includes("women ") || 
-                             categoryName.includes("female's") || categoryName.includes("female ");
-      const isMixedCategory = categoryName.includes("mixed");
-
-      // If category name indicates mixed, show for all
-      if (isMixedCategory) {
-        return true;
-      }
-
-      // Check if category matches user's gender from name patterns
-      if (normalizedUserGender === 'MALE' && isMenCategory) {
-        return true;
-      }
-      if (normalizedUserGender === 'FEMALE' && isWomenCategory) {
-        return true;
-      }
-
-      // Also check gender fields for exact match
-      if (categoryGender === normalizedUserGender) {
-        return true;
-      }
-      
-      // Handle case where category uses MEN/WOMEN but user is MALE/FEMALE (or vice versa)
-      if ((normalizedUserGender === 'MALE' && (categoryGender === 'MEN' || categoryGender === 'MALE')) ||
-          (normalizedUserGender === 'FEMALE' && (categoryGender === 'WOMEN' || categoryGender === 'FEMALE'))) {
-        return true;
-      }
-
-      return false;
-    });
+    return categories.filter(category => isCategoryVisibleToUser(category));
   };
 
   const handleTabPress = (tabIndex: number) => {
@@ -314,24 +316,36 @@ export default function LeagueDetailsScreen({
     }
   };
 
-  // Get filtered seasons for selected category
+  // Get filtered seasons for selected category AND gender
   const getFilteredSeasons = () => {
-    if (!selectedCategoryId) {
-      return seasons;
-    }
+    let filtered = seasons;
     
-    const filtered = seasons.filter(season => {
-      // If season has no categories, skip it (unless we want to show all seasons without categories)
+    // Filter by gender first
+    filtered = filtered.filter(season => {
+      // If season has no categories, skip it
       if (!season.categories || !Array.isArray(season.categories) || season.categories.length === 0) {
         return false;
       }
       
-      // Check if any category matches
-      const seasonCategoryIds = season.categories.map(c => c?.id).filter(Boolean);
-      const matches = seasonCategoryIds.includes(selectedCategoryId);
-      
-      return matches;
+      // Check if any category in the season is visible to the user
+      return season.categories.some(category => isCategoryVisibleToUser(category));
     });
+    
+    // Then filter by selected category if one is selected
+    if (selectedCategoryId) {
+      // First verify that the selected category is visible to the user
+      // (categories are already filtered by gender, but this is a safety check)
+      const selectedCategoryObj = categories.find(c => c?.id === selectedCategoryId);
+      if (selectedCategoryObj && !isCategoryVisibleToUser(selectedCategoryObj)) {
+        // Selected category is not visible to user, return empty array
+        return [];
+      }
+      
+      filtered = filtered.filter(season => {
+        const seasonCategoryIds = season.categories.map(c => c?.id).filter(Boolean);
+        return seasonCategoryIds.includes(selectedCategoryId);
+      });
+    }
     
     return filtered;
   };
@@ -770,7 +784,7 @@ export default function LeagueDetailsScreen({
             </View>
 
             {/* Category Filter Buttons */}
-            {categories.length > 0 ? (
+            {categories.length > 0 && (
               <View style={styles.categoriesContainer}>
                 <View style={styles.categoryButtons}>
                   {categories.map((category) => {
@@ -800,12 +814,6 @@ export default function LeagueDetailsScreen({
                   })}
                 </View>
               </View>
-            ) : (
-              <View style={styles.categoriesContainer}>
-                <Text style={styles.emptyCategoryText}>
-                  No categories available for this league
-                </Text>
-              </View>
             )}
 
             {/* Current Seasons Section */}
@@ -832,12 +840,18 @@ export default function LeagueDetailsScreen({
               </View>
             )}
 
-            {/* No Seasons Message */}
-            {currentSeasons.length === 0 && upcomingSeasons.length === 0 && pastSeasons.length === 0 && (
+            {/* Empty State - Show when no categories or no seasons */}
+            {categories.length === 0 || (currentSeasons.length === 0 && upcomingSeasons.length === 0 && pastSeasons.length === 0) ? (
               <View style={styles.emptyContainer}>
-                <Text style={styles.emptyText}>No seasons available for this category</Text>
+                <Text style={styles.emptyText}>
+                  {categories.length === 0 
+                    ? 'There are currently no seasons available for this league.'
+                    : selectedCategoryId 
+                      ? 'There are currently no seasons available for this category.'
+                      : 'There are currently no seasons available for this league.'}
+                </Text>
               </View>
-            )}
+            ) : null}
             </ScrollView>
           </>
         )}
@@ -1097,12 +1111,6 @@ const styles = StyleSheet.create({
   categoriesContainer: {
     marginBottom: 24,
   },
-  emptyCategoryText: {
-    fontSize: isSmallScreen ? 13 : 14,
-    color: '#9CA3AF',
-    textAlign: 'center',
-    paddingVertical: 16,
-  },
   sectionTitle: {
     fontSize: isSmallScreen ? 16 : isTablet ? 20 : 18,
     fontWeight: '700',
@@ -1304,6 +1312,12 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#9CA3AF',
     textAlign: 'center',
+  },
+  emptySubtext: {
+    fontSize: 12,
+    color: '#9CA3AF',
+    textAlign: 'center',
+    marginTop: 8,
   },
   headerContainer: {
     flexDirection: 'row',
