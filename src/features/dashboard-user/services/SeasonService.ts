@@ -192,15 +192,16 @@ static async fetchSeasonsByCategory(categoryId: string): Promise<Season[]> {
 }
 
   //Register Player to a season 
-static async registerForSeason(seasonId: string, userId?: string): Promise<boolean> {
+static async registerForSeason(seasonId: string, userId?: string, payLater: boolean = false): Promise<boolean> {
   try {
     const backendUrl = getBackendBaseURL();
-    console.log('SeasonService: Registering for season:', seasonId);
+    console.log('SeasonService: Registering for season:', seasonId, 'payLater:', payLater);
 
 
     const body: any = {};
     if (userId) body.userId = userId; // optional if backend reads from auth token
     body.seasonId = seasonId;
+    if (payLater) body.payLater = true;
 
     const response = await authClient.$fetch(`${backendUrl}/api/season/player/register`, {
       method: 'POST',
@@ -208,10 +209,21 @@ static async registerForSeason(seasonId: string, userId?: string): Promise<boole
     });
 
     
-    console.log('SeasonService: Registration response:', response);
+    console.log('SeasonService: Registration response:', JSON.stringify(response, null, 2));
 
-    // ✅ Backend returns { membership } for singles or { partnership, memberships } for doubles
-    if (response && ((response as any).membership || (response as any).partnership)) {
+    const apiResponse = response as any;
+    
+    let membership = null;
+    
+    if (apiResponse?.data?.data?.membership) {
+      membership = apiResponse.data.data.membership;
+    } else if (apiResponse?.data?.membership) {
+      membership = apiResponse.data.membership;
+    } else if (apiResponse?.membership) {
+      membership = apiResponse.membership;
+    }
+
+    if (membership) {
       console.log('SeasonService: Registration successful for season:', seasonId);
       return true;
     }

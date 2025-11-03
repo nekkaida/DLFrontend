@@ -341,7 +341,8 @@ export default function DoublesTeamPairingScreen({
 
     try {
       console.log('Registering team for season (Pay Later):', season.id);
-      const success = await SeasonService.registerForSeason(season.id, userId);
+      // TODO: Update this to register the team with both players
+      const success = await SeasonService.registerForSeason(season.id, userId, true);
 
       if (success) {
         console.log('Team registered successfully');
