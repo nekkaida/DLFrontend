@@ -29,6 +29,12 @@ interface Player {
   bio?: string | null;
   area?: string | null;
   gender?: 'MALE' | 'FEMALE' | null;
+  questionnaireStatus?: {
+    hasSelectedSport: boolean;
+    hasCompletedQuestionnaire: boolean;
+    startedAt: string | null;
+    completedAt: string | null;
+  };
 }
 
 interface InvitePartnerBottomSheetProps {

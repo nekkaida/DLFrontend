@@ -17,6 +17,7 @@ import { SocketService } from '@/lib/socket-service';
 import BackButtonIcon from '@/assets/icons/back-button.svg';
 import TeamPlusIcon from '@/assets/icons/teamp_plus.svg';
 import TeamUpBulbIcon from '@/assets/icons/teamup_bulb.svg';
+import { checkQuestionnaireStatus, getSeasonSport } from '../utils/questionnaireCheck';
 
 const { width } = Dimensions.get('window');
 
@@ -37,6 +38,12 @@ interface Player {
   displayUsername?: string;
   image: string | null;
   skillRatings?: any;
+  questionnaireStatus?: {
+    hasSelectedSport: boolean;
+    hasCompletedQuestionnaire: boolean;
+    startedAt: string | null;
+    completedAt: string | null;
+  };
 }
 
 export default function DoublesTeamPairingScreen({
@@ -280,6 +287,22 @@ export default function DoublesTeamPairingScreen({
       return;
     }
 
+    // Check if player is eligible (has selected and completed questionnaire for season sport)
+    const isEligible = !player.questionnaireStatus || 
+                      (player.questionnaireStatus.hasSelectedSport && 
+                       player.questionnaireStatus.hasCompletedQuestionnaire);
+    
+    if (!isEligible) {
+      const message = !player.questionnaireStatus?.hasSelectedSport
+        ? 'This player needs to complete a questionnaire to join'
+        : 'This player has not completed their questionnaire';
+      
+      toast.error('Cannot send invitation', {
+        description: message,
+      });
+      return;
+    }
+
     try {
       console.log('✅ Setting selected partner:', player.name);
       setSelectedPartner(player);
@@ -311,9 +334,13 @@ export default function DoublesTeamPairingScreen({
         // Refresh pairing status to show pending state
         await checkPairingStatus();
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error sending season invitation:', error);
-      toast.error('Failed to send invitation');
+      // Extract error message from response if available
+      const errorMessage = error?.data?.message || error?.message || 'Failed to send invitation';
+      toast.error('Failed to send invitation', {
+        description: errorMessage,
+      });
       setSelectedPartner(null);
     }
   };
@@ -323,6 +350,33 @@ export default function DoublesTeamPairingScreen({
       toast.error('Please select a partner first');
       return;
     }
+    
+    if (!season) return;
+    
+    // Determine the season's sport type
+    const seasonSport = getSeasonSport(season) || sport || 'pickleball';
+    
+    // Check if user has completed questionnaire for this sport
+    if (profileData) {
+      const questionnaireStatus = checkQuestionnaireStatus(profileData, seasonSport);
+      
+      if (!questionnaireStatus.hasSelectedSport || !questionnaireStatus.hasCompletedQuestionnaire) {
+        // User hasn't selected/completed questionnaire for this sport
+        // Navigate to complete questionnaire screen
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        router.push({
+          pathname: '/user-dashboard/complete-questionnaire' as any,
+          params: {
+            sport: seasonSport,
+            seasonId: season.id,
+            leagueId: leagueId || '',
+            returnPath: 'league-details'
+          }
+        });
+        return;
+      }
+    }
+    
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setShowPaymentOptions(true);
   };
@@ -502,6 +556,30 @@ export default function DoublesTeamPairingScreen({
     return teamDMR.toString();
   };
 
+  const getHeaderGradientColors = (sport: 'pickleball' | 'tennis' | 'padel'): [string, string] => {
+    switch (sport) {
+      case 'tennis':
+        return ['#A2E047', '#587A27'];
+      case 'padel':
+        return ['#4DABFE', '#2E6698'];
+      case 'pickleball':
+      default:
+        return ['#A04DFE', '#602E98'];
+    }
+  };
+
+  const getBannerBackgroundColor = (sport: 'pickleball' | 'tennis' | 'padel'): string => {
+    switch (sport) {
+      case 'tennis':
+        return '#314116';
+      case 'padel':
+        return '#1A3852';
+      case 'pickleball':
+      default:
+        return '#331850';
+    }
+  };
+
   return (
     <View style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
@@ -547,7 +625,7 @@ export default function DoublesTeamPairingScreen({
         ) : error ? (
           <View style={styles.errorContainer}>
             <Text style={styles.errorText}>{error}</Text>
-            <TouchableOpacity style={styles.retryButton} onPress={fetchSeasonData}>
+            <TouchableOpacity style={styles.retryButton} onPress={() => fetchSeasonData()}>
               <Text style={styles.retryButtonText}>Retry</Text>
             </TouchableOpacity>
           </View>
@@ -564,7 +642,7 @@ export default function DoublesTeamPairingScreen({
                 <BackButtonIcon width={12} height={19} />
               </TouchableOpacity>
               <LinearGradient
-                colors={['#A04DFE', '#602E98']}
+                colors={getHeaderGradientColors(selectedSport)}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 0 }}
                 style={styles.seasonHeaderGradient}
@@ -580,7 +658,7 @@ export default function DoublesTeamPairingScreen({
                     </View>
                   </View>
                   <View style={styles.bannerContainer}>
-                    <View style={styles.nameBanner}>
+                    <View style={[styles.nameBanner, { backgroundColor: getBannerBackgroundColor(selectedSport) }]}>
                       <Text style={styles.seasonName}>
                         {season?.categories?.[0]?.name ? `${season.categories[0].name} | ` : ''}
                         <Text style={styles.seasonNameHighlight}>{season?.name || seasonName}</Text>
@@ -736,7 +814,7 @@ export default function DoublesTeamPairingScreen({
 
                 <View style={styles.teamDMRChipContainer}>
                   <LinearGradient
-                    colors={['#A04DFE', '#602E98']}
+                    colors={getHeaderGradientColors(selectedSport)}
                     start={{ x: 0, y: 0 }}
                     end={{ x: 1, y: 0 }}
                     style={styles.teamDMRChip}
@@ -926,7 +1004,6 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   nameBanner: {
-    backgroundColor: '#331850',
     paddingVertical: 8,
     paddingHorizontal: 20,
     borderRadius: 0,

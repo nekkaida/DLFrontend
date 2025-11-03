@@ -13,6 +13,12 @@ interface Player {
   bio?: string | null;
   area?: string | null;
   gender?: 'MALE' | 'FEMALE' | null;
+  questionnaireStatus?: {
+    hasSelectedSport: boolean;
+    hasCompletedQuestionnaire: boolean;
+    startedAt: string | null;
+    completedAt: string | null;
+  };
 }
 
 interface PlayerInviteListItemProps {
@@ -53,6 +59,26 @@ export const PlayerInviteListItem: React.FC<PlayerInviteListItemProps> = ({ play
     return '';
   };
 
+  // Get questionnaire status message
+  const getQuestionnaireStatusMessage = () => {
+    if (!player.questionnaireStatus) return null;
+    
+    const { hasSelectedSport, hasCompletedQuestionnaire } = player.questionnaireStatus;
+    
+    if (!hasSelectedSport) {
+      return 'This player needs to complete a questionnaire to join';
+    }
+    
+    if (hasSelectedSport && !hasCompletedQuestionnaire) {
+      return 'This player has not completed their questionnaire.';
+    }
+    
+    return null;
+  };
+
+  const statusMessage = getQuestionnaireStatusMessage();
+  const isEligible = !statusMessage; // Player is eligible if there's no status message
+
   return (
     <View style={styles.container}>
       {/* Avatar - Left most */}
@@ -88,11 +114,32 @@ export const PlayerInviteListItem: React.FC<PlayerInviteListItemProps> = ({ play
             <Text style={styles.locationText}>{player.area}</Text>
           </View>
         )}
+
+        {/* Questionnaire Status Message */}
+        {statusMessage && (
+          <View style={styles.statusMessageContainer}>
+            <Ionicons name="information-circle" size={14} color="#FFA500" />
+            <Text style={styles.statusMessageText}>{statusMessage}</Text>
+          </View>
+        )}
       </View>
 
       {/* Invite Button - Right most */}
-      <TouchableOpacity style={styles.inviteButton} onPress={handlePress} activeOpacity={0.7}>
-        <Text style={styles.inviteButtonText}>Invite</Text>
+      <TouchableOpacity 
+        style={[
+          styles.inviteButton, 
+          !isEligible && styles.inviteButtonDisabled
+        ]} 
+        onPress={handlePress} 
+        activeOpacity={isEligible ? 0.7 : 1}
+        disabled={!isEligible}
+      >
+        <Text style={[
+          styles.inviteButtonText,
+          !isEligible && styles.inviteButtonTextDisabled
+        ]}>
+          Invite
+        </Text>
       </TouchableOpacity>
     </View>
   );
@@ -168,9 +215,27 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     marginLeft: 12,
   },
+  inviteButtonDisabled: {
+    backgroundColor: '#E5E5E5',
+  },
   inviteButtonText: {
     color: '#FFFFFF',
     fontSize: 13,
     fontWeight: '600',
+  },
+  inviteButtonTextDisabled: {
+    color: '#9CA3AF',
+  },
+  statusMessageContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 6,
+    gap: 6,
+  },
+  statusMessageText: {
+    fontSize: 11,
+    color: '#FFA500',
+    fontWeight: '500',
+    flex: 1,
   },
 });
