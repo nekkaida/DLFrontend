@@ -291,7 +291,7 @@ export default function SeasonsScreen({
 
   try {
     console.log('Registering user for season (Pay Later):', season.id);
-    const success = await SeasonService.registerForSeason(season.id, session.user.id);
+    const success = await SeasonService.registerForSeason(season.id, session.user.id, true);
 
     if (success) {
       console.log('User registered successfully for season:', season.id);
