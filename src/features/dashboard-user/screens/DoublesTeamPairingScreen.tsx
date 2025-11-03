@@ -341,13 +341,24 @@ export default function DoublesTeamPairingScreen({
 
     try {
       console.log('Registering team for season (Pay Later):', season.id);
-      // TODO: Update this to register the team with both players
       const success = await SeasonService.registerForSeason(season.id, userId);
 
       if (success) {
         console.log('Team registered successfully');
         toast.success('Team registered successfully!');
-        fetchSeasonData(); // Refresh data
+
+        // Close payment bottomsheet
+        setIsBottomSheetVisible(false);
+
+        // Navigate to leaderboard after successful registration
+        router.push({
+          pathname: '/leaderboard',
+          params: {
+            seasonId: season.id,
+            seasonName: season.name,
+            leagueId: leagueId || ''
+          }
+        });
       } else {
         console.warn('Registration failed');
         toast.error('Registration failed. Please try again.');
