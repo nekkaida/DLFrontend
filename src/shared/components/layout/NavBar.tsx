@@ -21,9 +21,10 @@ interface NavBarProps {
     myGames?: number;
     chat?: number;
   };
+  sport?: 'pickleball' | 'tennis' | 'padel';
 }
 
-export default function NavBar({ activeTab = 2, onTabPress, badgeCounts }: NavBarProps) {
+export default function NavBar({ activeTab = 2, onTabPress, badgeCounts, sport = 'pickleball' }: NavBarProps) {
   // Get safe area insets
   const insets = useSafeAreaInsets();
 
@@ -58,6 +59,20 @@ export default function NavBar({ activeTab = 2, onTabPress, badgeCounts }: NavBa
 
   // Debug logging for render
   console.log(`NavBar: Rendering with activeTab: ${activeTab}, safe area bottom: ${insets.bottom}px, gesture nav: ${hasAndroidGestureNav}`);
+
+  const getSelectedColor = (sport: 'pickleball' | 'tennis' | 'padel'): string => {
+    switch (sport) {
+      case 'tennis':
+        return '#4A7D00';
+      case 'padel':
+        return '#1B72C0';
+      case 'pickleball':
+      default:
+        return '#933FF2';
+    }
+  };
+
+  const selectedColor = getSelectedColor(sport);
 
   return (
     <View
@@ -125,7 +140,7 @@ export default function NavBar({ activeTab = 2, onTabPress, badgeCounts }: NavBa
             >
               <View style={styles.iconContainer}>
                 {(() => {
-                  const iconColor = isActive ? '#933FF2' : '#BABABA';
+                  const iconColor = isActive ? selectedColor : '#BABABA';
                   switch(tab.index) {
                     case 0: // Connect
                       return <NavBarConnectIcon width={24} height={24} fill={iconColor} />;
@@ -153,7 +168,7 @@ export default function NavBar({ activeTab = 2, onTabPress, badgeCounts }: NavBa
                 style={[
                   styles.tabLabel,
                   {
-                    color: isActive ? '#933FF2' : '#BABABA',
+                    color: isActive ? selectedColor : '#BABABA',
                     fontWeight: isActive ? '500' : '400'
                   },
                 ]}

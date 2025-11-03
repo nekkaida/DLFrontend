@@ -28,7 +28,7 @@ const isTablet = width > 768;
 interface LeagueDetailsScreenProps {
   leagueId: string;
   leagueName?: string;
-  sport?: 'pickleball' | 'tennis';
+  sport?: 'pickleball' | 'tennis' | 'padel';
 }
 
 export default function LeagueDetailsScreen({
@@ -349,7 +349,7 @@ export default function LeagueDetailsScreen({
         activeOpacity={0.9}
       >
         <LinearGradient
-          colors={['#A04DFE', '#FEA04D']}
+          colors={getSeasonCardGradientColors(sport)}
           start={{ x: 0, y: 0 }}
           end={{ x: 0, y: 1 }}
           style={styles.seasonCardWrapper}
@@ -359,7 +359,7 @@ export default function LeagueDetailsScreen({
             <Text style={styles.seasonTitle}>{season.name}</Text>
           {categoryDisplayName && (
             <LinearGradient
-              colors={['#A04DFE', '#602E98']}
+              colors={getCategoryChipGradientColors(sport)}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
               style={styles.categoryChip}
@@ -472,6 +472,42 @@ export default function LeagueDetailsScreen({
 
   const sportConfig = getSportConfig();
 
+  const getHeaderGradientColors = (sport: 'pickleball' | 'tennis' | 'padel'): [string, string] => {
+    switch (sport) {
+      case 'tennis':
+        return ['#A2E047', '#587A27'];
+      case 'padel':
+        return ['#4DABFE', '#2E6698'];
+      case 'pickleball':
+      default:
+        return ['#A04DFE', '#602E98'];
+    }
+  };
+
+  const getSeasonCardGradientColors = (sport: 'pickleball' | 'tennis' | 'padel'): [string, string] => {
+    switch (sport) {
+      case 'tennis':
+        return ['#A2E047', '#FEA04D'];
+      case 'padel':
+        return ['#4DABFE', '#FEA04D'];
+      case 'pickleball':
+      default:
+        return ['#A04DFE', '#FEA04D'];
+    }
+  };
+
+  const getCategoryChipGradientColors = (sport: 'pickleball' | 'tennis' | 'padel'): [string, string] => {
+    switch (sport) {
+      case 'tennis':
+        return ['#A2E047', '#729E32'];
+      case 'padel':
+        return ['#4DABFE', '#377FBF'];
+      case 'pickleball':
+      default:
+        return ['#A04DFE', '#602E98'];
+    }
+  };
+
   // Helper function to get user's selected sports
   const getUserSelectedSports = () => {
     if (!profileData?.sports) return [];
@@ -566,7 +602,7 @@ export default function LeagueDetailsScreen({
           <>
             <View style={styles.gradientHeaderContainer}>
               <LinearGradient
-                colors={['#A04DFE', '#602E98']}
+                colors={getHeaderGradientColors(sport)}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
               style={styles.leagueHeaderGradient}
@@ -715,7 +751,7 @@ export default function LeagueDetailsScreen({
         </View>
       </View>
       
-      <NavBar activeTab={activeTab} onTabPress={handleTabPress} />
+      <NavBar activeTab={activeTab} onTabPress={handleTabPress} sport={selectedSport} />
 
       <PaymentOptionsBottomSheet
         visible={showPaymentOptions}

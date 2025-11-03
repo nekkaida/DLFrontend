@@ -30,7 +30,7 @@ interface SeasonDetailsScreenProps {
   seasonId: string;
   seasonName?: string;
   leagueId?: string;
-  sport?: 'pickleball' | 'tennis';
+  sport?: 'pickleball' | 'tennis' | 'padel';
 }
 
 export default function SeasonDetailsScreen({
@@ -214,6 +214,30 @@ export default function SeasonDetailsScreen({
 
   const sportConfig = getSportConfig();
 
+  const getHeaderGradientColors = (sport: 'pickleball' | 'tennis' | 'padel'): [string, string] => {
+    switch (sport) {
+      case 'tennis':
+        return ['#A2E047', '#587A27'];
+      case 'padel':
+        return ['#4DABFE', '#2E6698'];
+      case 'pickleball':
+      default:
+        return ['#A04DFE', '#602E98'];
+    }
+  };
+
+  const getBannerBackgroundColor = (sport: 'pickleball' | 'tennis' | 'padel'): string => {
+    switch (sport) {
+      case 'tennis':
+        return '#314116';
+      case 'padel':
+        return '#1A3852';
+      case 'pickleball':
+      default:
+        return '#331850';
+    }
+  };
+
   // Button configuration based on user registration status
   const getButtonConfig = () => {
     if (!season || !userId) {
@@ -332,7 +356,7 @@ export default function SeasonDetailsScreen({
           <>
             <View style={styles.gradientHeaderContainer}>
               <LinearGradient
-                colors={['#A04DFE', '#602E98']}
+                colors={getHeaderGradientColors(sport)}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 0 }}
                 style={styles.seasonHeaderGradient}
@@ -355,7 +379,7 @@ export default function SeasonDetailsScreen({
                     </View>
                   </View>
                   <View style={styles.bannerContainer}>
-                    <View style={styles.nameBanner}>
+                    <View style={[styles.nameBanner, { backgroundColor: getBannerBackgroundColor(sport) }]}>
                       <Text style={styles.seasonName}>
                         {season?.categories?.[0]?.name ? `${season.categories[0].name} | ` : ''}
                         <Text style={styles.seasonNameHighlight}>{season?.name || seasonName}</Text>

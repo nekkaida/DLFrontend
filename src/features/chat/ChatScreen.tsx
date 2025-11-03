@@ -1,6 +1,5 @@
 import { getBackendBaseURL } from '@/config/network';
 import { authClient, useSession } from '@/lib/auth-client';
-import { SportSwitcher } from '@/shared/components/ui/SportSwitcher';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { router } from 'expo-router';
@@ -13,35 +12,11 @@ import { MessageWindow } from './components/chat-window';
 import { useChatStore } from './stores/ChatStore';
 import { Thread } from './types';
 
-const SPORT_CONFIG = {
-  pickleball: {
-    color: "#A04DFE",
-    gradientColors: ["#B98FAF", "#FFFFFF"],
-    apiType: "PICKLEBALL" as const,
-    displayName: "Pickleball",
-  },
-  tennis: {
-    color: "#A2E047",
-    gradientColors: ["#A2E047", "#FFFFFF"],
-    apiType: "TENNIS" as const,
-    displayName: "Tennis",
-  },
-  padel: {
-    color: "#4DABFE",
-    gradientColors: ["#4DABFE", "#FFFFFF"],
-    apiType: "PADDLE" as const,
-    displayName: "Padel",
-  },
-} as const;
-
 export const ChatScreen: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const { data: session} = useSession();
   const [filteredThreads, setFilteredThreads] = useState<Thread[]>([]);
   const [profileData, setProfileData] = useState<any>(null);
-  const [selectedSport, setSelectedSport] = useState<
-    "pickleball" | "tennis" | "padel"
-  >("pickleball");
   const insets = useSafeAreaInsets();
   
   const user = session?.user;
@@ -61,63 +36,12 @@ export const ChatScreen: React.FC = () => {
     setConnectionStatus,
   } = useChatStore();
 
-  // Helper function to get user's selected sports
-  const getUserSelectedSports = () => {
-    if (!profileData?.sports) return [];
-
-    // Convert to lowercase to match our config keys
-    const sports = profileData.sports.map((sport: string) =>
-      sport.toLowerCase()
-    );
-
-    // Define the order of sports (priority)
-    const preferredOrder = ["pickleball", "tennis", "padel"];
-
-    // Filter to only include sports that are configured and sort by order
-    const configuredSports = sports.filter(
-      (sport: string) => sport in SPORT_CONFIG
-    );
-
-    // Sort by preferred order
-    return configuredSports.sort((a: string, b: string) => {
-      const indexA = preferredOrder.indexOf(a);
-      const indexB = preferredOrder.indexOf(b);
-
-      // If both sports are in the preferred order, sort by their position
-      if (indexA !== -1 && indexB !== -1) {
-        return indexA - indexB;
-      }
-
-      // If only one sport is in the preferred order, prioritize it
-      if (indexA !== -1) return -1;
-      if (indexB !== -1) return 1;
-
-      // If neither sport is in the preferred order, maintain original order
-      return 0;
-    });
-  };
-
   // Fetch profile data when component mounts
   useEffect(() => {
     if (session?.user?.id) {
       fetchProfileData();
     }
   }, [session?.user?.id]);
-
-  // Set default selected sport when profile data loads
-  React.useEffect(() => {
-    if (profileData?.sports && profileData.sports.length > 0) {
-      const availableSports = getUserSelectedSports();
-      if (
-        availableSports.length > 0 &&
-        !availableSports.includes(selectedSport)
-      ) {
-        setSelectedSport(
-          availableSports[0] as "pickleball" | "tennis" | "padel"
-        );
-      }
-    }
-  }, [profileData?.sports]);
 
   const fetchProfileData = async () => {
     try {
@@ -343,7 +267,7 @@ export const ChatScreen: React.FC = () => {
         </KeyboardAvoidingView>
       ) : (
         <View style={[styles.threadsContainer, { paddingBottom: insets.bottom }]}>
-          {/* Header with profile picture, sport switcher */}
+          {/* Header with profile picture */}
           <View style={[styles.headerContainer, { paddingTop: STATUS_BAR_HEIGHT }]}>
             <TouchableOpacity 
               style={styles.headerProfilePicture}
@@ -365,12 +289,6 @@ export const ChatScreen: React.FC = () => {
                 </View>
               )}
             </TouchableOpacity>
-            
-            <SportSwitcher
-              currentSport={selectedSport}
-              availableSports={getUserSelectedSports()}
-              onSportChange={setSelectedSport}
-            />
             
             <View style={styles.headerRight} />
           </View>
