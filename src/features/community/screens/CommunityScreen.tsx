@@ -167,20 +167,9 @@ export default function CommunityScreen({ onTabPress, sport = 'pickleball' }: Co
       // Refresh friends and invitations after accepting
       fetchFriends();
 
-      // Navigate to DoublesTeamPairingScreen if partnership was created
-      if (partnershipData?.season) {
-        const seasonId = partnershipData.season.id;
-        const seasonName = partnershipData.season.name;
-
-        // Navigate to the season pairing screen
-        router.push({
-          pathname: '/(tabs)/seasons/[seasonId]/doubles-pairing',
-          params: {
-            seasonId,
-            seasonName,
-          },
-        });
-      }
+      // ✅ No navigation needed - success toast already shown in useSeasonInvitations.ts
+      // The team captain will see the "Register Team" button appear automatically
+      // via Socket.IO real-time updates on the DoublesTeamPairingScreen
     });
   }, [acceptSeasonInvitation, fetchFriends]);
 

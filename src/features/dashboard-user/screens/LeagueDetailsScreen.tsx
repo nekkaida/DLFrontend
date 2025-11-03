@@ -373,9 +373,26 @@ export default function LeagueDetailsScreen({
   };
 
   const renderSeasonCard = (season: Season) => {
-    const isUserRegistered = season.memberships?.some((m: any) => m.userId === userId);
+    const userMembership = season.memberships?.find((m: any) => m.userId === userId);
+    const isUserRegistered = !!userMembership;
 
     const getButtonConfig = () => {
+      // For doubles seasons, check if user needs to complete team registration/payment
+      const isDoublesSeason = season.categories?.some(cat =>
+        cat.name?.toLowerCase().includes('doubles') ||
+        cat.matchFormat?.toLowerCase().includes('doubles') ||
+        (cat as any).game_type === 'DOUBLES'
+      );
+
+      // If doubles season and membership is PENDING (not paid), show Register Team
+      if (isDoublesSeason && userMembership && userMembership.status === 'PENDING') {
+        return {
+          text: 'Register Team',
+          color: '#FEA04D',
+          onPress: () => handleRegisterPress(season)
+        };
+      }
+
       if (isUserRegistered) {
         return {
           text: 'View Leaderboard',
