@@ -3,7 +3,7 @@ import { League, LeagueService } from '../services/LeagueService';
 import { useSession } from '@/lib/auth-client';
 
 export interface UseLeaguesOptions {
-  sportType?: 'PADDLE' | 'PICKLEBALL' | 'TENNIS';
+  sportType?: 'PADEL' | 'PICKLEBALL' | 'TENNIS';
   autoFetch?: boolean;
 }
 

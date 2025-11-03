@@ -28,7 +28,7 @@ const isTablet = width > 768;
 interface LeagueDetailsScreenProps {
   leagueId: string;
   leagueName?: string;
-  sport?: 'pickleball' | 'tennis';
+  sport?: 'pickleball' | 'tennis' | 'padel';
 }
 
 export default function LeagueDetailsScreen({
@@ -44,7 +44,7 @@ export default function LeagueDetailsScreen({
   const [selectedCategoryId, setSelectedCategoryId] = React.useState<string | null>(null);
   const [isLoading, setIsLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
-  const [userGender, setUserGender] = React.useState<string | null>(null);
+  const [userGender, setUserGender] = React.useState<string | null | undefined>(undefined);
   const [showPaymentOptions, setShowPaymentOptions] = React.useState(false);
   const [selectedSeason, setSelectedSeason] = React.useState<Season | null>(null);
   const [profileData, setProfileData] = React.useState<any>(null);
@@ -62,14 +62,19 @@ export default function LeagueDetailsScreen({
   // Fetch user gender
   React.useEffect(() => {
     const fetchUserGender = async () => {
-      if (!userId) return;
+      if (!userId) {
+        // If no userId, explicitly set to null so fetchAllData can proceed
+        setUserGender(null);
+        return;
+      }
 
       try {
         const { user } = await questionnaireAPI.getUserProfile(userId);
         setUserGender(user.gender?.toUpperCase() || null);
-        console.log('Fetched user gender:', user.gender);
       } catch (error) {
         console.error('Error fetching user profile:', error);
+        // Set to null on error so fetchAllData can still proceed
+        setUserGender(null);
       }
     };
 
@@ -78,7 +83,9 @@ export default function LeagueDetailsScreen({
 
   // Fetch all data on mount
   React.useEffect(() => {
-    fetchAllData();
+    if (leagueId && userGender !== undefined) {
+      fetchAllData();
+    }
   }, [leagueId, userGender]);
 
   // Set default selected category when categories are loaded
@@ -87,6 +94,57 @@ export default function LeagueDetailsScreen({
       setSelectedCategoryId(categories[0].id);
     }
   }, [categories, selectedCategoryId]);
+
+  // Helper function to check if a category is visible to the user based on gender
+  const isCategoryVisibleToUser = (category: any): boolean => {
+    if (!category) {
+      return false;
+    }
+
+    // Primary check: Use gender fields from backend (most reliable)
+    const genderCategory = category.gender_category?.toUpperCase();
+    const genderRestriction = category.genderRestriction?.toUpperCase();
+    const categoryGender = genderCategory || genderRestriction;
+
+    // Check if it's a doubles category
+    const isDoubles = CategoryService.getEffectiveGameType(category, 'SINGLES') === 'DOUBLES';
+
+    if (!userGender) {
+      // If no user gender, only show MIXED/OPEN categories
+      return categoryGender === 'MIXED' || categoryGender === 'OPEN';
+    }
+
+    const normalizedUserGender = userGender.toUpperCase();
+
+    // Female users can see: FEMALE/WOMEN categories (any game type) OR MIXED DOUBLES
+    if (normalizedUserGender === 'FEMALE') {
+      // Check by gender fields
+      if (categoryGender === 'FEMALE' || categoryGender === 'WOMEN') {
+        return true;
+      }
+      // Check for MIXED doubles
+      if (categoryGender === 'MIXED' && isDoubles) {
+        return true;
+      }
+      return false;
+    }
+
+    // Male users can see: MALE/MEN categories (any game type) OR MIXED DOUBLES
+    if (normalizedUserGender === 'MALE') {
+      // Check by gender fields
+      if (categoryGender === 'MALE' || categoryGender === 'MEN') {
+        return true;
+      }
+      // Check for MIXED doubles
+      if (categoryGender === 'MIXED' && isDoubles) {
+        return true;
+      }
+      return false;
+    }
+
+    // For OPEN categories, show to everyone
+    return categoryGender === 'OPEN';
+  };
 
   const fetchAllData = async () => {
     if (!leagueId) {
@@ -109,22 +167,61 @@ export default function LeagueDetailsScreen({
       console.log('Fetched categories:', categoriesData);
       console.log('Fetched seasons:', seasonsData);
 
+      // Set league data to state
       setLeague(leagueData);
-
-      // Filter categories by user gender (same logic as LeagueCategoryScreen)
-      const genderFiltered = filterCategoriesByGender(categoriesData, userGender);
-      console.log('Gender filtered categories:', genderFiltered);
-      setCategories(genderFiltered);
 
       // Filter seasons to only those belonging to this league
       const leagueSeasons = seasonsData.filter(season =>
         season.leagues?.some(l => l.id === leagueId)
       );
+
+      // Filter seasons by gender first
+      const genderFilteredSeasons = leagueSeasons.filter(season => {
+        // If season has no categories, skip it
+        if (!season.categories || !Array.isArray(season.categories) || season.categories.length === 0) {
+          return false;
+        }
+        
+        // Check if any category in the season is visible to the user
+        return season.categories.some(category => 
+          category && isCategoryVisibleToUser(category)
+        );
+      });
+
+      // Set seasons (all league seasons - we'll filter by gender in getFilteredSeasons)
       setSeasons(leagueSeasons);
 
-      // Set default selected category
-      if (genderFiltered.length > 0) {
-        setSelectedCategoryId(genderFiltered[0].id);
+      // Extract unique categories from gender-filtered seasons
+      const availableCategoriesMap = new Map<string, Category>();
+      genderFilteredSeasons.forEach(season => {
+        if (season.categories && Array.isArray(season.categories)) {
+          season.categories.forEach(category => {
+            if (category && category.id && isCategoryVisibleToUser(category)) {
+              // Only add category if it's not already in the map
+              if (!availableCategoriesMap.has(category.id)) {
+                availableCategoriesMap.set(category.id, category as Category);
+              }
+            }
+          });
+        }
+      });
+
+      const availableCategories = Array.from(availableCategoriesMap.values());
+      
+      // Sort categories by categoryOrder if available
+      availableCategories.sort((a, b) => {
+        const orderA = (a as any).categoryOrder || 0;
+        const orderB = (b as any).categoryOrder || 0;
+        return orderA - orderB;
+      });
+
+      setCategories(availableCategories);
+
+      // Set default selected category from available categories
+      if (availableCategories.length > 0) {
+        setSelectedCategoryId(availableCategories[0].id);
+      } else {
+        setSelectedCategoryId(null);
       }
     } catch (err) {
       console.error('Error fetching data:', err);
@@ -135,23 +232,7 @@ export default function LeagueDetailsScreen({
   };
 
   const filterCategoriesByGender = (categories: Category[], userGender: string | null): Category[] => {
-    return categories.filter(category => {
-      const genderCategory = category.gender_category?.toUpperCase();
-      const genderRestriction = category.genderRestriction?.toUpperCase();
-      const categoryGender = genderCategory || genderRestriction;
-
-      // Show if MIXED/OPEN (open to all)
-      if (categoryGender === 'MIXED' || categoryGender === 'OPEN') {
-        return true;
-      }
-
-      // Show if matches user's gender
-      if (userGender && categoryGender === userGender) {
-        return true;
-      }
-
-      return false;
-    });
+    return categories.filter(category => isCategoryVisibleToUser(category));
   };
 
   const handleTabPress = (tabIndex: number) => {
@@ -164,16 +245,12 @@ export default function LeagueDetailsScreen({
   };
 
   const handleRegisterPress = (season: Season) => {
-    console.log('Register button pressed for season:', season.id);
-    
     // Check if this is a doubles season by checking category name
     const isDoublesSeason = season.categories?.some(cat => 
       cat.name?.toLowerCase().includes('doubles') || 
       cat.matchFormat?.toLowerCase().includes('doubles') || 
       (cat as any).game_type === 'DOUBLES'
     );
-    
-    console.log('Is doubles season?', isDoublesSeason, 'Categories:', season.categories?.map(c => c.name));
     
     if (isDoublesSeason) {
       // Navigate to doubles team pairing screen
@@ -239,27 +316,36 @@ export default function LeagueDetailsScreen({
     }
   };
 
-  // Get filtered seasons for selected category
+  // Get filtered seasons for selected category AND gender
   const getFilteredSeasons = () => {
-    if (!selectedCategoryId) {
-      console.log('LeagueDetailsScreen: No category selected, returning all league seasons');
-      return seasons;
-    }
+    let filtered = seasons;
     
-    const filtered = seasons.filter(season => {
-      // If season has no categories, skip it (unless we want to show all seasons without categories)
+    // Filter by gender first
+    filtered = filtered.filter(season => {
+      // If season has no categories, skip it
       if (!season.categories || !Array.isArray(season.categories) || season.categories.length === 0) {
-        console.log(`LeagueDetailsScreen: Season ${season.id} has no categories`);
         return false;
       }
       
-      // Check if any category matches
-      const matches = season.categories.some(cat => cat?.id === selectedCategoryId);
-      if (!matches) {
-        console.log(`LeagueDetailsScreen: Season ${season.id} categories don't match. Category IDs:`, season.categories.map(c => c?.id));
-      }
-      return matches;
+      // Check if any category in the season is visible to the user
+      return season.categories.some(category => isCategoryVisibleToUser(category));
     });
+    
+    // Then filter by selected category if one is selected
+    if (selectedCategoryId) {
+      // First verify that the selected category is visible to the user
+      // (categories are already filtered by gender, but this is a safety check)
+      const selectedCategoryObj = categories.find(c => c?.id === selectedCategoryId);
+      if (selectedCategoryObj && !isCategoryVisibleToUser(selectedCategoryObj)) {
+        // Selected category is not visible to user, return empty array
+        return [];
+      }
+      
+      filtered = filtered.filter(season => {
+        const seasonCategoryIds = season.categories.map(c => c?.id).filter(Boolean);
+        return seasonCategoryIds.includes(selectedCategoryId);
+      });
+    }
     
     return filtered;
   };
@@ -366,7 +452,7 @@ export default function LeagueDetailsScreen({
         activeOpacity={0.9}
       >
         <LinearGradient
-          colors={['#A04DFE', '#FEA04D']}
+          colors={getSeasonCardGradientColors(sport)}
           start={{ x: 0, y: 0 }}
           end={{ x: 0, y: 1 }}
           style={styles.seasonCardWrapper}
@@ -376,7 +462,7 @@ export default function LeagueDetailsScreen({
             <Text style={styles.seasonTitle}>{season.name}</Text>
           {categoryDisplayName && (
             <LinearGradient
-              colors={['#A04DFE', '#602E98']}
+              colors={getCategoryChipGradientColors(sport)}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
               style={styles.categoryChip}
@@ -473,11 +559,18 @@ export default function LeagueDetailsScreen({
   };
 
   const getSportConfig = () => {
-    if (sport === 'tennis') {
+    if (selectedSport === 'tennis') {
       return {
         gradient: ['#B3CFBC', '#FFFFFF'] as const,
         color: '#008000',
         name: 'Tennis'
+      };
+    }
+    if (selectedSport === 'padel') {
+      return {
+        gradient: ['#4DABFE', '#FFFFFF'] as const,
+        color: '#4DABFE',
+        name: 'Padel'
       };
     }
     return {
@@ -488,6 +581,42 @@ export default function LeagueDetailsScreen({
   };
 
   const sportConfig = getSportConfig();
+
+  const getHeaderGradientColors = (sport: 'pickleball' | 'tennis' | 'padel'): [string, string] => {
+    switch (sport) {
+      case 'tennis':
+        return ['#A2E047', '#587A27'];
+      case 'padel':
+        return ['#4DABFE', '#2E6698'];
+      case 'pickleball':
+      default:
+        return ['#A04DFE', '#602E98'];
+    }
+  };
+
+  const getSeasonCardGradientColors = (sport: 'pickleball' | 'tennis' | 'padel'): [string, string] => {
+    switch (sport) {
+      case 'tennis':
+        return ['#A2E047', '#FEA04D'];
+      case 'padel':
+        return ['#4DABFE', '#FEA04D'];
+      case 'pickleball':
+      default:
+        return ['#A04DFE', '#FEA04D'];
+    }
+  };
+
+  const getCategoryChipGradientColors = (sport: 'pickleball' | 'tennis' | 'padel'): [string, string] => {
+    switch (sport) {
+      case 'tennis':
+        return ['#A2E047', '#729E32'];
+      case 'padel':
+        return ['#4DABFE', '#377FBF'];
+      case 'pickleball':
+      default:
+        return ['#A04DFE', '#602E98'];
+    }
+  };
 
   // Helper function to get user's selected sports
   const getUserSelectedSports = () => {
@@ -559,7 +688,13 @@ export default function LeagueDetailsScreen({
         <SportSwitcher
           currentSport={selectedSport}
           availableSports={getUserSelectedSports()}
-          onSportChange={setSelectedSport}
+          onSportChange={(newSport) => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            router.push({
+              pathname: '/user-dashboard' as any,
+              params: { sport: newSport }
+            });
+          }}
         />
         
         <View style={styles.headerRight} />
@@ -583,7 +718,7 @@ export default function LeagueDetailsScreen({
           <>
             <View style={styles.gradientHeaderContainer}>
               <LinearGradient
-                colors={['#A04DFE', '#602E98']}
+                colors={getHeaderGradientColors(sport)}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
               style={styles.leagueHeaderGradient}
@@ -680,7 +815,9 @@ export default function LeagueDetailsScreen({
                       <TouchableOpacity
                         key={category.id}
                         style={[styles.categoryButton, isSelected && styles.categoryButtonSelected]}
-                        onPress={() => handleCategoryPress(category.id)}
+                        onPress={() => {
+                          handleCategoryPress(category.id);
+                        }}
                         activeOpacity={0.7}
                       >
                         {isSelected && (
@@ -720,19 +857,25 @@ export default function LeagueDetailsScreen({
               </View>
             )}
 
-            {/* No Seasons Message */}
-            {currentSeasons.length === 0 && upcomingSeasons.length === 0 && pastSeasons.length === 0 && (
+            {/* Empty State - Show when no categories or no seasons */}
+            {categories.length === 0 || (currentSeasons.length === 0 && upcomingSeasons.length === 0 && pastSeasons.length === 0) ? (
               <View style={styles.emptyContainer}>
-                <Text style={styles.emptyText}>No seasons available for this category</Text>
+                <Text style={styles.emptyText}>
+                  {categories.length === 0 
+                    ? 'There are currently no seasons available for this league.'
+                    : selectedCategoryId 
+                      ? 'There are currently no seasons available for this category.'
+                      : 'There are currently no seasons available for this league.'}
+                </Text>
               </View>
-            )}
+            ) : null}
             </ScrollView>
           </>
         )}
         </View>
       </View>
       
-      <NavBar activeTab={activeTab} onTabPress={handleTabPress} />
+      <NavBar activeTab={activeTab} onTabPress={handleTabPress} sport={selectedSport} />
 
       <PaymentOptionsBottomSheet
         visible={showPaymentOptions}
@@ -1186,6 +1329,12 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#9CA3AF',
     textAlign: 'center',
+  },
+  emptySubtext: {
+    fontSize: 12,
+    color: '#9CA3AF',
+    textAlign: 'center',
+    marginTop: 8,
   },
   headerContainer: {
     flexDirection: 'row',

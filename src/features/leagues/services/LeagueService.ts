@@ -7,7 +7,7 @@ export interface League {
   location?: string;
   description?: string;
   status: 'ACTIVE' | 'INACTIVE' | 'SUSPENDED' | 'UPCOMING' | 'ONGOING' | 'FINISHED' | 'CANCELLED';
-  sportType: 'PADDLE' | 'PICKLEBALL' | 'TENNIS';
+  sportType: 'PADEL' | 'PICKLEBALL' | 'TENNIS';
   joinType?: 'OPEN' | 'INVITE_ONLY' | 'MANUAL';
   gameType: 'SINGLES' | 'DOUBLES';
   createdAt: string;
@@ -135,7 +135,7 @@ export class LeagueService {
   }
 
   // fetch leagues filtered by sport type
-  static async fetchLeaguesBySport(sportType: 'PADDLE' | 'PICKLEBALL' | 'TENNIS'): Promise<League[]> {
+  static async fetchLeaguesBySport(sportType: 'PADEL' | 'PICKLEBALL' | 'TENNIS'): Promise<League[]> {
     try {
       const allLeagues = await this.fetchAllLeagues();
       return allLeagues.filter(league => league.sportType === sportType);

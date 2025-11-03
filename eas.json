@@ -1,8 +1,7 @@
 {
   "cli": {
-    "version": ">= 16.20.0",
-    "appVersionSource": "remote",
-    "requireCommit": true
+    "version": ">= 16.15.0",
+    "appVersionSource": "remote"
   },
   "build": {
     "development": {
@@ -13,7 +12,18 @@
       "distribution": "internal"
     },
     "production": {
-      "autoIncrement": true
+      "autoIncrement": true,
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://staging.appdevelopers.my"
+      }
+    },
+    "androidAPK": {
+      "android": {
+        "buildType": "apk"
+      },
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://staging.appdevelopers.my"
+      }
     }
   },
   "submit": {

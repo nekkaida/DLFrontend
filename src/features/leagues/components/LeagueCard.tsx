@@ -16,6 +16,7 @@ interface LeagueCardProps {
   onJoinPress?: (leagueId: string) => void;
   variant?: 'featured' | 'regular';
   size?: 'compact' | 'large';
+  sport?: 'pickleball' | 'tennis' | 'padel';
 }
 
 interface LeagueGridProps {
@@ -53,7 +54,7 @@ export function LeagueGrid({ leagues, onJoinPress }: LeagueGridProps) {
   );
 }
 
-export function LeagueCard({ league, onJoinPress, variant = 'regular', size = 'compact' }: LeagueCardProps) {
+export function LeagueCard({ league, onJoinPress, variant = 'regular', size = 'compact', sport = 'pickleball' }: LeagueCardProps) {
   const handleJoinPress = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     if (onJoinPress) {
@@ -61,6 +62,30 @@ export function LeagueCard({ league, onJoinPress, variant = 'regular', size = 'c
     } else {
       // Default navigation to league details screen
       router.push('/user-dashboard/league-details');
+    }
+  };
+
+  const getGradientColors = (sport: 'pickleball' | 'tennis' | 'padel'): [string, string] => {
+    switch (sport) {
+      case 'tennis':
+        return ['#A2E047', '#252721'];
+      case 'padel':
+        return ['#4DABFE', '#212427'];
+      case 'pickleball':
+      default:
+        return ['#A04DFE', '#212427'];
+    }
+  };
+
+  const getRegularCardColor = (sport: 'pickleball' | 'tennis' | 'padel'): string => {
+    switch (sport) {
+      case 'tennis':
+        return '#A2E047';
+      case 'padel':
+        return '#4DABFE';
+      case 'pickleball':
+      default:
+        return '#A04DFE';
     }
   };
 
@@ -113,7 +138,7 @@ export function LeagueCard({ league, onJoinPress, variant = 'regular', size = 'c
     return (
       <TouchableOpacity activeOpacity={0.9} style={styles.featuredCard} onPress={handleJoinPress}>
         <LinearGradient
-          colors={['#A04DFE', '#212427']}
+          colors={getGradientColors(sport)}
           style={styles.featuredWhiteCard}
         >
           <View style={styles.featuredContent}>
@@ -207,7 +232,7 @@ export function LeagueCard({ league, onJoinPress, variant = 'regular', size = 'c
   return (
     <TouchableOpacity 
       activeOpacity={0.9} 
-      style={styles.regularCard}
+      style={[styles.regularCard, { backgroundColor: getRegularCardColor(sport) }]}
       onPress={handleJoinPress}
     >
       <View style={cardContentStyle}>
@@ -488,7 +513,6 @@ const styles = StyleSheet.create({
   
   // Regular card styles
   regularCard: {
-    backgroundColor: '#A04DFE',
     borderRadius: 16,
     overflow: 'hidden',
     marginBottom: 12,

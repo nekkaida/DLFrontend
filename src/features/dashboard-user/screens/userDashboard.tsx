@@ -1,4 +1,6 @@
-import LocationIcon from "@/assets/icons/location-purple.svg";
+import PickleballLocationIcon from "@/assets/icons/pickleball-location.svg";
+import TennisLocationIcon from "@/assets/icons/tennis-location.svg";
+import PadelLocationIcon from "@/assets/icons/padel-location.svg";
 import SearchIcon from "@/assets/icons/search-icon.svg";
 import { getBackendBaseURL } from "@/config/network";
 import { authClient, useSession } from "@/lib/auth-client";
@@ -6,7 +8,7 @@ import { NavBar } from "@/shared/components/layout";
 import { SportSwitcher } from "@/shared/components/ui/SportSwitcher";
 import { LeagueCard, useLeagues } from "@/src/features/leagues";
 import * as Haptics from "expo-haptics";
-import { router } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import { default as React, useEffect } from "react";
 import {
   Animated,
@@ -42,7 +44,7 @@ const SPORT_CONFIG = {
   padel: {
     color: "#4DABFE",
     gradientColors: ["#4DABFE", "#FFFFFF"],
-    apiType: "PADDLE" as const,
+    apiType: "PADEL" as const,
     displayName: "Padel",
   },
 } as const;
@@ -57,6 +59,7 @@ const isTablet = width > 768;
 export default function DashboardScreen() {
   const { data: session } = useSession();
   const insets = useSafeAreaInsets();
+  const { sport: routeSport } = useLocalSearchParams<{ sport?: string }>();
   const [activeTab, setActiveTab] = React.useState(2);
   const [currentView, setCurrentView] = React.useState<
     "dashboard" | "connect" | "friendly" | "myGames" | "chat"
@@ -107,6 +110,13 @@ export default function DashboardScreen() {
       return 0;
     });
   };
+
+  // Set sport from route param if provided
+  React.useEffect(() => {
+    if (routeSport && ['pickleball', 'tennis', 'padel'].includes(routeSport)) {
+      setSelectedSport(routeSport as "pickleball" | "tennis" | "padel");
+    }
+  }, [routeSport]);
 
   // Set default selected sport when profile data loads
   React.useEffect(() => {
@@ -341,7 +351,7 @@ export default function DashboardScreen() {
 
   // use this for swtiching between tabs
   if (currentView === "connect") {
-    return <CommunityScreen onTabPress={handleTabPress} />;
+    return <CommunityScreen onTabPress={handleTabPress} sport={selectedSport} />;
   }
 
   if (currentView === "chat") {
@@ -349,7 +359,7 @@ export default function DashboardScreen() {
       <View style={styles.container}>
         <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
         <ChatScreen />
-        <NavBar activeTab={activeTab} onTabPress={handleTabPress} />
+        <NavBar activeTab={activeTab} onTabPress={handleTabPress} sport={selectedSport} />
       </View>
     );
   }
@@ -417,7 +427,7 @@ export default function DashboardScreen() {
             </Text>
           </View>
         </View>
-        <NavBar activeTab={activeTab} onTabPress={handleTabPress} />
+        <NavBar activeTab={activeTab} onTabPress={handleTabPress} sport={selectedSport} />
       </View>
     );
   }
@@ -495,12 +505,33 @@ export default function DashboardScreen() {
                 Recommended league
               </Text>
               <View style={styles.locationRow}>
-                <LocationIcon
+                {selectedSport === 'pickleball' ? (
+                  <PickleballLocationIcon
                   width={11}
                   height={10}
                   style={styles.locationIcon}
+                  fill={selectedSport === 'pickleball' ? '#863A73' : undefined}
                 />
-                <Text style={styles.locationFilterText}>
+                ) : selectedSport === 'tennis' ? (
+                  <TennisLocationIcon
+                  width={11}
+                  height={10}
+                  style={styles.locationIcon}
+                  fill={selectedSport === 'tennis' ? '#84B43F' : undefined}
+                />
+                ) : (
+                  <PadelLocationIcon
+                  width={11}
+                  height={10}
+                  style={styles.locationIcon}
+                  fill={selectedSport === 'padel' ? '#1B72C0' : undefined}
+                />
+                )}
+                <Text style={[
+                  styles.locationFilterText,
+                  selectedSport === 'tennis' && { color: '#4A7D00' },
+                  selectedSport === 'padel' && { color: '#1B72C0' }
+                ]}>
                   Based on your location
                 </Text>
               </View>
@@ -544,6 +575,7 @@ export default function DashboardScreen() {
                   league={leagues[0]}
                   variant="featured"
                   onJoinPress={handleJoinLeague}
+                  sport={selectedSport}
                 />
               </Animated.View>
             ) : (
@@ -606,6 +638,7 @@ export default function DashboardScreen() {
                             variant="regular"
                             size="large"
                             onJoinPress={handleJoinLeague}
+                            sport={selectedSport}
                           />
                         </View>
                         <View style={styles.halfWidthCard}>
@@ -614,6 +647,7 @@ export default function DashboardScreen() {
                             variant="regular"
                             size="large"
                             onJoinPress={handleJoinLeague}
+                            sport={selectedSport}
                           />
                         </View>
                       </View>
@@ -627,6 +661,7 @@ export default function DashboardScreen() {
                       league={league}
                       variant="regular"
                       onJoinPress={handleJoinLeague}
+                      sport={selectedSport}
                     />
                   ));
                 })()}
@@ -635,7 +670,7 @@ export default function DashboardScreen() {
           </Animated.ScrollView>
         </View>
       </View>
-      <NavBar activeTab={activeTab} onTabPress={handleTabPress} />
+      <NavBar activeTab={activeTab} onTabPress={handleTabPress} sport={selectedSport} />
     </View>
   );
 }

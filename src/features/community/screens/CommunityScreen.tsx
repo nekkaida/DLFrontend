@@ -17,9 +17,10 @@ const { height } = Dimensions.get('window');
 
 interface CommunityScreenProps {
   onTabPress: (tabIndex: number) => void;
+  sport?: 'pickleball' | 'tennis' | 'padel';
 }
 
-export default function CommunityScreen({ onTabPress }: CommunityScreenProps) {
+export default function CommunityScreen({ onTabPress, sport = 'pickleball' }: CommunityScreenProps) {
   const insets = useSafeAreaInsets();
   const { data: session } = useSession();
 
@@ -247,6 +248,7 @@ export default function CommunityScreen({ onTabPress }: CommunityScreenProps) {
       <NavBar
         activeTab={activeTab}
         onTabPress={handleTabPress}
+        sport={sport}
         badgeCounts={{
           connect: seasonInvitations.received.length + friendRequests.received.length,
         }}

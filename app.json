@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "dl-frontend",
-    "slug": "dl-frontend",
+    "slug": "deuce-league",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
@@ -12,8 +12,10 @@
       "supportsTablet": true,
       "infoPlist": {
         "NSLocationWhenInUseUsageDescription": "This app needs access to your location to show nearby leagues and courts.",
-        "NSLocationAlwaysAndWhenInUseUsageDescription": "This app needs access to your location to show nearby leagues and courts."
-      }
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "This app needs access to your location to show nearby leagues and courts.",
+        "ITSAppUsesNonExemptEncryption": false
+      },
+      "bundleIdentifier": "com.deucelague.app"
     },
     "android": {
       "adaptiveIcon": {
@@ -61,8 +63,9 @@
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "23a17302-1d64-46ba-80bb-c5e8d112fbc1"
+        "projectId": "e50b53ee-0b2f-4246-8e17-18865e579166"
       }
-    }
+    },
+    "owner": "nexea"
   }
 }
