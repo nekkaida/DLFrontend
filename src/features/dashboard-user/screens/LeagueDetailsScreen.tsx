@@ -19,6 +19,7 @@ import { useActivePartnership } from '@/features/pairing/hooks';
 import { toast } from 'sonner-native';
 import LeagueInfoIcon from '@/assets/icons/league-info.svg';
 import BackButtonIcon from '@/assets/icons/back-button.svg';
+import { checkQuestionnaireStatus, getSeasonSport } from '../utils/questionnaireCheck';
 
 const { width } = Dimensions.get('window');
 
@@ -245,6 +246,30 @@ export default function LeagueDetailsScreen({
   };
 
   const handleRegisterPress = (season: Season) => {
+    // Determine the season's sport type
+    const seasonSport = getSeasonSport(season) || sport || 'pickleball';
+    
+    // Check if user has completed questionnaire for this sport
+    if (profileData) {
+      const questionnaireStatus = checkQuestionnaireStatus(profileData, seasonSport);
+      
+      if (!questionnaireStatus.hasSelectedSport || !questionnaireStatus.hasCompletedQuestionnaire) {
+        // User hasn't selected/completed questionnaire for this sport
+        // Navigate to complete questionnaire screen
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        router.push({
+          pathname: '/user-dashboard/complete-questionnaire' as any,
+          params: {
+            sport: seasonSport,
+            seasonId: season.id,
+            leagueId: leagueId || '',
+            returnPath: 'league-details'
+          }
+        });
+        return;
+      }
+    }
+    
     // Check if this is a doubles season by checking category name
     const isDoublesSeason = season.categories?.some(cat => 
       cat.name?.toLowerCase().includes('doubles') || 
@@ -260,7 +285,7 @@ export default function LeagueDetailsScreen({
           seasonId: season.id,
           seasonName: season.name,
           leagueId: leagueId,
-          sport: sport
+          sport: seasonSport
         }
       });
     } else {
@@ -618,20 +643,9 @@ export default function LeagueDetailsScreen({
     }
   };
 
-  // Helper function to get user's selected sports
+  // Helper function to get available sports for SportSwitcher
   const getUserSelectedSports = () => {
-    if (!profileData?.sports) return [];
-    const sports = profileData.sports.map((sport: string) => sport.toLowerCase());
-    const preferredOrder = ['pickleball', 'tennis', 'padel'];
-    const configuredSports = sports.filter((sport: string) => ['pickleball', 'tennis', 'padel'].includes(sport));
-    return configuredSports.sort((a: string, b: string) => {
-      const indexA = preferredOrder.indexOf(a);
-      const indexB = preferredOrder.indexOf(b);
-      if (indexA !== -1 && indexB !== -1) return indexA - indexB;
-      if (indexA !== -1) return -1;
-      if (indexB !== -1) return 1;
-      return 0;
-    });
+    return ["pickleball", "tennis", "padel"];
   };
 
   // Fetch profile data for sports list

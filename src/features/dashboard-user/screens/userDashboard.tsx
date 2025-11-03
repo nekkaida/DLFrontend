@@ -75,40 +75,9 @@ export default function DashboardScreen() {
   // Use safe area insets for proper status bar handling across platforms
   const STATUS_BAR_HEIGHT = insets.top;
 
-  // Helper function to get user's selected sports
+  // Helper function to get available sports for SportSwitcher
   const getUserSelectedSports = () => {
-    if (!profileData?.sports) return [];
-
-    // Convert to lowercase to match our config keys
-    const sports = profileData.sports.map((sport: string) =>
-      sport.toLowerCase()
-    );
-
-    // Define the order of sports (priority)
-    const preferredOrder = ["pickleball", "tennis", "padel"];
-
-    // Filter to only include sports that are configured and sort by order
-    const configuredSports = sports.filter(
-      (sport: string) => sport in SPORT_CONFIG
-    );
-
-    // Sort by preferred order
-    return configuredSports.sort((a: string, b: string) => {
-      const indexA = preferredOrder.indexOf(a);
-      const indexB = preferredOrder.indexOf(b);
-
-      // If both sports are in the preferred order, sort by their position
-      if (indexA !== -1 && indexB !== -1) {
-        return indexA - indexB;
-      }
-
-      // If only one sport is in the preferred order, prioritize it
-      if (indexA !== -1) return -1;
-      if (indexB !== -1) return 1;
-
-      // If neither sport is in the preferred order, maintain original order
-      return 0;
-    });
+    return ["pickleball", "tennis", "padel"];
   };
 
   // Set sport from route param if provided
@@ -118,20 +87,13 @@ export default function DashboardScreen() {
     }
   }, [routeSport]);
 
-  // Set default selected sport when profile data loads
+  // Set default selected sport - default to pickleball if not set via route param
   React.useEffect(() => {
-    if (profileData?.sports && profileData.sports.length > 0) {
-      const availableSports = getUserSelectedSports();
-      if (
-        availableSports.length > 0 &&
-        !availableSports.includes(selectedSport)
-      ) {
-        setSelectedSport(
-          availableSports[0] as "pickleball" | "tennis" | "padel"
-        );
-      }
+    // If no route sport is provided, default to pickleball
+    if (!routeSport) {
+      setSelectedSport("pickleball");
     }
-  }, [profileData?.sports]);
+  }, [routeSport]);
 
   // Get current sport configuration
   const currentSportConfig = SPORT_CONFIG[selectedSport];
