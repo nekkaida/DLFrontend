@@ -528,11 +528,18 @@ export default function LeagueDetailsScreen({
   };
 
   const getSportConfig = () => {
-    if (sport === 'tennis') {
+    if (selectedSport === 'tennis') {
       return {
         gradient: ['#B3CFBC', '#FFFFFF'] as const,
         color: '#008000',
         name: 'Tennis'
+      };
+    }
+    if (selectedSport === 'padel') {
+      return {
+        gradient: ['#4DABFE', '#FFFFFF'] as const,
+        color: '#4DABFE',
+        name: 'Padel'
       };
     }
     return {
@@ -650,7 +657,13 @@ export default function LeagueDetailsScreen({
         <SportSwitcher
           currentSport={selectedSport}
           availableSports={getUserSelectedSports()}
-          onSportChange={setSelectedSport}
+          onSportChange={(newSport) => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            router.push({
+              pathname: '/user-dashboard' as any,
+              params: { sport: newSport }
+            });
+          }}
         />
         
         <View style={styles.headerRight} />

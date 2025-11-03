@@ -5,6 +5,10 @@ import {
   KeyboardAvoidingView,
   Platform,
   ActivityIndicator,
+  View,
+  ScrollView,
+  Text,
+  TouchableOpacity,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import Svg, { G, Path, Defs, ClipPath, Rect } from 'react-native-svg';

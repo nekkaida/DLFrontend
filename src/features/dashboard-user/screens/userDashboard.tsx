@@ -8,7 +8,7 @@ import { NavBar } from "@/shared/components/layout";
 import { SportSwitcher } from "@/shared/components/ui/SportSwitcher";
 import { LeagueCard, useLeagues } from "@/src/features/leagues";
 import * as Haptics from "expo-haptics";
-import { router } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import { default as React, useEffect } from "react";
 import {
   Animated,
@@ -59,6 +59,7 @@ const isTablet = width > 768;
 export default function DashboardScreen() {
   const { data: session } = useSession();
   const insets = useSafeAreaInsets();
+  const { sport: routeSport } = useLocalSearchParams<{ sport?: string }>();
   const [activeTab, setActiveTab] = React.useState(2);
   const [currentView, setCurrentView] = React.useState<
     "dashboard" | "connect" | "friendly" | "myGames" | "chat"
@@ -109,6 +110,13 @@ export default function DashboardScreen() {
       return 0;
     });
   };
+
+  // Set sport from route param if provided
+  React.useEffect(() => {
+    if (routeSport && ['pickleball', 'tennis', 'padel'].includes(routeSport)) {
+      setSelectedSport(routeSport as "pickleball" | "tennis" | "padel");
+    }
+  }, [routeSport]);
 
   // Set default selected sport when profile data loads
   React.useEffect(() => {

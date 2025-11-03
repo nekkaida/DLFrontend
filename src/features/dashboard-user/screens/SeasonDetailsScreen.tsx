@@ -13,13 +13,8 @@ import { LeagueService } from '@/src/features/leagues/services/LeagueService';
 import { PaymentOptionsBottomSheet } from '../components';
 import { toast } from 'sonner-native';
 import LeagueInfoIcon from '@/assets/icons/league-info.svg';
-import InfoIcon1 from '@/assets/icons/season-details/pickleball-info-1.svg';
-import InfoIcon2 from '@/assets/icons/season-details/pickleball-info-2.svg';
-import InfoIcon3 from '@/assets/icons/season-details/pickleball-info-3.svg';
-import InfoIcon4 from '@/assets/icons/season-details/pickleball-info-4.svg';
-import InfoIcon5 from '@/assets/icons/season-details/pickleball-info-5.svg';
-import InfoIcon6 from '@/assets/icons/season-details/pickleball-info-6.svg';
 import BackButtonIcon from '@/assets/icons/back-button.svg';
+import { getSeasonInfoIcons } from '../components/SeasonInfoIcons';
 
 const { width } = Dimensions.get('window');
 
@@ -198,11 +193,18 @@ export default function SeasonDetailsScreen({
   };
 
   const getSportConfig = () => {
-    if (sport === 'tennis') {
+    if (selectedSport === 'tennis') {
       return {
         gradient: ['#B3CFBC', '#FFFFFF'] as const,
         color: '#008000',
         name: 'Tennis'
+      };
+    }
+    if (selectedSport === 'padel') {
+      return {
+        gradient: ['#4DABFE', '#FFFFFF'] as const,
+        color: '#4DABFE',
+        name: 'Padel'
       };
     }
     return {
@@ -213,6 +215,15 @@ export default function SeasonDetailsScreen({
   };
 
   const sportConfig = getSportConfig();
+
+  // Get sport-specific info icons based on selectedSport
+  const InfoIcons = getSeasonInfoIcons(selectedSport);
+  const InfoIcon1 = InfoIcons.Icon1;
+  const InfoIcon2 = InfoIcons.Icon2;
+  const InfoIcon3 = InfoIcons.Icon3;
+  const InfoIcon4 = InfoIcons.Icon4;
+  const InfoIcon5 = InfoIcons.Icon5;
+  const InfoIcon6 = InfoIcons.Icon6;
 
   const getHeaderGradientColors = (sport: 'pickleball' | 'tennis' | 'padel'): [string, string] => {
     switch (sport) {
@@ -236,6 +247,22 @@ export default function SeasonDetailsScreen({
       default:
         return '#331850';
     }
+  };
+
+  const getSubheadingGradientColors = (sport: 'pickleball' | 'tennis' | 'padel'): [string, string] => {
+    switch (sport) {
+      case 'tennis':
+        return ['#A2E047', '#587A27'];
+      case 'padel':
+        return ['#4DABFE', '#2E6698'];
+      case 'pickleball':
+      default:
+        return ['#602E98', '#A04DFE'];
+    }
+  };
+
+  const getSubheadingTextColor = (sport: 'pickleball' | 'tennis' | 'padel'): string => {
+    return getSubheadingGradientColors(sport)[0];
   };
 
   // Button configuration based on user registration status
@@ -332,7 +359,13 @@ export default function SeasonDetailsScreen({
         <SportSwitcher
           currentSport={selectedSport}
           availableSports={getUserSelectedSports()}
-          onSportChange={setSelectedSport}
+          onSportChange={(newSport) => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            router.push({
+              pathname: '/user-dashboard' as any,
+              params: { sport: newSport }
+            });
+          }}
         />
         
         <View style={styles.headerRight} />
@@ -480,7 +513,9 @@ export default function SeasonDetailsScreen({
                   <Text style={styles.howItWorksDescription}>
                     Friendly yet competitive, our Flex League gives every player real match play – on your schedule, at your pace.
                   </Text>
-                  <Text style={styles.howItWorksSubheading}>Here's how it goes:</Text>
+                  <Text style={[styles.howItWorksSubheadingGradient, { color: getSubheadingTextColor(selectedSport) }]}>
+                    Here's how it goes:
+                  </Text>
                   
                   <View style={styles.infoItem}>
                     <InfoIcon1 width={43} height={43} />
@@ -861,6 +896,11 @@ const styles = StyleSheet.create({
     fontSize: isSmallScreen ? 14 : 15,
     fontWeight: '600',
     color: '#A04DFE',
+    marginTop: 8,
+  },
+  howItWorksSubheadingGradient: {
+    fontSize: isSmallScreen ? 14 : 15,
+    fontWeight: '600',
     marginTop: 8,
   },
   infoItem: {
