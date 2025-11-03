@@ -210,8 +210,8 @@ static async registerForSeason(seasonId: string, userId?: string): Promise<boole
     
     console.log('SeasonService: Registration response:', response);
 
-    // Assuming backend returns { message, membership } or similar
-    if (response && (response as any).membership) {
+    // ✅ Backend returns { membership } for singles or { partnership, memberships } for doubles
+    if (response && ((response as any).membership || (response as any).partnership)) {
       console.log('SeasonService: Registration successful for season:', seasonId);
       return true;
     }
