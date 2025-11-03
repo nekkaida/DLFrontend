@@ -13,12 +13,12 @@ import { LeagueService } from '@/src/features/leagues/services/LeagueService';
 import { PaymentOptionsBottomSheet } from '../components';
 import { toast } from 'sonner-native';
 import LeagueInfoIcon from '@/assets/icons/league-info.svg';
-import InfoIcon1 from '@/assets/icons/info-icon-1.svg';
-import InfoIcon2 from '@/assets/icons/info-icon-2.svg';
-import InfoIcon3 from '@/assets/icons/info-icon-3.svg';
-import InfoIcon4 from '@/assets/icons/info-icon-4.svg';
-import InfoIcon5 from '@/assets/icons/info-icon-5.svg';
-import InfoIcon6 from '@/assets/icons/info-icon-6.svg';
+import InfoIcon1 from '@/assets/icons/season-details/pickleball-info-1.svg';
+import InfoIcon2 from '@/assets/icons/season-details/pickleball-info-2.svg';
+import InfoIcon3 from '@/assets/icons/season-details/pickleball-info-3.svg';
+import InfoIcon4 from '@/assets/icons/season-details/pickleball-info-4.svg';
+import InfoIcon5 from '@/assets/icons/season-details/pickleball-info-5.svg';
+import InfoIcon6 from '@/assets/icons/season-details/pickleball-info-6.svg';
 import BackButtonIcon from '@/assets/icons/back-button.svg';
 
 const { width } = Dimensions.get('window');

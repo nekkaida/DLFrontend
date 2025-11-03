@@ -4,10 +4,8 @@ import {
   Dimensions,
   KeyboardAvoidingView,
   Platform,
-  Dimensions,
   ActivityIndicator,
 } from 'react-native';
-import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
 import Svg, { G, Path, Defs, ClipPath, Rect } from 'react-native-svg';
 import {
