@@ -241,10 +241,27 @@ export default function LeagueDetailsScreen({
 
   // Get filtered seasons for selected category
   const getFilteredSeasons = () => {
-    if (!selectedCategoryId) return [];
-    return seasons.filter(season =>
-      season.categories?.some(cat => cat.id === selectedCategoryId)
-    );
+    if (!selectedCategoryId) {
+      console.log('LeagueDetailsScreen: No category selected, returning all league seasons');
+      return seasons;
+    }
+    
+    const filtered = seasons.filter(season => {
+      // If season has no categories, skip it (unless we want to show all seasons without categories)
+      if (!season.categories || !Array.isArray(season.categories) || season.categories.length === 0) {
+        console.log(`LeagueDetailsScreen: Season ${season.id} has no categories`);
+        return false;
+      }
+      
+      // Check if any category matches
+      const matches = season.categories.some(cat => cat?.id === selectedCategoryId);
+      if (!matches) {
+        console.log(`LeagueDetailsScreen: Season ${season.id} categories don't match. Category IDs:`, season.categories.map(c => c?.id));
+      }
+      return matches;
+    });
+    
+    return filtered;
   };
 
   // Get current selected category
