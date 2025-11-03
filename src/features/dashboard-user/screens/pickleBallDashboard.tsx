@@ -38,29 +38,41 @@ export default function DashboardScreen() {
   });
 
   console.log(`PickleballDashboard: Current activeTab is ${activeTab}`);
-  
+
   // Debug logging for safe area insets in pickleball dashboard
   React.useEffect(() => {
-    console.log('=== Pickleball Dashboard Safe Area Debug Info ===');
+    console.log("=== Pickleball Dashboard Safe Area Debug Info ===");
     console.log(`Platform: ${Platform.OS}`);
     console.log(`Screen dimensions:`, {
       width: width,
-      height: height
+      height: height,
     });
     console.log(`Safe area insets:`, {
       top: insets.top,
       bottom: insets.bottom,
       left: insets.left,
-      right: insets.right
+      right: insets.right,
     });
-    console.log(`Available content height: ${height - insets.top - insets.bottom}px`);
-    console.log(`NavBar will be positioned at bottom: ${height - insets.bottom}px`);
-    console.log(`Content should end at: ${height - insets.bottom - 83}px (NavBar height: 83px)`);
-    console.log('===============================================');
+    console.log(
+      `Available content height: ${height - insets.top - insets.bottom}px`
+    );
+    console.log(
+      `NavBar will be positioned at bottom: ${height - insets.bottom}px`
+    );
+    console.log(
+      `Content should end at: ${
+        height - insets.bottom - 83
+      }px (NavBar height: 83px)`
+    );
+    console.log("===============================================");
   }, [insets, width, height]);
 
   const handleTabPress = (tabIndex: number) => {
-    console.log(`Tab ${tabIndex} pressed - ${['Favourite', 'Friendly', 'Leagues', 'My Games', 'Chat'][tabIndex]}`);
+    console.log(
+      `Tab ${tabIndex} pressed - ${
+        ["Favourite", "Friendly", "Leagues", "My Games", "Chat"][tabIndex]
+      }`
+    );
     setActiveTab(tabIndex);
   };
 
@@ -80,32 +92,36 @@ export default function DashboardScreen() {
   };
 
   return (
-    <SafeAreaView 
+    <SafeAreaView
       style={styles.container}
       onLayout={(event) => {
-        const { x, y, width: layoutWidth, height: layoutHeight } = event.nativeEvent.layout;
-        console.log('=== Pickleball SafeAreaView Layout Debug ===');
+        const {
+          x,
+          y,
+          width: layoutWidth,
+          height: layoutHeight,
+        } = event.nativeEvent.layout;
+        console.log("=== Pickleball SafeAreaView Layout Debug ===");
         console.log(`SafeAreaView layout:`, {
           x,
           y,
           width: layoutWidth,
-          height: layoutHeight
+          height: layoutHeight,
         });
         console.log(`SafeAreaView top position: ${y}px`);
         console.log(`SafeAreaView bottom position: ${y + layoutHeight}px`);
         console.log(`Available space for content: ${layoutHeight}px`);
         console.log(`NavBar space reserved: 83px`);
         console.log(`Actual content space: ${layoutHeight - 83}px`);
-        console.log('==========================================');
+        console.log("==========================================");
       }}
     >
-              <LinearGradient
-          colors={['#B98FAF', '#FFFFFF']}
-          locations={[0, 1]}
-          style={styles.backgroundGradient}
-        />
-      
-      
+      <LinearGradient
+        colors={["#B98FAF", "#FFFFFF"]}
+        locations={[0, 1]}
+        style={styles.backgroundGradient}
+      />
+
       <View style={styles.contentContainer}>
         <SportDropdownHeader 
           currentSport="pickleball"
@@ -198,8 +214,7 @@ export default function DashboardScreen() {
 
         </Animated.ScrollView>
       </View>
-      
-      
+
       <NavBar activeTab={activeTab} onTabPress={handleTabPress} />
     </SafeAreaView>
   );
@@ -208,10 +223,10 @@ export default function DashboardScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: "#FFFFFF",
   },
   backgroundGradient: {
-    position: 'absolute',
+    position: "absolute",
     top: 0,
     left: 0,
     right: 0,
@@ -229,9 +244,9 @@ const styles = StyleSheet.create({
     paddingBottom: 120,
   },
   recommendedHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     marginBottom: 12,
   },
   sportSelectionText: {
@@ -243,26 +258,26 @@ const styles = StyleSheet.create({
     color: '#1A1C1E',
   },
   locationFilter: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#F3F4F6',
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#F3F4F6",
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 12,
   },
   locationFilterText: {
     fontSize: 12,
-    color: '#6B7280',
+    color: "#6B7280",
     marginRight: 6,
   },
   locationFilterChevron: {
     fontSize: 12,
-    color: '#6B7280',
+    color: "#6B7280",
   },
   otherLeaguesHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     marginBottom: 12,
   },
   searchContainer: {
@@ -304,12 +319,12 @@ const styles = StyleSheet.create({
   },
   parallaxWrapper: {
     borderRadius: 16,
-    overflow: 'hidden',
+    overflow: "hidden",
   },
   featuredSkeleton: {
     height: 180,
     borderRadius: 16,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: "#F3F4F6",
     marginBottom: 20,
   },
   errorContainer: {

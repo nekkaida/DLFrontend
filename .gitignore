@@ -87,4 +87,4 @@ app/archive/
 *.backup
 
 package-lock.json
-package.json
+
