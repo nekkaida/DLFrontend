@@ -46,6 +46,8 @@ interface InvitePartnerBottomSheetProps {
   visible: boolean;
   onClose: () => void;
   seasonId: string;
+  season?: any;  // Season object (optional for backward compatibility)
+  seasonSport?: string;  // Pre-calculated season sport
   onPlayerSelect: (player: Player) => void;
 }
 
@@ -55,6 +57,8 @@ export const InvitePartnerBottomSheet: React.FC<InvitePartnerBottomSheetProps> =
   visible,
   onClose,
   seasonId,
+  season,
+  seasonSport = 'pickleball',  // Default fallback
   onPlayerSelect,
 }) => {
   const bottomSheetModalRef = useRef<BottomSheetModal>(null);
@@ -297,6 +301,7 @@ export const InvitePartnerBottomSheet: React.FC<InvitePartnerBottomSheetProps> =
             <PlayerInviteListItem
               player={item as Player}
               onPress={handlePlayerSelect}
+              seasonSport={seasonSport}
             />
           );
         }}
