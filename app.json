@@ -4,7 +4,7 @@
     "slug": "deuce-league",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/dl-logo.svg",
+    "icon": "./assets/images/dl-logo.png",
     "scheme": "deuceleague",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
@@ -19,7 +19,7 @@
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/images/dl-logo.svg",
+        "foregroundImage": "./assets/images/dl-logo.png",
         "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": true,
@@ -34,14 +34,14 @@
     "web": {
       "bundler": "metro",
       "output": "static",
-      "favicon": "./assets/images/dl-logo.svg"
+      "favicon": "./assets/images/dl-logo.png"
     },
     "plugins": [
       "expo-router",
       [
         "expo-splash-screen",
         {
-          "image": "./assets/images/dl-logo.svg",
+          "image": "./assets/images/dl-logo.png",
           "imageWidth": 200,
           "resizeMode": "contain",
           "backgroundColor": "#ffffff"
