@@ -7,10 +7,20 @@ import {
   ViewStyle,
   Alert,
   ScrollView,
+  Platform,
 } from 'react-native';
 import OptionButton from './OptionButton';
 import NumberInput from './NumberInput';
 import { toast } from 'sonner-native';
+import {
+  scaleFontSize,
+  moderateScale,
+  getResponsivePadding,
+  createShadow,
+  isSmallDevice,
+} from '../screens/skill-assessment/utils/responsive';
+
+const isSmall = isSmallDevice();
 
 interface QuestionContainerProps {
   question: string;
@@ -240,71 +250,65 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
 };
 
 const styles = StyleSheet.create({
+  // FULLY RESPONSIVE QUESTION CONTAINER
   container: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 30,
+    borderRadius: moderateScale(isSmall ? 24 : 30),
     padding: 0,
-    marginHorizontal: 12,
-    marginVertical: 10,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 4,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 5,
-    minHeight: 600,
+    marginHorizontal: moderateScale(12),
+    marginVertical: moderateScale(10),
+    ...createShadow('#000', 0.1, 8, 5),
+    minHeight: moderateScale(isSmall ? 500 : 550),  // Responsive minHeight (was 600)
     maxHeight: '85%',
     maxWidth: '100%',
     flex: 1,
   },
   scrollContainer: {
     flex: 1,
-    paddingHorizontal: 36,
-    paddingTop: 36,
+    paddingHorizontal: getResponsivePadding(isSmall ? 28 : 36),
+    paddingTop: moderateScale(isSmall ? 28 : 36),
   },
   scrollContent: {
-    paddingBottom: 20,
+    paddingBottom: moderateScale(20),
   },
   instructionText: {
-    fontSize: 14,
+    fontSize: scaleFontSize(isSmall ? 12 : 13),
     color: '#8C8C8C',
-    marginBottom: 16,
+    marginBottom: moderateScale(isSmall ? 12 : 16),
     fontFamily: 'Roboto',
     textAlign: 'left',
   },
   questionText: {
-    fontSize: 20,
+    fontSize: scaleFontSize(isSmall ? 18 : 20),
     fontWeight: '600',
     color: '#000000',
-    marginBottom: 24,
+    marginBottom: moderateScale(isSmall ? 20 : 24),
     fontFamily: 'Roboto',
-    lineHeight: 28,
+    lineHeight: scaleFontSize(isSmall ? 24 : 28),
     textAlign: 'left',
   },
   contextText: {
-    fontSize: 16,
+    fontSize: scaleFontSize(isSmall ? 14 : 15),
     color: '#6C7278',
-    marginBottom: 20,
+    marginBottom: moderateScale(isSmall ? 16 : 20),
     fontFamily: 'Roboto',
-    lineHeight: 22,
+    lineHeight: scaleFontSize(isSmall ? 20 : 22),
     textAlign: 'left',
     fontStyle: 'italic',
   },
   contentContainer: {
-    gap: 16,
-    marginBottom: 20,
+    gap: moderateScale(isSmall ? 12 : 16),
+    marginBottom: moderateScale(isSmall ? 16 : 20),
   },
   navigationContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 36,
-    paddingVertical: 20,
+    paddingHorizontal: getResponsivePadding(isSmall ? 28 : 36),
+    paddingVertical: moderateScale(isSmall ? 16 : 20),
     backgroundColor: '#FFFFFF',
-    borderBottomLeftRadius: 30,
-    borderBottomRightRadius: 30,
+    borderBottomLeftRadius: moderateScale(isSmall ? 24 : 30),
+    borderBottomRightRadius: moderateScale(isSmall ? 24 : 30),
   },
   // Stacked card styles
   stackedCard: {
