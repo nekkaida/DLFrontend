@@ -54,7 +54,7 @@ export const InvitePartnerBottomSheet: React.FC<InvitePartnerBottomSheetProps> =
   const [players, setPlayers] = useState<Player[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const snapPoints = useMemo(() => ['80%'], []);
 
@@ -231,13 +231,13 @@ export const InvitePartnerBottomSheet: React.FC<InvitePartnerBottomSheetProps> =
           ) : (
             <BottomSheetFlatList
               data={players}
-              renderItem={({ item }) => (
+              renderItem={({ item }: { item: Player }) => (
                 <PlayerInviteListItem
                   player={item}
                   onPress={handlePlayerSelect}
                 />
               )}
-              keyExtractor={(item) => item.id}
+              keyExtractor={(item: Player) => item.id}
               showsVerticalScrollIndicator={false}
             />
           )}

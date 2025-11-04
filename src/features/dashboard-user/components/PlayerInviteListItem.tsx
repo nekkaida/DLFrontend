@@ -211,7 +211,7 @@ const styles = StyleSheet.create({
   inviteButton: {
     paddingHorizontal: 16,
     paddingVertical: 8,
-    backgroundColor: '#A04DFE',
+    backgroundColor: '#FEA04D',
     borderRadius: 8,
     marginLeft: 12,
   },
@@ -219,7 +219,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#E5E5E5',
   },
   inviteButtonText: {
-    color: '#FFFFFF',
+    color: '#1D1D1F',
     fontSize: 13,
     fontWeight: '600',
   },
