@@ -609,7 +609,13 @@ export default function DoublesTeamPairingScreen({
         <SportSwitcher
           currentSport={selectedSport}
           availableSports={getUserSelectedSports()}
-          onSportChange={setSelectedSport}
+          onSportChange={(newSport) => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            router.push({
+              pathname: '/user-dashboard' as any,
+              params: { sport: newSport }
+            });
+          }}
         />
         
         <View style={styles.headerRight} />
