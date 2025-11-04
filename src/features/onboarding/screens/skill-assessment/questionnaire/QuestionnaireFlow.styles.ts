@@ -1,4 +1,4 @@
-import { StyleSheet } from 'react-native';
+import { StyleSheet, Platform } from 'react-native';
 import {
   scaleFontSize,
   moderateScale,
@@ -44,46 +44,42 @@ export const styles = StyleSheet.create({
     width: moderateScale(40),
   },
 
-  // Question Container
+  // Question Container - Pure flex layout (no absolute positioning)
   questionnaireContainer: {
     flex: 1,
-    justifyContent: 'flex-start',
-    paddingTop: moderateScale(10),
+    paddingHorizontal: getResponsivePadding(15),
+    paddingBottom: Platform.select({
+      ios: moderateScale(20),      // Account for iOS home indicator
+      android: moderateScale(15),
+    }),
   },
-  cardStackContainer: {
+  questionCardWrapper: {
     flex: 1,
-    position: 'relative',
   },
-  stackedCard: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-  },
-  activeCard: {
-    zIndex: 2,
-    opacity: 1,
-  },
-  inactiveCard: {
-    zIndex: 1,
-    opacity: 0.7,
-    transform: [{ scale: 0.95 }],
+  navigationButtonsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingTop: moderateScale(16),
+    paddingBottom: moderateScale(8),
   },
 
   // Loading/Error
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   loadingText: {
     fontSize: scaleFontSize(16),
     color: '#6C7278',
     fontFamily: 'Roboto',
     textAlign: 'center',
-    marginTop: moderateScale(20),
   },
   errorText: {
     fontSize: scaleFontSize(16),
     color: '#FF6B6B',
     fontFamily: 'Roboto',
     textAlign: 'center',
-    marginTop: moderateScale(20),
   },
 });

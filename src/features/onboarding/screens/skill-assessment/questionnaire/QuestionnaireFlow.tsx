@@ -66,43 +66,36 @@ export const QuestionnaireFlow: React.FC<QuestionnaireFlowProps> = ({
       {/* Question Content */}
       <View style={styles.questionnaireContainer}>
         {questions.length > 0 && currentQuestionIndex < questions.length ? (
-          <View style={styles.cardStackContainer}>
-            {questions.slice(currentQuestionIndex, currentQuestionIndex + 2).map((question, index) => {
-              const actualIndex = currentQuestionIndex + index;
-              const isActive = index === 0;
+          <>
+            <View style={styles.questionCardWrapper}>
+              <QuestionCard
+                question={questions[currentQuestionIndex]}
+                isActive={true}
+                onAnswer={onAnswer}
+                currentPageAnswers={currentPageAnswers}
+                responses={responses}
+                navigationButtons={null}
+                sport={sport}
+              />
+            </View>
 
-              const isNextEnabled = () => {
-                if (question.type === 'number') {
-                  return currentPageAnswers[question.key] !== undefined || question.optional;
-                } else {
-                  return currentPageAnswers[question.key] !== undefined;
-                }
-              };
-
-              const navigationButtons = (
-                <NavigationButtons
-                  onBack={onBack}
-                  onNext={onNext}
-                  nextEnabled={isNextEnabled()}
-                />
-              );
-
-              return (
-                <QuestionCard
-                  key={actualIndex}
-                  question={question}
-                  isActive={isActive}
-                  onAnswer={onAnswer}
-                  currentPageAnswers={currentPageAnswers}
-                  responses={responses}
-                  navigationButtons={navigationButtons}
-                  sport={sport}
-                />
-              );
-            })}
-          </View>
+            <View style={styles.navigationButtonsContainer}>
+              <NavigationButtons
+                onBack={onBack}
+                onNext={onNext}
+                nextEnabled={(() => {
+                  const question = questions[currentQuestionIndex];
+                  if (question.type === 'number') {
+                    return currentPageAnswers[question.key] !== undefined || question.optional;
+                  } else {
+                    return currentPageAnswers[question.key] !== undefined;
+                  }
+                })()}
+              />
+            </View>
+          </>
         ) : (
-          <View>
+          <View style={styles.loadingContainer}>
             <Text style={styles.loadingText}>
               {questions.length === 0 ? 'Loading questions...' : 'Preparing assessment...'}
             </Text>

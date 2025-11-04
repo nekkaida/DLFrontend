@@ -243,24 +243,24 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
   };
 
   return (
-    <View style={[styles.stackedCard, isActive ? styles.activeCard : styles.inactiveCard]}>
+    <View style={styles.questionCardContainer}>
       {renderQuestionContent()}
     </View>
   );
 };
 
 const styles = StyleSheet.create({
+  // Question Card Container - Natural height, no absolute positioning
+  questionCardContainer: {
+    flex: 1,
+  },
+
   // FULLY RESPONSIVE QUESTION CONTAINER
   container: {
     backgroundColor: '#FFFFFF',
     borderRadius: moderateScale(isSmall ? 24 : 30),
     padding: 0,
-    marginHorizontal: moderateScale(12),
-    marginVertical: moderateScale(10),
     ...createShadow('#000', 0.1, 8, 5),
-    minHeight: moderateScale(isSmall ? 500 : 550),  // Responsive minHeight (was 600)
-    maxHeight: '85%',
-    maxWidth: '100%',
     flex: 1,
   },
   scrollContainer: {
@@ -309,23 +309,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderBottomLeftRadius: moderateScale(isSmall ? 24 : 30),
     borderBottomRightRadius: moderateScale(isSmall ? 24 : 30),
-  },
-  // Stacked card styles
-  stackedCard: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-  },
-  activeCard: {
-    zIndex: 2,
-    opacity: 1,
-  },
-  inactiveCard: {
-    zIndex: 1,
-    opacity: 0.7,
-    transform: [{ scale: 0.95 }],
   },
 });
 
