@@ -184,7 +184,12 @@ export default function DoublesTeamPairingScreen({
       );
 
       const partnershipData = (partnershipResponse as any)?.data?.data || (partnershipResponse as any)?.data;
-      console.log('🔎 Partnership response:', { partnershipData, hasData: !!partnershipData });
+      console.log('🔎 Partnership response:', {
+        partnershipData,
+        hasData: !!partnershipData,
+        rawResponse: partnershipResponse,
+        responseData: (partnershipResponse as any)?.data,
+      });
 
       if (partnershipData && partnershipData.id) {
         // Active partnership exists
@@ -192,10 +197,46 @@ export default function DoublesTeamPairingScreen({
         setCurrentPartnership(partnershipData);
         setInvitationStatus('accepted');
 
+        // Debug: Check captain and partner before extraction
+        console.log('🔍 Partnership data structure:', {
+          hasCaptain: !!partnershipData.captain,
+          hasPartner: !!partnershipData.partner,
+          captainId: partnershipData.captain?.id,
+          partnerId: partnershipData.partner?.id,
+          captainName: partnershipData.captain?.name,
+          partnerName: partnershipData.partner?.name,
+          captainHasSkillRatings: !!partnershipData.captain?.skillRatings,
+          partnerHasSkillRatings: !!partnershipData.partner?.skillRatings,
+          captainSkillRatings: partnershipData.captain?.skillRatings,
+          partnerSkillRatings: partnershipData.partner?.skillRatings,
+          captainSkillRatingsKeys: partnershipData.captain?.skillRatings ? Object.keys(partnershipData.captain.skillRatings) : [],
+          partnerSkillRatingsKeys: partnershipData.partner?.skillRatings ? Object.keys(partnershipData.partner.skillRatings) : [],
+        });
+
         // Set partner based on role
-        const partner = partnershipData.captainId === userId
+        let partner = partnershipData.captainId === userId
           ? partnershipData.partner
           : partnershipData.captain;
+
+        // Ensure partner has skillRatings (always an object, even if empty)
+        if (partner) {
+          partner = {
+            ...partner,
+            skillRatings: partner.skillRatings || {},
+          };
+        }
+
+        // Debug logging for partner data
+        console.log('🔍 Setting partner from partnership:', {
+          partnerId: partner?.id,
+          partnerName: partner?.name,
+          hasSkillRatings: !!partner?.skillRatings,
+          skillRatingsKeys: partner?.skillRatings ? Object.keys(partner.skillRatings) : [],
+          skillRatings: partner?.skillRatings,
+          seasonSport: season ? getSeasonSport(season) : 'unknown',
+          fullPartnerObject: partner,
+        });
+
         setSelectedPartner(partner);
         return;
       }
@@ -762,7 +803,40 @@ export default function DoublesTeamPairingScreen({
 
                         {partnershipStatus === 'active' && (
                           <>
-                            <Text style={styles.playerDMR}>DMR: {partnerDMR}</Text>
+                            <Text style={styles.playerDMR}>
+                              DMR: {(() => {
+                                if (!selectedPartner?.skillRatings || !season) {
+                                  console.log('🔍 Partner DMR - Missing data:', {
+                                    hasSkillRatings: !!selectedPartner?.skillRatings,
+                                    hasSeason: !!season,
+                                    skillRatings: selectedPartner?.skillRatings,
+                                  });
+                                  return 'N/A';
+                                }
+                                // Get the season's sport
+                                const seasonSport = getSeasonSport(season) || sport || 'pickleball';
+                                const sportKey = seasonSport.toLowerCase();
+                                console.log('🔍 Partner DMR - Calculating:', {
+                                  seasonSport,
+                                  sportKey,
+                                  skillRatingsKeys: Object.keys(selectedPartner.skillRatings),
+                                  partnerSportRating: selectedPartner.skillRatings[sportKey],
+                                });
+                                const partnerSportRating = selectedPartner.skillRatings[sportKey];
+                                if (!partnerSportRating) {
+                                  console.log('🔍 Partner DMR - No rating for sport:', sportKey);
+                                  return 'N/A';
+                                }
+                                const partnerDoublesRating = partnerSportRating?.doubles;
+                                if (partnerDoublesRating == null) {
+                                  console.log('🔍 Partner DMR - Doubles rating is null/undefined');
+                                  return 'N/A';
+                                }
+                                const dmr = Math.round(partnerDoublesRating * 1000).toString();
+                                console.log('🔍 Partner DMR - Calculated:', dmr);
+                                return dmr;
+                              })()}
+                            </Text>
                             <TouchableOpacity style={styles.unlinkButton} onPress={handleUnlink}>
                               <Text style={styles.unlinkButtonText}>Unlink</Text>
                             </TouchableOpacity>
