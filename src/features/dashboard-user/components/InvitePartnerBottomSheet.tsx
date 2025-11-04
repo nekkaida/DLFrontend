@@ -12,8 +12,10 @@ import {
   View,
   TextInput,
   ActivityIndicator,
+  TouchableOpacity,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { router } from 'expo-router';
 import { authClient } from '@/lib/auth-client';
 import { getBackendBaseURL } from '@/src/config/network';
 import { PlayerInviteListItem } from './PlayerInviteListItem';
@@ -149,6 +151,11 @@ export const InvitePartnerBottomSheet: React.FC<InvitePartnerBottomSheetProps> =
     onClose();
   }, [onPlayerSelect, onClose]);
 
+  const handleConnectPress = useCallback(() => {
+    onClose();
+    router.push('/user-dashboard/connect');
+  }, [onClose]);
+
   const renderBackdrop = useCallback(
     (props: any) => (
       <BottomSheetBackdrop
@@ -222,11 +229,22 @@ export const InvitePartnerBottomSheet: React.FC<InvitePartnerBottomSheetProps> =
             <View style={styles.emptyState}>
               <Ionicons name="people-outline" size={48} color="#BABABA" />
               <Text style={styles.emptyStateText}>
-                {searchQuery ? 'No players found' : 'No available players'}
+                {searchQuery ? 'No players found' : 'No friends yet'}
               </Text>
               <Text style={styles.emptyStateSubtext}>
-                {searchQuery ? 'Try a different search term' : 'All players are already paired or unavailable'}
+                {searchQuery 
+                  ? 'Try a different search term' 
+                  : 'Add friends first before selecting them as your partner'}
               </Text>
+              {!searchQuery && (
+                <TouchableOpacity 
+                  style={styles.connectButton} 
+                  onPress={handleConnectPress}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.connectButtonText}>Go to Connect</Text>
+                </TouchableOpacity>
+              )}
             </View>
           ) : (
             <BottomSheetFlatList
@@ -325,5 +343,20 @@ const styles = StyleSheet.create({
     color: '#BABABA',
     marginTop: 6,
     textAlign: 'center',
+    paddingHorizontal: 20,
+  },
+  connectButton: {
+    marginTop: 20,
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    backgroundColor: '#A04DFE',
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  connectButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#FFFFFF',
   },
 });
