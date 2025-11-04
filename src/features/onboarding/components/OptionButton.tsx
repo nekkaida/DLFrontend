@@ -5,7 +5,17 @@ import {
   StyleSheet,
   ViewStyle,
   TextStyle,
+  Platform,
 } from 'react-native';
+import {
+  scaleFontSize,
+  moderateScale,
+  getResponsivePadding,
+  createShadow,
+  isSmallDevice,
+} from '../screens/skill-assessment/utils/responsive';
+
+const isSmall = isSmallDevice();
 
 interface OptionButtonProps {
   title: string;
