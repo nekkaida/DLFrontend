@@ -865,7 +865,7 @@ export default function DoublesTeamPairingScreen({
                 {partnershipStatus === 'active' && isCaptain
                   ? 'Register Team'
                   : partnershipStatus === 'active' && !isCaptain
-                  ? 'Waiting for Team Captain'
+                  ? 'Waiting for Team Captain...'
                   : invitationStatus === 'pending_sent'
                   ? 'Waiting for Partner'
                   : invitationStatus === 'pending_received'

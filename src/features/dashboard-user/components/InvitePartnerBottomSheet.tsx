@@ -13,7 +13,10 @@ import {
   TextInput,
   ActivityIndicator,
   TouchableOpacity,
+  Platform,
+  Dimensions,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { authClient } from '@/lib/auth-client';
@@ -46,6 +49,8 @@ interface InvitePartnerBottomSheetProps {
   onPlayerSelect: (player: Player) => void;
 }
 
+const { height: SCREEN_HEIGHT } = Dimensions.get('window');
+
 export const InvitePartnerBottomSheet: React.FC<InvitePartnerBottomSheetProps> = ({
   visible,
   onClose,
@@ -57,8 +62,10 @@ export const InvitePartnerBottomSheet: React.FC<InvitePartnerBottomSheetProps> =
   const [searchQuery, setSearchQuery] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const insets = useSafeAreaInsets();
 
-  const snapPoints = useMemo(() => ['80%'], []);
+  // Use percentage-based snap points for better iOS compatibility
+  const snapPoints = useMemo(() => ['85%'], []);
 
   const handleSheetChanges = useCallback((index: number) => {
     if (index === -1) {
@@ -173,13 +180,88 @@ export const InvitePartnerBottomSheet: React.FC<InvitePartnerBottomSheetProps> =
     console.log('🎬 Bottom sheet effect triggered - visible:', visible, 'seasonId:', seasonId);
     if (visible && seasonId) {
       console.log('✅ Opening bottom sheet and fetching players');
-      bottomSheetModalRef.current?.present();
+      // Use requestAnimationFrame for iOS to ensure proper rendering
+      if (Platform.OS === 'ios') {
+        requestAnimationFrame(() => {
+          setTimeout(() => {
+            bottomSheetModalRef.current?.present();
+          }, 50);
+        });
+      } else {
+        bottomSheetModalRef.current?.present();
+      }
       fetchPlayers();
     } else {
       console.log('❌ Closing bottom sheet');
       bottomSheetModalRef.current?.dismiss();
     }
   }, [visible, seasonId, fetchPlayers]);
+
+  // Render header content
+  const renderHeader = () => (
+    <View style={styles.headerContainer}>
+      <View style={styles.header}>
+        <Text style={styles.title}>Invite Your Doubles Partner</Text>
+        <Text style={styles.description}>
+          Send an invitation to one of your friends to pair up and join the league together.
+        </Text>
+      </View>
+
+      <View style={styles.searchContainer}>
+        <Ionicons name="search" size={18} color="#86868B" style={styles.searchIcon} />
+        <TextInput
+          style={styles.searchInput}
+          placeholder="Search by name or username"
+          placeholderTextColor="#86868B"
+          value={searchQuery}
+          onChangeText={handleSearchChange}
+        />
+      </View>
+    </View>
+  );
+
+  // Render empty/loading state
+  const renderEmptyState = () => {
+    if (isLoading) {
+      return (
+        <View style={styles.emptyState}>
+          <ActivityIndicator size="large" color="#A04DFE" />
+          <Text style={styles.emptyStateText}>Loading players...</Text>
+        </View>
+      );
+    }
+
+    if (players.length === 0) {
+      return (
+        <View style={styles.emptyState}>
+          <Ionicons name="people-outline" size={48} color="#BABABA" />
+          <Text style={styles.emptyStateText}>
+            {searchQuery ? 'No players found' : 'No friends yet'}
+          </Text>
+          <Text style={styles.emptyStateSubtext}>
+            {searchQuery 
+              ? 'Try a different search term' 
+              : 'Add friends first before selecting them as your partner'}
+          </Text>
+          {!searchQuery && (
+            <TouchableOpacity 
+              style={styles.connectButton} 
+              onPress={handleConnectPress}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.connectButtonText}>Go to Connect</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+      );
+    }
+
+    return null;
+  };
+
+  // Use a placeholder item for empty state to ensure consistent layout
+  const listData = isLoading || players.length === 0 ? [{ id: 'empty' }] : players;
+  const isEmpty = isLoading || players.length === 0;
 
   return (
     <BottomSheetModal
@@ -197,70 +279,36 @@ export const InvitePartnerBottomSheet: React.FC<InvitePartnerBottomSheetProps> =
       style={styles.bottomSheetContainer}
       enablePanDownToClose={true}
       enableDismissOnClose={true}
+      enableHandlePanningGesture={true}
+      enableContentPanningGesture={true}
       android_keyboardInputMode="adjustResize"
       keyboardBlurBehavior="restore"
+      keyboardBehavior="interactive"
+      bottomInset={insets.bottom}
+      detached={false}
     >
-      <BottomSheetView style={styles.contentContainer}>
-        <View style={styles.header}>
-          <Text style={styles.title}>Invite Your Doubles Partner</Text>
-          <Text style={styles.description}>
-            Send an invitation to one of your friends to pair up and join the league together.
-          </Text>
-        </View>
-
-        <View style={styles.searchContainer}>
-          <Ionicons name="search" size={18} color="#86868B" style={styles.searchIcon} />
-          <TextInput
-            style={styles.searchInput}
-            placeholder="Search by name or username"
-            placeholderTextColor="#86868B"
-            value={searchQuery}
-            onChangeText={handleSearchChange}
-          />
-        </View>
-
-        <View style={styles.listContainer}>
-          {isLoading ? (
-            <View style={styles.emptyState}>
-              <ActivityIndicator size="large" color="#A04DFE" />
-              <Text style={styles.emptyStateText}>Loading players...</Text>
-            </View>
-          ) : players.length === 0 ? (
-            <View style={styles.emptyState}>
-              <Ionicons name="people-outline" size={48} color="#BABABA" />
-              <Text style={styles.emptyStateText}>
-                {searchQuery ? 'No players found' : 'No friends yet'}
-              </Text>
-              <Text style={styles.emptyStateSubtext}>
-                {searchQuery 
-                  ? 'Try a different search term' 
-                  : 'Add friends first before selecting them as your partner'}
-              </Text>
-              {!searchQuery && (
-                <TouchableOpacity 
-                  style={styles.connectButton} 
-                  onPress={handleConnectPress}
-                  activeOpacity={0.7}
-                >
-                  <Text style={styles.connectButtonText}>Go to Connect</Text>
-                </TouchableOpacity>
-              )}
-            </View>
-          ) : (
-            <BottomSheetFlatList
-              data={players}
-              renderItem={({ item }: { item: Player }) => (
-                <PlayerInviteListItem
-                  player={item}
-                  onPress={handlePlayerSelect}
-                />
-              )}
-              keyExtractor={(item: Player) => item.id}
-              showsVerticalScrollIndicator={false}
+      <BottomSheetFlatList
+        data={listData}
+        renderItem={({ item }: { item: Player | { id: string } }) => {
+          if (item.id === 'empty') {
+            return renderEmptyState();
+          }
+          return (
+            <PlayerInviteListItem
+              player={item as Player}
+              onPress={handlePlayerSelect}
             />
-          )}
-        </View>
-      </BottomSheetView>
+          );
+        }}
+        keyExtractor={(item: Player | { id: string }) => item.id}
+        showsVerticalScrollIndicator={false}
+        ListHeaderComponent={renderHeader}
+        contentContainerStyle={[
+          styles.listContent,
+          isEmpty && styles.listContentEmpty,
+        ]}
+        style={styles.listStyle}
+      />
     </BottomSheetModal>
   );
 };
@@ -275,18 +323,28 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 20,
   },
   bottomSheetContainer: {
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: -2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 8,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: {
+          width: 0,
+          height: -2,
+        },
+        shadowOpacity: 0.1,
+        shadowRadius: 8,
+      },
+      android: {
+        elevation: 8,
+      },
+    }),
   },
   contentContainer: {
     flex: 1,
     paddingHorizontal: 20,
+  },
+  headerContainer: {
+    paddingTop: 8,
+    paddingBottom: 16,
   },
   header: {
     marginBottom: 20,
@@ -322,14 +380,22 @@ const styles = StyleSheet.create({
     color: '#1A1C1E',
     padding: 0,
   },
-  listContainer: {
+  listStyle: {
     flex: 1,
+  },
+  listContent: {
+    paddingHorizontal: 20,
+    paddingBottom: 20,
+  },
+  listContentEmpty: {
+    flexGrow: 1,
   },
   emptyState: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     paddingVertical: 40,
+    minHeight: 300,
   },
   emptyStateText: {
     fontSize: 16,
