@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, Image, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
+import { getDoublesDMR } from '@/utils/dmrCalculator';
 
 interface Player {
   id: string;
@@ -24,30 +25,21 @@ interface Player {
 interface PlayerInviteListItemProps {
   player: Player;
   onPress: (player: Player) => void;
+  seasonSport?: string;  // Sport from the season for sport-specific DMR
 }
 
-export const PlayerInviteListItem: React.FC<PlayerInviteListItemProps> = ({ player, onPress }) => {
+export const PlayerInviteListItem: React.FC<PlayerInviteListItemProps> = ({
+  player,
+  onPress,
+  seasonSport = 'pickleball'  // Default to pickleball if not provided
+}) => {
   const handlePress = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     onPress(player);
   };
 
-  // Get doubles DMR rating
-  const getDoublesDMR = () => {
-    if (!player.skillRatings) return 'N/A';
-    const sportKeys = Object.keys(player.skillRatings);
-    if (sportKeys.length === 0) return 'N/A';
-
-    // Get the first available sport rating
-    const firstSport = player.skillRatings[sportKeys[0]];
-    const doublesRating = firstSport?.doubles;
-
-    if (doublesRating) {
-      return Math.round(doublesRating * 1000).toString();
-    }
-
-    return 'N/A';
-  };
+  // Get doubles DMR rating for the season's sport
+  const dmr = getDoublesDMR(player.skillRatings, seasonSport);
 
   // Get gender icon
   const getGenderIcon = () => {
@@ -105,7 +97,7 @@ export const PlayerInviteListItem: React.FC<PlayerInviteListItemProps> = ({ play
         </View>
 
         {/* DMR */}
-        <Text style={styles.dmrText}>DMR: {getDoublesDMR()}</Text>
+        <Text style={styles.dmrText}>DMR: {dmr}</Text>
 
         {/* Location */}
         {player.area && (
