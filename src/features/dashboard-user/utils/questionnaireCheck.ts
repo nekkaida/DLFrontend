@@ -67,7 +67,15 @@ export function getSeasonSport(
 ): 'pickleball' | 'tennis' | 'padel' | null {
   if (!season) return null;
 
-  // Try to get sport from league
+  // Try to get sport from categories first (primary location)
+  if (season.categories && season.categories.length > 0) {
+    const gameType = season.categories[0].game_type?.toLowerCase();
+    if (gameType === 'pickleball' || gameType === 'tennis' || gameType === 'padel') {
+      return gameType;
+    }
+  }
+
+  // Fallback: try to get sport from league
   if (season.leagues && season.leagues.length > 0) {
     const sportType = season.leagues[0].sportType?.toLowerCase();
     if (sportType === 'pickleball' || sportType === 'tennis' || sportType === 'padel') {
@@ -75,7 +83,7 @@ export function getSeasonSport(
     }
   }
 
-  // Fallback: infer from categories or default to pickleball
+  // fallback: default to pickleball
   return 'pickleball';
 }
 
