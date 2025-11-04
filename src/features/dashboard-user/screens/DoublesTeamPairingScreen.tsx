@@ -18,6 +18,7 @@ import BackButtonIcon from '@/assets/icons/back-button.svg';
 import TeamPlusIcon from '@/assets/icons/teamp_plus.svg';
 import TeamUpBulbIcon from '@/assets/icons/teamup_bulb.svg';
 import { checkQuestionnaireStatus, getSeasonSport } from '../utils/questionnaireCheck';
+import { getSeasonSport as getSeasonSportFromUtil, getDoublesDMR, getTeamDMR } from '@/utils/dmrCalculator';
 
 const { width } = Dimensions.get('window');
 
@@ -497,6 +498,28 @@ export default function DoublesTeamPairingScreen({
     );
   };
 
+  // Get season sport for DMR calculations
+  const seasonSport = React.useMemo(() => {
+    return getSeasonSportFromUtil(season);
+  }, [season]);
+
+  // Calculate DMR values using season-specific sport
+  const userDMR = React.useMemo(() => {
+    return getDoublesDMR(profileData?.skillRatings, seasonSport);
+  }, [profileData?.skillRatings, seasonSport]);
+
+  const partnerDMR = React.useMemo(() => {
+    if (!selectedPartner) return 'N/A';
+    return getDoublesDMR(selectedPartner.skillRatings, seasonSport);
+  }, [selectedPartner, seasonSport]);
+
+  const teamDMR = React.useMemo(() => {
+    if (!selectedPartner || partnershipStatus !== 'active') {
+      return '-';
+    }
+    return getTeamDMR(profileData?.skillRatings, selectedPartner.skillRatings, seasonSport);
+  }, [profileData?.skillRatings, selectedPartner, partnershipStatus, seasonSport]);
+
   const getUserSelectedSports = () => {
     if (!profileData?.sports) return [];
     const sports = profileData.sports.map((sport: string) => sport.toLowerCase());
@@ -510,50 +533,6 @@ export default function DoublesTeamPairingScreen({
       if (indexB !== -1) return 1;
       return 0;
     });
-  };
-
-  const getDoublesDMR = () => {
-    if (!profileData?.skillRatings) return 'N/A';
-    const sportKeys = Object.keys(profileData.skillRatings);
-    if (sportKeys.length === 0) return 'N/A';
-
-    const firstSport = profileData.skillRatings[sportKeys[0]];
-    const doublesRating = firstSport?.doubles;
-
-    if (doublesRating) {
-      return Math.round(doublesRating * 1000).toString();
-    }
-
-    return 'N/A';
-  };
-
-  const getTeamDMR = () => {
-    // Only calculate Team DMR when partnership is ACTIVE
-    if (!selectedPartner || partnershipStatus !== 'active') {
-      return '-';
-    }
-
-    // Get current user's DMR
-    const userDMR = getDoublesDMR();
-    if (userDMR === 'N/A') return 'N/A';
-
-    // Get partner's DMR
-    const partnerSkillRatings = selectedPartner?.skillRatings;
-    if (!partnerSkillRatings) return 'N/A';
-
-    const sportKeys = Object.keys(partnerSkillRatings);
-    if (sportKeys.length === 0) return 'N/A';
-
-    const firstSport = partnerSkillRatings[sportKeys[0]];
-    const partnerDoublesRating = firstSport?.doubles;
-
-    if (!partnerDoublesRating) return 'N/A';
-
-    const partnerDMR = Math.round(partnerDoublesRating * 1000);
-
-    // Calculate Team DMR (average of both players)
-    const teamDMR = Math.round((parseInt(userDMR) + partnerDMR) / 2);
-    return teamDMR.toString();
   };
 
   const getHeaderGradientColors = (sport: 'pickleball' | 'tennis' | 'padel'): [string, string] => {
@@ -708,7 +687,7 @@ export default function DoublesTeamPairingScreen({
                     <Text style={styles.playerName} numberOfLines={1}>
                       {profileData?.name || session?.user?.name || 'You'}
                     </Text>
-                    <Text style={styles.playerDMR}>DMR: {getDoublesDMR()}</Text>
+                    <Text style={styles.playerDMR}>DMR: {userDMR}</Text>
 
                     {/* Show role label during pending invitations */}
                     {invitationStatus === 'pending_sent' && (
@@ -783,18 +762,7 @@ export default function DoublesTeamPairingScreen({
 
                         {partnershipStatus === 'active' && (
                           <>
-                            <Text style={styles.playerDMR}>
-                              DMR: {(() => {
-                                const partnerSkillRatings = selectedPartner?.skillRatings;
-                                if (!partnerSkillRatings) return 'N/A';
-                                const sportKeys = Object.keys(partnerSkillRatings);
-                                if (sportKeys.length === 0) return 'N/A';
-                                const firstSport = partnerSkillRatings[sportKeys[0]];
-                                const partnerDoublesRating = firstSport?.doubles;
-                                if (!partnerDoublesRating) return 'N/A';
-                                return Math.round(partnerDoublesRating * 1000).toString();
-                              })()}
-                            </Text>
+                            <Text style={styles.playerDMR}>DMR: {partnerDMR}</Text>
                             <TouchableOpacity style={styles.unlinkButton} onPress={handleUnlink}>
                               <Text style={styles.unlinkButtonText}>Unlink</Text>
                             </TouchableOpacity>
@@ -819,7 +787,7 @@ export default function DoublesTeamPairingScreen({
                     end={{ x: 1, y: 0 }}
                     style={styles.teamDMRChip}
                   >
-                    <Text style={styles.teamDMRText}>Team DMR: {getTeamDMR()}</Text>
+                    <Text style={styles.teamDMRText}>Team DMR: {teamDMR}</Text>
                   </LinearGradient>
                 </View>
               </View>
@@ -875,6 +843,8 @@ export default function DoublesTeamPairingScreen({
         visible={showInvitePartnerSheet}
         onClose={() => setShowInvitePartnerSheet(false)}
         seasonId={seasonId}
+        season={season}
+        seasonSport={seasonSport}
         onPlayerSelect={handlePartnerSelected}
       />
 
