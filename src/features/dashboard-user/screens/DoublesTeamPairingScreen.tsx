@@ -588,7 +588,13 @@ export default function DoublesTeamPairingScreen({
         <SportSwitcher
           currentSport={selectedSport}
           availableSports={getUserSelectedSports()}
-          onSportChange={setSelectedSport}
+          onSportChange={(newSport) => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            router.push({
+              pathname: '/user-dashboard' as any,
+              params: { sport: newSport }
+            });
+          }}
         />
         
         <View style={styles.headerRight} />
@@ -827,7 +833,7 @@ export default function DoublesTeamPairingScreen({
                 {partnershipStatus === 'active' && isCaptain
                   ? 'Register Team'
                   : partnershipStatus === 'active' && !isCaptain
-                  ? 'Waiting for Team Captain'
+                  ? 'Waiting for Team Captain...'
                   : invitationStatus === 'pending_sent'
                   ? 'Waiting for Partner'
                   : invitationStatus === 'pending_received'

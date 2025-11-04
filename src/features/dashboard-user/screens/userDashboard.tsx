@@ -59,7 +59,7 @@ const isTablet = width > 768;
 export default function DashboardScreen() {
   const { data: session } = useSession();
   const insets = useSafeAreaInsets();
-  const { sport: routeSport } = useLocalSearchParams<{ sport?: string }>();
+  const { sport: routeSport, view: routeView } = useLocalSearchParams<{ sport?: string; view?: string }>();
   const [activeTab, setActiveTab] = React.useState(2);
   const [currentView, setCurrentView] = React.useState<
     "dashboard" | "connect" | "friendly" | "myGames" | "chat"
@@ -94,6 +94,23 @@ export default function DashboardScreen() {
       setSelectedSport("pickleball");
     }
   }, [routeSport]);
+
+  React.useEffect(() => {
+    if (routeView && ['dashboard', 'connect', 'friendly', 'myGames', 'chat'].includes(routeView)) {
+      setCurrentView(routeView as "dashboard" | "connect" | "friendly" | "myGames" | "chat");
+      // Set activeTab based on view
+      const viewToTab: Record<string, number> = {
+        'connect': 0,
+        'friendly': 1,
+        'dashboard': 2,
+        'myGames': 3,
+        'chat': 4,
+      };
+      if (viewToTab[routeView] !== undefined) {
+        setActiveTab(viewToTab[routeView]);
+      }
+    }
+  }, [routeView]);
 
   // Get current sport configuration
   const currentSportConfig = SPORT_CONFIG[selectedSport];

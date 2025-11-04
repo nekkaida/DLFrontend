@@ -13,6 +13,31 @@ interface FriendListItemProps {
 }
 
 export const FriendListItem: React.FC<FriendListItemProps> = ({ friend }) => {
+  const formatFriendsSinceDate = () => {
+    const dateValue = (friend as any).friendsSince || (friend as any).since;
+    
+    if (!dateValue) {
+      return 'Recently';
+    }
+
+    try {
+      const date = new Date(dateValue);
+      
+      // Check if date is valid
+      if (isNaN(date.getTime())) {
+        return 'Recently';
+      }
+
+      return date.toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+      });
+    } catch (error) {
+      return 'Recently';
+    }
+  };
+
   return (
     <TouchableOpacity
       style={styles.container}
@@ -31,7 +56,7 @@ export const FriendListItem: React.FC<FriendListItemProps> = ({ friend }) => {
       <View style={styles.content}>
         <Text style={styles.name}>{friend.friend.name}</Text>
         <Text style={styles.subtitle}>
-          Friends since {new Date(friend.friendsSince).toLocaleDateString()}
+          Friends since {formatFriendsSinceDate()}
         </Text>
       </View>
       <Ionicons name="chevron-forward" size={20} color="#BABABA" />

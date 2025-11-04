@@ -3,6 +3,8 @@ import { View, Text, Image, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { getDoublesDMR } from '@/utils/dmrCalculator';
+import GenderMaleIcon from '@/assets/icons/gender_male.svg';
+import GenderFemaleIcon from '@/assets/icons/gender_female.svg';
 
 interface Player {
   id: string;
@@ -43,12 +45,16 @@ export const PlayerInviteListItem: React.FC<PlayerInviteListItemProps> = ({
 
   // Get gender icon
   const getGenderIcon = () => {
-    if (player.gender === 'MALE') {
-      return '♂';
-    } else if (player.gender === 'FEMALE') {
-      return '♀';
+    if (!player.gender) return null;
+  
+    const gender = player.gender.toUpperCase();
+    
+    if (gender === 'MALE') {
+      return <GenderMaleIcon width={14} height={14} style={styles.genderIcon} />;
+    } else if (gender === 'FEMALE') {
+      return <GenderFemaleIcon width={14} height={14} style={styles.genderIcon} />;
     }
-    return '';
+    return null;
   };
 
   // Get questionnaire status message
@@ -91,9 +97,7 @@ export const PlayerInviteListItem: React.FC<PlayerInviteListItemProps> = ({
           <Text style={styles.playerName} numberOfLines={1}>
             {player.name}
           </Text>
-          {player.gender && (
-            <Text style={styles.genderIcon}>{getGenderIcon()}</Text>
-          )}
+          {getGenderIcon()}
         </View>
 
         {/* DMR */}
@@ -173,17 +177,17 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 4,
-    gap: 6,
+    flexWrap: 'nowrap',
   },
   playerName: {
     fontSize: 14,
     fontWeight: '600',
     color: '#1A1C1E',
-    flex: 1,
+    marginRight: 4,
+    flexShrink: 1,
   },
   genderIcon: {
-    fontSize: 14,
-    color: '#86868B',
+    flexShrink: 0,
   },
   dmrText: {
     fontSize: 12,
@@ -203,7 +207,7 @@ const styles = StyleSheet.create({
   inviteButton: {
     paddingHorizontal: 16,
     paddingVertical: 8,
-    backgroundColor: '#A04DFE',
+    backgroundColor: '#FEA04D',
     borderRadius: 8,
     marginLeft: 12,
   },
@@ -211,7 +215,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#E5E5E5',
   },
   inviteButtonText: {
-    color: '#FFFFFF',
+    color: '#1D1D1F',
     fontSize: 13,
     fontWeight: '600',
   },
