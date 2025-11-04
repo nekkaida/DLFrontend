@@ -25,7 +25,13 @@ export const QuestionnaireIntroduction: React.FC<QuestionnaireIntroductionProps>
 
       {/* Introduction container - Now in flex layout */}
       <View style={styles.introductionContainer}>
-        <View style={styles.whiteCard}>
+        <ScrollView
+          style={styles.scrollContainer}
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+          bounces={true}
+        >
+          <View style={styles.whiteCard}>
           {/* Greeting */}
           <View style={styles.greetingContainer}>
             <Text style={[
