@@ -3,6 +3,7 @@ import { ScrollView, Text, View, StyleSheet, Dimensions, TouchableOpacity, Activ
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
+import { useFocusEffect } from '@react-navigation/native';
 import { NavBar } from '@/shared/components/layout';
 import { SportSwitcher } from '@/shared/components/ui/SportSwitcher';
 import { useDashboard } from '../DashboardContext';
@@ -648,24 +649,33 @@ export default function LeagueDetailsScreen({
     return ["pickleball", "tennis", "padel"];
   };
 
-  // Fetch profile data for sports list
-  React.useEffect(() => {
-    const fetchProfileData = async () => {
-      if (!session?.user?.id) return;
-      try {
-        const backendUrl = getBackendBaseURL();
-        const authResponse = await authClient.$fetch(`${backendUrl}/api/player/profile/me`, {
-          method: 'GET',
-        });
-        if (authResponse && (authResponse as any).data && (authResponse as any).data.data) {
-          setProfileData((authResponse as any).data.data);
-        }
-      } catch (error) {
-        console.error('Error fetching profile data:', error);
+  // Fetch profile data function (extracted for reuse)
+  const fetchProfileData = React.useCallback(async () => {
+    if (!session?.user?.id) return;
+    try {
+      const backendUrl = getBackendBaseURL();
+      const authResponse = await authClient.$fetch(`${backendUrl}/api/player/profile/me`, {
+        method: 'GET',
+      });
+      if (authResponse && (authResponse as any).data && (authResponse as any).data.data) {
+        setProfileData((authResponse as any).data.data);
       }
-    };
-    fetchProfileData();
+    } catch (error) {
+      console.error('Error fetching profile data:', error);
+    }
   }, [session?.user?.id]);
+
+  // Fetch profile data on mount
+  React.useEffect(() => {
+    fetchProfileData();
+  }, [fetchProfileData]);
+
+  // Refresh profile data when screen comes into focus (e.g., after completing questionnaire)
+  useFocusEffect(
+    React.useCallback(() => {
+      fetchProfileData();
+    }, [fetchProfileData])
+  );
 
   // Set selected sport based on route param
   React.useEffect(() => {
