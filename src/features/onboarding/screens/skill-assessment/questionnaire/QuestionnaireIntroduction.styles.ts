@@ -27,16 +27,9 @@ export const styles = StyleSheet.create({
     // No flex - natural height based on content
     paddingHorizontal: getResponsivePadding(15),
     paddingBottom: Platform.select({
-      ios: moderateScale(15), 
+      ios: moderateScale(15),
       android: moderateScale(15),
     }),
-  },
-  scrollContainer: {
-    flexGrow: 0,  // Don't grow
-    flexShrink: 1,  // Can shrink if needed
-  },
-  scrollContent: {
-    flexGrow: 0,  // Don't force growth
   },
 
   // Greeting
