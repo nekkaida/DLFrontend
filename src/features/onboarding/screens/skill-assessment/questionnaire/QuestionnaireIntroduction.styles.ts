@@ -27,7 +27,7 @@ export const styles = StyleSheet.create({
     // No flex - natural height based on content
     paddingHorizontal: getResponsivePadding(15),
     paddingBottom: Platform.select({
-      ios: isSmall ? moderateScale(15) : moderateScale(49),  // 15 + 34 for home indicator
+      ios: moderateScale(15), 
       android: moderateScale(15),
     }),
   },
