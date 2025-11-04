@@ -8,6 +8,7 @@ import {
 import * as Haptics from 'expo-haptics';
 import React, { useCallback, useEffect, useMemo, useRef } from 'react';
 import {
+  ActivityIndicator,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -21,6 +22,7 @@ interface PaymentOptionsBottomSheetProps {
   season: Season | null;
   onPayNow: (season: Season) => void;
   onPayLater: (season: Season) => void;
+  isProcessingPayment?: boolean;
 }
 
 export const PaymentOptionsBottomSheet: React.FC<PaymentOptionsBottomSheetProps> = ({
@@ -29,6 +31,7 @@ export const PaymentOptionsBottomSheet: React.FC<PaymentOptionsBottomSheetProps>
   season,
   onPayNow,
   onPayLater,
+  isProcessingPayment = false,
 }) => {
   const bottomSheetModalRef = useRef<BottomSheetModal>(null);
 
@@ -68,7 +71,7 @@ export const PaymentOptionsBottomSheet: React.FC<PaymentOptionsBottomSheetProps>
 
   const handlePayNow = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    if (season) {
+    if (season && !isProcessingPayment) {
       onPayNow(season);
       onClose();
     }
@@ -120,11 +123,18 @@ const handlePayLater = async () => {
           <TouchableOpacity 
             style={styles.payNowButton}
             onPress={handlePayNow}
+            disabled={isProcessingPayment}
             activeOpacity={0.8}
           >
             <View style={styles.buttonContent}>
-              <Ionicons name="card" size={20} color="#FFFFFF" />
-              <Text style={styles.payNowButtonText}>Pay Now</Text>
+              {isProcessingPayment ? (
+                <ActivityIndicator size="small" color="#FFFFFF" />
+              ) : (
+                <Ionicons name="card" size={20} color="#FFFFFF" />
+              )}
+              <Text style={styles.payNowButtonText}>
+                {isProcessingPayment ? 'Opening Gateway…' : 'Pay Now'}
+              </Text>
             </View>
           </TouchableOpacity>
 
