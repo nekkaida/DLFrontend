@@ -102,7 +102,7 @@ export const ThreadList: React.FC<ThreadListProps> = ({ onThreadSelect }) => {
       }
       ListEmptyComponent={renderEmpty}
       refreshing={isLoading}
-      onRefresh={loadThreads}
+      onRefresh={() => loadThreads("")}
       showsVerticalScrollIndicator={false}
     />
   );
