@@ -4,13 +4,29 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { router } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Image, KeyboardAvoidingView, Platform, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Dimensions,
+  Image,
+  KeyboardAvoidingView,
+  Platform,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MessageInput } from './components/chat-input';
 import { ThreadList } from './components/chat-list';
 import { MessageWindow } from './components/chat-window';
 import { useChatStore } from './stores/ChatStore';
 import { Thread } from './types';
+
+const { width } = Dimensions.get('window');
+const isSmallScreen = width < 375;
+const isTablet = width > 768;
 
 export const ChatScreen: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
@@ -157,10 +173,6 @@ export const ChatScreen: React.FC = () => {
     // TO DO ADD MATCH LOGIC LATER
   };
 
-  const handleEmojiPress = () => {
-    console.log('Emoji pressed');
-  };
-
   // Get header content based on chat type
   const getHeaderContent = () => {
     if (!currentThread || !user?.id) return { title: 'Chat', subtitle: null };
@@ -225,8 +237,8 @@ export const ChatScreen: React.FC = () => {
       {currentThread ? (
         <KeyboardAvoidingView 
           style={styles.chatContainer}
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          keyboardVerticalOffset={Platform.OS === 'ios' ? STATUS_BAR_HEIGHT : 20}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          keyboardVerticalOffset={Platform.OS === 'ios' ? STATUS_BAR_HEIGHT : 0}
         >
           <View style={[styles.chatHeader, { paddingTop: STATUS_BAR_HEIGHT + 12 }]}>
             <TouchableOpacity 
@@ -262,11 +274,10 @@ export const ChatScreen: React.FC = () => {
           <MessageInput 
             onSendMessage={handleSendMessage}
             onhandleMatch={handleMatch}
-            onEmojiPress={handleEmojiPress}
           />
         </KeyboardAvoidingView>
       ) : (
-        <View style={[styles.threadsContainer, { paddingBottom: insets.bottom }]}>
+        <View style={styles.threadsContainer}>
           {/* Header with profile picture */}
           <View style={[styles.headerContainer, { paddingTop: STATUS_BAR_HEIGHT }]}>
             <TouchableOpacity 
@@ -332,8 +343,8 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   searchContainer: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
+    paddingHorizontal: isSmallScreen ? 12 : isTablet ? 24 : 16,
+    paddingVertical: isSmallScreen ? 6 : isTablet ? 10 : 8,
     borderBottomWidth: 1,
     borderBottomColor: '#E5E7EB',
     backgroundColor: '#FFFFFF',
@@ -341,21 +352,23 @@ const styles = StyleSheet.create({
   searchBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor:  '#FFFFFF',
+    backgroundColor: '#FFFFFF',
     borderRadius: 12,
     paddingHorizontal: 12,
-    paddingVertical: 8,
+    paddingVertical: Platform.OS === 'android' ? 4 : 8,
     borderWidth: 1,
     borderColor: '#E5E7EB',
+    minHeight: 40,
   },
   searchIcon: {
     marginRight: 8,
   },
   searchInput: {
     flex: 1,
-    fontSize: 16,
+    fontSize: isSmallScreen ? 14 : isTablet ? 18 : 16,
     color: '#111827',
-    paddingVertical: 4,
+    paddingVertical: Platform.OS === 'android' ? 8 : 4,
+    paddingHorizontal: 0,
   },
   clearButton: {
     padding: 4,
@@ -363,7 +376,7 @@ const styles = StyleSheet.create({
   chatHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
+    paddingHorizontal: isSmallScreen ? 12 : isTablet ? 24 : 16,
     paddingBottom: 12,
     borderBottomWidth: 1,
     borderBottomColor: '#E5E7EB',
@@ -377,19 +390,19 @@ const styles = StyleSheet.create({
   },
   chatHeaderContent: {
     flex: 1,
-    justifyContent: 'center', // Center content vertically
+    justifyContent: 'center',
   },
   chatHeaderTitle: {
-    fontSize: 18,
+    fontSize: isSmallScreen ? 16 : isTablet ? 20 : 18,
     fontWeight: '600',
     color: '#111827',
-    lineHeight: 22,
+    lineHeight: isSmallScreen ? 20 : isTablet ? 24 : 22,
   },
   chatHeaderSubtitle: {
-    fontSize: 14,
+    fontSize: isSmallScreen ? 12 : isTablet ? 16 : 14,
     color: '#6B7280',
     marginTop: 2,
-    lineHeight: 16,
+    lineHeight: isSmallScreen ? 14 : isTablet ? 18 : 16,
   },
   headerAction: {
     padding: 4,
@@ -402,66 +415,70 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     marginTop: 10,
-    fontSize: 16,
+    fontSize: isSmallScreen ? 14 : isTablet ? 18 : 16,
     color: '#6B7280',
   },
   errorText: {
-    fontSize: 16,
+    fontSize: isSmallScreen ? 14 : isTablet ? 18 : 16,
     color: '#DC2626',
     textAlign: 'center',
     marginBottom: 8,
   },
   errorSubtext: {
-    fontSize: 14,
+    fontSize: isSmallScreen ? 12 : isTablet ? 16 : 14,
     color: '#9CA3AF',
     textAlign: 'center',
   },
   headerContainer: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    width: "100%",
-    backgroundColor: "#FFFFFF",
-    paddingHorizontal: 20,
-    paddingVertical: 6,
-    minHeight: 40,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    width: '100%',
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: isSmallScreen ? 16 : isTablet ? 24 : 20,
+    paddingVertical: isSmallScreen ? 4 : isTablet ? 8 : 6,
+    minHeight: isSmallScreen ? 36 : isTablet ? 44 : 40,
   },
   headerProfilePicture: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    overflow: "hidden",
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    width: isSmallScreen ? 40 : isTablet ? 56 : 48,
+    height: isSmallScreen ? 40 : isTablet ? 56 : 48,
+    borderRadius: isSmallScreen ? 20 : isTablet ? 28 : 24,
+    overflow: 'hidden',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: {
+          width: 0,
+          height: 2,
+        },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 3,
+      },
+    }),
   },
   headerProfileImage: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: '100%',
+    height: '100%',
   },
   defaultHeaderAvatarContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: "#6de9a0",
-    justifyContent: "center",
-    alignItems: "center",
+    width: '100%',
+    height: '100%',
+    backgroundColor: '#6de9a0',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   defaultHeaderAvatarText: {
-    color: "#FFFFFF",
-    fontSize: 18,
-    fontWeight: "bold",
-    fontFamily: "System",
+    color: '#FFFFFF',
+    fontSize: isSmallScreen ? 16 : isTablet ? 22 : 18,
+    fontWeight: 'bold',
+    fontFamily: 'System',
   },
   headerRight: {
-    width: 48,
-    alignItems: "center",
-    justifyContent: "center",
+    width: isSmallScreen ? 40 : isTablet ? 56 : 48,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });

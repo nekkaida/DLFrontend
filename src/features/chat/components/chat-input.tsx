@@ -1,11 +1,13 @@
 import { Ionicons } from '@expo/vector-icons';
 import React, { useRef, useState } from 'react';
 import {
+  Platform,
   StyleSheet,
   TextInput,
   TouchableOpacity,
   View
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 interface MessageInputProps {
   onSendMessage: (message: string) => void;
@@ -26,6 +28,7 @@ export const MessageInput: React.FC<MessageInputProps> = ({
   const [isTyping, setIsTyping] = useState(false);
   const inputRef = useRef<TextInput>(null);
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const insets = useSafeAreaInsets();
 
   const handleTextChange = (text: string) => {
     setMessage(text);
@@ -40,7 +43,6 @@ export const MessageInput: React.FC<MessageInputProps> = ({
         clearTimeout(typingTimeoutRef.current);
       }
       
-      // Set new timeout to stop typing indicator
       typingTimeoutRef.current = setTimeout(() => {
         setIsTyping(false);
         onTyping(false);
@@ -62,16 +64,16 @@ export const MessageInput: React.FC<MessageInputProps> = ({
 
   const handleMatch = () => {
     onhandleMatch?.();
-    // TO DO 
   };
 
-  const handleEmoji = () => {
-    onEmojiPress?.();
-    // TO DO 
-  };
+  
+  const bottomPadding = Platform.select({
+    ios: Math.max(insets.bottom + 70, 78), 
+    android: 90, 
+  });
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { paddingBottom: bottomPadding }]}>
       <View style={styles.inputContainer}>
         {/* Match button */}
         <TouchableOpacity
@@ -94,15 +96,6 @@ export const MessageInput: React.FC<MessageInputProps> = ({
             maxLength={1000}
             textAlignVertical="center"
           />
-          
-          {/* Emoji button inside input */}
-          <TouchableOpacity
-            style={styles.emojiButton}
-            onPress={handleEmoji}
-            activeOpacity={0.7}
-          >
-            <Ionicons name="happy-outline" size={20} color="#6B7280" />
-          </TouchableOpacity>
         </View>
         
         <TouchableOpacity
@@ -132,7 +125,6 @@ const styles = StyleSheet.create({
     borderTopColor: '#E5E7EB',
     paddingTop: 12,
     paddingHorizontal: 16,
-    paddingBottom: 12,
   },
   inputContainer: {
     flexDirection: 'row',
@@ -164,11 +156,6 @@ const styles = StyleSheet.create({
     maxHeight: 100,
     fontSize: 15,
     color: '#111827',
-  },
-  emojiButton: {
-    padding: 8,
-    justifyContent: 'center',
-    alignItems: 'center',
   },
   sendButton: {
     width: 40,
