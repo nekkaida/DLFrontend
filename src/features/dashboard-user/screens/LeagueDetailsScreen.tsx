@@ -248,7 +248,42 @@ export default function LeagueDetailsScreen({
   };
 
   const handleTabPress = (tabIndex: number) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setActiveTab(tabIndex);
+    
+    // Navigate based on tab index
+    // Tab indices: 0=Connect, 1=Friendly, 2=Leagues, 3=My Games, 4=Chat
+    if (tabIndex === 0) {
+      // Navigate to Connect
+      router.push({
+        pathname: '/user-dashboard/connect' as any,
+        params: { sport: selectedSport }
+      });
+    } else if (tabIndex === 1) {
+      // Navigate to Friendly
+      router.push({
+        pathname: '/user-dashboard' as any,
+        params: { view: 'friendly', sport: selectedSport }
+      });
+    } else if (tabIndex === 2) {
+      // Navigate to Leagues (main dashboard)
+      router.push({
+        pathname: '/user-dashboard' as any,
+        params: { view: 'dashboard', sport: selectedSport }
+      });
+    } else if (tabIndex === 3) {
+      // Navigate to My Games
+      router.push({
+        pathname: '/user-dashboard' as any,
+        params: { view: 'myGames', sport: selectedSport }
+      });
+    } else if (tabIndex === 4) {
+      // Navigate to Chat
+      router.push({
+        pathname: '/user-dashboard' as any,
+        params: { view: 'chat', sport: selectedSport }
+      });
+    }
   };
 
   const handleCategoryPress = (categoryId: string) => {

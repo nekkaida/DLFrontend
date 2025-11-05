@@ -23,6 +23,7 @@ import { authClient } from '@/lib/auth-client';
 import { getBackendBaseURL } from '@/src/config/network';
 import { PlayerInviteListItem } from './PlayerInviteListItem';
 import { toast } from 'sonner-native';
+import EmptyPartnerIcon from '@/assets/icons/empty_partner.svg';
 
 interface Player {
   id: string;
@@ -132,9 +133,9 @@ export const InvitePartnerBottomSheet: React.FC<InvitePartnerBottomSheetProps> =
 
         // Show info toast if fallback was used
         if (actualData.usedFallback) {
-          toast.info('No Friends Available', {
-            description: 'Showing all eligible players since you have no friends to pair with',
-          });
+          // toast.info('No Friends Available', {
+          //   description: 'Showing all eligible players since you have no friends to pair with',
+          // });
         }
       } else if (response && (response as any).error) {
         // Handle error response
@@ -229,7 +230,7 @@ export const InvitePartnerBottomSheet: React.FC<InvitePartnerBottomSheetProps> =
         <Ionicons name="search" size={18} color="#86868B" style={styles.searchIcon} />
         <TextInput
           style={styles.searchInput}
-          placeholder="Search by name or username"
+          placeholder="Search friends..."
           placeholderTextColor="#86868B"
           value={searchQuery}
           onChangeText={handleSearchChange}
@@ -252,23 +253,26 @@ export const InvitePartnerBottomSheet: React.FC<InvitePartnerBottomSheetProps> =
     if (players.length === 0) {
       return (
         <View style={styles.emptyState}>
-          <Ionicons name="people-outline" size={48} color="#BABABA" />
+          {/* <Ionicons name="people-outline" size={48} color="#BABABA" /> */}
           <Text style={styles.emptyStateText}>
-            {searchQuery ? 'No players found' : 'No friends yet'}
+            {searchQuery ? 'No players found' : 'Oops, looks a little empty here!'}
           </Text>
           <Text style={styles.emptyStateSubtext}>
             {searchQuery 
               ? 'Try a different search term' 
-              : 'Add friends first before selecting them as your partner'}
+              : 'Only your friends show up here. Head to Connect to find and add friends before inviting them to your doubles team.'}
           </Text>
           {!searchQuery && (
-            <TouchableOpacity 
-              style={styles.connectButton} 
-              onPress={handleConnectPress}
-              activeOpacity={0.7}
-            >
-              <Text style={styles.connectButtonText}>Go to Connect</Text>
-            </TouchableOpacity>
+            <>
+              <EmptyPartnerIcon width={82} height={46} style={styles.emptyPartnerIcon} />
+              <TouchableOpacity 
+                style={styles.connectButton} 
+                onPress={handleConnectPress}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.connectButtonText}>Connect</Text>
+              </TouchableOpacity>
+            </>
           )}
         </View>
       );
@@ -417,24 +421,28 @@ const styles = StyleSheet.create({
     minHeight: 300,
   },
   emptyStateText: {
-    fontSize: 16,
+    fontSize: 22,
     fontWeight: '600',
-    color: '#86868B',
+    color: '#A04DFE',
     marginTop: 12,
     textAlign: 'center',
   },
   emptyStateSubtext: {
-    fontSize: 14,
-    color: '#BABABA',
-    marginTop: 6,
+    fontSize: 16,
+    color: '#86868B',
+    marginTop: 14,
     textAlign: 'center',
     paddingHorizontal: 20,
   },
+  emptyPartnerIcon: {
+    marginTop: 48,
+    marginBottom: 8,
+  },
   connectButton: {
-    marginTop: 20,
+    marginTop: 16,
     paddingHorizontal: 24,
     paddingVertical: 12,
-    backgroundColor: '#A04DFE',
+    backgroundColor: '#FEA04D',
     borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
@@ -442,6 +450,6 @@ const styles = StyleSheet.create({
   connectButtonText: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#FFFFFF',
+    color: '#1D1D1F',
   },
 });
