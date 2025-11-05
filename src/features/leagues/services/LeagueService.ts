@@ -106,6 +106,12 @@ export class LeagueService {
           message: apiResponse.message
         });
 
+        if (apiResponse.data && apiResponse.data.success && apiResponse.data.data && apiResponse.data.data.leagues) {
+          console.log('✅ LeagueService: Successfully found leagues (authClient wrapped):', apiResponse.data.data.leagues.length);
+          console.log('✅ LeagueService: Leagues data:', apiResponse.data.data.leagues);
+          return apiResponse.data.data.leagues;
+        }
+
         if (apiResponse.success && apiResponse.data && apiResponse.data.leagues) {
           console.log('✅ LeagueService: Successfully found leagues:', apiResponse.data.leagues.length);
           console.log('✅ LeagueService: Leagues data:', apiResponse.data.leagues);
@@ -115,6 +121,7 @@ export class LeagueService {
             success: apiResponse.success,
             hasData: !!apiResponse.data,
             hasLeagues: !!(apiResponse.data && apiResponse.data.leagues),
+            hasWrappedData: !!(apiResponse.data && apiResponse.data.data && apiResponse.data.data.leagues),
             dataContent: apiResponse.data
           });
         }
@@ -169,9 +176,11 @@ export class LeagueService {
         
         // Handle direct API response structure
         if (apiResponse.success && apiResponse.data && apiResponse.data.league) {
-          console.log('LeagueService: Setting league data (direct):', apiResponse.data.league);
+          console.log('✅ LeagueService: Setting league data (direct):', apiResponse.data.league);
           return apiResponse.data.league as League;
         }
+        
+        console.log('❌ LeagueService: No league data found in response');
       }
       
       console.error('LeagueService: No league data received from API');

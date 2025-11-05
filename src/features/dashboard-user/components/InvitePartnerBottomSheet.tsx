@@ -101,22 +101,29 @@ export const InvitePartnerBottomSheet: React.FC<InvitePartnerBottomSheetProps> =
         const responseData = (response as any).data;
         console.log('📦 Response data structure:', responseData);
 
-        // Backend returns { data: { players: [...], friendsCount, totalCount, usedFallback } }
-        // Extract the players array from the nested data object
+        let actualData = responseData;
+        
+        if (responseData.success && responseData.data) {
+          actualData = responseData.data;
+          console.log('📦 Unwrapped response data:', actualData);
+        }
+
+        // Backend returns { players: [...], friendsCount, totalCount, usedFallback }
+        // Extract the players array from the data object
         let playersArray: Player[] = [];
 
-        if (Array.isArray(responseData.players)) {
+        if (Array.isArray(actualData.players)) {
           // Direct players array
-          playersArray = responseData.players;
-        } else if (responseData.data && Array.isArray(responseData.data.players)) {
+          playersArray = actualData.players;
+        } else if (actualData.data && Array.isArray(actualData.data.players)) {
           // Nested in data.players
-          playersArray = responseData.data.players;
-        } else if (Array.isArray(responseData.data)) {
+          playersArray = actualData.data.players;
+        } else if (Array.isArray(actualData.data)) {
           // data is the array itself
-          playersArray = responseData.data;
-        } else if (Array.isArray(responseData)) {
-          // responseData is the array
-          playersArray = responseData;
+          playersArray = actualData.data;
+        } else if (Array.isArray(actualData)) {
+          // actualData is the array
+          playersArray = actualData;
         }
 
         console.log('👥 Players array extracted:', playersArray);
@@ -124,11 +131,18 @@ export const InvitePartnerBottomSheet: React.FC<InvitePartnerBottomSheetProps> =
         console.log('✅ Players state updated with', playersArray.length, 'players');
 
         // Show info toast if fallback was used
-        if (responseData.usedFallback) {
+        if (actualData.usedFallback) {
           toast.info('No Friends Available', {
             description: 'Showing all eligible players since you have no friends to pair with',
           });
         }
+      } else if (response && (response as any).error) {
+        // Handle error response
+        const errorData = (response as any).error;
+        console.error('❌ API Error:', errorData);
+        toast.error('Error', {
+          description: errorData.message || 'Failed to load available players',
+        });
       } else {
         console.log('⚠️ Unexpected response format:', response);
       }

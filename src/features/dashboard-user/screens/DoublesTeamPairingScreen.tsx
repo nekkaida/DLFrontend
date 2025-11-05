@@ -639,7 +639,13 @@ export default function DoublesTeamPairingScreen({
                   <View style={styles.bannerContainer}>
                     <View style={[styles.nameBanner, { backgroundColor: getBannerBackgroundColor(selectedSport) }]}>
                       <Text style={styles.seasonName}>
-                        {season?.categories?.[0]?.name ? `${season.categories[0].name} | ` : ''}
+                        {(() => {
+                          const category = (season as any)?.category;
+                          const categories = (season as any)?.categories || (category ? [category] : []);
+                          const normalizedCategories = Array.isArray(categories) ? categories : [categories].filter(Boolean);
+                          const categoryName = normalizedCategories?.[0]?.name;
+                          return categoryName ? `${categoryName} | ` : '';
+                        })()}
                         <Text style={styles.seasonNameHighlight}>{season?.name || seasonName}</Text>
                       </Text>
                     </View>

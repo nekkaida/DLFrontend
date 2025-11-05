@@ -158,15 +158,14 @@ export default function LeagueDetailsScreen({
       setIsLoading(true);
       setError(null);
 
-      // Fetch league, categories, and seasons in parallel
-      const [leagueData, categoriesData, seasonsData] = await Promise.all([
+      // Fetch league and seasons in parallel
+      // Note: Categories are extracted from seasons since there's no direct league->category relationship
+      const [leagueData, seasonsData] = await Promise.all([
         LeagueService.fetchLeagueById(leagueId),
-        CategoryService.fetchLeagueCategories(leagueId),
         SeasonService.fetchAllSeasons()
       ]);
 
       console.log('Fetched league data:', leagueData);
-      console.log('Fetched categories:', categoriesData);
       console.log('Fetched seasons:', seasonsData);
 
       // Set league data to state
@@ -177,8 +176,19 @@ export default function LeagueDetailsScreen({
         season.leagues?.some(l => l.id === leagueId)
       );
 
+      // Normalize category data - seasons have `category` (singular), convert to array format for consistency
+      const normalizedSeasons = leagueSeasons.map(season => {
+        // Handle both `category` (singular) and `categories` (plural) for backward compatibility
+        const category = (season as any).category;
+        const categories = (season as any).categories || (category ? [category] : []);
+        return {
+          ...season,
+          categories: Array.isArray(categories) ? categories : [categories].filter(Boolean)
+        };
+      });
+
       // Filter seasons by gender first
-      const genderFilteredSeasons = leagueSeasons.filter(season => {
+      const genderFilteredSeasons = normalizedSeasons.filter(season => {
         // If season has no categories, skip it
         if (!season.categories || !Array.isArray(season.categories) || season.categories.length === 0) {
           return false;
@@ -191,7 +201,7 @@ export default function LeagueDetailsScreen({
       });
 
       // Set seasons (all league seasons - we'll filter by gender in getFilteredSeasons)
-      setSeasons(leagueSeasons);
+      setSeasons(normalizedSeasons);
 
       // Extract unique categories from gender-filtered seasons
       const availableCategoriesMap = new Map<string, Category>();
@@ -272,10 +282,14 @@ export default function LeagueDetailsScreen({
     }
     
     // Check if this is a doubles season by checking category name
-    const isDoublesSeason = season.categories?.some(cat => 
-      cat.name?.toLowerCase().includes('doubles') || 
-      cat.matchFormat?.toLowerCase().includes('doubles') || 
-      (cat as any).game_type === 'DOUBLES'
+    // Handle both singular and plural category fields
+    const category = (season as any).category;
+    const categories = (season as any).categories || (category ? [category] : []);
+    const normalizedCategories = Array.isArray(categories) ? categories : [categories].filter(Boolean);
+    const isDoublesSeason = normalizedCategories.some(cat => 
+      cat?.name?.toLowerCase().includes('doubles') || 
+      cat?.matchFormat?.toLowerCase().includes('doubles') || 
+      (cat as any)?.game_type === 'DOUBLES'
     );
     
     if (isDoublesSeason) {
@@ -348,13 +362,18 @@ export default function LeagueDetailsScreen({
     
     // Filter by gender first
     filtered = filtered.filter(season => {
+      // Normalize category data - handle both singular and plural
+      const category = (season as any).category;
+      const categories = (season as any).categories || (category ? [category] : []);
+      const normalizedCategories = Array.isArray(categories) ? categories : [categories].filter(Boolean);
+      
       // If season has no categories, skip it
-      if (!season.categories || !Array.isArray(season.categories) || season.categories.length === 0) {
+      if (!normalizedCategories || normalizedCategories.length === 0) {
         return false;
       }
       
       // Check if any category in the season is visible to the user
-      return season.categories.some(category => isCategoryVisibleToUser(category));
+      return normalizedCategories.some(category => isCategoryVisibleToUser(category));
     });
     
     // Then filter by selected category if one is selected
@@ -368,7 +387,11 @@ export default function LeagueDetailsScreen({
       }
       
       filtered = filtered.filter(season => {
-        const seasonCategoryIds = season.categories.map(c => c?.id).filter(Boolean);
+        // Normalize category data - handle both singular and plural
+        const category = (season as any).category;
+        const categories = (season as any).categories || (category ? [category] : []);
+        const normalizedCategories = Array.isArray(categories) ? categories : [categories].filter(Boolean);
+        const seasonCategoryIds = normalizedCategories.map(c => c?.id).filter(Boolean);
         return seasonCategoryIds.includes(selectedCategoryId);
       });
     }
@@ -404,10 +427,14 @@ export default function LeagueDetailsScreen({
 
     const getButtonConfig = () => {
       // For doubles seasons, check if user needs to complete team registration/payment
-      const isDoublesSeason = season.categories?.some(cat =>
-        cat.name?.toLowerCase().includes('doubles') ||
-        cat.matchFormat?.toLowerCase().includes('doubles') ||
-        (cat as any).game_type === 'DOUBLES'
+      // Handle both singular and plural category fields
+      const category = (season as any).category;
+      const categories = (season as any).categories || (category ? [category] : []);
+      const normalizedCategories = Array.isArray(categories) ? categories : [categories].filter(Boolean);
+      const isDoublesSeason = normalizedCategories.some(cat =>
+        cat?.name?.toLowerCase().includes('doubles') ||
+        cat?.matchFormat?.toLowerCase().includes('doubles') ||
+        (cat as any)?.game_type === 'DOUBLES'
       );
 
       // If doubles season and membership is PENDING (not paid), show Register Team
@@ -452,9 +479,12 @@ export default function LeagueDetailsScreen({
 
     const buttonConfig = getButtonConfig();
 
-    // Get category for this season
-    const seasonCategory = season.categories && season.categories.length > 0 
-      ? season.categories[0] 
+    // Get category for this season - handle both singular and plural
+    const category = (season as any).category;
+    const categories = (season as any).categories || (category ? [category] : []);
+    const normalizedCategories = Array.isArray(categories) ? categories : [categories].filter(Boolean);
+    const seasonCategory = normalizedCategories && normalizedCategories.length > 0 
+      ? normalizedCategories[0] 
       : null;
     const categoryDisplayName = seasonCategory 
       ? seasonCategory.name || ''
