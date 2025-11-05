@@ -1,8 +1,11 @@
-import React from 'react';
-import { View, Text, Image, TouchableOpacity, Modal, Pressable, StyleSheet, Dimensions, Platform } from 'react-native';
+import { useSession } from '@/lib/auth-client';
 import { Ionicons } from '@expo/vector-icons';
-import { router } from 'expo-router';
 import * as Haptics from 'expo-haptics';
+import { router } from 'expo-router';
+import React, { useState } from 'react';
+import { ActivityIndicator, Dimensions, Image, Modal, Platform, Pressable, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ChatService } from '../../chat/services/ChatService';
+import { useChatStore } from '../../chat/stores/ChatStore';
 import { Player } from '../types';
 
 const { width } = Dimensions.get('window');
@@ -23,7 +26,6 @@ interface PlayerInfoModalProps {
   player: Player | null;
   isFriend: boolean;
   onClose: () => void;
-  onChat: () => void;
   onSendFriendRequest: () => void;
 }
 
@@ -32,15 +34,68 @@ export const PlayerInfoModal: React.FC<PlayerInfoModalProps> = ({
   player,
   isFriend,
   onClose,
-  onChat,
   onSendFriendRequest,
 }) => {
+  const { data: session } = useSession();
+  const currentUser = session?.user;
+  const [isLoadingChat, setIsLoadingChat] = useState(false);
+  const { threads, setCurrentThread, loadThreads } = useChatStore();
+
   if (!player) return null;
 
   const handleViewProfile = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     onClose();
     router.push(`/player-profile/${player.id}` as any);
+  };
+
+  const handleChat = async () => {
+    if (!currentUser?.id || !player.id) {
+      console.error('Missing user IDs');
+      return;
+    }
+
+    try {
+      setIsLoadingChat(true);
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+
+      console.log('Checking for existing thread between:', currentUser.id, 'and', player.id);
+
+      // Check if thread already exists
+      const existingThread = threads.find(thread => 
+        thread.type === 'direct' && 
+        thread.participants.some(p => p.id === player.id) &&
+        thread.participants.some(p => p.id === currentUser.id)
+      );
+
+      if (existingThread) {
+        console.log('Found existing thread:', existingThread.id);
+        setCurrentThread(existingThread);
+      } else {
+        console.log('No existing thread, creating new one');
+        const newThread = await ChatService.createThread(
+          currentUser.id,
+          [player.id],
+          false
+        );
+        
+        console.log('Created new thread:', newThread.id);
+        await loadThreads(currentUser.id);
+        setCurrentThread(newThread);
+      }
+      
+      onClose();
+      
+      router.push({
+        pathname: '/user-dashboard',
+        params: { view: 'chat' }
+      });
+      
+    } catch (error) {
+      console.error('Error handling chat:', error);
+    } finally {
+      setIsLoadingChat(false);
+    }
   };
 
   return (
@@ -84,8 +139,16 @@ export const PlayerInfoModal: React.FC<PlayerInfoModalProps> = ({
 
           {/* Action Buttons */}
           <View style={styles.actionButtons}>
-            <TouchableOpacity style={styles.actionButton} onPress={onChat}>
-              <Ionicons name="chatbubble" size={20} color="#FEA04D" />
+            <TouchableOpacity 
+              style={styles.actionButton} 
+              onPress={handleChat}
+              disabled={isLoadingChat}
+            >
+              {isLoadingChat ? (
+                <ActivityIndicator size="small" color="#FEA04D" />
+              ) : (
+                <Ionicons name="chatbubble" size={20} color="#FEA04D" />
+              )}
               <Text style={styles.actionButtonText}>Chat</Text>
             </TouchableOpacity>
 

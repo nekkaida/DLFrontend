@@ -1,8 +1,8 @@
-import React from 'react';
-import { View, Text, Pressable, StyleSheet, Platform } from 'react-native';
+import { theme } from '@core/theme/theme';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
-import { theme } from '@core/theme/theme';
+import React from 'react';
+import { ActivityIndicator, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 
 const SPORT_COLORS = {
   Tennis: '#A2E047',
@@ -22,6 +22,7 @@ interface ProfileInfoCardProps {
   onAddFriend?: () => void;
   onChat?: () => void;
   onSportPress?: (sport: string) => void;
+  isLoadingChat?: boolean;
 }
 
 export const ProfileInfoCard: React.FC<ProfileInfoCardProps> = ({
@@ -36,6 +37,7 @@ export const ProfileInfoCard: React.FC<ProfileInfoCardProps> = ({
   onAddFriend,
   onChat,
   onSportPress,
+  isLoadingChat = false,
 }) => {
   return (
     <View style={styles.profileInfoCard}>
@@ -69,11 +71,18 @@ export const ProfileInfoCard: React.FC<ProfileInfoCardProps> = ({
               <Pressable
                 style={styles.actionIcon}
                 onPress={() => {
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                  onChat();
+                  if (!isLoadingChat) {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    onChat();
+                  }
                 }}
+                disabled={isLoadingChat}
               >
-                <Ionicons name="chatbubble" size={14} color={theme.colors.neutral.gray[600]} />
+                {isLoadingChat ? (
+                  <ActivityIndicator size="small" color={theme.colors.neutral.gray[600]} />
+                ) : (
+                  <Ionicons name="chatbubble" size={14} color={theme.colors.neutral.gray[600]} />
+                )}
               </Pressable>
             )}
           </View>
