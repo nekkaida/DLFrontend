@@ -23,21 +23,21 @@ export interface League {
     game_type?: string;
     gender_category?: string;
   }>;
-  // memberships?: Array<{
-  //   id: string;
-  //   userId: string;
-  //   leagueId: string;
-  //   joinedAt: string;
-  //   user: {
-  //     id: string;
-  //     name: string;
-  //     image?: string;
-  //   };
-  // }>;
-  // _count?: {
-  //   memberships: number;
-  //   seasons: number;
-  // };
+  memberships?: Array<{
+    id: string;
+    userId: string;
+    seasonId: string;
+    joinedAt: string;
+    user: {
+      id: string;
+      name: string;
+      image?: string;
+    };
+  }>;
+  _count?: {
+    memberships: number;
+    seasons: number;
+  };
 }
 
 export interface LeagueResponse {

@@ -805,22 +805,25 @@ export default function LeagueDetailsScreen({
                   {/* Profile pictures */}
                   {league?.memberships && league.memberships.length > 0 && (
                     <View style={styles.profilePicturesContainer}>
-                      {league.memberships.slice(0, 6).map((membership: any) => (
-                        <View key={membership.id} style={styles.memberProfilePicture}>
-                          {membership.user.image ? (
-                            <Image
-                              source={{ uri: membership.user.image }}
-                              style={styles.memberProfileImage}
-                            />
-                          ) : (
-                            <View style={styles.defaultMemberProfileImage}>
-                              <Text style={styles.defaultMemberProfileText}>
-                                {membership.user.name?.charAt(0)?.toUpperCase() || 'U'}
-                              </Text>
-                            </View>
-                          )}
-                        </View>
-                      ))}
+                      {league.memberships.slice(0, 6).map((membership: any) => {
+                        if (!membership.user) return null;
+                        return (
+                          <View key={membership.id} style={styles.memberProfilePicture}>
+                            {membership.user.image ? (
+                              <Image
+                                source={{ uri: membership.user.image }}
+                                style={styles.memberProfileImage}
+                              />
+                            ) : (
+                              <View style={styles.defaultMemberProfileImage}>
+                                <Text style={styles.defaultMemberProfileText}>
+                                  {membership.user.name?.charAt(0)?.toUpperCase() || 'U'}
+                                </Text>
+                              </View>
+                            )}
+                          </View>
+                        );
+                      })}
                       {league._count?.memberships && league._count.memberships > 6 && (
                         <View style={styles.remainingCount}>
                           <Text style={styles.remainingCountText}>
