@@ -24,6 +24,7 @@ import { getBackendBaseURL } from '@/src/config/network';
 import { PlayerInviteListItem } from './PlayerInviteListItem';
 import { toast } from 'sonner-native';
 import EmptyPartnerIcon from '@/assets/icons/empty_partner.svg';
+import { useVideoPlayer, VideoView } from 'expo-video';
 
 interface Player {
   id: string;
@@ -68,6 +69,13 @@ export const InvitePartnerBottomSheet: React.FC<InvitePartnerBottomSheetProps> =
   const [isLoading, setIsLoading] = useState(false);
   const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const insets = useSafeAreaInsets();
+
+  // Create video player for empty state
+  const videoPlayer = useVideoPlayer(require('@/assets/videos/connect_partner.mp4'), player => {
+    player.loop = true;
+    player.muted = true;
+    player.play();
+  });
 
   // Use percentage-based snap points for better iOS compatibility
   const snapPoints = useMemo(() => ['85%'], []);
@@ -254,17 +262,31 @@ export const InvitePartnerBottomSheet: React.FC<InvitePartnerBottomSheetProps> =
       return (
         <View style={styles.emptyState}>
           {/* <Ionicons name="people-outline" size={48} color="#BABABA" /> */}
+          <View style={styles.videoContainer}>
+            <VideoView
+              player={videoPlayer}
+              contentFit="contain"
+              nativeControls={false}
+              style={styles.video}
+            />
+          </View>
           <Text style={styles.emptyStateText}>
             {searchQuery ? 'No players found' : 'Oops, looks a little empty here!'}
           </Text>
           <Text style={styles.emptyStateSubtext}>
             {searchQuery 
               ? 'Try a different search term' 
-              : 'Only your friends show up here. Head to Connect to find and add friends before inviting them to your doubles team.'}
+              : (
+                <>
+                  Only your friends show up here. Head to{' '}
+                  <Text style={styles.connectLinkText}>Connect</Text>
+                  {' '}to find and add friends before inviting them to your doubles team.
+                </>
+              )}
           </Text>
           {!searchQuery && (
             <>
-              <EmptyPartnerIcon width={82} height={46} style={styles.emptyPartnerIcon} />
+              {/* <EmptyPartnerIcon width={82} height={46} style={styles.emptyPartnerIcon} /> */}
               <TouchableOpacity 
                 style={styles.connectButton} 
                 onPress={handleConnectPress}
@@ -367,7 +389,7 @@ const styles = StyleSheet.create({
   },
   headerContainer: {
     paddingTop: 8,
-    paddingBottom: 16,
+    paddingBottom: 8,
   },
   header: {
     marginBottom: 20,
@@ -392,7 +414,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     paddingHorizontal: 12,
     paddingVertical: 8,
-    marginBottom: 16,
+    marginBottom: 8,
   },
   searchIcon: {
     marginRight: 8,
@@ -417,14 +439,15 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingVertical: 40,
+    paddingTop: 20,
+    paddingBottom: 40,
     minHeight: 300,
   },
   emptyStateText: {
     fontSize: 22,
     fontWeight: '600',
-    color: '#A04DFE',
-    marginTop: 12,
+    color: '#1D1D1F',
+    marginTop: 4,
     textAlign: 'center',
   },
   emptyStateSubtext: {
@@ -434,12 +457,16 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     paddingHorizontal: 20,
   },
+  connectLinkText: {
+    color: '#FEA04D',
+    textDecorationLine: 'underline',
+  },
   emptyPartnerIcon: {
     marginTop: 48,
     marginBottom: 8,
   },
   connectButton: {
-    marginTop: 16,
+    marginTop: 28,
     paddingHorizontal: 24,
     paddingVertical: 12,
     backgroundColor: '#FEA04D',
@@ -451,5 +478,15 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: '#1D1D1F',
+  },
+  videoContainer: {
+    width: 300,
+    height: 300,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  video: {
+    width: 300,
+    height: 300,
   },
 });
