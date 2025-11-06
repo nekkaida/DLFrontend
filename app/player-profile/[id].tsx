@@ -1,23 +1,25 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
-import {
-  View,
-  StyleSheet,
-  ScrollView,
-  ActivityIndicator,
-  RefreshControl,
-  Dimensions,
-} from 'react-native';
-import { router, useLocalSearchParams } from 'expo-router';
-import * as Haptics from 'expo-haptics';
-import { useSession, authClient } from '@/lib/auth-client';
 import { getBackendBaseURL } from '@/config/network';
-import { toast } from 'sonner-native';
-import { theme } from '@core/theme/theme';
-import { ProfileHeaderWithCurve, ProfilePictureSection, ProfileInfoCard, ProfileAchievementsCard, ProfileSportsSection, ProfileSkillLevelCard, ProfileDMRCard, ProfileLeagueStatsCard, MatchHistoryButton } from '@/src/features/profile/components';
-import { useProfileState } from '@/src/features/profile/hooks/useProfileState';
+import { authClient, useSession } from '@/lib/auth-client';
+import { ChatService } from '@/src/features/chat/services/ChatService';
+import { useChatStore } from '@/src/features/chat/stores/ChatStore';
+import { MatchHistoryButton, ProfileAchievementsCard, ProfileDMRCard, ProfileHeaderWithCurve, ProfileInfoCard, ProfileLeagueStatsCard, ProfilePictureSection, ProfileSkillLevelCard, ProfileSportsSection } from '@/src/features/profile/components';
 import { useProfileHandlers } from '@/src/features/profile/hooks/useProfileHandlers';
+import { useProfileState } from '@/src/features/profile/hooks/useProfileState';
 import { ProfileDataTransformer } from '@/src/features/profile/services/ProfileDataTransformer';
 import type { UserData } from '@/src/features/profile/types';
+import { theme } from '@core/theme/theme';
+import * as Haptics from 'expo-haptics';
+import { router, useLocalSearchParams } from 'expo-router';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import {
+  ActivityIndicator,
+  Dimensions,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  View,
+} from 'react-native';
+import { toast } from 'sonner-native';
 
 const { width } = Dimensions.get('window');
 
@@ -28,6 +30,10 @@ export default function PlayerProfileScreen() {
   const [achievements, setAchievements] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [isLoadingChat, setIsLoadingChat] = useState(false);
+
+  // Chat store
+  const { threads, setCurrentThread, loadThreads } = useChatStore();
 
   // Check if viewing in pairing context
   const isPairingContext = !!seasonId;
@@ -105,10 +111,57 @@ export default function PlayerProfileScreen() {
     toast('Add friend feature coming soon!');
   };
 
-  const handleChat = () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    console.log('Chat with player:', profileData?.name);
-    toast('Chat feature coming soon!');
+  const handleChat = async () => {
+    if (!session?.user?.id || !id) {
+      toast.error('Error', {
+        description: 'Unable to start chat. Please try again.',
+      });
+      return;
+    }
+
+    try {
+      setIsLoadingChat(true);
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+
+      console.log('PlayerProfile: Checking for existing thread between:', session.user.id, 'and', id);
+
+      // Check if thread already exists
+      const existingThread = threads.find(thread => 
+        thread.type === 'direct' && 
+        thread.participants.some(p => p.id === id) &&
+        thread.participants.some(p => p.id === session.user.id)
+      );
+
+      if (existingThread) {
+        console.log('PlayerProfile: Found existing thread:', existingThread.id);
+        setCurrentThread(existingThread);
+      } else {
+        console.log('PlayerProfile: No existing thread, creating new one');
+        const newThread = await ChatService.createThread(
+          session.user.id,
+          [id as string],
+          false
+        );
+        
+        console.log('PlayerProfile: Created new thread:', newThread.id);
+        await loadThreads(session.user.id);
+        setCurrentThread(newThread);
+      }
+      
+      // Navigate to dashboard with chat view
+      router.push({
+        pathname: '/user-dashboard',
+        params: { view: 'chat' }
+      });
+      
+    } catch (error) {
+      console.error('PlayerProfile: Error handling chat:', error);
+      toast.error('Error', {
+        description: 'Failed to open chat. Please try again.',
+      });
+    } finally {
+      setIsLoadingChat(false);
+    }
   };
 
   useEffect(() => {
@@ -249,6 +302,7 @@ export default function PlayerProfileScreen() {
             showActionButtons={true}
             onAddFriend={handleAddFriend}
             onChat={handleChat}
+            isLoadingChat={isLoadingChat}
           />
 
           {/* Achievements */}

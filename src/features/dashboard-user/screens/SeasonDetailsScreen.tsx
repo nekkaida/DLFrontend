@@ -140,15 +140,12 @@ export default function SeasonDetailsScreen({
     
     // Check if this is a doubles season by checking category name
     // Categories like "Men's Doubles", "Women's Doubles", "Mixed Doubles" should go to team pairing
-    const isDoublesSeason = season.categories?.some(cat => 
-      cat.name?.toLowerCase().includes('doubles') || 
-      cat.matchFormat?.toLowerCase().includes('doubles') || 
-      (cat as any).game_type === 'DOUBLES'
-    );
+    const doublesSeason = isDoublesSeason(season);
+    const categories = getNormalizedCategories(season);
     
-    console.log('Is doubles season?', isDoublesSeason, 'Categories:', season.categories?.map(c => c.name));
+    console.log('Is doubles season?', doublesSeason, 'Categories:', categories.map(c => c.name));
     
-    if (isDoublesSeason) {
+    if (doublesSeason) {
       // Navigate to doubles team pairing screen
       router.push({
         pathname: '/user-dashboard/doubles-team-pairing' as any,
@@ -290,6 +287,26 @@ export default function SeasonDetailsScreen({
     return getSubheadingGradientColors(sport)[0];
   };
 
+  // Helper function to normalize categories (handle both singular and plural)
+  const getNormalizedCategories = (season: Season | null): any[] => {
+    if (!season) return [];
+    const category = (season as any)?.category;
+    const categories = (season as any)?.categories || (category ? [category] : []);
+    const normalizedCategories = Array.isArray(categories) ? categories : [categories].filter(Boolean);
+    return normalizedCategories;
+  };
+
+  // Helper function to check if season is doubles
+  const isDoublesSeason = (season: Season | null): boolean => {
+    if (!season) return false;
+    const categories = getNormalizedCategories(season);
+    return categories.some(cat =>
+      cat.name?.toLowerCase().includes('doubles') ||
+      cat.matchFormat?.toLowerCase().includes('doubles') ||
+      (cat as any).game_type === 'DOUBLES'
+    );
+  };
+
   // Button configuration based on user registration status
   const getButtonConfig = () => {
     if (!season || !userId) {
@@ -305,14 +322,10 @@ export default function SeasonDetailsScreen({
     const isUserRegistered = !!userMembership;
 
     // For doubles seasons, check if user needs to complete team registration/payment
-    const isDoublesSeason = season.categories?.some(cat =>
-      cat.name?.toLowerCase().includes('doubles') ||
-      cat.matchFormat?.toLowerCase().includes('doubles') ||
-      (cat as any).game_type === 'DOUBLES'
-    );
+    const doublesSeason = isDoublesSeason(season);
 
     // If doubles season and membership is PENDING (not paid), show Register Team
-    if (isDoublesSeason && userMembership && userMembership.status === 'PENDING') {
+    if (doublesSeason && userMembership && userMembership.status === 'PENDING') {
       return {
         text: 'Register Team',
         color: '#FEA04D',
@@ -447,7 +460,11 @@ export default function SeasonDetailsScreen({
                   <View style={styles.bannerContainer}>
                     <View style={[styles.nameBanner, { backgroundColor: getBannerBackgroundColor(sport) }]}>
                       <Text style={styles.seasonName}>
-                        {season?.categories?.[0]?.name ? `${season.categories[0].name} | ` : ''}
+                        {(() => {
+                          const categories = getNormalizedCategories(season);
+                          const categoryName = categories?.[0]?.name;
+                          return categoryName ? `${categoryName} | ` : '';
+                        })()}
                         <Text style={styles.seasonNameHighlight}>{season?.name || seasonName}</Text>
                       </Text>
                     </View>

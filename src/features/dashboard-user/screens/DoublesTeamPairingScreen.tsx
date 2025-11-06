@@ -561,19 +561,9 @@ export default function DoublesTeamPairingScreen({
     return getTeamDMR(profileData?.skillRatings, selectedPartner.skillRatings, seasonSport);
   }, [profileData?.skillRatings, selectedPartner, partnershipStatus, seasonSport]);
 
+  // Helper function to get available sports for SportSwitcher
   const getUserSelectedSports = () => {
-    if (!profileData?.sports) return [];
-    const sports = profileData.sports.map((sport: string) => sport.toLowerCase());
-    const preferredOrder = ['pickleball', 'tennis', 'padel'];
-    const configuredSports = sports.filter((sport: string) => ['pickleball', 'tennis', 'padel'].includes(sport));
-    return configuredSports.sort((a: string, b: string) => {
-      const indexA = preferredOrder.indexOf(a);
-      const indexB = preferredOrder.indexOf(b);
-      if (indexA !== -1 && indexB !== -1) return indexA - indexB;
-      if (indexA !== -1) return -1;
-      if (indexB !== -1) return 1;
-      return 0;
-    });
+    return ["pickleball", "tennis", "padel"];
   };
 
   const getHeaderGradientColors = (sport: 'pickleball' | 'tennis' | 'padel'): [string, string] => {
@@ -629,7 +619,13 @@ export default function DoublesTeamPairingScreen({
         <SportSwitcher
           currentSport={selectedSport}
           availableSports={getUserSelectedSports()}
-          onSportChange={setSelectedSport}
+          onSportChange={(newSport) => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            router.push({
+              pathname: '/user-dashboard' as any,
+              params: { sport: newSport }
+            });
+          }}
         />
         
         <View style={styles.headerRight} />
@@ -680,7 +676,13 @@ export default function DoublesTeamPairingScreen({
                   <View style={styles.bannerContainer}>
                     <View style={[styles.nameBanner, { backgroundColor: getBannerBackgroundColor(selectedSport) }]}>
                       <Text style={styles.seasonName}>
-                        {season?.categories?.[0]?.name ? `${season.categories[0].name} | ` : ''}
+                        {(() => {
+                          const category = (season as any)?.category;
+                          const categories = (season as any)?.categories || (category ? [category] : []);
+                          const normalizedCategories = Array.isArray(categories) ? categories : [categories].filter(Boolean);
+                          const categoryName = normalizedCategories?.[0]?.name;
+                          return categoryName ? `${categoryName} | ` : '';
+                        })()}
                         <Text style={styles.seasonNameHighlight}>{season?.name || seasonName}</Text>
                       </Text>
                     </View>
@@ -736,6 +738,10 @@ export default function DoublesTeamPairingScreen({
                     )}
                     {invitationStatus === 'pending_received' && (
                       <Text style={styles.roleLabel}>Team Member</Text>
+                    )}
+                    {/* Show role label during active partnership */}
+                    {partnershipStatus === 'active' && currentPartnership?.captainId === userId && (
+                      <Text style={styles.roleLabel}>Team Captain</Text>
                     )}
                   </View>
 
@@ -803,40 +809,10 @@ export default function DoublesTeamPairingScreen({
 
                         {partnershipStatus === 'active' && (
                           <>
-                            <Text style={styles.playerDMR}>
-                              DMR: {(() => {
-                                if (!selectedPartner?.skillRatings || !season) {
-                                  console.log('🔍 Partner DMR - Missing data:', {
-                                    hasSkillRatings: !!selectedPartner?.skillRatings,
-                                    hasSeason: !!season,
-                                    skillRatings: selectedPartner?.skillRatings,
-                                  });
-                                  return 'N/A';
-                                }
-                                // Get the season's sport
-                                const seasonSport = getSeasonSport(season) || sport || 'pickleball';
-                                const sportKey = seasonSport.toLowerCase();
-                                console.log('🔍 Partner DMR - Calculating:', {
-                                  seasonSport,
-                                  sportKey,
-                                  skillRatingsKeys: Object.keys(selectedPartner.skillRatings),
-                                  partnerSportRating: selectedPartner.skillRatings[sportKey],
-                                });
-                                const partnerSportRating = selectedPartner.skillRatings[sportKey];
-                                if (!partnerSportRating) {
-                                  console.log('🔍 Partner DMR - No rating for sport:', sportKey);
-                                  return 'N/A';
-                                }
-                                const partnerDoublesRating = partnerSportRating?.doubles;
-                                if (partnerDoublesRating == null) {
-                                  console.log('🔍 Partner DMR - Doubles rating is null/undefined');
-                                  return 'N/A';
-                                }
-                                const dmr = Math.round(partnerDoublesRating * 1000).toString();
-                                console.log('🔍 Partner DMR - Calculated:', dmr);
-                                return dmr;
-                              })()}
-                            </Text>
+                            <Text style={styles.playerDMR}>DMR: {partnerDMR}</Text>
+                            {currentPartnership?.captainId !== userId && (
+                              <Text style={styles.roleLabel}>Team Captain</Text>
+                            )}
                             <TouchableOpacity style={styles.unlinkButton} onPress={handleUnlink}>
                               <Text style={styles.unlinkButtonText}>Unlink</Text>
                             </TouchableOpacity>
@@ -906,7 +882,7 @@ export default function DoublesTeamPairingScreen({
                   ? 'Waiting for Partner'
                   : invitationStatus === 'pending_received'
                   ? 'Accept in Invitations Tab'
-                  : 'Select Partner First'}
+                  : 'Select a Partner First'}
               </Text>
             </TouchableOpacity>
           </View>
@@ -1175,6 +1151,14 @@ const styles = StyleSheet.create({
     width: 80,
     height: 80,
     borderRadius: 40,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 4,
   },
   defaultAvatar: {
     width: 80,
@@ -1183,6 +1167,14 @@ const styles = StyleSheet.create({
     backgroundColor: '#6de9a0',
     justifyContent: 'center',
     alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 4,
   },
   defaultAvatarText: {
     color: '#FFFFFF',
@@ -1208,8 +1200,8 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   playerDMR: {
-    fontSize: isSmallScreen ? 11 : 12,
-    color: '#86868B',
+    fontSize: isSmallScreen ? 13 : 14,
+    color: '#1D1D1F',
     marginTop: 4,
   },
   inviteText: {
@@ -1234,12 +1226,14 @@ const styles = StyleSheet.create({
     marginTop: 8,
     paddingHorizontal: 12,
     paddingVertical: 6,
-    backgroundColor: '#FF3B30',
-    borderRadius: 6,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#7525CF',
   },
   unlinkButtonText: {
-    color: '#FFFFFF',
-    fontSize: 11,
+    color: '#7525CF',
+    fontSize: 12,
     fontWeight: '600',
   },
   statusLabel: {
@@ -1256,10 +1250,10 @@ const styles = StyleSheet.create({
   },
   plusContainer: {
     width: 56,
-    height: 70,
-    justifyContent: 'flex-start',
+    height: 80,
+    justifyContent: 'center',
     alignItems: 'center',
-    paddingTop: 0,
+    marginTop: -100,
   },
   teamDMRChipContainer: {
     width: '100%',
@@ -1273,7 +1267,7 @@ const styles = StyleSheet.create({
   },
   teamDMRText: {
     color: '#FDFDFD',
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '600',
   },
   stickyButtonContainer: {

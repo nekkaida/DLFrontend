@@ -167,22 +167,25 @@ export function LeagueCard({ league, onJoinPress, variant = 'regular', size = 'c
             {league.memberships && league.memberships.length > 0 && (
               <View style={styles.profilePicturesSection}>
                 <View style={styles.profilePicturesContainer}>
-                  {league.memberships.slice(0, 6).map((membership) => (
-                    <View key={membership.id} style={styles.profilePicture}>
-                      {membership.user.image ? (
-                        <Image 
-                          source={{ uri: membership.user.image }}
-                          style={styles.profileImage}
-                        />
-                      ) : (
-                        <View style={styles.defaultProfileImage}>
-                          <Text style={styles.defaultProfileText}>
-                            {membership.user.name?.charAt(0)?.toUpperCase() || 'U'}
-                          </Text>
-                        </View>
-                      )}
-                    </View>
-                  ))}
+                  {league.memberships.slice(0, 6).map((membership: NonNullable<League['memberships']>[0]) => {
+                    if (!membership.user) return null;
+                    return (
+                      <View key={membership.id} style={styles.profilePicture}>
+                        {membership.user.image ? (
+                          <Image 
+                            source={{ uri: membership.user.image }}
+                            style={styles.profileImage}
+                          />
+                        ) : (
+                          <View style={styles.defaultProfileImage}>
+                            <Text style={styles.defaultProfileText}>
+                              {membership.user.name?.charAt(0)?.toUpperCase() || 'U'}
+                            </Text>
+                          </View>
+                        )}
+                      </View>
+                    );
+                  })}
                   {league.totalSeasonMemberships && league.totalSeasonMemberships > 6 && (
                     <View style={styles.remainingCount}>
                       <Text style={styles.remainingCountText}>
@@ -272,22 +275,25 @@ export function LeagueCard({ league, onJoinPress, variant = 'regular', size = 'c
         {league.memberships && league.memberships.length > 0 && (
           <View style={styles.regularProfilePicturesSection}>
             <View style={styles.regularProfilePicturesContainer}>
-              {league.memberships.slice(0, 6).map((membership) => (
-                <View key={membership.id} style={styles.regularProfilePicture}>
-                  {membership.user.image ? (
-                    <Image 
-                      source={{ uri: membership.user.image }}
-                      style={styles.regularProfileImage}
-                    />
-                  ) : (
-                    <View style={styles.regularDefaultProfileImage}>
-                      <Text style={styles.regularDefaultProfileText}>
-                        {membership.user.name?.charAt(0)?.toUpperCase() || 'U'}
-                      </Text>
-                    </View>
-                  )}
-                </View>
-              ))}
+              {league.memberships.slice(0, 6).map((membership: NonNullable<League['memberships']>[0]) => {
+                if (!membership.user) return null;
+                return (
+                  <View key={membership.id} style={styles.regularProfilePicture}>
+                    {membership.user.image ? (
+                      <Image 
+                        source={{ uri: membership.user.image }}
+                        style={styles.regularProfileImage}
+                      />
+                    ) : (
+                      <View style={styles.regularDefaultProfileImage}>
+                        <Text style={styles.regularDefaultProfileText}>
+                          {membership.user.name?.charAt(0)?.toUpperCase() || 'U'}
+                        </Text>
+                      </View>
+                    )}
+                  </View>
+                );
+              })}
               {league.totalSeasonMemberships && league.totalSeasonMemberships > 6 && (
                 <View style={styles.regularRemainingCount}>
                   <Text style={styles.regularRemainingCountText}>

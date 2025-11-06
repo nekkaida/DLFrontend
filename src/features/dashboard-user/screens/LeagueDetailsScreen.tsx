@@ -158,15 +158,14 @@ export default function LeagueDetailsScreen({
       setIsLoading(true);
       setError(null);
 
-      // Fetch league, categories, and seasons in parallel
-      const [leagueData, categoriesData, seasonsData] = await Promise.all([
+      // Fetch league and seasons in parallel
+      // Note: Categories are extracted from seasons since there's no direct league->category relationship
+      const [leagueData, seasonsData] = await Promise.all([
         LeagueService.fetchLeagueById(leagueId),
-        CategoryService.fetchLeagueCategories(leagueId),
         SeasonService.fetchAllSeasons()
       ]);
 
       console.log('Fetched league data:', leagueData);
-      console.log('Fetched categories:', categoriesData);
       console.log('Fetched seasons:', seasonsData);
 
       // Set league data to state
@@ -177,8 +176,19 @@ export default function LeagueDetailsScreen({
         season.leagues?.some(l => l.id === leagueId)
       );
 
+      // Normalize category data - seasons have `category` (singular), convert to array format for consistency
+      const normalizedSeasons = leagueSeasons.map(season => {
+        // Handle both `category` (singular) and `categories` (plural) for backward compatibility
+        const category = (season as any).category;
+        const categories = (season as any).categories || (category ? [category] : []);
+        return {
+          ...season,
+          categories: Array.isArray(categories) ? categories : [categories].filter(Boolean)
+        };
+      });
+
       // Filter seasons by gender first
-      const genderFilteredSeasons = leagueSeasons.filter(season => {
+      const genderFilteredSeasons = normalizedSeasons.filter(season => {
         // If season has no categories, skip it
         if (!season.categories || !Array.isArray(season.categories) || season.categories.length === 0) {
           return false;
@@ -191,7 +201,7 @@ export default function LeagueDetailsScreen({
       });
 
       // Set seasons (all league seasons - we'll filter by gender in getFilteredSeasons)
-      setSeasons(leagueSeasons);
+      setSeasons(normalizedSeasons);
 
       // Extract unique categories from gender-filtered seasons
       const availableCategoriesMap = new Map<string, Category>();
@@ -238,7 +248,42 @@ export default function LeagueDetailsScreen({
   };
 
   const handleTabPress = (tabIndex: number) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setActiveTab(tabIndex);
+    
+    // Navigate based on tab index
+    // Tab indices: 0=Connect, 1=Friendly, 2=Leagues, 3=My Games, 4=Chat
+    if (tabIndex === 0) {
+      // Navigate to Connect
+      router.push({
+        pathname: '/user-dashboard/connect' as any,
+        params: { sport: selectedSport }
+      });
+    } else if (tabIndex === 1) {
+      // Navigate to Friendly
+      router.push({
+        pathname: '/user-dashboard' as any,
+        params: { view: 'friendly', sport: selectedSport }
+      });
+    } else if (tabIndex === 2) {
+      // Navigate to Leagues (main dashboard)
+      router.push({
+        pathname: '/user-dashboard' as any,
+        params: { view: 'dashboard', sport: selectedSport }
+      });
+    } else if (tabIndex === 3) {
+      // Navigate to My Games
+      router.push({
+        pathname: '/user-dashboard' as any,
+        params: { view: 'myGames', sport: selectedSport }
+      });
+    } else if (tabIndex === 4) {
+      // Navigate to Chat
+      router.push({
+        pathname: '/user-dashboard' as any,
+        params: { view: 'chat', sport: selectedSport }
+      });
+    }
   };
 
   const handleCategoryPress = (categoryId: string) => {
@@ -272,10 +317,14 @@ export default function LeagueDetailsScreen({
     }
     
     // Check if this is a doubles season by checking category name
-    const isDoublesSeason = season.categories?.some(cat => 
-      cat.name?.toLowerCase().includes('doubles') || 
-      cat.matchFormat?.toLowerCase().includes('doubles') || 
-      (cat as any).game_type === 'DOUBLES'
+    // Handle both singular and plural category fields
+    const category = (season as any).category;
+    const categories = (season as any).categories || (category ? [category] : []);
+    const normalizedCategories = Array.isArray(categories) ? categories : [categories].filter(Boolean);
+    const isDoublesSeason = normalizedCategories.some(cat => 
+      cat?.name?.toLowerCase().includes('doubles') || 
+      cat?.matchFormat?.toLowerCase().includes('doubles') || 
+      (cat as any)?.game_type === 'DOUBLES'
     );
     
     if (isDoublesSeason) {
@@ -348,13 +397,18 @@ export default function LeagueDetailsScreen({
     
     // Filter by gender first
     filtered = filtered.filter(season => {
+      // Normalize category data - handle both singular and plural
+      const category = (season as any).category;
+      const categories = (season as any).categories || (category ? [category] : []);
+      const normalizedCategories = Array.isArray(categories) ? categories : [categories].filter(Boolean);
+      
       // If season has no categories, skip it
-      if (!season.categories || !Array.isArray(season.categories) || season.categories.length === 0) {
+      if (!normalizedCategories || normalizedCategories.length === 0) {
         return false;
       }
       
       // Check if any category in the season is visible to the user
-      return season.categories.some(category => isCategoryVisibleToUser(category));
+      return normalizedCategories.some(category => isCategoryVisibleToUser(category));
     });
     
     // Then filter by selected category if one is selected
@@ -368,7 +422,11 @@ export default function LeagueDetailsScreen({
       }
       
       filtered = filtered.filter(season => {
-        const seasonCategoryIds = season.categories.map(c => c?.id).filter(Boolean);
+        // Normalize category data - handle both singular and plural
+        const category = (season as any).category;
+        const categories = (season as any).categories || (category ? [category] : []);
+        const normalizedCategories = Array.isArray(categories) ? categories : [categories].filter(Boolean);
+        const seasonCategoryIds = normalizedCategories.map(c => c?.id).filter(Boolean);
         return seasonCategoryIds.includes(selectedCategoryId);
       });
     }
@@ -404,10 +462,14 @@ export default function LeagueDetailsScreen({
 
     const getButtonConfig = () => {
       // For doubles seasons, check if user needs to complete team registration/payment
-      const isDoublesSeason = season.categories?.some(cat =>
-        cat.name?.toLowerCase().includes('doubles') ||
-        cat.matchFormat?.toLowerCase().includes('doubles') ||
-        (cat as any).game_type === 'DOUBLES'
+      // Handle both singular and plural category fields
+      const category = (season as any).category;
+      const categories = (season as any).categories || (category ? [category] : []);
+      const normalizedCategories = Array.isArray(categories) ? categories : [categories].filter(Boolean);
+      const isDoublesSeason = normalizedCategories.some(cat =>
+        cat?.name?.toLowerCase().includes('doubles') ||
+        cat?.matchFormat?.toLowerCase().includes('doubles') ||
+        (cat as any)?.game_type === 'DOUBLES'
       );
 
       // If doubles season and membership is PENDING (not paid), show Register Team
@@ -452,9 +514,12 @@ export default function LeagueDetailsScreen({
 
     const buttonConfig = getButtonConfig();
 
-    // Get category for this season
-    const seasonCategory = season.categories && season.categories.length > 0 
-      ? season.categories[0] 
+    // Get category for this season - handle both singular and plural
+    const category = (season as any).category;
+    const categories = (season as any).categories || (category ? [category] : []);
+    const normalizedCategories = Array.isArray(categories) ? categories : [categories].filter(Boolean);
+    const seasonCategory = normalizedCategories && normalizedCategories.length > 0 
+      ? normalizedCategories[0] 
       : null;
     const categoryDisplayName = seasonCategory 
       ? seasonCategory.name || ''
@@ -775,22 +840,25 @@ export default function LeagueDetailsScreen({
                   {/* Profile pictures */}
                   {league?.memberships && league.memberships.length > 0 && (
                     <View style={styles.profilePicturesContainer}>
-                      {league.memberships.slice(0, 6).map((membership: any) => (
-                        <View key={membership.id} style={styles.memberProfilePicture}>
-                          {membership.user.image ? (
-                            <Image
-                              source={{ uri: membership.user.image }}
-                              style={styles.memberProfileImage}
-                            />
-                          ) : (
-                            <View style={styles.defaultMemberProfileImage}>
-                              <Text style={styles.defaultMemberProfileText}>
-                                {membership.user.name?.charAt(0)?.toUpperCase() || 'U'}
-                              </Text>
-                            </View>
-                          )}
-                        </View>
-                      ))}
+                      {league.memberships.slice(0, 6).map((membership: any) => {
+                        if (!membership.user) return null;
+                        return (
+                          <View key={membership.id} style={styles.memberProfilePicture}>
+                            {membership.user.image ? (
+                              <Image
+                                source={{ uri: membership.user.image }}
+                                style={styles.memberProfileImage}
+                              />
+                            ) : (
+                              <View style={styles.defaultMemberProfileImage}>
+                                <Text style={styles.defaultMemberProfileText}>
+                                  {membership.user.name?.charAt(0)?.toUpperCase() || 'U'}
+                                </Text>
+                              </View>
+                            )}
+                          </View>
+                        );
+                      })}
                       {league._count?.memberships && league._count.memberships > 6 && (
                         <View style={styles.remainingCount}>
                           <Text style={styles.remainingCountText}>
