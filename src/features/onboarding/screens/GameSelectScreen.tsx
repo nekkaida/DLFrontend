@@ -168,10 +168,10 @@ const styles = StyleSheet.create({
     marginBottom: 18,
   },
   helperText: {
-    fontSize: 14,
+    fontSize: 16,
     fontWeight: '500',
     color: '#8C8C8C',
-    lineHeight: 20,
+    lineHeight: 22,
     letterSpacing: -0.01,
     fontFamily: 'Inter',
     marginBottom: 10,
