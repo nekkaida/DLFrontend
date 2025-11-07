@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, ScrollView } from 'react-native';
+import { View, Text, TouchableOpacity } from 'react-native';
 import { SportBranding } from '../components/SportBranding';
 import { styles } from './QuestionnaireIntroduction.styles';
 
@@ -25,13 +25,7 @@ export const QuestionnaireIntroduction: React.FC<QuestionnaireIntroductionProps>
 
       {/* Introduction container - Now in flex layout */}
       <View style={styles.introductionContainer}>
-        <ScrollView
-          style={styles.scrollContainer}
-          contentContainerStyle={styles.scrollContent}
-          showsVerticalScrollIndicator={false}
-          bounces={true}
-        >
-          <View style={styles.whiteCard}>
+        <View style={styles.whiteCard}>
           {/* Greeting */}
           <View style={styles.greetingContainer}>
             <Text style={[
