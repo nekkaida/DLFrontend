@@ -581,7 +581,7 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
   ratingValue: {
-    fontSize: 42,
+    fontSize: 48,
     fontWeight: '900',
     color: '#FEA04D',
     fontFamily: 'Inter',
