@@ -59,7 +59,7 @@ export default function LoginRoute() {
   };
 
   const handleSignUp = () => {
-    router.replace("/register");
+    router.push("/register");
   };
 
   const handleForgotPassword = () => {
