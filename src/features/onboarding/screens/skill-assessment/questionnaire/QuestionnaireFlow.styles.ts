@@ -3,7 +3,8 @@ import {
   scaleFontSize,
   moderateScale,
   getResponsivePadding,
-  isSmallDevice
+  isSmallDevice,
+  createShadow
 } from '../utils/responsive';
 
 const isSmall = isSmallDevice();
@@ -15,8 +16,11 @@ export const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: getResponsivePadding(20),
-    paddingTop: moderateScale(10),
-    paddingBottom: moderateScale(20),
+    paddingTop: Platform.select({
+      ios: moderateScale(isSmall ? 50 : 60),     // Much more space for iOS
+      android: moderateScale(isSmall ? 40 : 50), // More space for Android
+    }),
+    paddingBottom: moderateScale(isSmall ? 12 : 16),
   },
   backButton: {
     width: moderateScale(48),
@@ -44,7 +48,7 @@ export const styles = StyleSheet.create({
     width: moderateScale(40),
   },
 
-  // Question Container - Pure flex layout (no absolute positioning)
+  // Question Container - Card stack layout
   questionnaireContainer: {
     flex: 1,
     paddingHorizontal: getResponsivePadding(15),
@@ -53,15 +57,49 @@ export const styles = StyleSheet.create({
       android: moderateScale(15),
     }),
   },
-  questionCardWrapper: {
+
+  // Card Stack Container
+  cardStack: {
     flex: 1,
+    position: 'relative',
   },
-  navigationButtonsContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingTop: moderateScale(16),
-    paddingBottom: moderateScale(8),
+
+  // Stacked Card Layers (showing depth/remaining cards) - only peek at top
+  stackedCardLayer: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    overflow: 'hidden', // Hide most of the card
+  },
+
+  // Card Placeholder (empty card showing just top edge)
+  cardPlaceholder: {
+    height: '100%',
+    backgroundColor: '#FFFFFF',  // Solid white
+    borderRadius: moderateScale(isSmall ? 24 : 30),
+    borderWidth: 1.5,
+    borderColor: 'rgba(0, 0, 0, 0.08)', // Subtle dark border for depth
+    ...createShadow('#000', 0.2, 8, 6), // Strong shadow for contrast
+    opacity: 1,  // Ensure fully opaque
+  },
+
+  // Next Card Container (behind current, animated to slide up)
+  nextCardContainer: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    zIndex: 15, // Behind active card
+  },
+
+  // Active Card Container (animated, slides left)
+  activeCardContainer: {
+    position: 'relative',
+    flex: 1,
+    zIndex: 20, // In front of next card
   },
 
   // Loading/Error
