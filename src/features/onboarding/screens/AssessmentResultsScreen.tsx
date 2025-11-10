@@ -304,21 +304,27 @@ const AssessmentResultsScreen = () => {
                 <>
                   <View style={styles.ratingSection}>
                     <Text style={styles.ratingLabel}>Singles</Text>
-                    <Text style={styles.ratingValue}>{(results.rating as any).singles_rating}</Text>
+                    <View style={styles.ratingValueContainer}>
+                      <Text style={styles.ratingValue}>{(results.rating as any).singles_rating}</Text>
+                    </View>
                   </View>
                   <View style={styles.ratingDivider} />
                   <View style={styles.ratingSection}>
                     <Text style={styles.ratingLabel}>Doubles</Text>
-                    <Text style={styles.ratingValue}>{(results.rating as any).doubles_rating}</Text>
+                    <View style={styles.ratingValueContainer}>
+                      <Text style={styles.ratingValue}>{(results.rating as any).doubles_rating}</Text>
+                    </View>
                   </View>
                 </>
               ) : (
                 <View style={styles.ratingSection}>
                   <Text style={styles.ratingLabel}>Rating</Text>
-                  <Text style={styles.ratingValue}>
-                    {typeof results.rating === 'number' ? results.rating : 
-                     (results.rating && typeof results.rating === 'object' && 'rating' in results.rating) ? (results.rating as any).rating : 'N/A'}
-                  </Text>
+                  <View style={styles.ratingValueContainer}>
+                    <Text style={styles.ratingValue}>
+                      {typeof results.rating === 'number' ? results.rating : 
+                       (results.rating && typeof results.rating === 'object' && 'rating' in results.rating) ? (results.rating as any).rating : 'N/A'}
+                    </Text>
+                  </View>
                 </View>
               )}
             </View>
@@ -522,7 +528,8 @@ const styles = StyleSheet.create({
   },
   cardTopSection: {
     backgroundColor: '#FFFFFF',
-    padding: 30,
+    padding: 24,
+    paddingHorizontal: 20,
     alignItems: 'center',
   },
   cardBottomSection: {
@@ -559,17 +566,22 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginTop: 5,
     marginBottom: 24,
+    width: '100%',
   },
   ratingSection: {
     alignItems: 'center',
     flex: 1,
+    minWidth: 0,
+    paddingHorizontal: 2,
+    flexShrink: 1,
   },
   ratingDivider: {
     width: 2,
     height: 80,
     backgroundColor: '#777777',
-    marginHorizontal: 20,
+    marginHorizontal: 8,
     opacity: 0.2,
+    flexShrink: 0,
   },
   ratingLabel: {
     fontSize: 22,
@@ -579,11 +591,17 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter',
     letterSpacing: 0.5,
   },
+  ratingValueContainer: {
+    flexShrink: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   ratingValue: {
     fontSize: 48,
     fontWeight: '900',
     color: '#FEA04D',
     fontFamily: 'Inter',
+    textAlign: 'center',
   },
   skillLevelContainer: {
     alignItems: 'center',
