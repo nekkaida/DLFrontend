@@ -328,7 +328,6 @@ export const InvitePartnerBottomSheet: React.FC<InvitePartnerBottomSheetProps> =
       android_keyboardInputMode="adjustResize"
       keyboardBlurBehavior="restore"
       keyboardBehavior="interactive"
-      bottomInset={insets.bottom}
       detached={false}
     >
       <BottomSheetFlatList
@@ -351,6 +350,7 @@ export const InvitePartnerBottomSheet: React.FC<InvitePartnerBottomSheetProps> =
         contentContainerStyle={[
           styles.listContent,
           isEmpty && styles.listContentEmpty,
+          { paddingBottom: 20 + insets.bottom },
         ]}
         style={styles.listStyle}
       />
@@ -430,7 +430,6 @@ const styles = StyleSheet.create({
   },
   listContent: {
     paddingHorizontal: 20,
-    paddingBottom: 20,
   },
   listContentEmpty: {
     flexGrow: 1,
