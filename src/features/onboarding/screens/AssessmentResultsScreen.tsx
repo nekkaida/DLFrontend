@@ -342,15 +342,13 @@ const AssessmentResultsScreen = () => {
 
           {/* Bottom Section */}
           <LinearGradient
-            colors={sport === 'pickleball' ? ['#A04DFE', '#602E98'] : 
-                   sport === 'tennis' ? ['#A2E047', '#587A27'] : 
-                   ['#83C4FE', '#2196F3']}
+            colors={sport === 'pickleball' ? ['#BC82FD', '#916DB8'] : 
+                   sport === 'tennis' ? ['#B4E56C', '#95AB74'] : 
+                   ['#82C3FC', '#6D94B7']}
             start={{ x: 0.5, y: 0 }}
             end={{ x: 1, y: 0 }}
             style={[
               styles.cardBottomSection,
-              sport === 'tennis' && styles.tennisCardBottomSection,
-              sport === 'padel' && styles.padelCardBottomSection
             ]}
           >
             <Text style={styles.instructionalText}>
@@ -532,12 +530,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderBottomLeftRadius: 20,
     borderBottomRightRadius: 20,
-  },
-  tennisCardBottomSection: {
-    // Background color handled by LinearGradient
-  },
-  padelCardBottomSection: {
-    // Background color handled by LinearGradient
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.24,
+    shadowRadius: 6,
+    elevation: 5,
   },
   dmrTitle: {
     fontSize: 14,
