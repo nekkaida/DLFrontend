@@ -1156,14 +1156,14 @@ const styles = StyleSheet.create({
     backgroundColor: '#F5F5F5',
   },
   playerName: {
-    fontSize: isSmallScreen ? 13 : 14,
+    fontSize: isSmallScreen ? 15 : 16,
     fontWeight: '600',
     color: '#1D1D1F',
     marginTop: 12,
     textAlign: 'center',
   },
   playerDMR: {
-    fontSize: isSmallScreen ? 13 : 14,
+    fontSize: isSmallScreen ? 15 : 16,
     color: '#1D1D1F',
     marginTop: 4,
   },
@@ -1180,10 +1180,10 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   roleLabel: {
-    fontSize: isSmallScreen ? 10 : 11,
-    color: '#A04DFE',
+    fontSize: isSmallScreen ? 12 : 13,
+    color: '#86868B',
     marginTop: 6,
-    fontWeight: '600',
+    fontWeight: '400',
   },
   unlinkButton: {
     marginTop: 8,
@@ -1226,11 +1226,11 @@ const styles = StyleSheet.create({
   teamDMRChip: {
     paddingHorizontal: 24,
     paddingVertical: 10,
-    borderRadius: 8,
+    borderRadius: 12,
   },
   teamDMRText: {
     color: '#FDFDFD',
-    fontSize: 14,
+    fontSize: isSmallScreen ? 16 : isTablet ? 20 : 18,
     fontWeight: '600',
   },
   stickyButtonContainer: {
