@@ -47,6 +47,7 @@ const ProfilePictureScreen = () => {
   const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [showCropper, setShowCropper] = useState(false);
   const [selectedImageUri, setSelectedImageUri] = useState<string | null>(null);
+  const [isSkipSelected, setIsSkipSelected] = useState(false);
   const router = useRouter();
   const { data: session } = useSession();
 
@@ -227,6 +228,9 @@ const ProfilePictureScreen = () => {
         console.log('Has EXIF:', result.assets[0].exif !== undefined);
         console.log('=================================================');
 
+        // Cancel skip selection when taking a photo
+        setIsSkipSelected(false);
+
         // Normalize EXIF rotation BEFORE showing cropper
         // This ensures the displayed image matches what will be cropped
         console.log('Normalizing camera image before cropper...');
@@ -264,6 +268,9 @@ const ProfilePictureScreen = () => {
         console.log('Has EXIF:', result.assets[0].exif !== undefined);
         console.log('============================================================');
 
+        // Cancel skip selection when uploading a photo
+        setIsSkipSelected(false);
+
         // Normalize EXIF rotation BEFORE showing cropper
         // This ensures the displayed image matches what will be cropped
         console.log('Normalizing library image before cropper...');
@@ -287,6 +294,35 @@ const ProfilePictureScreen = () => {
 
   const handleComplete = async () => {
     try {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      
+      // If skip is selected, perform skip logic
+      if (isSkipSelected) {
+        // Mark onboarding as completed
+        if (session?.user?.id) {
+          console.log('ProfilePictureScreen: Calling completeOnboarding API (skip)...');
+          const result = await questionnaireAPI.completeOnboarding(session.user.id);
+          console.log('ProfilePictureScreen: Onboarding completion result (skip):', result);
+          console.log('ProfilePictureScreen: Onboarding marked as completed (skip)');
+          
+          // Wait longer for the backend to process the completion and database to update
+          await new Promise(resolve => setTimeout(resolve, 1500));
+          console.log('ProfilePictureScreen: Waited for backend processing (skip)');
+        }
+        
+        // Skip photo and navigate to main app
+        toast.success('Success!', {
+          description: 'Onboarding completed! Welcome to DeuceLeague!',
+        });
+        
+        console.log('ProfilePictureScreen: Navigating to dashboard (skip)...');
+        
+        // Force clear any cached navigation state and navigate
+        router.replace('/user-dashboard');
+        return;
+      }
+      
+      // Otherwise, complete normally with profile picture
       // Mark onboarding as completed
       if (session?.user?.id) {
         console.log('ProfilePictureScreen: Calling completeOnboarding API...');
@@ -325,6 +361,8 @@ const ProfilePictureScreen = () => {
   const handleCropComplete = async (croppedUri: string) => {
     setShowCropper(false);
     setSelectedImageUri(null);
+    // Cancel skip selection when cropping completes
+    setIsSkipSelected(false);
     await uploadProfileImage(croppedUri);
   };
 
@@ -333,35 +371,14 @@ const ProfilePictureScreen = () => {
     setSelectedImageUri(null);
   };
 
-  const handleSkip = async () => {
-    try {
-      // Mark onboarding as completed
-      if (session?.user?.id) {
-        console.log('ProfilePictureScreen: Calling completeOnboarding API (skip)...');
-        const result = await questionnaireAPI.completeOnboarding(session.user.id);
-        console.log('ProfilePictureScreen: Onboarding completion result (skip):', result);
-        console.log('ProfilePictureScreen: Onboarding marked as completed (skip)');
-        
-        // Wait longer for the backend to process the completion and database to update
-        await new Promise(resolve => setTimeout(resolve, 1500));
-        console.log('ProfilePictureScreen: Waited for backend processing (skip)');
-      }
-      
-      // Skip photo and navigate to main app
-      toast.success('Success!', {
-        description: 'Onboarding completed! Welcome to DeuceLeague!',
-      });
-      
-      console.log('ProfilePictureScreen: Navigating to dashboard (skip)...');
-      
-      // Force clear any cached navigation state and navigate
-      router.replace('/user-dashboard');
-    } catch (error) {
-      console.error('ProfilePictureScreen: Error completing onboarding (skip):', error);
-      // Still navigate even if completion fails
-      console.log('ProfilePictureScreen: Navigating to dashboard despite error (skip)...');
-      router.push('/user-dashboard');
+  const handleSkip = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    // Clear profile image if one exists
+    if (profileImage) {
+      setProfileImage(null);
     }
+    // Toggle skip selection
+    setIsSkipSelected(!isSkipSelected);
   };
 
   return (
@@ -469,10 +486,12 @@ const ProfilePictureScreen = () => {
       {/* Skip for now */}
       <View style={styles.skipContainer}>
         <TouchableOpacity onPress={handleSkip} style={styles.skipButton}>
-          <Image
-            source={require('../../../../assets/images/yes.png')}
-            style={styles.skipIcon}
-          />
+          {isSkipSelected && (
+            <Image
+              source={require('../../../../assets/images/yes.png')}
+              style={styles.skipIcon}
+            />
+          )}
           <Text style={styles.skipText}>Skip for now</Text>
         </TouchableOpacity>
       </View>
