@@ -1,5 +1,5 @@
-import React, { useMemo } from 'react';
-import { View, Text } from 'react-native';
+import React, { useMemo, useRef, useEffect } from 'react';
+import { View, Text, Animated } from 'react-native';
 import { styles } from './QuestionProgressBar.styles';
 
 interface QuestionProgressBarProps {
@@ -15,13 +15,37 @@ export const QuestionProgressBar: React.FC<QuestionProgressBarProps> = ({
     return (current / total) * 100;
   }, [current, total]);
 
+  const animatedWidth = useRef(new Animated.Value(percentage)).current;
+  const isInitialMount = useRef(true);
+
+  useEffect(() => {
+    if (isInitialMount.current) {
+      animatedWidth.setValue(percentage);
+      isInitialMount.current = false;
+    } else {
+      Animated.timing(animatedWidth, {
+        toValue: percentage,
+        duration: 200,
+        useNativeDriver: false,
+      }).start();
+    }
+  }, [percentage, animatedWidth]);
+
+  const widthInterpolation = animatedWidth.interpolate({
+    inputRange: [0, 100],
+    outputRange: ['0%', '100%'],
+    extrapolate: 'clamp',
+  });
+
   return (
     <View style={styles.progressContainer}>
       <Text style={styles.progressText}>
         Question {current}/{total}
       </Text>
       <View style={styles.progressBar}>
-        <View style={[styles.progressFill, { width: `${percentage}%` }]} />
+        <Animated.View
+          style={[styles.progressFill, { width: widthInterpolation }]}
+        />
       </View>
     </View>
   );
