@@ -1100,11 +1100,15 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-start',
   },
   pendingAvatarContainer: {
+    width: 90,
+    height: 90,
+    borderRadius: 42,
     borderWidth: 2,
     borderStyle: 'dashed',
     borderColor: '#FFA500',
-    borderRadius: 35,
     padding: 2,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   playerAvatar: {
     width: 80,
