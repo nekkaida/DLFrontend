@@ -1,23 +1,63 @@
 import { getBackendBaseURL } from "@/src/config/network";
 import axios, { AxiosError } from "axios";
+import { authClient } from "./auth-client";
 
 const axiosInstance = axios.create({
   baseURL: getBackendBaseURL(),
-  withCredentials: true,
+  withCredentials: false,
 });
 
+axiosInstance.interceptors.request.use(
+  async (config) => {
+    console.log("📡 [Axios] Request started:", config.method?.toUpperCase(), config.url);
+
+    try {
+      const session = await authClient.getSession();
+      const token = session?.data?.session?.token;
+      const userId = session?.data?.user?.id;
+
+      console.log("🎫 Session token:", token);
+      console.log("👤 User ID:", userId);
+
+      // For mobile: send userId in x-user-id header (backend expects this)
+      if (userId) {
+        config.headers['x-user-id'] = userId;
+        console.log("✅ x-user-id header attached!");
+      }
+
+      // Also try Bearer token for web compatibility
+      if (token) {
+        config.headers.Authorization = `Bearer ${token}`;
+        console.log("✅ Authorization Bearer token attached!");
+      }
+
+      if (!userId && !token) {
+        console.warn("⚠️ No session found - request will be unauthenticated");
+      }
+    } catch (err) {
+      console.error("❌ Failed to get session:", err);
+    }
+
+    console.log("📤 Final headers:", config.headers);
+    return config;
+  },
+  (err) => Promise.reject(err)
+);
+
 axiosInstance.interceptors.response.use(
-  (res) => res,
-  // (error) =>
-  //   Promise.reject(
-  //     (error.response && error.response.data) || "Something went wrong"
-  //   )
+  (res) => {
+    console.log("✅ [Axios] Response success:", res.status, res.config.url);
+    return res;
+  },
   (error: AxiosError) => {
+    console.error("❌ [Axios] Response error:", error.response?.status, error.message);
+    console.error("📌 [Axios] Failed URL:", error.config?.url);
     return Promise.reject(error);
   }
 );
 
 export default axiosInstance;
+
 
 export const fetcher = async (args: unknown) => {
   const [url, config] = Array.isArray(args) ? args : [args];
@@ -26,6 +66,10 @@ export const fetcher = async (args: unknown) => {
 };
 
 export const endpoints = {
+  user: {
+    trackLogin: "/api/admin/activity/tracklogin",
+  },
+
   admin: {
     getInvite: "/api/admin/get-invite",
     getSession: "/api/admin/session",
@@ -116,6 +160,18 @@ export const endpoints = {
     getById: (id: string) => `/api/match/${id}`,
     update: (id: string) => `/api/match/${id}`,
     delete: (id: string) => `/api/match/delete/${id}`,
+  },
+
+  notifications: {
+    getAll: "/api/notifications/",
+    unreadCount: "/api/notifications/unread-count",
+    markRead: (id: string) => `/api/notifications/${id}/read`,
+    markAllRead: "/api/notifications/mark-all-read",
+    archive: (id: string) => `/api/notifications/${id}/archive`,
+    stats: "/api/notifications/stats",
+    byCategory: (category: string) => `/api/notifications/category/${category}`,
+    testNotification: "/api/notifications/test",
+    cleanup: "/api/notifications/cleanup",
   },
 
   chat: {

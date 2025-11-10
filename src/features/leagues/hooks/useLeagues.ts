@@ -1,6 +1,6 @@
-import { useState, useEffect, useCallback } from 'react';
-import { League, LeagueService } from '../services/LeagueService';
 import { useSession } from '@/lib/auth-client';
+import { useCallback, useEffect, useState } from 'react';
+import { League, LeagueService } from '../services/LeagueService';
 
 export interface UseLeaguesOptions {
   sportType?: 'PADEL' | 'PICKLEBALL' | 'TENNIS';
@@ -24,8 +24,8 @@ export function useLeagues(options: UseLeaguesOptions = {}): UseLeaguesReturn {
   const [error, setError] = useState<string | null>(null);
 
   const fetchLeagues = useCallback(async () => {
-    console.log('🔍 useLeagues: Starting fetchLeagues');
-    console.log('🔍 useLeagues: Sport type filter:', sportType);
+    // console.log('🔍 useLeagues: Starting fetchLeagues');
+    // console.log('🔍 useLeagues: Sport type filter:', sportType);
     
     setIsLoading(true);
     setError(null);
@@ -34,15 +34,13 @@ export function useLeagues(options: UseLeaguesOptions = {}): UseLeaguesReturn {
       let fetchedLeagues: League[];
       
       if (sportType) {
-        console.log('🔍 useLeagues: Fetching leagues by sport:', sportType);
         fetchedLeagues = await LeagueService.fetchLeaguesBySport(sportType);
       } else {
-        console.log('🔍 useLeagues: Fetching all leagues');
         fetchedLeagues = await LeagueService.fetchAllLeagues();
       }
       
-      console.log('🔍 useLeagues: Received leagues:', fetchedLeagues.length);
-      console.log('🔍 useLeagues: Leagues data:', fetchedLeagues);
+      // console.log('🔍 useLeagues: Received leagues:', fetchedLeagues.length);
+      // console.log('🔍 useLeagues: Leagues data:', fetchedLeagues);
       
       setLeagues(fetchedLeagues);
     } catch (err) {

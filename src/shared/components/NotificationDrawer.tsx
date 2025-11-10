@@ -460,7 +460,7 @@ const styles = StyleSheet.create({
     letterSpacing: -0.3,
   },
   headerBadge: {
-    backgroundColor: '#E11D48',
+    backgroundColor: '#A04DFE',
     borderRadius: 12,
     paddingHorizontal: 8,
     paddingVertical: 3,
@@ -510,7 +510,7 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   filterButtonActive: {
-    backgroundColor: '#1877F2',
+    backgroundColor: '#A04DFE',
   },
   filterButtonText: {
     fontSize: 15,
@@ -521,7 +521,7 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
   },
   filterBadge: {
-    backgroundColor: '#E11D48',
+    backgroundColor: '#A04DFE',
     borderRadius: 10,
     paddingHorizontal: 6,
     paddingVertical: 2,
@@ -580,7 +580,7 @@ const styles = StyleSheet.create({
   clearFiltersText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#1877F2',
+    color: '#A04DFE',
   },
   listContent: {
     flexGrow: 1,
@@ -594,7 +594,7 @@ const styles = StyleSheet.create({
     position: 'relative',
   },
   notificationItemUnread: {
-    backgroundColor: '#E7F3FF',
+    backgroundColor: '#F3E8FF',
   },
   iconContainer: {
     width: 56,
@@ -633,7 +633,7 @@ const styles = StyleSheet.create({
   },
   notificationTime: {
     fontSize: 13,
-    color: '#1877F2',
+    color: '#A04DFE',
     fontWeight: '500',
     marginTop: 4,
   },
@@ -645,7 +645,7 @@ const styles = StyleSheet.create({
     width: 12,
     height: 12,
     borderRadius: 6,
-    backgroundColor: '#1877F2',
+    backgroundColor: '#A04DFE',
   },
   actionOverlay: {
     position: 'absolute',
@@ -674,7 +674,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   actionButtonPrimary: {
-    backgroundColor: '#1877F2',
+    backgroundColor: '#A04DFE',
   },
   actionButtonSecondary: {
     backgroundColor: '#E11D48',

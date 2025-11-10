@@ -80,7 +80,7 @@ export interface NotificationStats {
 export interface CategoryConfig {
   value: NotificationCategory;
   label: string;
-  icon: string; // Icon name for React Native
+  icon: string;
   color: string;
 }
 

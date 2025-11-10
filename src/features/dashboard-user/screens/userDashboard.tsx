@@ -1,12 +1,17 @@
-import PickleballLocationIcon from "@/assets/icons/pickleball-location.svg";
-import TennisLocationIcon from "@/assets/icons/tennis-location.svg";
 import PadelLocationIcon from "@/assets/icons/padel-location.svg";
+import PickleballLocationIcon from "@/assets/icons/pickleball-location.svg";
 import SearchIcon from "@/assets/icons/search-icon.svg";
+import TennisLocationIcon from "@/assets/icons/tennis-location.svg";
 import { getBackendBaseURL } from "@/config/network";
 import { authClient, useSession } from "@/lib/auth-client";
 import { NavBar } from "@/shared/components/layout";
 import { SportSwitcher } from "@/shared/components/ui/SportSwitcher";
+import { ChatScreen } from "@/src/features/chat/ChatScreen";
+import CommunityScreen from "@/src/features/community/screens/CommunityScreen";
 import { LeagueCard, useLeagues } from "@/src/features/leagues";
+import { useNotifications } from "@/src/hooks/useNotifications";
+import NotificationBell from "@/src/shared/components/NotificationBell";
+import NotificationDrawer from "@/src/shared/components/NotificationDrawer";
 import * as Haptics from "expo-haptics";
 import { router, useLocalSearchParams } from "expo-router";
 import { default as React, useEffect } from "react";
@@ -25,8 +30,6 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import CommunityScreen from "@/src/features/community/screens/CommunityScreen";
-import { ChatScreen } from "@/src/features/chat/ChatScreen";
 
 const SPORT_CONFIG = {
   pickleball: {
@@ -71,7 +74,12 @@ export default function DashboardScreen() {
   >("pickleball");
   const [locationFilterOpen, setLocationFilterOpen] = React.useState(false);
   const [searchTerm, setSearchTerm] = React.useState("");
+  const [notificationDrawerVisible, setNotificationDrawerVisible] = React.useState(false);
   const scrollY = React.useRef(new Animated.Value(0)).current;
+ 
+  // Notification hook
+  const { unreadCount } = useNotifications();
+  
   // Use safe area insets for proper status bar handling across platforms
   const STATUS_BAR_HEIGHT = insets.top;
 
@@ -125,7 +133,6 @@ export default function DashboardScreen() {
     // Navigate directly to league details where user can join specific seasons
     // Note: League membership has been removed - users join seasons directly
     const league = leagues.find(l => l.id === leagueId);
-    console.log('Navigating to league details:', leagueId);
     router.push({
       pathname: '/user-dashboard/league-details',
       params: { 
@@ -136,63 +143,63 @@ export default function DashboardScreen() {
     });
   };
 
-  console.log(`DashboardScreen: Current activeTab is ${activeTab}`);
+  // console.log(`DashboardScreen: Current activeTab is ${activeTab}`);
 
   // Debug logging for safe area insets in parent component
-  useEffect(() => {
-    console.log("=== Dashboard Safe Area Debug Info ===");
-    console.log(`Platform: ${Platform.OS}`);
-    console.log(`Screen dimensions:`, {
-      width: width,
-      height: height,
-    });
-    console.log(`Safe area insets:`, {
-      top: insets.top,
-      bottom: insets.bottom,
-      left: insets.left,
-      right: insets.right,
-    });
-    console.log(
-      `Available content height: ${height - insets.top - insets.bottom}px`
-    );
-    console.log(
-      `NavBar will be positioned at bottom: ${height - insets.bottom}px`
-    );
-    console.log(
-      `Content should end at: ${
-        height - insets.bottom - 83
-      }px (NavBar height: 83px)`
-    );
-    console.log("====================================");
-  }, [insets, width, height]);
+  // useEffect(() => {
+  //   console.log("=== Dashboard Safe Area Debug Info ===");
+  //   console.log(`Platform: ${Platform.OS}`);
+  //   console.log(`Screen dimensions:`, {
+  //     width: width,
+  //     height: height,
+  //   });
+  //   console.log(`Safe area insets:`, {
+  //     top: insets.top,
+  //     bottom: insets.bottom,
+  //     left: insets.left,
+  //     right: insets.right,
+  //   });
+  //   console.log(
+  //     `Available content height: ${height - insets.top - insets.bottom}px`
+  //   );
+  //   console.log(
+  //     `NavBar will be positioned at bottom: ${height - insets.bottom}px`
+  //   );
+  //   console.log(
+  //     `Content should end at: ${
+  //       height - insets.bottom - 83
+  //     }px (NavBar height: 83px)`
+  //   );
+  //   console.log("====================================");
+  // }, [insets, width, height]);
 
   // Debug logging for screen dimension changes
-  useEffect(() => {
-    const subscription = Dimensions.addEventListener("change", ({ window }) => {
-      console.log("=== Screen Dimension Change Debug ===");
-      console.log(`New screen dimensions:`, {
-        width: window.width,
-        height: window.height,
-      });
-      console.log(`Safe area insets (unchanged):`, {
-        top: insets.top,
-        bottom: insets.bottom,
-        left: insets.left,
-        right: insets.right,
-      });
-      console.log(
-        `New available content height: ${
-          window.height - insets.top - insets.bottom
-        }px`
-      );
-      console.log(
-        `New NavBar position: bottom ${window.height - insets.bottom}px`
-      );
-      console.log("====================================");
-    });
+  // useEffect(() => {
+  //   const subscription = Dimensions.addEventListener("change", ({ window }) => {
+  //     console.log("=== Screen Dimension Change Debug ===");
+  //     console.log(`New screen dimensions:`, {
+  //       width: window.width,
+  //       height: window.height,
+  //     });
+  //     console.log(`Safe area insets (unchanged):`, {
+  //       top: insets.top,
+  //       bottom: insets.bottom,
+  //       left: insets.left,
+  //       right: insets.right,
+  //     });
+  //     console.log(
+  //       `New available content height: ${
+  //         window.height - insets.top - insets.bottom
+  //       }px`
+  //     );
+  //     console.log(
+  //       `New NavBar position: bottom ${window.height - insets.bottom}px`
+  //     );
+  //     console.log("====================================");
+  //   });
 
-    return () => subscription?.remove();
-  }, [insets]);
+  //   return () => subscription?.remove();
+  // }, [insets]);
 
   // Basic session protection only - let login.tsx handle onboarding flow
   useEffect(() => {
@@ -237,13 +244,13 @@ export default function DashboardScreen() {
   }, [session?.user?.id]);
 
   const handleTabPress = (tabIndex: number) => {
-    console.log(`DashboardScreen: Setting activeTab to ${tabIndex}`);
+    // console.log(`DashboardScreen: Setting activeTab to ${tabIndex}`);
     setActiveTab(tabIndex);
-    console.log(
-      `Tab ${tabIndex} pressed - ${
-        ["Connect", "Friendly", "Leagues", "My Games", "Chat"][tabIndex]
-      }`
-    );
+    // console.log(
+    //   `Tab ${tabIndex} pressed - ${
+    //     ["Connect", "Friendly", "Leagues", "My Games", "Chat"][tabIndex]
+    //   }`
+    // );
 
     // Absolute in-app view switching per tab
     if (tabIndex === 0) {
@@ -269,10 +276,10 @@ export default function DashboardScreen() {
       }
 
       const backendUrl = getBackendBaseURL();
-      console.log(
-        "DashboardScreen: Fetching profile data from:",
-        `${backendUrl}/api/player/profile/me`
-      );
+      // console.log(
+      //   "DashboardScreen: Fetching profile data from:",
+      //   `${backendUrl}/api/player/profile/me`
+      // );
 
       const authResponse = await authClient.$fetch(
         `${backendUrl}/api/player/profile/me`,
@@ -281,23 +288,23 @@ export default function DashboardScreen() {
         }
       );
 
-      console.log("DashboardScreen: Profile API response:", authResponse);
+      // console.log("DashboardScreen: Profile API response:", authResponse);
 
       if (
         authResponse &&
         (authResponse as any).data &&
         (authResponse as any).data.data
       ) {
-        console.log(
-          "DashboardScreen: Setting profile data:",
-          (authResponse as any).data.data
-        );
+        // console.log(
+        //   "DashboardScreen: Setting profile data:",
+        //   (authResponse as any).data.data
+        // );
         setProfileData((authResponse as any).data.data);
       } else if (authResponse && (authResponse as any).data) {
-        console.log(
-          "DashboardScreen: Setting profile data (direct):",
-          (authResponse as any).data
-        );
+        // console.log(
+        //   "DashboardScreen: Setting profile data (direct):",
+        //   (authResponse as any).data
+        // );
         setProfileData((authResponse as any).data);
       } else {
         console.error(
@@ -310,7 +317,6 @@ export default function DashboardScreen() {
   };
 
   const onRefresh = React.useCallback(async () => {
-    console.log("DashboardScreen: Refreshing dashboard data...");
     setRefreshing(true);
 
     try {
@@ -349,7 +355,6 @@ export default function DashboardScreen() {
     return (
       <View style={styles.container}>
         <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
-
         <View
           style={[styles.headerContainer, { paddingTop: STATUS_BAR_HEIGHT }]}
         >
@@ -453,8 +458,16 @@ export default function DashboardScreen() {
           onSportChange={setSelectedSport}
         />
 
-        {/* Empty space on right for balance */}
-        <View style={styles.headerRight} />
+        <View style={styles.headerRight}>
+          <NotificationBell
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              setNotificationDrawerVisible(true);
+            }}
+            unreadCount={unreadCount}
+            isOpen={notificationDrawerVisible}
+          />
+        </View>
       </View>
 
       <View style={styles.contentContainer}>
@@ -650,6 +663,12 @@ export default function DashboardScreen() {
         </View>
       </View>
       <NavBar activeTab={activeTab} onTabPress={handleTabPress} sport={selectedSport} />
+      
+      {/* Notification Drawer */}
+      <NotificationDrawer
+        visible={notificationDrawerVisible}
+        onClose={() => setNotificationDrawerVisible(false)}
+      />
     </View>
   );
 }

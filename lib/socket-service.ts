@@ -36,6 +36,7 @@ export class SocketService {
       this.socket = io(backendUrl, {
         auth: {
           token: session.data,
+          userId: session.data.user?.id,
         },
         transports: ['websocket'],
         timeout: 10000,
