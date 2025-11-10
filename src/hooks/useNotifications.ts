@@ -14,7 +14,7 @@ interface UseNotificationsReturn {
   error: string | null;
   markAsRead: (id: string) => Promise<void>;
   markAllAsRead: () => Promise<void>;
-  archiveNotification: (id: string) => Promise<void>;
+  deleteNotification: (id: string) => Promise<void>;
   refresh: () => Promise<void>;
   loadMore: () => Promise<void>;
   hasMore: boolean;
@@ -115,12 +115,12 @@ export function useNotifications(
     }
   }, [userId]);
 
-  // Archive notification
-  const archiveNotification = useCallback(async (id: string) => {
+  
+  const deleteNotification = useCallback(async (id: string) => {
     if (!userId) return;
 
     try {
-      await notificationService.archiveNotification(id, userId);
+      await notificationService.deleteNotification(id, userId);
 
       setNotifications(prev => prev.filter(n => n.id !== id));
 
@@ -166,7 +166,7 @@ export function useNotifications(
     error,
     markAsRead,
     markAllAsRead,
-    archiveNotification,
+    deleteNotification,
     refresh,
     loadMore,
     hasMore,

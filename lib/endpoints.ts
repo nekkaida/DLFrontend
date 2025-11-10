@@ -167,7 +167,7 @@ export const endpoints = {
     unreadCount: "/api/notifications/unread-count",
     markRead: (id: string) => `/api/notifications/${id}/read`,
     markAllRead: "/api/notifications/mark-all-read",
-    archive: (id: string) => `/api/notifications/${id}/archive`,
+    delete: (id: string) => `/api/notifications/${id}`, 
     stats: "/api/notifications/stats",
     byCategory: (category: string) => `/api/notifications/category/${category}`,
     testNotification: "/api/notifications/test",

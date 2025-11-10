@@ -80,19 +80,23 @@ export class NotificationService {
     }
   }
 
-  /**
-   * Archive notification
-   */
-  async archiveNotification(notificationId: string, userId: string): Promise<void> {
-    if (!userId) throw new Error('userId is required');
+  // Delete notification
+  async deleteNotification(notificationId: string, userId: string): Promise<void> {
+    if (!userId) throw new Error("userId is required");
+
     try {
-      await axiosInstance.put(endpoints.notifications.archive(notificationId), { userId });
-    } catch (error) {
-      console.error('Error archiving notification:', error);
+      console.log("🗑️ Deleting notification:", notificationId);
+      console.log("🗑️ Delete URL:", endpoints.notifications.delete(notificationId));
+      
+      const response = await axiosInstance.delete(endpoints.notifications.delete(notificationId));
+      
+      console.log("✅ Delete response:", response.data);
+    } catch (error: any) {
+      console.error("❌ Error deleting notification:", error.response?.status, error.message);
+      console.error("❌ Error URL:", error.config?.url);
       throw error;
     }
   }
-
   /**
    * Get unread count
    */

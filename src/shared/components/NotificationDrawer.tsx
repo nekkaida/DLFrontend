@@ -44,11 +44,11 @@ const getNotificationColor = (category: NotificationCategory): string => {
 const NotificationItem = React.memo(({ 
   notification, 
   onMarkAsRead,
-  onArchive,
+  onDelete,
 }: { 
   notification: Notification;
   onMarkAsRead: (id: string) => void;
-  onArchive: (id: string) => void;
+  onDelete: (id: string) => void;
 }) => {
   const iconColor = getNotificationColor(notification.category);
   const [showActions, setShowActions] = useState(false);
@@ -115,7 +115,7 @@ const NotificationItem = React.memo(({
             
             <TouchableOpacity
               onPress={() => {
-                onArchive(notification.id);
+                onDelete(notification.id);
                 setShowActions(false);
               }}
               style={[styles.actionButton, styles.actionButtonSecondary]}
@@ -141,7 +141,7 @@ export default function NotificationDrawer({ visible, onClose }: NotificationDra
     refreshing,
     markAsRead,
     markAllAsRead,
-    archiveNotification,
+    deleteNotification,
     refresh,
     loadMore,
     hasMore,
@@ -188,9 +188,12 @@ export default function NotificationDrawer({ visible, onClose }: NotificationDra
     markAsRead(id).catch(err => console.error('Failed to mark as read:', err));
   }, [markAsRead]);
 
-  const handleArchive = useCallback((id: string) => {
-    archiveNotification(id).catch(err => console.error('Failed to archive:', err));
-  }, [archiveNotification]);
+    const handleDelete = useCallback(
+    (id: string) => {
+        deleteNotification(id).catch(err => console.error('Failed to delete notification:', err));
+    },
+    [deleteNotification]
+    );
 
   const handleMarkAllAsRead = useCallback(() => {
     markAllAsRead().catch(err => console.error('Failed to mark all as read:', err));
@@ -200,7 +203,7 @@ export default function NotificationDrawer({ visible, onClose }: NotificationDra
     <NotificationItem
       notification={item}
       onMarkAsRead={handleMarkAsRead}
-      onArchive={handleArchive}
+      onDelete={handleDelete}
     />
   );
 
