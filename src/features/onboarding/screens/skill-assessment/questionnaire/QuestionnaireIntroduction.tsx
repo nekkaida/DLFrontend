@@ -26,8 +26,8 @@ export const QuestionnaireIntroduction: React.FC<QuestionnaireIntroductionProps>
       {/* Introduction container - Now in flex layout */}
       <View style={styles.introductionContainer}>
         <ScrollView
-          style={styles.scrollContainer}
-          contentContainerStyle={styles.scrollContent}
+          // style={styles.scrollContainer}
+          // contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
           bounces={true}
         >
@@ -143,6 +143,7 @@ export const QuestionnaireIntroduction: React.FC<QuestionnaireIntroductionProps>
             </TouchableOpacity>
           </View>
         </View>
+        </ScrollView>
       </View>
     </View>
   );
