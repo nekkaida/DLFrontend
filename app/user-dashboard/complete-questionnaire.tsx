@@ -53,6 +53,8 @@ export default function CompleteQuestionnaireScreen() {
   const [showIntroduction, setShowIntroduction] = useState(true);
   const [showResults, setShowResults] = useState(false);
   const [assessmentResults, setAssessmentResults] = useState<any>(null);
+  const [questionHistory, setQuestionHistory] = useState<Array<{questions: Question[] | TennisQuestion[] | PadelQuestion[]; responses: any}>>([]);
+  const [currentPageIndex, setCurrentPageIndex] = useState(0);
   
   // Initialize questionnaire
   useEffect(() => {
@@ -75,6 +77,9 @@ export default function CompleteQuestionnaireScreen() {
       setQuestions(expandedQuestions);
       setCurrentQuestionIndex(0);
       setShowIntroduction(false);
+      // Initialize history with first page
+      setQuestionHistory([{ questions: expandedQuestions, responses: {} }]);
+      setCurrentPageIndex(0);
     }
   };
 
@@ -152,10 +157,14 @@ export default function CompleteQuestionnaireScreen() {
       return;
     }
     
+    // Push current state to history before moving to next set
+    setQuestionHistory(prev => [...prev, { questions: questions, responses: newResponses }]);
+    
     // Update questions and reset to first question of new set
     const expandedQuestions = expandSkillMatrixQuestions(nextQuestions);
     setQuestions(expandedQuestions);
     setCurrentQuestionIndex(0);
+    setCurrentPageIndex(prev => prev + 1);
     console.log('📖 Moving to next question set:', expandedQuestions.length, 'questions');
   };
   
@@ -206,13 +215,29 @@ export default function CompleteQuestionnaireScreen() {
   };
   
   const handleBack = () => {
+    // if not on the first question, go back within the page
     if (currentQuestionIndex > 0) {
       setCurrentQuestionIndex(currentQuestionIndex - 1);
       setCurrentPageAnswers({});
-    } else {
-      // Go back to previous screen
-      router.back();
+      return;
     }
+    
+    // if on the first question, go back to previous page
+    if (currentPageIndex > 0) {
+      const previousPage = questionHistory[currentPageIndex - 1];
+      if (previousPage) {
+        setQuestions(previousPage.questions);
+        setResponses(previousPage.responses);
+        setCurrentQuestionIndex(0);
+        setCurrentPageIndex(currentPageIndex - 1);
+        setCurrentPageAnswers({});
+        console.log('📖 Going back to previous question page:', currentPageIndex - 1);
+        return;
+      }
+    }
+    
+    // if on the first question and no previous page, return to introduction screen
+    setShowIntroduction(true);
   };
   
   const handleNext = () => {
@@ -307,7 +332,7 @@ export default function CompleteQuestionnaireScreen() {
         <View style={styles.questionnaireHeader}>
           <TouchableOpacity 
             style={styles.backButton}
-            onPress={() => router.back()}
+            onPress={handleBack}
           >
             <Svg width="24" height="24" viewBox="0 0 24 24" fill="none">
               <Path
