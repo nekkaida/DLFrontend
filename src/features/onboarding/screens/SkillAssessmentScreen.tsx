@@ -68,7 +68,16 @@ const SkillAssessmentScreen = () => {
       actions.forceShowQuestionnaire(false);
 
       const questionnaire = getCurrentQuestionnaire();
-      if (!questionnaire) return;
+      if (!questionnaire) {
+        console.error('No questionnaire instance available for sport:', sport);
+        return;
+      }
+
+      // Validate questionnaire has required methods
+      if (typeof questionnaire.getConditionalQuestions !== 'function') {
+        console.error('Questionnaire missing getConditionalQuestions method');
+        return;
+      }
 
       // Check if there's already a completed assessment
       const existingSkillData = data.skillAssessments?.[sport as SportType];
@@ -91,12 +100,12 @@ const SkillAssessmentScreen = () => {
           if (skillDataObject.rating) {
             actions.setResponses({});
             actions.setQuestionIndex(0);
-            const initialQuestions = questionnaire.getConditionalQuestions({});
+            const initialQuestions = questionnaire.getConditionalQuestions({}) || [];
             const expandedQuestions = expandSkillMatrixQuestions(initialQuestions);
             actions.setQuestions(expandedQuestions);
           } else {
             // Continue incomplete assessment
-            const nextQuestions = questionnaire.getConditionalQuestions(existingResponses);
+            const nextQuestions = questionnaire.getConditionalQuestions(existingResponses) || [];
             const expandedQuestions = expandSkillMatrixQuestions(nextQuestions);
             actions.setQuestions(expandedQuestions);
             actions.setQuestionIndex(0);
@@ -106,17 +115,27 @@ const SkillAssessmentScreen = () => {
           // Start fresh if data is corrupted
           actions.setResponses({});
           actions.setQuestionIndex(0);
-          const initialQuestions = questionnaire.getConditionalQuestions({});
-          const expandedQuestions = expandSkillMatrixQuestions(initialQuestions);
-          actions.setQuestions(expandedQuestions);
+          try {
+            const initialQuestions = questionnaire.getConditionalQuestions({}) || [];
+            const expandedQuestions = expandSkillMatrixQuestions(initialQuestions);
+            actions.setQuestions(expandedQuestions);
+          } catch (innerError) {
+            console.error('Failed to initialize questionnaire:', innerError);
+            toast.error('Failed to load questionnaire. Please try again.');
+          }
         }
       } else {
         // No existing data, start fresh
-        actions.setResponses({});
-        actions.setQuestionIndex(0);
-        const initialQuestions = questionnaire.getConditionalQuestions({});
-        const expandedQuestions = expandSkillMatrixQuestions(initialQuestions);
-        actions.setQuestions(expandedQuestions);
+        try {
+          actions.setResponses({});
+          actions.setQuestionIndex(0);
+          const initialQuestions = questionnaire.getConditionalQuestions({}) || [];
+          const expandedQuestions = expandSkillMatrixQuestions(initialQuestions);
+          actions.setQuestions(expandedQuestions);
+        } catch (error) {
+          console.error('Failed to initialize questionnaire:', error);
+          toast.error('Failed to load questionnaire. Please try again.');
+        }
       }
     }
   }, [sport, data.skillAssessments, getCurrentQuestionnaire, actions]);

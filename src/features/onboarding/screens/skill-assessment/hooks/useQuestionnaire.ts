@@ -134,10 +134,11 @@ function questionnaireReducer(
     case 'GO_BACK_HISTORY':
       if (state.currentPageIndex === 0) return state;
       const previousPage = state.questionHistory[state.currentPageIndex - 1];
+      if (!previousPage) return state; // Safety check
       return {
         ...state,
-        questions: previousPage.questions,
-        responses: previousPage.responses,
+        questions: previousPage.questions || [],
+        responses: previousPage.responses || {},
         currentPageIndex: state.currentPageIndex - 1,
         currentPageAnswers: {},
         skillResponses: {},
