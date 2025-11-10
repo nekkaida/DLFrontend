@@ -1,5 +1,5 @@
 import React from 'react';
-import { ScrollView, Text, View, StyleSheet, Dimensions, TouchableOpacity, ActivityIndicator, Alert, Image, StatusBar, Platform } from 'react-native';
+import { ScrollView, Text, View, StyleSheet, Dimensions, TouchableOpacity, ActivityIndicator, Alert, Image, StatusBar, Platform, Animated } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
@@ -55,6 +55,17 @@ export default function LeagueDetailsScreen({
   const STATUS_BAR_HEIGHT = insets.top;
 
   const userId = session?.user?.id;
+
+  // Animated scroll value for collapsing header
+  const scrollY = React.useRef(new Animated.Value(0)).current;
+  
+  // Constants for header animation
+  const TOP_HEADER_HEIGHT = STATUS_BAR_HEIGHT + (isSmallScreen ? 36 : isTablet ? 44 : 40);
+  const HEADER_MAX_HEIGHT = 180; // Full header height
+  const HEADER_MIN_HEIGHT = 80; // Collapsed header height
+  const HEADER_SCROLL_DISTANCE = HEADER_MAX_HEIGHT - HEADER_MIN_HEIGHT;
+  const COLLAPSE_START_THRESHOLD = 50; // Start collapsing after scrolling 50px
+  const COLLAPSE_END_THRESHOLD = COLLAPSE_START_THRESHOLD + HEADER_SCROLL_DISTANCE; // End of collapse range
 
   // Set selected sport based on route param
   React.useEffect(() => {
@@ -582,10 +593,10 @@ export default function LeagueDetailsScreen({
           {/* Profile pictures */}
           {season.memberships && season.memberships.length > 0 && (
             <View style={styles.seasonProfilePicturesContainer}>
-              {season.memberships.slice(0, 6).map((membership) => {
+              {season.memberships.slice(0, 6).map((membership, index: number) => {
                 if (!membership.user) return null;
                 return (
-                  <View key={membership.id} style={styles.seasonMemberProfilePicture}>
+                  <View key={membership.id} style={[styles.seasonMemberProfilePicture, index > 0 && styles.seasonMemberProfilePictureOverlap]}>
                     {membership.user.image ? (
                       <Image
                         source={{ uri: membership.user.image }}
@@ -602,7 +613,7 @@ export default function LeagueDetailsScreen({
                 );
               })}
               {season._count?.memberships && season._count.memberships > 6 && (
-                <View style={styles.seasonRemainingCount}>
+                <View style={[styles.seasonRemainingCount, styles.seasonMemberProfilePictureOverlap]}>
                   <Text style={styles.seasonRemainingCountText}>
                     +{season._count.memberships - 6}
                   </Text>
@@ -747,6 +758,52 @@ export default function LeagueDetailsScreen({
     setSelectedSport(sport);
   }, [sport]);
 
+  // Animated styles for collapsing header
+  // Only start collapsing after COLLAPSE_START_THRESHOLD
+  const headerHeight = scrollY.interpolate({
+    inputRange: [0, COLLAPSE_START_THRESHOLD, COLLAPSE_END_THRESHOLD],
+    outputRange: [HEADER_MAX_HEIGHT, HEADER_MAX_HEIGHT, HEADER_MIN_HEIGHT],
+    extrapolate: 'clamp',
+  });
+
+  const leagueNameOpacity = scrollY.interpolate({
+    inputRange: [0, COLLAPSE_START_THRESHOLD, COLLAPSE_START_THRESHOLD + (HEADER_SCROLL_DISTANCE * 0.7)],
+    outputRange: [1, 1, 0],
+    extrapolate: 'clamp',
+  });
+
+  const leagueNameScale = scrollY.interpolate({
+    inputRange: [0, COLLAPSE_START_THRESHOLD, COLLAPSE_START_THRESHOLD + (HEADER_SCROLL_DISTANCE * 0.7)],
+    outputRange: [1, 1, 0.8],
+    extrapolate: 'clamp',
+  });
+
+  const infoContainerOpacity = scrollY.interpolate({
+    inputRange: [0, COLLAPSE_START_THRESHOLD, COLLAPSE_START_THRESHOLD + (HEADER_SCROLL_DISTANCE * 0.5)],
+    outputRange: [1, 1, 0],
+    extrapolate: 'clamp',
+  });
+
+  const infoContainerTranslateY = scrollY.interpolate({
+    inputRange: [0, COLLAPSE_START_THRESHOLD, COLLAPSE_START_THRESHOLD + (HEADER_SCROLL_DISTANCE * 0.5)],
+    outputRange: [0, 0, -20],
+    extrapolate: 'clamp',
+  });
+
+  // Collapsed league name opacity (inverse of leagueNameOpacity)
+  const collapsedLeagueNameOpacity = scrollY.interpolate({
+    inputRange: [0, COLLAPSE_START_THRESHOLD + (HEADER_SCROLL_DISTANCE * 0.7), COLLAPSE_END_THRESHOLD],
+    outputRange: [0, 0, 1],
+    extrapolate: 'clamp',
+  });
+
+  // Collapsed player count opacity
+  const collapsedPlayerCountOpacity = scrollY.interpolate({
+    inputRange: [0, COLLAPSE_START_THRESHOLD + (HEADER_SCROLL_DISTANCE * 0.5), COLLAPSE_END_THRESHOLD],
+    outputRange: [0, 0, 1],
+    extrapolate: 'clamp',
+  });
+
   return (
     <View style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
@@ -805,79 +862,133 @@ export default function LeagueDetailsScreen({
           </View>
         ) : (
           <>
-            <View style={styles.gradientHeaderContainer}>
+            <Animated.View 
+              style={[
+                styles.gradientHeaderContainer,
+                {
+                  height: headerHeight,
+                }
+              ]}
+            >
               <LinearGradient
                 colors={getHeaderGradientColors(sport)}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-              style={styles.leagueHeaderGradient}
-            >
-              <View style={styles.leagueHeaderContent}>
-                <View style={styles.topRow}>
-                  <View style={styles.backButtonContainer}>
-                    <TouchableOpacity 
-                      style={styles.backButtonIcon}
-                      onPress={() => {
-                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                        router.back();
-                      }}
-                    >
-                      <BackButtonIcon width={12} height={19} />
-                    </TouchableOpacity>
-                  </View>
-                  <View style={styles.leagueNameContainer}>
-                    <Text style={styles.leagueName} numberOfLines={2}>{league?.name || leagueName}</Text>
-                  </View>
-                </View>
-                <View style={styles.leagueInfoContainer}>
-                  <View style={styles.playerCountContainer}>
-                    <View style={styles.statusCircle} />
-                    <Text style={styles.playerCount}>
-                      {league?.totalSeasonMemberships || 0} players
-                    </Text>
-                  </View>
-                  
-                  {/* Profile pictures */}
-                  {league?.memberships && league.memberships.length > 0 && (
-                    <View style={styles.profilePicturesContainer}>
-                      {league.memberships.slice(0, 6).map((membership: any) => {
-                        if (!membership.user) return null;
-                        return (
-                          <View key={membership.id} style={styles.memberProfilePicture}>
-                            {membership.user.image ? (
-                              <Image
-                                source={{ uri: membership.user.image }}
-                                style={styles.memberProfileImage}
-                              />
-                            ) : (
-                              <View style={styles.defaultMemberProfileImage}>
-                                <Text style={styles.defaultMemberProfileText}>
-                                  {membership.user.name?.charAt(0)?.toUpperCase() || 'U'}
-                                </Text>
-                              </View>
-                            )}
-                          </View>
-                        );
-                      })}
-                      {league._count?.memberships && league._count.memberships > 6 && (
-                        <View style={styles.remainingCount}>
-                          <Text style={styles.remainingCountText}>
-                            +{league._count.memberships - 6}
-                          </Text>
-                        </View>
-                      )}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={[styles.leagueHeaderGradient, { flex: 1 }]}
+              >
+                <View style={styles.leagueHeaderContent}>
+                  <View style={styles.topRow}>
+                    <View style={styles.backButtonContainer}>
+                      <TouchableOpacity 
+                        style={styles.backButtonIcon}
+                        onPress={() => {
+                          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                          router.back();
+                        }}
+                      >
+                        <BackButtonIcon width={12} height={19} />
+                      </TouchableOpacity>
                     </View>
-                  )}
+                    <Animated.View 
+                      style={[
+                        styles.leagueNameContainer,
+                        {
+                          opacity: leagueNameOpacity,
+                          transform: [{ scale: leagueNameScale }],
+                        }
+                      ]}
+                    >
+                      <Text style={styles.leagueName} numberOfLines={2}>{league?.name || leagueName}</Text>
+                    </Animated.View>
+                    {/* Collapsed header content */}
+                    <Animated.View 
+                      style={[
+                        styles.collapsedHeaderContent,
+                        {
+                          opacity: collapsedLeagueNameOpacity,
+                        }
+                      ]}
+                    >
+                      <Text style={styles.collapsedLeagueName} numberOfLines={1}>
+                        {league?.name || leagueName}
+                      </Text>
+                      <Animated.View 
+                        style={[
+                          styles.collapsedPlayerCountContainer,
+                          {
+                            opacity: collapsedPlayerCountOpacity,
+                          }
+                        ]}
+                      >
+                        <View style={styles.statusCircle} />
+                        <Text style={styles.collapsedPlayerCount}>
+                          {league?.totalSeasonMemberships || 0} players
+                        </Text>
+                      </Animated.View>
+                    </Animated.View>
+                  </View>
+                  <Animated.View 
+                    style={[
+                      styles.leagueInfoContainer,
+                      {
+                        opacity: infoContainerOpacity,
+                        transform: [{ translateY: infoContainerTranslateY }],
+                      }
+                    ]}
+                  >
+                    <View style={styles.playerCountContainer}>
+                      <View style={styles.statusCircle} />
+                      <Text style={styles.playerCount}>
+                        {league?.totalSeasonMemberships || 0} players
+                      </Text>
+                    </View>
+                    
+                    {/* Profile pictures */}
+                    {league?.memberships && league.memberships.length > 0 && (
+                      <View style={styles.profilePicturesContainer}>
+                        {league.memberships.slice(0, 6).map((membership: any, index: number) => {
+                          if (!membership.user) return null;
+                          return (
+                            <View key={membership.id} style={[styles.memberProfilePicture, index > 0 && styles.memberProfilePictureOverlap]}>
+                              {membership.user.image ? (
+                                <Image
+                                  source={{ uri: membership.user.image }}
+                                  style={styles.memberProfileImage}
+                                />
+                              ) : (
+                                <View style={styles.defaultMemberProfileImage}>
+                                  <Text style={styles.defaultMemberProfileText}>
+                                    {membership.user.name?.charAt(0)?.toUpperCase() || 'U'}
+                                  </Text>
+                                </View>
+                              )}
+                            </View>
+                          );
+                        })}
+                        {league._count?.memberships && league._count.memberships > 6 && (
+                          <View style={[styles.remainingCount, styles.memberProfilePictureOverlap]}>
+                            <Text style={styles.remainingCountText}>
+                              +{league._count.memberships - 6}
+                            </Text>
+                          </View>
+                        )}
+                      </View>
+                    )}
+                  </Animated.View>
                 </View>
-              </View>
               </LinearGradient>
-            </View>
+            </Animated.View>
 
-            <ScrollView
-            style={styles.scrollContainer}
-            contentContainerStyle={styles.scrollContent}
-            showsVerticalScrollIndicator={false}
-          >
+            <Animated.ScrollView
+              style={styles.scrollContainer}
+              contentContainerStyle={styles.scrollContent}
+              showsVerticalScrollIndicator={false}
+              scrollEventThrottle={16}
+              onScroll={Animated.event(
+                [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+                { useNativeDriver: false }
+              )}
+            >
             <View style={styles.scrollTopSpacer} />
             {/* League Info Card */}
             <View style={styles.leagueInfoCard}>
@@ -961,7 +1072,7 @@ export default function LeagueDetailsScreen({
                 </Text>
               </View>
             ) : null}
-            </ScrollView>
+            </Animated.ScrollView>
           </>
         )}
         </View>
@@ -1075,6 +1186,16 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingRight: 52, // Offset to balance the back button width + gap
   },
+  collapsedHeaderContent: {
+    position: 'absolute',
+    left: 52, // Start after back button
+    right: 0,
+    alignItems: 'flex-start',
+    justifyContent: 'center',
+    top: 0,
+    bottom: 0,
+    paddingLeft: 12,
+  },
   leagueInfoContainer: {
     alignItems: 'center',
     width: '100%',
@@ -1085,6 +1206,23 @@ const styles = StyleSheet.create({
     color: '#FDFDFD',
     textAlign: 'center',
     marginBottom: 8,
+  },
+  collapsedLeagueName: {
+    fontSize: isSmallScreen ? 16 : 18,
+    fontWeight: '700',
+    color: '#FDFDFD',
+    textAlign: 'left',
+    marginBottom: 4,
+  },
+  collapsedPlayerCountContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-start',
+  },
+  collapsedPlayerCount: {
+    fontSize: isSmallScreen ? 12 : 13,
+    color: '#FDFDFD',
+    fontWeight: '600',
   },
   playerCountContainer: {
     flexDirection: 'row',
@@ -1110,7 +1248,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     flexWrap: 'wrap',
-    gap: 4,
   },
   // Header profile picture
   headerProfilePicture: {
@@ -1148,36 +1285,48 @@ const styles = StyleSheet.create({
   },
   // Member profile pictures in gradient header
   memberProfilePicture: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3,
+    elevation: 4,
+  },
+  memberProfilePictureOverlap: {
+    marginLeft: -10,
   },
   memberProfileImage: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
   },
   defaultMemberProfileImage: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     backgroundColor: '#6de9a0',
     justifyContent: 'center',
     alignItems: 'center',
   },
   defaultMemberProfileText: {
     color: '#FFFFFF',
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: 'bold',
   },
   remainingCount: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#FFFFFF',
     justifyContent: 'center',
     alignItems: 'center',
+    overflow: 'hidden',
   },
   remainingCountText: {
     color: '#1C1A1A',
@@ -1329,36 +1478,48 @@ const styles = StyleSheet.create({
   },
   // Smaller profile pictures for season cards
   seasonMemberProfilePicture: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
     overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3,
+    elevation: 4,
+  },
+  seasonMemberProfilePictureOverlap: {
+    marginLeft: -8,
   },
   seasonMemberProfileImage: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
   },
   defaultSeasonMemberProfileImage: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
     backgroundColor: '#6de9a0',
     justifyContent: 'center',
     alignItems: 'center',
   },
   defaultSeasonMemberProfileText: {
     color: '#FFFFFF',
-    fontSize: 10,
+    fontSize: 12,
     fontWeight: 'bold',
   },
   seasonRemainingCount: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: '#FFFFFF',
     justifyContent: 'center',
     alignItems: 'center',
+    overflow: 'hidden',
   },
   seasonRemainingCountText: {
     color: '#1C1A1A',
