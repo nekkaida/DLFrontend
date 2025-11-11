@@ -46,7 +46,7 @@ export class SocketService {
           'x-user-id': userId || '',
           'Authorization': sessionToken ? `Bearer ${sessionToken}` : '',
         },
-        transports: ['websocket', 'polling'],
+        transports: ['websocket'],
         timeout: 10000,
         reconnection: true,
         reconnectionDelay: this.reconnectDelay,
@@ -56,6 +56,7 @@ export class SocketService {
       this._socket.on('connect', () => {
         console.log('✅ SocketService: Connected successfully!');
         console.log('✅ Socket ID:', this._socket?.id);
+        console.log('✅ Transport:', this._socket?.io?.engine?.transport?.name);
         this.reconnectAttempts = 0;
         this.emit('connection_status', { connected: true });
       });
@@ -80,17 +81,14 @@ export class SocketService {
 
       // Chat-related events
       this._socket.on('new_message', (data) => {
-        console.log('📥 SocketService: Received new message:', data);
         this.emit('new_message', data);
       });
 
       this._socket.on('message_sent', (data) => {
-        console.log('✅ SocketService: Message sent confirmation:', data);
         this.emit('message_sent', data);
       });
 
       this._socket.on('message_deleted', (data) => {
-        console.log('🗑️ SocketService: Message deleted:', data);
         this.emit('message_deleted', data);
       });
 
@@ -107,6 +105,32 @@ export class SocketService {
       this._socket.on('thread_updated', (data) => {
         console.log('🔄 SocketService: Thread updated:', data);
         this.emit('thread_update', data);
+      });
+
+      this._socket.on('thread_created', (data) => {
+        console.log('🆕 SocketService: Thread created:', data);
+        this.emit('thread_created', data);
+      });
+
+      this._socket.on('new_thread', (data) => {
+        console.log('🆕 SocketService: New thread:', data);
+        this.emit('new_thread', data);
+      });
+
+      // Notification events
+      this._socket.on('new_notification', (data) => {
+        console.log('🔔 SocketService: New notification:', data);
+        this.emit('new_notification', data);
+      });
+
+      this._socket.on('notification_read', (data) => {
+        console.log('👁️ SocketService: Notification read:', data);
+        this.emit('notification_read', data);
+      });
+
+      this._socket.on('notification_deleted', (data) => {
+        console.log('🗑️ SocketService: Notification deleted:', data);
+        this.emit('notification_deleted', data);
       });
 
       this._socket.on('user_online', (data) => {
@@ -170,6 +194,7 @@ export class SocketService {
       this.listeners.set(event, []);
     }
     this.listeners.get(event)!.push(callback);
+    //  console.log(`📝 SocketService: Listener registered for '${event}'. Total listeners: ${this.listeners.get(event)!.length}`);
   }
 
   off(event: string, callback: (data: any) => void): void {
@@ -178,20 +203,25 @@ export class SocketService {
       const index = callbacks.indexOf(callback);
       if (index > -1) {
         callbacks.splice(index, 1);
+        //  console.log(`🗑️ SocketService: Listener removed for '${event}'. Remaining listeners: ${callbacks.length}`);
       }
     }
   }
 
   private emit(event: string, data: any): void {
     const callbacks = this.listeners.get(event);
-    if (callbacks) {
-      callbacks.forEach(callback => {
+   //  console.log(`🔔 SocketService: Emitting '${event}' to ${callbacks?.length || 0} listener(s)`);
+    if (callbacks && callbacks.length > 0) {
+      callbacks.forEach((callback, index) => {
         try {
+          console.log(`  ↳ Calling listener #${index + 1} for '${event}'`);
           callback(data);
         } catch (error) {
           console.error(`SocketService: Error in callback for event ${event}:`, error);
         }
       });
+    } else {
+      console.warn(`⚠️ SocketService: No listeners registered for '${event}'!`);
     }
   }
 
@@ -212,23 +242,30 @@ export class SocketService {
   // Join a specific thread room
   joinThread(threadId: string): void {
     if (this._socket?.connected) {
-      console.log('SocketService: Joining thread:', threadId);
       this._socket.emit('join_thread', { threadId });
+      
+      // Listen for acknowledgment from backend
+      this._socket.once('thread_joined', (data: any) => {
+        console.log('✅ Backend confirmed thread join:', data);
+      });
+    } else {
+      console.error('❌ Cannot join thread - socket not connected!');
     }
   }
 
   // Leave a specific thread room
   leaveThread(threadId: string): void {
     if (this._socket?.connected) {
-      console.log('SocketService: Leaving thread:', threadId);
       this._socket.emit('leave_thread', { threadId });
+    } else {
+      console.warn('⚠️ Cannot leave thread - socket not connected');
     }
   }
 
   // Mark message as read
   markAsRead(threadId: string, messageId: string): void {
     if (this._socket?.connected) {
-      console.log('SocketService: Marking message as read:', { threadId, messageId });
+      //  console.log('SocketService: Marking message as read:', { threadId, messageId });
       this._socket.emit('mark_as_read', { threadId, messageId });
     }
   }
@@ -236,7 +273,7 @@ export class SocketService {
   // Mark message as read (alternative method signature)
   markMessageAsRead(messageId: string, userId: string): void {
     if (this._socket?.connected) {
-      console.log('SocketService: Marking message as read:', { messageId, userId });
+      //  console.log('SocketService: Marking message as read:', { messageId, userId });
       this._socket.emit('message_mark_read', { messageId, userId });
     }
   }
@@ -264,6 +301,14 @@ export class SocketService {
   // Get the socket instance (for direct access if needed)
   getSocket(): Socket | null {
     return this._socket;
+  }
+
+  // Debug method to check listeners
+  debugListeners(): void {
+    console.log('🔍 SocketService: Current listeners:');
+    this.listeners.forEach((callbacks, event) => {
+      console.log(`  - ${event}: ${callbacks.length} listener(s)`);
+    });
   }
 }
 

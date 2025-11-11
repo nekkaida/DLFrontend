@@ -1,3 +1,4 @@
+import { useSession } from "@/lib/auth-client";
 import { Ionicons } from "@expo/vector-icons";
 import React from "react";
 import {
@@ -17,8 +18,8 @@ interface ThreadListProps {
 
 export const ThreadList: React.FC<ThreadListProps> = ({ onThreadSelect }) => {
   const { threads, loadThreads, isLoading } = useChatStore();
-
-  console.log("ThreadList: Rendering with threads:", threads?.length || 0);
+  const { data: session } = useSession();
+  const userId = session?.user?.id;
 
   const renderThread = ({ item }: { item: Thread }) => (
     <TouchableOpacity
@@ -102,7 +103,12 @@ export const ThreadList: React.FC<ThreadListProps> = ({ onThreadSelect }) => {
       }
       ListEmptyComponent={renderEmpty}
       refreshing={isLoading}
-      onRefresh={() => loadThreads("")}
+      onRefresh={() => {
+        console.log('🔄 Refreshing threads for user:', userId);
+        if (userId) {
+          loadThreads(userId);
+        }
+      }}
       showsVerticalScrollIndicator={false}
     />
   );

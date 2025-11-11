@@ -1,4 +1,5 @@
 import { useSession } from '@/lib/auth-client'; // Assuming this is where you get the session
+import { socketService } from '@/lib/socket-service';
 import { notificationService } from '@/src/services/notificationService';
 import {
     Notification,
@@ -157,6 +158,69 @@ export function useNotifications(
     fetchNotifications(1, false);
     fetchUnreadCount();
   }, [fetchNotifications, fetchUnreadCount, userId]);
+
+  // Socket.IO real-time notification listener
+  useEffect(() => {
+    const socket = socketService.getSocket();
+    if (!socket || !userId) return;
+
+    console.log('🎧 Setting up notification socket listeners for user:', userId);
+
+    // Handle new notification
+    const handleNewNotification = (notification: Notification) => {
+      console.log('🔔 Received new notification:', notification);
+      
+      // Add to notifications list
+      setNotifications(prev => [notification, ...prev]);
+      
+      // Increment unread count
+      setUnreadCount(prev => prev + 1);
+    };
+
+    // Handle notification marked as read
+    const handleNotificationRead = (data: { notificationId: string }) => {
+      console.log('👁️ Notification marked as read:', data.notificationId);
+      
+      setNotifications(prev =>
+        prev.map(n => 
+          n.id === data.notificationId 
+            ? { ...n, read: true, readAt: new Date().toISOString() } 
+            : n
+        )
+      );
+      
+      setUnreadCount(prev => Math.max(0, prev - 1));
+    };
+
+    // Handle notification deleted
+    const handleNotificationDeleted = (data: { notificationId: string }) => {
+      console.log('🗑️ Notification deleted:', data.notificationId);
+      
+      const notification = notifications.find(n => n.id === data.notificationId);
+      
+      setNotifications(prev => prev.filter(n => n.id !== data.notificationId));
+      
+      if (notification && !notification.read) {
+        setUnreadCount(prev => Math.max(0, prev - 1));
+      }
+    };
+
+    // Register socket listeners
+    socketService.on('new_notification', handleNewNotification);
+    socketService.on('notification_read', handleNotificationRead);
+    socketService.on('notification_deleted', handleNotificationDeleted);
+
+    setIsConnected(true);
+
+    // Cleanup
+    return () => {
+      console.log('🧹 Cleaning up notification socket listeners');
+      socketService.off('new_notification', handleNewNotification);
+      socketService.off('notification_read', handleNotificationRead);
+      socketService.off('notification_deleted', handleNotificationDeleted);
+      setIsConnected(false);
+    };
+  }, [userId, notifications]);
 
   return {
     notifications,

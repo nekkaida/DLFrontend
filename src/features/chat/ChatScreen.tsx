@@ -21,6 +21,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MessageInput } from './components/chat-input';
 import { ThreadList } from './components/chat-list';
 import { MessageWindow } from './components/chat-window';
+import { SocketTestButton } from './components/SocketTestButton';
 import { useChatSocketEvents } from './hooks/useChatSocketEvents';
 import { useChatStore } from './stores/ChatStore';
 import { Thread } from './types';
@@ -34,6 +35,7 @@ export const ChatScreen: React.FC = () => {
   const { data: session} = useSession();
   const [filteredThreads, setFilteredThreads] = useState<Thread[]>([]);
   const [profileData, setProfileData] = useState<any>(null);
+  const [refreshKey, setRefreshKey] = useState(0); // Force re-render trigger
   const insets = useSafeAreaInsets();
   
   const user = session?.user;
@@ -58,6 +60,14 @@ export const ChatScreen: React.FC = () => {
     currentThread?.id || null,
     user?.id || ''
   );
+
+  // Force re-render when messages change
+  useEffect(() => {
+    if (currentThread?.id && messages[currentThread.id]) {
+      console.log('💬 Messages updated for current thread:', messages[currentThread.id].length);
+      setRefreshKey(prev => prev + 1);
+    }
+  }, [messages, currentThread?.id]);
 
   // Fetch profile data when component mounts
   useEffect(() => {
@@ -241,6 +251,10 @@ export const ChatScreen: React.FC = () => {
   return (
     <View style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
+      
+      {/* Uncomment to see socket debug info */}
+      {/* <SocketDebugPanel /> */}
+      
       {currentThread ? (
         <KeyboardAvoidingView 
           style={styles.chatContainer}
@@ -267,12 +281,15 @@ export const ChatScreen: React.FC = () => {
               )}
             </View>
             
+            <SocketTestButton threadId={currentThread.id} />
+            
             <TouchableOpacity style={styles.headerAction}>
               <Ionicons name="ellipsis-vertical" size={20} color="#6B7280" />
             </TouchableOpacity>
           </View>
           
           <MessageWindow
+            key={refreshKey} // Force re-render when messages change
             messages={messages[currentThread.id] || []}
             threadId={currentThread.id}
             isGroupChat={currentThread.type === 'group'}

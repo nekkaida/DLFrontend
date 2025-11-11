@@ -13,49 +13,97 @@ export const useChatSocketEvents = (threadId: string | null, currentUserId: stri
     deleteMessage, 
     markMessageAsRead,
     updateThread,
-    threads 
+    addThread,
   } = useChatStore();
   
-  const socket = socketService.getSocket();
   const isConnected = socketService.isConnected();
   
   // Use ref to avoid stale closure issues
   const currentThreadIdRef = useRef(threadId);
+  const currentUserIdRef = useRef(currentUserId);
   
   useEffect(() => {
     currentThreadIdRef.current = threadId;
-  }, [threadId]);
+    currentUserIdRef.current = currentUserId;
+  }, [threadId, currentUserId]);
+
+  // Transform backend message to frontend format
+  const transformMessage = (backendMessage: any): Message => {
+    return {
+      id: backendMessage.id,
+      threadId: backendMessage.threadId,
+      senderId: backendMessage.senderId,
+      content: backendMessage.content || "",
+      timestamp: new Date(backendMessage.createdAt || backendMessage.timestamp),
+      isRead: backendMessage.readBy?.length > 0 || false,
+      isDelivered: true,
+      replyTo: backendMessage.repliesToId,
+      metadata: {
+        isEdited: backendMessage.isEdited,
+        isDeleted: backendMessage.isDeleted,
+        sender: backendMessage.sender,
+        readBy: backendMessage.readBy || [],
+        updatedAt: backendMessage.updatedAt,
+      },
+    };
+  };
 
   useEffect(() => {
-    if (!socket || !isConnected) {
-      console.log('⏸️ Socket not ready for chat events');
+    if (!isConnected) {
+      console.log('⏸️ Socket not connected, waiting...');
       return;
     }
 
     console.log('🎧 Setting up chat socket listeners');
+    console.log('🎧 Current thread:', threadId);
+    console.log('🎧 Current user:', currentUserId);
+    console.log('🎧 Socket connected:', isConnected);
 
     // 📥 Handle new messages
-    const handleNewMessage = (message: Message) => {
-      console.log('📥 Received new message:', message.id, 'for thread:', message.threadId);
+    const handleNewMessage = (backendMessage: any) => {
+      console.log('========================================');
+      console.log('📥 NEW MESSAGE EVENT RECEIVED');
+      console.log('========================================');
+      console.log('📥 Message ID:', backendMessage.id);
+      console.log('📥 Thread ID:', backendMessage.threadId);
+      console.log('📥 Content:', backendMessage.content);
+      console.log('📥 Sender ID:', backendMessage.senderId);
+      console.log('📥 Current Thread ID:', currentThreadIdRef.current);
+      console.log('📥 Current User ID:', currentUserIdRef.current);
+      console.log('📥 Raw message data:', JSON.stringify(backendMessage, null, 2));
+      
+      // Transform backend format to frontend format
+      const message = transformMessage(backendMessage);
+      console.log('📥 Transformed message:', JSON.stringify(message, null, 2));
       
       // Add message to store
+      console.log('📥 Adding message to store...');
       addMessage(message);
+      console.log('📥 Message added to store!');
       
-      // Update thread's last message
-      const thread = threads.find(t => t.id === message.threadId);
+      // Update thread's last message and move to top
+      const currentThreads = useChatStore.getState().threads;
+      console.log('📥 Current threads count:', currentThreads.length);
+      const thread = currentThreads.find(t => t.id === message.threadId);
       if (thread) {
-        updateThread({
+        console.log('📥 Found thread to update:', thread.name);
+        const updatedThread = {
           ...thread,
           lastMessage: message,
           updatedAt: new Date(message.timestamp),
-        });
+        };
+        updateThread(updatedThread);
+        console.log('📥 Thread updated!');
+      } else {
+        console.log('⚠️ Thread not found in store!');
       }
       
       // If message is in current thread and not from current user, mark as read automatically
-      if (message.threadId === currentThreadIdRef.current && message.senderId !== currentUserId) {
-        console.log('📖 Auto-marking message as read:', message.id);
-        socketService.markMessageAsRead(message.id, currentUserId);
+      if (message.threadId === currentThreadIdRef.current && message.senderId !== currentUserIdRef.current) {
+        console.log('📖 Auto-marking message as read');
+        socketService.markMessageAsRead(message.id, currentUserIdRef.current);
       }
+      console.log('========================================');
     };
 
     // 🗑️ Handle message deletion
@@ -65,12 +113,14 @@ export const useChatSocketEvents = (threadId: string | null, currentUserId: stri
     };
 
     // ✅ Handle message sent confirmation
-    const handleMessageSent = (data: { messageId: string; threadId: string; message?: Message }) => {
+    const handleMessageSent = (data: { messageId: string; threadId: string; message?: any }) => {
       console.log('✅ Message sent confirmed:', data.messageId);
+      console.log('✅ Full sent data:', data);
       
-      // If full message data is provided, update it in store
+      // If full message data is provided, transform and update it in store
       if (data.message) {
-        addMessage(data.message);
+        const message = transformMessage(data.message);
+        addMessage(message);
       }
     };
 
@@ -84,7 +134,7 @@ export const useChatSocketEvents = (threadId: string | null, currentUserId: stri
       console.log('👁️ Message read by:', data.readerName);
       
       // Don't process our own read receipts
-      if (data.readerId !== currentUserId) {
+      if (data.readerId !== currentUserIdRef.current) {
         markMessageAsRead(data.messageId, data.threadId, data.readerId, data.readerName);
       }
     };
@@ -93,7 +143,8 @@ export const useChatSocketEvents = (threadId: string | null, currentUserId: stri
     const handleUnreadCountUpdate = (data: { threadId: string; unreadCount: number }) => {
       console.log('📊 Unread count update:', data);
       
-      const thread = threads.find(t => t.id === data.threadId);
+      const currentThreads = useChatStore.getState().threads;
+      const thread = currentThreads.find(t => t.id === data.threadId);
       if (thread) {
         updateThread({
           ...thread,
@@ -102,36 +153,66 @@ export const useChatSocketEvents = (threadId: string | null, currentUserId: stri
       }
     };
 
-    // Register all listeners
-    socket.on('new_message', handleNewMessage);
-    socket.on('message_deleted', handleMessageDeleted);
-    socket.on('message_sent', handleMessageSent);
-    socket.on('message_read', handleMessageRead);
-    socket.on('unread_count_update', handleUnreadCountUpdate);
+    // 🆕 Handle new thread created
+    const handleThreadCreated = (data: any) => {
+      console.log('🆕 New thread created:', data);
+      
+      const thread = data.thread || data;
+      
+      // Only add if user is a member
+      const isMember = thread.members?.some((m: any) => m.userId === currentUserIdRef.current);
+      if (isMember) {
+        addThread(thread);
+      }
+    };
+
+    // Register all listeners on socketService (NOT raw socket!)
+    // The socket-service already listens to Socket.IO and re-emits events
+    console.log('🎧 Registering socketService event listeners...');
+    socketService.on('new_message', handleNewMessage);
+    socketService.on('message_deleted', handleMessageDeleted);
+    socketService.on('message_sent', handleMessageSent);
+    socketService.on('message_read', handleMessageRead);
+    socketService.on('unread_count_update', handleUnreadCountUpdate);
+    socketService.on('thread_created', handleThreadCreated);
+    socketService.on('new_thread', handleThreadCreated); // Backend sends this too
+    console.log('✅ All socketService event listeners registered!');
 
     // Join thread room if we have a current thread
     if (threadId) {
-      console.log('🚪 Joining thread room:', threadId);
+      console.log('========================================');
+      console.log('🎯 COMPONENT: Requesting to join thread');
+      console.log('🎯 Thread ID from prop:', threadId);
+      console.log('🎯 User ID:', currentUserId);
+      console.log('========================================');
       socketService.joinThread(threadId);
+      console.log('✅ Join request sent to socketService');
+    } else {
+      console.log('ℹ️ No current thread, not joining any room');
     }
 
     // Cleanup function
     return () => {
-      console.log('🧹 Cleaning up chat socket listeners');
+      console.log('========================================');
+      console.log('🧹 CLEANUP: Removing chat socket listeners');
+      console.log('🧹 Thread being cleaned up:', threadId);
+      console.log('========================================');
       
-      socket.off('new_message', handleNewMessage);
-      socket.off('message_deleted', handleMessageDeleted);
-      socket.off('message_sent', handleMessageSent);
-      socket.off('message_read', handleMessageRead);
-      socket.off('unread_count_update', handleUnreadCountUpdate);
+      socketService.off('new_message', handleNewMessage);
+      socketService.off('message_deleted', handleMessageDeleted);
+      socketService.off('message_sent', handleMessageSent);
+      socketService.off('message_read', handleMessageRead);
+      socketService.off('unread_count_update', handleUnreadCountUpdate);
+      socketService.off('thread_created', handleThreadCreated);
+      socketService.off('new_thread', handleThreadCreated);
       
       // Leave thread room
       if (threadId) {
-        console.log('🚪 Leaving thread room:', threadId);
+        console.log('🚪 Cleanup: Leaving thread room:', threadId);
         socketService.leaveThread(threadId);
       }
     };
-  }, [socket, isConnected, threadId, currentUserId, addMessage, deleteMessage, markMessageAsRead, updateThread, threads]);
+  }, [isConnected, threadId, addMessage, deleteMessage, markMessageAsRead, updateThread, addThread]);
 
   return {
     isConnected,

@@ -9,26 +9,26 @@ const axiosInstance = axios.create({
 
 axiosInstance.interceptors.request.use(
   async (config) => {
-    console.log("📡 [Axios] Request started:", config.method?.toUpperCase(), config.url);
+    // console.log("📡 [Axios] Request started:", config.method?.toUpperCase(), config.url);
 
     try {
       const session = await authClient.getSession();
       const token = session?.data?.session?.token;
       const userId = session?.data?.user?.id;
 
-      console.log("🎫 Session token:", token ? 'Present' : 'None');
-      console.log("👤 User ID:", userId);
+      // console.log("🎫 Session token:", token);
+      // console.log("👤 User ID:", userId);
 
       // For mobile: send userId in x-user-id header (backend expects this)
       if (userId) {
         config.headers['x-user-id'] = userId;
-        console.log("✅ x-user-id header attached!");
+        // console.log("✅ x-user-id header attached!");
       }
 
       // Also try Bearer token for web compatibility
       if (token) {
         config.headers.Authorization = `Bearer ${token}`;
-        console.log("✅ Authorization Bearer token attached!");
+        // console.log("✅ Authorization Bearer token attached!");
       }
 
       if (!userId && !token) {
@@ -38,6 +38,7 @@ axiosInstance.interceptors.request.use(
       console.error("❌ Failed to get session:", err);
     }
 
+    console.log("📤 Final headers:", config.headers);
     return config;
   },
   (err) => Promise.reject(err)

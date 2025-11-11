@@ -9,6 +9,7 @@ interface ChatActions {
   deleteMessage: (messageId: string, threadId: string) => void;
   markMessageAsRead: (messageId: string, threadId: string, readerId: string, readerName: string) => void;
   updateThread: (thread: Thread) => void;
+  addThread: (thread: Thread) => void;
   loadThreads: (userId: string) => Promise<void>;
   loadMessages: (threadId: string) => Promise<void>;
   sendMessage: (threadId: string, senderId: string, content: string) => Promise<void>;
@@ -34,14 +35,28 @@ export const useChatStore = create<ChatState & ChatActions>((set, get) => ({
   
   addMessage: (message) => {
     console.log('ChatStore: Adding message:', message.content);
+    console.log('ChatStore: Message ID:', message.id, 'Thread ID:', message.threadId);
+    console.log('ChatStore: Current messages for thread:', message.threadId, 'count:', (get().messages[message.threadId] || []).length);
+    
     const { messages } = get();
     const threadMessages = messages[message.threadId] || [];
-    set({
-      messages: {
-        ...messages,
-        [message.threadId]: [...threadMessages, message],
-      },
-    });
+    
+    // Check if message already exists to prevent duplicates
+    const exists = threadMessages.some(m => m.id === message.id);
+    if (exists) {
+      console.log('ChatStore: Message already exists, skipping:', message.id);
+      return;
+    }
+    
+    const updatedMessages = {
+      ...messages,
+      [message.threadId]: [...threadMessages, message],
+    };
+    
+    set({ messages: updatedMessages });
+    
+    console.log('ChatStore: Message added successfully. Total messages in thread:', updatedMessages[message.threadId].length);
+    console.log('ChatStore: Updated messages state:', Object.keys(updatedMessages).map(tid => `${tid}: ${updatedMessages[tid].length} messages`));
   },
 
   updateMessage: (messageId, updates) => {
@@ -125,9 +140,30 @@ export const useChatStore = create<ChatState & ChatActions>((set, get) => ({
   updateThread: (updatedThread) => {
     console.log('ChatStore: Updating thread:', updatedThread.name);
     const { threads } = get();
-    const updatedThreads = threads.map(thread => 
-      thread.id === updatedThread.id ? updatedThread : thread
-    );
+    
+    // Update the thread and sort by most recent
+    const updatedThreads = threads
+      .map(thread => thread.id === updatedThread.id ? updatedThread : thread)
+      .sort((a, b) => {
+        const dateA = a.updatedAt ? new Date(a.updatedAt).getTime() : 0;
+        const dateB = b.updatedAt ? new Date(b.updatedAt).getTime() : 0;
+        return dateB - dateA; // Most recent first
+      });
+    
+    set({ threads: updatedThreads });
+  },
+
+  addThread: (newThread) => {
+    console.log('ChatStore: Adding new thread:', newThread.name);
+    const { threads } = get();
+    
+    // Add thread to beginning and sort
+    const updatedThreads = [newThread, ...threads].sort((a, b) => {
+      const dateA = a.updatedAt ? new Date(a.updatedAt).getTime() : 0;
+      const dateB = b.updatedAt ? new Date(b.updatedAt).getTime() : 0;
+      return dateB - dateA;
+    });
+    
     set({ threads: updatedThreads });
   },
   
@@ -172,16 +208,7 @@ export const useChatStore = create<ChatState & ChatActions>((set, get) => ({
     console.log('ChatStore: Sending message:', { threadId, senderId, content });
     try {
       const message = await ChatService.sendMessage(threadId, senderId, content);
-      
-      // Add the message to local state immediately
-      const { messages } = get();
-      const threadMessages = messages[threadId] || [];
-      set({
-        messages: {
-          ...messages,
-          [threadId]: [...threadMessages, message],
-        },
-      });
+      // console.log('ChatStore: Message sent via API, waiting for socket confirmation:', message.id);
     } catch (error) {
       console.error('ChatStore: Error sending message:', error);
       set({ error: 'Failed to send message' });
