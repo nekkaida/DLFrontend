@@ -181,7 +181,7 @@ const getStyles = (screenWidth: number, screenHeight: number, bottomInset: numbe
     shadowOpacity: 0.15,
     shadowRadius: 2,
     elevation: 2, // For Android shadow
-    marginBottom: 30,
+    marginBottom: 20,
   },
   logoShadowContainer: {
     shadowColor: '#000000',
