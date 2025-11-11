@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import Svg, { G, Path, Defs, ClipPath, Rect } from 'react-native-svg';
+import { toast } from 'sonner-native';
 import {
   CircleArrowButton,
   InputField,
@@ -273,15 +274,57 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
             >
               <SocialButton
                 type="facebook"
-                onPress={() => onSocialLogin("facebook")}
+                onPress={() => {
+                  if (onSocialLogin) {
+                    try {
+                      onSocialLogin("facebook");
+                    } catch (error) {
+                      toast.error("Facebook login failed", {
+                        description: "Please try again later.",
+                      });
+                    }
+                  } else {
+                    toast.error("Social login not available", {
+                      description: "This feature is coming soon.",
+                    });
+                  }
+                }}
               />
               <SocialButton
                 type="apple"
-                onPress={() => onSocialLogin("apple")}
+                onPress={() => {
+                  if (onSocialLogin) {
+                    try {
+                      onSocialLogin("apple");
+                    } catch (error) {
+                      toast.error("Apple login failed", {
+                        description: "Please try again later.",
+                      });
+                    }
+                  } else {
+                    toast.error("Social login not available", {
+                      description: "This feature is coming soon.",
+                    });
+                  }
+                }}
               />
               <SocialButton
                 type="google"
-                onPress={() => onSocialLogin("google")}
+                onPress={() => {
+                  if (onSocialLogin) {
+                    try {
+                      onSocialLogin("google");
+                    } catch (error) {
+                      toast.error("Google login failed", {
+                        description: "Please try again later.",
+                      });
+                    }
+                  } else {
+                    toast.error("Social login not available", {
+                      description: "This feature is coming soon.",
+                    });
+                  }
+                }}
               />
             </View>
 
@@ -305,6 +348,13 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                   Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                   onSignUp();
                 }}
+                style={{
+                  paddingTop: Platform.OS === 'ios' ? 1 : 0.5,
+                  paddingBottom: Platform.OS === 'ios' ? 1 : 0.5,
+                  paddingHorizontal: Platform.OS === 'ios' ? 2 : 1,
+                  borderBottomWidth: 1,
+                  borderBottomColor: AuthColors.primary,
+                }}
               >
                 <Text style={{
                   fontFamily: 'Inter',
@@ -312,7 +362,6 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                   fontSize: 14,
                   lineHeight: 22,
                   letterSpacing: -0.01,
-                  textDecorationLine: 'underline',
                   color: AuthColors.primary,
                 }}>Create now!</Text>
               </TouchableOpacity>

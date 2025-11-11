@@ -281,16 +281,18 @@ const getStyles = (screenWidth: number, screenHeight: number, bottomInset: numbe
     color: '#404040',
   },
   loginLinkButton: {
-    paddingVertical: Platform.OS === 'ios' ? 4 : 2,
-    paddingHorizontal: Platform.OS === 'ios' ? 4 : 2,
+    paddingTop: Platform.OS === 'ios' ? 2 : 1,
+    paddingBottom: Platform.OS === 'ios' ? 2 : 1,
+    paddingHorizontal: Platform.OS === 'ios' ? 3 : 2,
+    borderBottomWidth: 1,
+    borderBottomColor: '#FEA04D',
   },
   loginLinkButtonText: {
     fontFamily: 'Inter',
-    fontWeight: '800',
+    fontWeight: '600',
     fontSize: Platform.OS === 'ios' ? 14 : 13,
     lineHeight: Platform.OS === 'ios' ? 18 : 17,
     letterSpacing: -0.01,
-    textDecorationLine: 'underline',
     color: '#FEA04D',
   },
 });

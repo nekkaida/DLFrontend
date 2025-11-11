@@ -12,6 +12,7 @@ import {
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
 import Svg, { G, Path, Defs, ClipPath, Rect } from 'react-native-svg';
+import { toast } from 'sonner-native';
 import {
   InputField,
   PhoneInputField,
@@ -379,6 +380,13 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({
                   Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                   setShowPrivacyPolicy(true);
                 }}
+                style={{
+                  paddingTop: Platform.OS === 'ios' ? 0.5 : 0.5,
+                  paddingBottom: Platform.OS === 'ios' ? 0.5 : 0.5,
+                  paddingHorizontal: Platform.OS === 'ios' ? 1 : 0.5,
+                  borderBottomWidth: 1,
+                  borderBottomColor: '#4DABFE',
+                }}
               >
                 <Text style={{
                   fontFamily: 'Inter',
@@ -388,7 +396,6 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({
                   lineHeight: 16,
                   letterSpacing: -0.01,
                   color: '#4DABFE',
-                  textDecorationLine: 'underline',
                 }}>
                   privacy policy
                 </Text>
@@ -409,6 +416,13 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({
                   Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                   setShowTermsOfService(true);
                 }}
+                style={{
+                  paddingTop: Platform.OS === 'ios' ? 1 : 0.5,
+                  paddingBottom: Platform.OS === 'ios' ? 1 : 0.5,
+                  paddingHorizontal: Platform.OS === 'ios' ? 2 : 1,
+                  borderBottomWidth: 1,
+                  borderBottomColor: '#4DABFE',
+                }}
               >
                 <Text style={{
                   fontFamily: 'Inter',
@@ -418,7 +432,6 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({
                   lineHeight: 16,
                   letterSpacing: -0.01,
                   color: '#4DABFE',
-                  textDecorationLine: 'underline',
                 }}>
                   terms of service
                 </Text>
@@ -512,9 +525,42 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({
               alignItems: 'center',
               gap: screenWidth * 0.015
             }}>
-              <SocialButton type="facebook" onPress={() => onSocialSignUp('facebook')} />
-              <SocialButton type="apple" onPress={() => onSocialSignUp('apple')} />
-              <SocialButton type="google" onPress={() => onSocialSignUp('google')} />
+              <SocialButton 
+                type="facebook" 
+                onPress={() => {
+                  try {
+                    onSocialSignUp('facebook');
+                  } catch (error) {
+                    toast.error("Facebook sign up failed", {
+                      description: "Please try again later.",
+                    });
+                  }
+                }} 
+              />
+              <SocialButton 
+                type="apple" 
+                onPress={() => {
+                  try {
+                    onSocialSignUp('apple');
+                  } catch (error) {
+                    toast.error("Apple sign up failed", {
+                      description: "Please try again later.",
+                    });
+                  }
+                }} 
+              />
+              <SocialButton 
+                type="google" 
+                onPress={() => {
+                  try {
+                    onSocialSignUp('google');
+                  } catch (error) {
+                    toast.error("Google sign up failed", {
+                      description: "Please try again later.",
+                    });
+                  }
+                }} 
+              />
             </View>
 
             {/* Login Link */}
@@ -537,6 +583,13 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({
                   Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                   onLogin();
                 }}
+                style={{
+                  paddingTop: Platform.OS === 'ios' ? 2 : 1,
+                  paddingBottom: Platform.OS === 'ios' ? 2 : 1,
+                  paddingHorizontal: Platform.OS === 'ios' ? 3 : 2,
+                  borderBottomWidth: 1,
+                  borderBottomColor: AuthColors.primary,
+                }}
               >
                 <Text style={{
                   fontFamily: 'Inter',
@@ -544,7 +597,6 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({
                   fontSize: 14,
                   lineHeight: 22,
                   letterSpacing: -0.01,
-                  textDecorationLine: 'underline',
                   color: AuthColors.primary,
                 }}>Log in</Text>
               </TouchableOpacity>
