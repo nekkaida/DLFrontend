@@ -72,7 +72,7 @@ export const LoadingScreen: React.FC<LoadingScreenProps> = ({ onGetStarted, onLo
             <DeuceSvg width={260} height={94} />
           </View>
           <View style={dynamicStyles.logoShadowContainer}>
-            <DeuceLogo width={80} height={80} />
+            <DeuceLogo width={100} height={100} />
           </View>
         </View>
 
