@@ -12,8 +12,8 @@ export class ProfileDataTransformer {
     profileData: any,
     achievements: any[]
   ): UserData {
-    console.log('Transforming profile data:', profileData);
-    console.log('Skill ratings:', profileData?.skillRatings);
+    // console.log('Transforming profile data:', profileData); // commented out for readability in the logs
+    // console.log('Skill ratings:', profileData?.skillRatings);
 
     const userData = profileData ? {
       name: profileData.name || 'No name available',
@@ -44,8 +44,6 @@ export class ProfileDataTransformer {
       profileImage: undefined,
       achievements: [],
     };
-
-    console.log('Final userData:', userData);
     return userData;
   }
 
@@ -63,9 +61,9 @@ export class ProfileDataTransformer {
 
       // Check for specific singles/doubles rating first
       if (type === 'singles' && rating.singles) {
-        return Math.round(rating.singles * 1000); // Convert to display format
+        return Math.round(rating.singles * 1000);
       } else if (type === 'doubles' && rating.doubles) {
-        return Math.round(rating.doubles * 1000); // Convert to display format
+        return Math.round(rating.doubles * 1000);
       } else if (rating.rating) {
         // Fallback to general rating if specific type not available
         return Math.round(rating.rating * 1000);
@@ -74,10 +72,6 @@ export class ProfileDataTransformer {
     return 0; // Default to 0 if no rating available
   }
 
-  /**
-   * Calculate win rate from profile and match data
-   * Preserves exact calculation logic from original
-   */
   static calculateWinRate(userData: UserData, profileData: any): number {
     if (userData.name === 'Loading...') return 0; // Still loading
 

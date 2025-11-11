@@ -50,12 +50,21 @@ export interface LeagueStatsProps {
   onGamePointPress: (game: GameData) => void;
 }
 
+export interface SkillRating {
+  rating?: number; 
+  singles?: number;
+  doubles?: number;
+}
+
+
 export interface UserData {
   name: string;
   username: string;
   bio: string;
+  image?: string | null;
   location: string;
   gender: string;
+  skillRatings?: Record<string, SkillRating>; 
   skillLevel: string;
   sports: string[];
   activeSports: string[];
