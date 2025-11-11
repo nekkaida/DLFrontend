@@ -8,8 +8,8 @@
 
 import React, { useState } from 'react';
 import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { authClient, useSession } from './lib/auth-client';
-import axiosInstance from './lib/endpoints';
+import { authClient, useSession } from '../../lib/auth-client';
+import axiosInstance from '../../lib/endpoints';
 
 export default function TestBetterAuth() {
   const { data: session, isPending } = useSession();
