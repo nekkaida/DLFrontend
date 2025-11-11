@@ -151,20 +151,6 @@ export class ChatService {
     }
   }
 
-  static async markAsRead(messageId: string, userId: string): Promise<void> {
-    console.log("ChatService: markAsRead called:", { messageId, userId });
-    try {
-      await axiosInstance.post(endpoints.chat.markAsRead(messageId), {
-        userId,
-      });
-
-      console.log("ChatService: Message marked as read");
-    } catch (error) {
-      console.error("Error marking message as read:", error);
-      throw error;
-    }
-  }
-
   // Get thread members
   static async getThreadMembers(threadId: string): Promise<User[]> {
     console.log("ChatService: getThreadMembers called for thread:", threadId);
@@ -212,29 +198,6 @@ export class ChatService {
       throw error;
     }
   }
- 
-  // Get user contacts TO DO  future 
-  // static async getContacts(userId: string): Promise<User[]> {
-  //   console.log("ChatService: getContacts called for user:", userId);
-  //   try {
-  //     const response: AxiosResponse = await axiosInstance.get(
-  //       endpoints.chat.getContacts(userId)
-  //     );
-
-  //     console.log("ChatService: Contacts response:", response.data);
-
-  //     // Transform backend data to match our frontend types
-  //     const contacts = Array.isArray(response.data?.data)
-  //       ? response.data.data.map(this.transformBackendUser)
-  //       : [];
-  //     console.log("ChatService: Transformed contacts:", contacts.length);
-
-  //     return contacts;
-  //   } catch (error) {
-  //     console.error("Error fetching contacts:", error);
-  //     throw error;
-  //   }
-  // }
 
   // Get unread count for a specific thread
   static async getUnreadCount(threadId: string): Promise<number> {
@@ -269,13 +232,15 @@ export class ChatService {
   }
 
   // Mark all messages in a thread as read
-  static async markAllAsRead(threadId: string): Promise<void> {
-    console.log("ChatService: markAllAsRead called for thread:", threadId);
+  static async markAllAsRead(threadId: string, userId: string): Promise<void> {
+    console.log("ChatService: markThreadAsRead called for thread:", threadId, "user:", userId);
     try {
-      await axiosInstance.post(endpoints.chat.markAllAsRead(threadId));
-      console.log("ChatService: All messages marked as read");
+      await axiosInstance.post(endpoints.chat.markThreadAsRead(threadId), {
+        userId
+      });
+      console.log("ChatService: Thread marked as read");
     } catch (error) {
-      console.error("Error marking all as read:", error);
+      console.error("Error marking thread as read:", error);
       throw error;
     }
   }
@@ -309,10 +274,7 @@ export class ChatService {
       lastMessage: lastMessage
         ? this.transformBackendMessage(lastMessage)
         : undefined,
-      unreadCount: this.calculateUnreadCount(
-        backendThread.messages,
-        backendThread.members
-      ),
+      unreadCount: backendThread.unreadCount || 0,
       isActive: true,
       createdAt: new Date(backendThread.createdAt),
       updatedAt: new Date(backendThread.updatedAt),

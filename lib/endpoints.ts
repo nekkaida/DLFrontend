@@ -180,14 +180,13 @@ export const endpoints = {
     getThreadMembers: (threadId: string) => `/api/chat/threads/${threadId}/members`,
     sendMessage: (threadId: string) => `/api/chat/threads/${threadId}/messages`,
     getMessages: (threadId: string) => `/api/chat/threads/${threadId}/messages`,
-    markAsRead: (messageId: string) => `/api/chat/messages/${messageId}/read`,
     getAvailableUsers: (userId: string) => `/api/chat/threads/users/available/${userId}`,
     deleteMessage: (messageId: string) => `/api/chat/threads/messages/${messageId}`,
     
     // Unread count endpoints
     getUnreadCount: (threadId: string) => `/api/chat/threads/${threadId}/unread-count`,
-    getTotalUnreadCount: (userId: string) => `/api/chat/users/${userId}/total-unread`,
-    markAllAsRead: (threadId: string) => `/api/chat/threads/${threadId}/mark-all-read`,
+    getTotalUnreadCount: (userId: string) => `/api/chat/user/${userId}/total-unread`,
+    markThreadAsRead: (threadId: string) => `/api/chat/${threadId}/mark-read`,
 
     // Add contacts endpoints
     getContacts: (userId: string) => `/api/users/${userId}/contacts`,

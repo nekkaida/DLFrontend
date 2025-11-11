@@ -16,6 +16,7 @@ interface ChatActions {
   setConnectionStatus: (connected: boolean) => void;
   setError: (error: string | null) => void;
   setLoading: (loading: boolean) => void;
+  getTotalUnreadCount: () => number;
 }
 
 export const useChatStore = create<ChatState & ChatActions>((set, get) => ({
@@ -139,18 +140,35 @@ export const useChatStore = create<ChatState & ChatActions>((set, get) => ({
   
   updateThread: (updatedThread) => {
     console.log('ChatStore: Updating thread:', updatedThread.name);
+    console.log('ChatStore: Updated thread lastMessage:', updatedThread.lastMessage?.content);
+    console.log('ChatStore: Updated thread updatedAt:', updatedThread.updatedAt);
     const { threads } = get();
+    
+    console.log('ChatStore: Current threads before update:', threads.length);
     
     // Update the thread and sort by most recent
     const updatedThreads = threads
-      .map(thread => thread.id === updatedThread.id ? updatedThread : thread)
+      .map(thread => {
+        if (thread.id === updatedThread.id) {
+          console.log('ChatStore: Found matching thread, updating:', thread.name);
+          return updatedThread;
+        }
+        return thread;
+      })
       .sort((a, b) => {
         const dateA = a.updatedAt ? new Date(a.updatedAt).getTime() : 0;
         const dateB = b.updatedAt ? new Date(b.updatedAt).getTime() : 0;
         return dateB - dateA; // Most recent first
       });
     
+    console.log('ChatStore: Setting new threads array...');
     set({ threads: updatedThreads });
+    console.log('ChatStore: Threads updated! New array has', updatedThreads.length, 'threads');
+    
+    // Verify the update
+    const { threads: finalThreads } = get();
+    const verifyThread = finalThreads.find(t => t.id === updatedThread.id);
+    console.log('ChatStore: Verification - Thread lastMessage:', verifyThread?.lastMessage?.content);
   },
 
   addThread: (newThread) => {
@@ -228,5 +246,12 @@ export const useChatStore = create<ChatState & ChatActions>((set, get) => ({
   setLoading: (loading) => {
     console.log('ChatStore: Loading:', loading);
     set({ isLoading: loading });
+  },
+
+  getTotalUnreadCount: () => {
+    const { threads } = get();
+    const totalUnread = threads.reduce((sum, thread) => sum + (thread.unreadCount || 0), 0);
+    console.log('ChatStore: Total unread count:', totalUnread);
+    return totalUnread;
   },
 }));

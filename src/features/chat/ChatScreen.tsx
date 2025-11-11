@@ -21,8 +21,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MessageInput } from './components/chat-input';
 import { ThreadList } from './components/chat-list';
 import { MessageWindow } from './components/chat-window';
-import { SocketTestButton } from './components/SocketTestButton';
 import { useChatSocketEvents } from './hooks/useChatSocketEvents';
+import { ChatService } from './services/ChatService';
 import { useChatStore } from './stores/ChatStore';
 import { Thread } from './types';
 
@@ -53,6 +53,7 @@ export const ChatScreen: React.FC = () => {
     sendMessage,
     addMessage,
     setConnectionStatus,
+    updateThread,
   } = useChatStore();
 
   // Setup Socket.IO event listeners for real-time chat
@@ -97,8 +98,6 @@ export const ChatScreen: React.FC = () => {
           method: "GET",
         }
       );
-
-      console.log("ChatScreen: Profile API response:", authResponse);
 
       if (
         authResponse &&
@@ -159,9 +158,27 @@ export const ChatScreen: React.FC = () => {
     }
   }, [searchQuery, threads]);
 
-  const handleThreadSelect = (thread: Thread) => {
+  const handleThreadSelect = async (thread: Thread) => {
     console.log('ChatScreen: Thread selected:', thread.name);
     setCurrentThread(thread);
+    
+    // Mark thread as read when opening it
+    if (user?.id && thread.unreadCount > 0) {
+      console.log('ChatScreen: Marking thread as read, unread count:', thread.unreadCount);
+      try {
+        await ChatService.markAllAsRead(thread.id, user.id);
+        console.log('ChatScreen: Thread marked as read successfully');
+        
+        // Immediately update local state (optimistic update)
+        // Backend will emit thread_marked_read event for confirmation
+        updateThread({
+          ...thread,
+          unreadCount: 0,
+        });
+      } catch (error) {
+        console.error('ChatScreen: Error marking thread as read:', error);
+      }
+    }
   };
 
   const handleSendMessage = (content: string) => {
@@ -281,7 +298,7 @@ export const ChatScreen: React.FC = () => {
               )}
             </View>
             
-            <SocketTestButton threadId={currentThread.id} />
+            {/* <SocketTestButton threadId={currentThread.id} /> */}
             
             <TouchableOpacity style={styles.headerAction}>
               <Ionicons name="ellipsis-vertical" size={20} color="#6B7280" />

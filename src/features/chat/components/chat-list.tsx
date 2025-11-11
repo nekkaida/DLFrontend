@@ -96,7 +96,8 @@ export const ThreadList: React.FC<ThreadListProps> = ({ onThreadSelect }) => {
     <FlatList
       data={threads || []}
       renderItem={renderThread}
-      keyExtractor={(item) => item.id}
+      keyExtractor={(item) => `${item.id}-${item.updatedAt?.getTime() || 0}-${item.unreadCount}`}
+      extraData={threads}
       style={styles.container}
       contentContainerStyle={
         !threads || threads.length === 0 ? styles.emptyContainer : undefined

@@ -102,6 +102,11 @@ export class SocketService {
         this.emit('unread_count_update', data);
       });
 
+      this._socket.on('thread_marked_read', (data) => {
+        console.log('📖 SocketService: Thread marked as read:', data);
+        this.emit('thread_marked_read', data);
+      });
+
       this._socket.on('thread_updated', (data) => {
         console.log('🔄 SocketService: Thread updated:', data);
         this.emit('thread_update', data);

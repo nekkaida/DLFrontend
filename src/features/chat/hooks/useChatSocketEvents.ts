@@ -81,19 +81,32 @@ export const useChatSocketEvents = (threadId: string | null, currentUserId: stri
       addMessage(message);
       console.log('📥 Message added to store!');
       
-      // Update thread's last message and move to top
+      // Update thread's last message and move to top (backend will handle unread count)
       const currentThreads = useChatStore.getState().threads;
       console.log('📥 Current threads count:', currentThreads.length);
       const thread = currentThreads.find(t => t.id === message.threadId);
       if (thread) {
         console.log('📥 Found thread to update:', thread.name);
+        console.log('📥 Old lastMessage:', thread.lastMessage?.content);
+        console.log('📥 New lastMessage:', message.content);
+        console.log('📥 Old updatedAt:', thread.updatedAt);
+        console.log('📥 New updatedAt:', new Date(message.timestamp));
+        
         const updatedThread = {
           ...thread,
           lastMessage: message,
           updatedAt: new Date(message.timestamp),
+          // Keep existing unread count - backend will emit unread_count_update event
         };
+        
+        console.log('📥 Calling updateThread with updated thread...');
         updateThread(updatedThread);
-        console.log('📥 Thread updated!');
+        console.log('📥 updateThread called! Thread should be updated now.');
+        
+        // Verify the update
+        const threadsAfterUpdate = useChatStore.getState().threads;
+        const threadAfterUpdate = threadsAfterUpdate.find(t => t.id === message.threadId);
+        console.log('📥 Verified - lastMessage after update:', threadAfterUpdate?.lastMessage?.content);
       } else {
         console.log('⚠️ Thread not found in store!');
       }
@@ -131,24 +144,42 @@ export const useChatSocketEvents = (threadId: string | null, currentUserId: stri
       readerId: string;
       readerName: string;
     }) => {
-      console.log('👁️ Message read by:', data.readerName);
+      console.log('👁️ Message read by:', data.readerName, 'Reader ID:', data.readerId);
       
-      // Don't process our own read receipts
-      if (data.readerId !== currentUserIdRef.current) {
-        markMessageAsRead(data.messageId, data.threadId, data.readerId, data.readerName);
-      }
+      // Just update read receipts - backend handles unread count and emits unread_count_update
+      markMessageAsRead(data.messageId, data.threadId, data.readerId, data.readerName);
+      console.log('👁️ Read receipt added to message');
     };
 
     // 📊 Handle unread count updates
-    const handleUnreadCountUpdate = (data: { threadId: string; unreadCount: number }) => {
+    const handleUnreadCountUpdate = (data: { threadId: string; unreadCount: number; userId?: string }) => {
       console.log('📊 Unread count update:', data);
+      
+      // Only update if this update is for the current user (or no userId specified)
+      if (!data.userId || data.userId === currentUserIdRef.current) {
+        const currentThreads = useChatStore.getState().threads;
+        const thread = currentThreads.find(t => t.id === data.threadId);
+        if (thread) {
+          console.log('📊 Updating thread unread count from', thread.unreadCount, 'to', data.unreadCount);
+          updateThread({
+            ...thread,
+            unreadCount: data.unreadCount,
+          });
+        }
+      }
+    };
+
+    // 📖 Handle thread marked as read event
+    const handleThreadMarkedRead = (data: { threadId: string; timestamp: string }) => {
+      console.log('📖 Thread marked as read:', data.threadId);
       
       const currentThreads = useChatStore.getState().threads;
       const thread = currentThreads.find(t => t.id === data.threadId);
       if (thread) {
+        console.log('📖 Resetting unread count to 0 for thread:', thread.name);
         updateThread({
           ...thread,
-          unreadCount: data.unreadCount,
+          unreadCount: 0,
         });
       }
     };
@@ -174,6 +205,7 @@ export const useChatSocketEvents = (threadId: string | null, currentUserId: stri
     socketService.on('message_sent', handleMessageSent);
     socketService.on('message_read', handleMessageRead);
     socketService.on('unread_count_update', handleUnreadCountUpdate);
+    socketService.on('thread_marked_read', handleThreadMarkedRead);
     socketService.on('thread_created', handleThreadCreated);
     socketService.on('new_thread', handleThreadCreated); // Backend sends this too
     console.log('✅ All socketService event listeners registered!');
@@ -203,6 +235,7 @@ export const useChatSocketEvents = (threadId: string | null, currentUserId: stri
       socketService.off('message_sent', handleMessageSent);
       socketService.off('message_read', handleMessageRead);
       socketService.off('unread_count_update', handleUnreadCountUpdate);
+      socketService.off('thread_marked_read', handleThreadMarkedRead);
       socketService.off('thread_created', handleThreadCreated);
       socketService.off('new_thread', handleThreadCreated);
       
@@ -213,6 +246,40 @@ export const useChatSocketEvents = (threadId: string | null, currentUserId: stri
       }
     };
   }, [isConnected, threadId, addMessage, deleteMessage, markMessageAsRead, updateThread, addThread]);
+
+  // Join all thread rooms when viewing thread list (no specific thread selected)
+  useEffect(() => {
+    if (!isConnected || threadId) {
+      // Only join all threads when on thread list (threadId is null)
+      return;
+    }
+
+    console.log('========================================');
+    console.log('📋 On thread list - joining all thread rooms for real-time updates');
+    console.log('========================================');
+
+    const threads = useChatStore.getState().threads;
+    
+    if (threads && threads.length > 0) {
+      console.log(`📋 Joining ${threads.length} thread rooms...`);
+      threads.forEach(thread => {
+        socketService.joinThread(thread.id);
+        console.log(`✅ Joined thread room: ${thread.id} (${thread.name})`);
+      });
+    }
+
+    // Cleanup: leave all thread rooms when leaving thread list or component unmounts
+    return () => {
+      const threads = useChatStore.getState().threads;
+      if (threads && threads.length > 0) {
+        console.log('🚪 Leaving all thread rooms...');
+        threads.forEach(thread => {
+          socketService.leaveThread(thread.id);
+          console.log(`🚪 Left thread room: ${thread.id}`);
+        });
+      }
+    };
+  }, [isConnected, threadId]);
 
   return {
     isConnected,
