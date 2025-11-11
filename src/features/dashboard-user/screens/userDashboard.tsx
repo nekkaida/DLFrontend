@@ -7,6 +7,7 @@ import { authClient, useSession } from "@/lib/auth-client";
 import { NavBar } from "@/shared/components/layout";
 import { SportSwitcher } from "@/shared/components/ui/SportSwitcher";
 import { ChatScreen } from "@/src/features/chat/ChatScreen";
+import { useUnreadCount } from "@/src/features/chat/hooks/useUnreadCount";
 import CommunityScreen from "@/src/features/community/screens/CommunityScreen";
 import { LeagueCard, useLeagues } from "@/src/features/leagues";
 import { useNotifications } from "@/src/hooks/useNotifications";
@@ -77,13 +78,15 @@ export default function DashboardScreen() {
   const [notificationDrawerVisible, setNotificationDrawerVisible] = React.useState(false);
   const scrollY = React.useRef(new Animated.Value(0)).current;
  
+  
   // Notification hook
   const { unreadCount } = useNotifications();
   
+  // Chat unread count hook
+  const chatUnreadCount = useUnreadCount();
+  
   // Use safe area insets for proper status bar handling across platforms
-  const STATUS_BAR_HEIGHT = insets.top;
-
-  // Helper function to get available sports for SportSwitcher
+  const STATUS_BAR_HEIGHT = insets.top;  // Helper function to get available sports for SportSwitcher
   const getUserSelectedSports = () => {
     return ["pickleball", "tennis", "padel"];
   };
@@ -344,7 +347,12 @@ export default function DashboardScreen() {
       <View style={styles.container}>
         <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
         <ChatScreen />
-        <NavBar activeTab={activeTab} onTabPress={handleTabPress} sport={selectedSport} />
+        <NavBar 
+          activeTab={activeTab} 
+          onTabPress={handleTabPress} 
+          sport={selectedSport}
+          badgeCounts={{ chat: chatUnreadCount }}
+        />
       </View>
     );
   }
@@ -411,7 +419,12 @@ export default function DashboardScreen() {
             </Text>
           </View>
         </View>
-        <NavBar activeTab={activeTab} onTabPress={handleTabPress} sport={selectedSport} />
+        <NavBar 
+          activeTab={activeTab} 
+          onTabPress={handleTabPress} 
+          sport={selectedSport}
+          badgeCounts={{ chat: chatUnreadCount }}
+        />
       </View>
     );
   }
@@ -662,7 +675,12 @@ export default function DashboardScreen() {
           </Animated.ScrollView>
         </View>
       </View>
-      <NavBar activeTab={activeTab} onTabPress={handleTabPress} sport={selectedSport} />
+      <NavBar 
+        activeTab={activeTab} 
+        onTabPress={handleTabPress} 
+        sport={selectedSport}
+        badgeCounts={{ chat: chatUnreadCount }}
+      />
       
       {/* Notification Drawer */}
       <NotificationDrawer
