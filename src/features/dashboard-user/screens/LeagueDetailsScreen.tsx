@@ -176,8 +176,12 @@ export default function LeagueDetailsScreen({
         SeasonService.fetchAllSeasons()
       ]);
 
-      console.log('Fetched league data:', leagueData);
-      console.log('Fetched seasons:', seasonsData);
+      // console.log('Fetched league data:', leagueData);
+      // console.log('Fetched seasons:', seasonsData);
+      console.log('✅ LeagueDetailsScreen: Fetched data:', {
+        league: leagueData ? { id: leagueData.id, name: leagueData.name } : null,
+        seasonsCount: seasonsData?.length || 0,
+      });
 
       // Set league data to state
       setLeague(leagueData);

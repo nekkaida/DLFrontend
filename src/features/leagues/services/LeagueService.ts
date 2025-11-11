@@ -57,12 +57,8 @@ export class LeagueService {
       logNetworkConfig();
       
       const backendUrl = getBackendBaseURL();
-      console.log('🔍 LeagueService: Starting fetchAllLeagues');
-      console.log('🔍 LeagueService: Backend URL:', backendUrl);
-      console.log('🔍 LeagueService: Full API URL:', `${backendUrl}/api/league`);
 
       // try with regular fetch first to debug
-      console.log('🔍 LeagueService: Testing with regular fetch...');
       const regularFetchResponse = await fetch(`${backendUrl}/api/league`, {
         method: 'GET',
         headers: {
@@ -70,11 +66,7 @@ export class LeagueService {
         },
       });
       
-      console.log('🔍 LeagueService: Regular fetch response status:', regularFetchResponse.status);
-      console.log('🔍 LeagueService: Regular fetch response headers:', Object.fromEntries(regularFetchResponse.headers.entries()));
-      
       const regularFetchData = await regularFetchResponse.json();
-      console.log('🔍 LeagueService: Regular fetch data:', regularFetchData);
 
       // use regular fetch data since it works
       if (regularFetchData && regularFetchData.success && regularFetchData.data && regularFetchData.data.leagues) {
@@ -170,8 +162,15 @@ export class LeagueService {
         
         // Handle authClient.$fetch wrapped response structure
         if (apiResponse.data && apiResponse.data.success && apiResponse.data.data && apiResponse.data.data.league) {
-          console.log('LeagueService: Setting league data (wrapped):', apiResponse.data.data.league);
-          return apiResponse.data.data.league as League;
+          const league = apiResponse.data.data.league as League;
+          // console.log('LeagueService: Setting league data (wrapped):', apiResponse.data.data.league);
+          console.log('✅ LeagueService: Fetched league:', {
+            id: league.id,
+            name: league.name,
+            seasons: league.seasonCount || league._count?.seasons || 0,
+            memberships: league._count?.memberships || 0,
+          });
+          return league;
         }
         
         // Handle direct API response structure
