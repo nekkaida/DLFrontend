@@ -16,7 +16,7 @@ axiosInstance.interceptors.request.use(
       const token = session?.data?.session?.token;
       const userId = session?.data?.user?.id;
 
-      console.log("🎫 Session token:", token);
+      console.log("🎫 Session token:", token ? 'Present' : 'None');
       console.log("👤 User ID:", userId);
 
       // For mobile: send userId in x-user-id header (backend expects this)
@@ -38,7 +38,6 @@ axiosInstance.interceptors.request.use(
       console.error("❌ Failed to get session:", err);
     }
 
-    console.log("📤 Final headers:", config.headers);
     return config;
   },
   (err) => Promise.reject(err)
@@ -46,7 +45,7 @@ axiosInstance.interceptors.request.use(
 
 axiosInstance.interceptors.response.use(
   (res) => {
-    console.log("✅ [Axios] Response success:", res.status, res.config.url);
+    // console.log("✅ [Axios] Response success:", res.status, res.config.url);
     return res;
   },
   (error: AxiosError) => {
@@ -182,6 +181,12 @@ export const endpoints = {
     getMessages: (threadId: string) => `/api/chat/threads/${threadId}/messages`,
     markAsRead: (messageId: string) => `/api/chat/messages/${messageId}/read`,
     getAvailableUsers: (userId: string) => `/api/chat/threads/users/available/${userId}`,
+    deleteMessage: (messageId: string) => `/api/chat/threads/messages/${messageId}`,
+    
+    // Unread count endpoints
+    getUnreadCount: (threadId: string) => `/api/chat/threads/${threadId}/unread-count`,
+    getTotalUnreadCount: (userId: string) => `/api/chat/users/${userId}/total-unread`,
+    markAllAsRead: (threadId: string) => `/api/chat/threads/${threadId}/mark-all-read`,
 
     // Add contacts endpoints
     getContacts: (userId: string) => `/api/users/${userId}/contacts`,
