@@ -5,6 +5,9 @@ import { ChatState, Message, Thread } from '../types';
 interface ChatActions {
   setCurrentThread: (thread: Thread | null) => void;
   addMessage: (message: Message) => void;
+  updateMessage: (messageId: string, updates: Partial<Message>) => void;
+  deleteMessage: (messageId: string, threadId: string) => void;
+  markMessageAsRead: (messageId: string, threadId: string, readerId: string, readerName: string) => void;
   updateThread: (thread: Thread) => void;
   loadThreads: (userId: string) => Promise<void>;
   loadMessages: (threadId: string) => Promise<void>;
@@ -37,6 +40,84 @@ export const useChatStore = create<ChatState & ChatActions>((set, get) => ({
       messages: {
         ...messages,
         [message.threadId]: [...threadMessages, message],
+      },
+    });
+  },
+
+  updateMessage: (messageId, updates) => {
+    console.log('ChatStore: Updating message:', messageId);
+    const { messages } = get();
+    const updatedMessages = { ...messages };
+    
+    for (const threadId in updatedMessages) {
+      updatedMessages[threadId] = updatedMessages[threadId].map(msg =>
+        msg.id === messageId ? { ...msg, ...updates } : msg
+      );
+    }
+    
+    set({ messages: updatedMessages });
+  },
+
+  deleteMessage: (messageId, threadId) => {
+    console.log('ChatStore: Deleting message:', messageId);
+    const { messages } = get();
+    const threadMessages = messages[threadId] || [];
+    
+    set({
+      messages: {
+        ...messages,
+        [threadId]: threadMessages.map(msg =>
+          msg.id === messageId
+            ? {
+                ...msg,
+                isDeleted: true,
+                content: 'This message has been deleted',
+                metadata: {
+                  ...msg.metadata,
+                  isDeleted: true,
+                }
+              }
+            : msg
+        ),
+      },
+    });
+  },
+
+  markMessageAsRead: (messageId, threadId, readerId, readerName) => {
+    console.log('ChatStore: Marking message as read:', messageId);
+    const { messages } = get();
+    const threadMessages = messages[threadId] || [];
+    
+    set({
+      messages: {
+        ...messages,
+        [threadId]: threadMessages.map(msg => {
+          if (msg.id === messageId) {
+            const readBy = msg.metadata?.readBy || [];
+            const alreadyRead = readBy.some((r: any) => r.userId === readerId);
+            
+            if (!alreadyRead) {
+              return {
+                ...msg,
+                isRead: true,
+                metadata: {
+                  ...msg.metadata,
+                  readBy: [
+                    ...readBy,
+                    {
+                      id: `${messageId}-${readerId}`,
+                      userId: readerId,
+                      messageId: messageId,
+                      readAt: new Date().toISOString(),
+                      user: { id: readerId, name: readerName },
+                    },
+                  ],
+                },
+              };
+            }
+          }
+          return msg;
+        }),
       },
     });
   },

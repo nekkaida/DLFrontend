@@ -3,19 +3,15 @@ import {
     Notification,
     NotificationCategory,
     NotificationFilter,
-    NotificationStats,
     PaginatedNotifications
 } from '@/src/shared/types/notification';
 
 export class NotificationService {
-  /**
-   * Get user notifications with pagination and filtering
-   */
   async getUserNotifications(filter: NotificationFilter = {}, userId: string): Promise<PaginatedNotifications> {
     try {
       if (!userId) throw new Error('userId is required');
 
-      const params = new URLSearchParams({ userId }); // <-- Pass userId
+      const params = new URLSearchParams({ userId });
       if (filter.page) params.append('page', filter.page.toString());
       if (filter.limit) params.append('limit', filter.limit.toString());
       if (filter.unreadOnly) params.append('unreadOnly', 'true');
@@ -53,9 +49,6 @@ export class NotificationService {
     }
   }
 
-  /**
-   * Mark notification as read
-   */
   async markAsRead(notificationId: string, userId: string): Promise<void> {
     if (!userId) throw new Error('userId is required');
     try {
@@ -66,9 +59,6 @@ export class NotificationService {
     }
   }
 
-  /**
-   * Mark all notifications as read
-   */
   async markAllAsRead(userId: string): Promise<{ updatedCount: number }> {
     if (!userId) throw new Error('userId is required');
     try {
@@ -97,9 +87,8 @@ export class NotificationService {
       throw error;
     }
   }
-  /**
-   * Get unread count
-   */
+  
+
   async getUnreadCount(userId: string): Promise<number> {
     if (!userId) throw new Error('userId is required');
     try {
@@ -111,23 +100,6 @@ export class NotificationService {
     }
   }
 
-  /**
-   * Get notification statistics
-   */
-  async getNotificationStats(userId: string): Promise<NotificationStats> {
-    if (!userId) throw new Error('userId is required');
-    try {
-      const response = await axiosInstance.get(`${endpoints.notifications.stats}?userId=${userId}`);
-      return response.data.data;
-    } catch (error) {
-      console.error('Error getting notification stats:', error);
-      throw error;
-    }
-  }
-
-  /**
-   * Get notifications by category
-   */
   async getNotificationsByCategory(category: NotificationCategory, userId: string, limit: number = 100): Promise<Notification[]> {
     if (!userId) throw new Error('userId is required');
     try {

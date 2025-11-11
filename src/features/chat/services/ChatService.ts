@@ -236,6 +236,62 @@ export class ChatService {
   //   }
   // }
 
+  // Get unread count for a specific thread
+  static async getUnreadCount(threadId: string): Promise<number> {
+    console.log("ChatService: getUnreadCount called for thread:", threadId);
+    try {
+      const response: AxiosResponse = await axiosInstance.get(
+        endpoints.chat.getUnreadCount(threadId)
+      );
+
+      console.log("ChatService: Unread count response:", response.data);
+      return response.data?.data?.unreadCount || 0;
+    } catch (error) {
+      console.error("Error fetching unread count:", error);
+      return 0;
+    }
+  }
+
+  // Get total unread count across all threads
+  static async getTotalUnreadCount(userId: string): Promise<number> {
+    console.log("ChatService: getTotalUnreadCount called for user:", userId);
+    try {
+      const response: AxiosResponse = await axiosInstance.get(
+        endpoints.chat.getTotalUnreadCount(userId)
+      );
+
+      console.log("ChatService: Total unread count response:", response.data);
+      return response.data?.data?.totalUnreadCount || 0;
+    } catch (error) {
+      console.error("Error fetching total unread count:", error);
+      return 0;
+    }
+  }
+
+  // Mark all messages in a thread as read
+  static async markAllAsRead(threadId: string): Promise<void> {
+    console.log("ChatService: markAllAsRead called for thread:", threadId);
+    try {
+      await axiosInstance.post(endpoints.chat.markAllAsRead(threadId));
+      console.log("ChatService: All messages marked as read");
+    } catch (error) {
+      console.error("Error marking all as read:", error);
+      throw error;
+    }
+  }
+
+  // Delete a message
+  static async deleteMessage(messageId: string): Promise<void> {
+    console.log("ChatService: deleteMessage called:", messageId);
+    try {
+      await axiosInstance.delete(endpoints.chat.deleteMessage(messageId));
+      console.log("ChatService: Message deleted");
+    } catch (error) {
+      console.error("Error deleting message:", error);
+      throw error;
+    }
+  }
+
   private static transformBackendThread(backendThread: any, currentUserId?: string): Thread {
 
     const lastMessage = backendThread.messages?.[0];

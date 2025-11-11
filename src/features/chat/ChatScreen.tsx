@@ -21,6 +21,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MessageInput } from './components/chat-input';
 import { ThreadList } from './components/chat-list';
 import { MessageWindow } from './components/chat-window';
+import { useChatSocketEvents } from './hooks/useChatSocketEvents';
 import { useChatStore } from './stores/ChatStore';
 import { Thread } from './types';
 
@@ -51,6 +52,12 @@ export const ChatScreen: React.FC = () => {
     addMessage,
     setConnectionStatus,
   } = useChatStore();
+
+  // Setup Socket.IO event listeners for real-time chat
+  const { isConnected: socketConnected } = useChatSocketEvents(
+    currentThread?.id || null,
+    user?.id || ''
+  );
 
   // Fetch profile data when component mounts
   useEffect(() => {
