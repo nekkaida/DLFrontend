@@ -342,7 +342,28 @@ const SkillAssessmentScreen = () => {
         }
       }
 
-      const newResponses = { ...state.responses, ...finalPageAnswers };
+      const normalizedPageAnswers = Object.entries(finalPageAnswers).reduce(
+        (acc, [key, value]) => {
+          let normalizedValue = value;
+          if (
+            typeof value === 'string' &&
+            value.trim() !== '' &&
+            state.questions.some(
+              (question: any) => question.key === key && question.type === 'number'
+            )
+          ) {
+            const parsed = parseFloat(value.replace(',', '.'));
+            if (!isNaN(parsed)) {
+              normalizedValue = parsed;
+            }
+          }
+          acc[key] = normalizedValue;
+          return acc;
+        },
+        {} as Record<string, any>
+      );
+
+      const newResponses = { ...state.responses, ...normalizedPageAnswers };
       actions.setResponses(newResponses);
 
       const questionnaire = getCurrentQuestionnaire();

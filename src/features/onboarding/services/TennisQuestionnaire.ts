@@ -7,6 +7,8 @@ export interface TennisSkillQuestions {
 }
 
 export interface TennisRatingResult {
+  singles_rating: number;
+  doubles_rating: number;
   rating: number;
   confidence: 'low' | 'medium' | 'high';
   rating_deviation: number;
@@ -245,6 +247,8 @@ export class TennisQuestionnaire {
       if (!responses || Object.keys(responses).length === 0) {
         return {
           rating: this.BASE_RATING,
+          singles_rating: this.BASE_RATING,
+          doubles_rating: this.BASE_RATING,
           confidence: 'low',
           rating_deviation: 350,
           source: 'default',
@@ -336,8 +340,12 @@ export class TennisQuestionnaire {
       let finalRating = this.BASE_RATING + ratingAdjustment;
       finalRating = Math.max(800, Math.min(8000, finalRating));
 
+      const roundedRating = Math.round(finalRating);
+
       return {
-        rating: Math.round(finalRating),
+        rating: roundedRating,
+        singles_rating: roundedRating,
+        doubles_rating: roundedRating,
         confidence,
         rating_deviation: rd,
         source: 'questionnaire',
@@ -351,6 +359,8 @@ export class TennisQuestionnaire {
     } catch (error) {
       return {
         rating: this.BASE_RATING,
+        singles_rating: this.BASE_RATING,
+        doubles_rating: this.BASE_RATING,
         confidence: 'low',
         rating_deviation: 350,
         source: 'error_fallback',
@@ -360,7 +370,7 @@ export class TennisQuestionnaire {
   }
 
   generateFeedback(ratingData: TennisRatingResult): string {
-    const rating = ratingData.rating;
+    const rating = ratingData.singles_rating ?? ratingData.rating;
     const confidence = ratingData.confidence;
 
     // Determine skill level label based on rating

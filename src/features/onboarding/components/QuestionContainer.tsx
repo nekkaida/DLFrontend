@@ -187,25 +187,58 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
             navigationButtons={navigationButtons}
           >
             <NumberInput
-              value={currentPageAnswers[question.key] ? String(currentPageAnswers[question.key]) : ''}
+              value={
+                currentPageAnswers[question.key] !== undefined &&
+                currentPageAnswers[question.key] !== null
+                  ? String(currentPageAnswers[question.key])
+                  : ''
+              }
               onChangeText={(text) => {
-                const numValue = parseFloat(text);
-                if (!isNaN(numValue) && 
-                    (!question.min_value || numValue >= question.min_value) &&
-                    (!question.max_value || numValue <= question.max_value)) {
+                const normalizedText = text.replace(',', '.');
+
+                if (normalizedText.trim() === '' || normalizedText.endsWith('.')) {
+                  onAnswer(question.key, normalizedText);
+                  return;
+                }
+
+                const numValue = parseFloat(normalizedText);
+                if (!isNaN(numValue)) {
+                  const belowMin =
+                    question.min_value !== undefined && numValue < question.min_value;
+                  const aboveMax =
+                    question.max_value !== undefined && numValue > question.max_value;
+
+                  if (belowMin || aboveMax) {
+                    onAnswer(question.key, normalizedText);
+                    return;
+                  }
+
                   onAnswer(question.key, numValue);
+                } else {
+                  onAnswer(question.key, normalizedText);
                 }
               }}
               onSubmit={() => {
-                const text = currentPageAnswers[question.key] ? String(currentPageAnswers[question.key]) : '';
-                const numValue = parseFloat(text);
-                if (!isNaN(numValue) && 
-                    (!question.min_value || numValue >= question.min_value) &&
-                    (!question.max_value || numValue <= question.max_value)) {
+                const text =
+                  currentPageAnswers[question.key] !== undefined &&
+                  currentPageAnswers[question.key] !== null
+                    ? String(currentPageAnswers[question.key])
+                    : '';
+                const normalizedText = text.replace(',', '.');
+                const numValue = parseFloat(normalizedText);
+                if (
+                  !isNaN(numValue) &&
+                  (question.min_value === undefined || numValue >= question.min_value) &&
+                  (question.max_value === undefined || numValue <= question.max_value)
+                ) {
                   onAnswer(question.key, numValue);
                 } else {
                   toast.error('Invalid Input', {
-                    description: `Please enter a valid number ${question.min_value ? `between ${question.min_value} and ${question.max_value}` : ''}`,
+                    description: `Please enter a valid number${
+                      question.min_value !== undefined && question.max_value !== undefined
+                        ? ` between ${question.min_value} and ${question.max_value}`
+                        : ''
+                    }`,
                   });
                 }
               }}

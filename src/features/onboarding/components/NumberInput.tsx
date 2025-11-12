@@ -7,6 +7,7 @@ import {
   StyleSheet,
   TextInputProps,
   ViewStyle,
+  Platform,
 } from 'react-native';
 
 interface NumberInputProps extends Omit<TextInputProps, 'value' | 'onChangeText'> {
@@ -60,7 +61,8 @@ const NumberInput: React.FC<NumberInputProps> = ({
           onChangeText={onChangeText}
           placeholder={getPlaceholder()}
           placeholderTextColor="#6C7278"
-          keyboardType="numeric"
+          keyboardType={Platform.OS === 'ios' ? 'decimal-pad' : 'numeric'}
+          inputMode="decimal"
           returnKeyType={canSubmit ? 'done' : 'default'}
           onSubmitEditing={canSubmit ? onSubmit : undefined}
           {...textInputProps}
