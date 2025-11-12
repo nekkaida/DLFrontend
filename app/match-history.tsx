@@ -6,6 +6,8 @@ import {
   ScrollView,
   Pressable,
   Platform,
+  ViewStyle,
+  TextStyle,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -30,36 +32,100 @@ const DefaultProfileIcon = () => (
 );
 
 
-// Real match data - currently empty until match system is implemented
-const matches = []; // Will be populated from API when match system is ready
+type MatchStatus = 'completed' | 'ongoing' | 'upcoming';
 
-const MatchCard = ({ match }) => {
+interface MatchScore {
+  player1: number | null;
+  player2: number | null;
+}
+
+interface Match {
+  id: string;
+  league: string;
+  status: MatchStatus;
+  player1: string;
+  player2: string;
+  date: string;
+  time: string;
+  scores: {
+    set1: MatchScore;
+    set2: MatchScore;
+    set3: MatchScore;
+  };
+}
+
+// Real match data - currently empty until match system is implemented
+const matches: Match[] = []; // Will be populated from API when match system is ready
+
+interface MatchCardProps {
+  match: Match;
+}
+
+const formatScore = (value: number | null): string =>
+  value !== null && value !== undefined ? String(value) : '-';
+
+type Styles = {
+  container: ViewStyle;
+  headerGradient: ViewStyle;
+  safeHeader: ViewStyle;
+  header: ViewStyle;
+  backButton: ViewStyle;
+  headerTitle: TextStyle;
+  headerSpacer: ViewStyle;
+  scrollView: ViewStyle;
+  scrollContent: ViewStyle;
+  matchCard: ViewStyle;
+  leagueNameContainer: ViewStyle;
+  leagueName: TextStyle;
+  scoreboardContainer: ViewStyle;
+  playerColumn: ViewStyle;
+  playerRow: ViewStyle;
+  profileIcon: ViewStyle;
+  setColumn: ViewStyle;
+  playerName: TextStyle;
+  setHeader: TextStyle;
+  score: TextStyle;
+  divider: ViewStyle;
+  bottomSection: ViewStyle;
+  dateTimeContainer: ViewStyle;
+  dateText: TextStyle;
+  timeText: TextStyle;
+  statusContainer: ViewStyle;
+  statusText: TextStyle;
+  scoreContainer: ViewStyle;
+  winnerText: TextStyle;
+  noDataContainer: ViewStyle;
+  noDataTitle: TextStyle;
+  noDataText: TextStyle;
+};
+
+const MatchCard: React.FC<MatchCardProps> = ({ match }) => {
   // Determine winner based on sets won
-  const getWinner = () => {
+  const addSetResult = (player1Score: number | null, player2Score: number | null, tally: { p1: number; p2: number }) => {
+    const p1 = player1Score ?? 0;
+    const p2 = player2Score ?? 0;
+    if (p1 > p2) {
+      tally.p1 += 1;
+    } else if (p2 > p1) {
+      tally.p2 += 1;
+    }
+  };
+
+  const getWinner = (): 'player1' | 'player2' | null => {
     if (match.status !== 'completed') return null;
     
-    let player1Sets = 0;
-    let player2Sets = 0;
-    
-    // Count sets won
-    if (match.scores.set1.player1 > match.scores.set1.player2) player1Sets++;
-    else if (match.scores.set1.player2 > match.scores.set1.player1) player2Sets++;
-    
-    if (match.scores.set2.player1 > match.scores.set2.player2) player1Sets++;
-    else if (match.scores.set2.player2 > match.scores.set2.player1) player2Sets++;
-    
-    if (match.scores.set3.player1 !== null && match.scores.set3.player2 !== null) {
-      if (match.scores.set3.player1 > match.scores.set3.player2) player1Sets++;
-      else if (match.scores.set3.player2 > match.scores.set3.player1) player2Sets++;
-    }
-    
-    if (player1Sets > player2Sets) return 'player1';
-    if (player2Sets > player1Sets) return 'player2';
-    return null; // Draw or incomplete
+    const tally = { p1: 0, p2: 0 };
+    addSetResult(match.scores.set1.player1, match.scores.set1.player2, tally);
+    addSetResult(match.scores.set2.player1, match.scores.set2.player2, tally);
+    addSetResult(match.scores.set3.player1, match.scores.set3.player2, tally);
+
+    if (tally.p1 > tally.p2) return 'player1';
+    if (tally.p2 > tally.p1) return 'player2';
+    return null;
   };
   
   const winner = getWinner();
-  const getStatusBackgroundColor = (status) => {
+  const getStatusBackgroundColor = (status: MatchStatus): string => {
     switch (status) {
       case 'completed':
         return '#eeeeee';
@@ -72,7 +138,7 @@ const MatchCard = ({ match }) => {
     }
   };
 
-  const getStatusTextColor = (status) => {
+  const getStatusTextColor = (status: MatchStatus): string => {
     switch (status) {
       case 'completed':
         return '#fda04d';
@@ -85,7 +151,7 @@ const MatchCard = ({ match }) => {
     }
   };
 
-  const getStatusText = (status) => {
+  const getStatusText = (status: MatchStatus): string => {
     switch (status) {
       case 'completed':
         return 'Completed';
@@ -130,12 +196,12 @@ const MatchCard = ({ match }) => {
           <Text style={styles.setHeader}>Set 1</Text>
           <View style={styles.scoreContainer}>
             <Text style={[styles.score, winner === 'player1' && styles.winnerText]}>
-              {match.scores.set1.player1 !== null ? match.scores.set1.player1 : '-'}
+              {formatScore(match.scores.set1.player1)}
             </Text>
           </View>
           <View style={styles.scoreContainer}>
             <Text style={[styles.score, winner === 'player2' && styles.winnerText]}>
-              {match.scores.set1.player2 !== null ? match.scores.set1.player2 : '-'}
+              {formatScore(match.scores.set1.player2)}
             </Text>
           </View>
         </View>
@@ -145,12 +211,12 @@ const MatchCard = ({ match }) => {
           <Text style={styles.setHeader}>Set 2</Text>
           <View style={styles.scoreContainer}>
             <Text style={[styles.score, winner === 'player1' && styles.winnerText]}>
-              {match.scores.set2.player1 !== null ? match.scores.set2.player1 : '-'}
+              {formatScore(match.scores.set2.player1)}
             </Text>
           </View>
           <View style={styles.scoreContainer}>
             <Text style={[styles.score, winner === 'player2' && styles.winnerText]}>
-              {match.scores.set2.player2 !== null ? match.scores.set2.player2 : '-'}
+              {formatScore(match.scores.set2.player2)}
             </Text>
           </View>
         </View>
@@ -160,12 +226,12 @@ const MatchCard = ({ match }) => {
           <Text style={styles.setHeader}>Set 3</Text>
           <View style={styles.scoreContainer}>
             <Text style={[styles.score, winner === 'player1' && styles.winnerText]}>
-              {match.scores.set3.player1 !== null ? match.scores.set3.player1 : '-'}
+              {formatScore(match.scores.set3.player1)}
             </Text>
           </View>
           <View style={styles.scoreContainer}>
             <Text style={[styles.score, winner === 'player2' && styles.winnerText]}>
-              {match.scores.set3.player2 !== null ? match.scores.set3.player2 : '-'}
+              {formatScore(match.scores.set3.player2)}
             </Text>
           </View>
         </View>
@@ -250,7 +316,7 @@ export default function MatchHistoryScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = StyleSheet.create<Styles>({
   container: {
     flex: 1,
     backgroundColor: theme.colors.neutral.gray[50], // Gray background like profile
