@@ -46,8 +46,6 @@ export class ChatService {
         }
       );
 
-      console.log("ChatService: Messages response:", response.data);
-
       // Transform backend data to match our frontend types
       const messages = Array.isArray(response.data?.data)
         ? response.data.data.map((msg: any) => this.transformBackendMessage(msg))
@@ -69,12 +67,14 @@ export class ChatService {
   static async sendMessage(
     threadId: string,
     senderId: string,
-    content: string
+    content: string,
+    repliesToId?: string
   ): Promise<Message> {
     console.log("ChatService: sendMessage called:", {
       threadId,
       senderId,
       content,
+      repliesToId,
     });
     try {
       const response: AxiosResponse = await axiosInstance.post(
@@ -82,6 +82,7 @@ export class ChatService {
         {
           senderId,
           content,
+          ...(repliesToId && { repliesToId }),
         }
       );
 
@@ -247,10 +248,10 @@ export class ChatService {
 
   // Delete a message
   static async deleteMessage(messageId: string): Promise<void> {
-    console.log("ChatService: deleteMessage called:", messageId);
+    console.log("ChatService: deleteMessage called for message:", messageId);
     try {
       await axiosInstance.delete(endpoints.chat.deleteMessage(messageId));
-      console.log("ChatService: Message deleted");
+      console.log("ChatService: Message deleted successfully");
     } catch (error) {
       console.error("Error deleting message:", error);
       throw error;

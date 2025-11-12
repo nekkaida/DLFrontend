@@ -12,11 +12,13 @@ interface ChatActions {
   addThread: (thread: Thread) => void;
   loadThreads: (userId: string) => Promise<void>;
   loadMessages: (threadId: string) => Promise<void>;
-  sendMessage: (threadId: string, senderId: string, content: string) => Promise<void>;
+  sendMessage: (threadId: string, senderId: string, content: string, replyToId?: string) => Promise<void>;
   setConnectionStatus: (connected: boolean) => void;
   setError: (error: string | null) => void;
   setLoading: (loading: boolean) => void;
   getTotalUnreadCount: () => number;
+  setReplyingTo: (message: Message | null) => void;
+  handleDeleteMessage: (messageId: string, threadId: string) => Promise<void>;
 }
 
 export const useChatStore = create<ChatState & ChatActions>((set, get) => ({
@@ -27,6 +29,7 @@ export const useChatStore = create<ChatState & ChatActions>((set, get) => ({
   isConnected: false,
   isLoading: false,
   error: null,
+  replyingTo: null,
 
   // Actions
   setCurrentThread: (thread) => {
@@ -75,7 +78,6 @@ export const useChatStore = create<ChatState & ChatActions>((set, get) => ({
   },
 
   deleteMessage: (messageId, threadId) => {
-    console.log('ChatStore: Deleting message:', messageId);
     const { messages } = get();
     const threadMessages = messages[threadId] || [];
     
@@ -222,10 +224,10 @@ export const useChatStore = create<ChatState & ChatActions>((set, get) => ({
     }
   },
   
-  sendMessage: async (threadId, senderId, content) => {
-    console.log('ChatStore: Sending message:', { threadId, senderId, content });
+  sendMessage: async (threadId, senderId, content, replyToId) => {
+    console.log('ChatStore: Sending message:', { threadId, senderId, content, replyToId });
     try {
-      const message = await ChatService.sendMessage(threadId, senderId, content);
+      const message = await ChatService.sendMessage(threadId, senderId, content, replyToId);
       // console.log('ChatStore: Message sent via API, waiting for socket confirmation:', message.id);
     } catch (error) {
       console.error('ChatStore: Error sending message:', error);
@@ -253,5 +255,22 @@ export const useChatStore = create<ChatState & ChatActions>((set, get) => ({
     const totalUnread = threads.reduce((sum, thread) => sum + (thread.unreadCount || 0), 0);
     console.log('ChatStore: Total unread count:', totalUnread);
     return totalUnread;
+  },
+
+  setReplyingTo: (message) => {
+    console.log('ChatStore: Setting replying to:', message?.id || 'null');
+    set({ replyingTo: message });
+  },
+
+  handleDeleteMessage: async (messageId: string, threadId: string) => {
+    console.log('ChatStore: Deleting message:', messageId);
+    try {
+      await ChatService.deleteMessage(messageId);
+      // Update local state
+      get().deleteMessage(messageId, threadId);
+    } catch (error) {
+      console.error('ChatStore: Error deleting message:', error);
+      set({ error: 'Failed to delete message' });
+    }
   },
 }));

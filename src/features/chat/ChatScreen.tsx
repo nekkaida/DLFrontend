@@ -6,6 +6,7 @@ import { router } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   Dimensions,
   Image,
   KeyboardAvoidingView,
@@ -35,7 +36,7 @@ export const ChatScreen: React.FC = () => {
   const { data: session} = useSession();
   const [filteredThreads, setFilteredThreads] = useState<Thread[]>([]);
   const [profileData, setProfileData] = useState<any>(null);
-  const [refreshKey, setRefreshKey] = useState(0); // Force re-render trigger
+  const [refreshKey, setRefreshKey] = useState(0);
   const insets = useSafeAreaInsets();
   
   const user = session?.user;
@@ -47,6 +48,7 @@ export const ChatScreen: React.FC = () => {
     threads,
     isLoading,
     error,
+    replyingTo,
     setCurrentThread,
     loadMessages,
     loadThreads,
@@ -54,6 +56,8 @@ export const ChatScreen: React.FC = () => {
     addMessage,
     setConnectionStatus,
     updateThread,
+    setReplyingTo,
+    handleDeleteMessage: deleteMessageFromStore,
   } = useChatStore();
 
   // Setup Socket.IO event listeners for real-time chat
@@ -168,9 +172,6 @@ export const ChatScreen: React.FC = () => {
       try {
         await ChatService.markAllAsRead(thread.id, user.id);
         console.log('ChatScreen: Thread marked as read successfully');
-        
-        // Immediately update local state (optimistic update)
-        // Backend will emit thread_marked_read event for confirmation
         updateThread({
           ...thread,
           unreadCount: 0,
@@ -181,16 +182,22 @@ export const ChatScreen: React.FC = () => {
     }
   };
 
-  const handleSendMessage = (content: string) => {
+  const handleSendMessage = (content: string, replyToId?: string) => {
     if (!currentThread || !user?.id) return;
 
     console.log('Sending message:', {
       threadId: currentThread.id,
       senderId: user.id,
       content,
+      replyToId,
     });
 
-    sendMessage(currentThread.id, user.id, content);
+    sendMessage(currentThread.id, user.id, content, replyToId);
+    
+    // Clear reply state after sending
+    if (replyingTo) {
+      setReplyingTo(null);
+    }
   };
 
   const handleBackToThreads = () => {
@@ -205,6 +212,38 @@ export const ChatScreen: React.FC = () => {
   const handleMatch = () => {
     console.log('Create match button pressed');
     // TO DO ADD MATCH LOGIC LATER
+  };
+
+  const handleReply = (message: any) => {
+    console.log('📝 Reply to message:', message.id);
+    // console.log('📝 Message content:', message.content);
+    // console.log('📝 Message sender:', message.metadata?.sender);
+    console.log('📝 Full message object:', JSON.stringify(message, null, 2));
+
+    console.log(' Hh test', message?.metadata)
+    setReplyingTo(message);
+  };
+
+  const handleCancelReply = () => {
+    setReplyingTo(null);
+  };
+
+  const handleDeleteMessageAction = async (messageId: string) => {
+    if (!currentThread) {
+      console.log('❌ No current thread for delete');
+      return;
+    }
+    
+    console.log('🗑️ Delete message requested:', messageId);
+    console.log('🗑️ Current thread:', currentThread.id);
+    
+    try {
+      await deleteMessageFromStore(messageId, currentThread.id);
+      console.log('✅ Message deleted successfully');
+    } catch (error) {
+      console.error('❌ Failed to delete message:', error);
+      Alert.alert('Error', 'Failed to delete message. Please try again.');
+    }
   };
 
   // Get header content based on chat type
@@ -241,7 +280,6 @@ export const ChatScreen: React.FC = () => {
 
   console.log('ChatScreen: Rendering - currentThread:', currentThread?.name, 'threads count:', threads?.length);
 
-  // Show loading state
   if (isLoading && (!threads || threads.length === 0)) {
     return (
       <View style={styles.container}>
@@ -253,7 +291,6 @@ export const ChatScreen: React.FC = () => {
     );
   }
 
-  // Show error state
   if (error && (!threads || threads.length === 0)) {
     return (
       <View style={styles.container}>
@@ -306,15 +343,19 @@ export const ChatScreen: React.FC = () => {
           </View>
           
           <MessageWindow
-            key={refreshKey} // Force re-render when messages change
+            key={refreshKey}
             messages={messages[currentThread.id] || []}
             threadId={currentThread.id}
             isGroupChat={currentThread.type === 'group'}
+            onReply={handleReply}
+            onDeleteMessage={handleDeleteMessageAction}
           />
           
           <MessageInput 
             onSendMessage={handleSendMessage}
             onhandleMatch={handleMatch}
+            replyingTo={replyingTo}
+            onCancelReply={handleCancelReply}
           />
         </KeyboardAvoidingView>
       ) : (

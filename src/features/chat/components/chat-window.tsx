@@ -12,8 +12,9 @@ import {
   TouchableOpacity,
   View
 } from 'react-native';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { Message } from '../types';
-import { MessageBubble } from './chat-bubble';
+import { SwipeableMessageBubble } from './SwipeableMessageBubble';
 
 interface MessageWindowProps {
   messages: Message[];
@@ -21,6 +22,8 @@ interface MessageWindowProps {
   onLoadMore?: () => void;
   loading?: boolean;
   isGroupChat?: boolean;
+  onReply?: (message: Message) => void;
+  onDeleteMessage?: (messageId: string) => void;
 }
 
 const { height: screenHeight, width } = Dimensions.get('window');
@@ -40,12 +43,21 @@ export const MessageWindow: React.FC<MessageWindowProps> = ({
   onLoadMore,
   loading = false,
   isGroupChat = false,
+  onReply,
+  onDeleteMessage,
 }) => {
   const { data: session } = useSession();
   const flatListRef = useRef<FlatList>(null);
   const [showScrollButton, setShowScrollButton] = useState(false);
 
   const user = session?.user;
+
+  // Create a message lookup map for O(1) access - memoized for performance
+  const messageMap = React.useMemo(() => {
+    const map = new Map<string, Message>();
+    messages.forEach(msg => map.set(msg.id, msg));
+    return map;
+  }, [messages]);
 
   // Group messages by date - DO NOT REVERSE HERE
   const groupedMessages = React.useMemo(() => {
@@ -137,12 +149,15 @@ export const MessageWindow: React.FC<MessageWindowProps> = ({
     const isLastInGroup = !nextMessage || nextMessage.senderId !== message.senderId;
     
     return (
-      <MessageBubble
+      <SwipeableMessageBubble
         message={message}
         isCurrentUser={isCurrentUser}
         showAvatar={showAvatar}
         isLastInGroup={isLastInGroup}
         isGroupChat={isGroupChat}
+        onReply={onReply || (() => {})}
+        onDelete={onDeleteMessage || (() => {})}
+        messageMap={messageMap}
       />
     );
   };
@@ -184,7 +199,7 @@ export const MessageWindow: React.FC<MessageWindowProps> = ({
   }
 
   return (
-    <View style={styles.container}>
+    <GestureHandlerRootView style={styles.container}>
       <FlatList
         ref={flatListRef}
         data={groupedMessages}
@@ -224,7 +239,7 @@ export const MessageWindow: React.FC<MessageWindowProps> = ({
           <Ionicons name="chevron-down" size={20} color="#FFFFFF" />
         </TouchableOpacity>
       )}
-    </View>
+    </GestureHandlerRootView>
   );
 };
 

@@ -61,16 +61,6 @@ export const useChatSocketEvents = (threadId: string | null, currentUserId: stri
 
     // 📥 Handle new messages
     const handleNewMessage = (backendMessage: any) => {
-      console.log('========================================');
-      console.log('📥 NEW MESSAGE EVENT RECEIVED');
-      console.log('========================================');
-      console.log('📥 Message ID:', backendMessage.id);
-      console.log('📥 Thread ID:', backendMessage.threadId);
-      console.log('📥 Content:', backendMessage.content);
-      console.log('📥 Sender ID:', backendMessage.senderId);
-      console.log('📥 Current Thread ID:', currentThreadIdRef.current);
-      console.log('📥 Current User ID:', currentUserIdRef.current);
-      console.log('📥 Raw message data:', JSON.stringify(backendMessage, null, 2));
       
       // Transform backend format to frontend format
       const message = transformMessage(backendMessage);
@@ -85,18 +75,11 @@ export const useChatSocketEvents = (threadId: string | null, currentUserId: stri
       const currentThreads = useChatStore.getState().threads;
       console.log('📥 Current threads count:', currentThreads.length);
       const thread = currentThreads.find(t => t.id === message.threadId);
-      if (thread) {
-        console.log('📥 Found thread to update:', thread.name);
-        console.log('📥 Old lastMessage:', thread.lastMessage?.content);
-        console.log('📥 New lastMessage:', message.content);
-        console.log('📥 Old updatedAt:', thread.updatedAt);
-        console.log('📥 New updatedAt:', new Date(message.timestamp));
-        
+      if (thread) {      
         const updatedThread = {
           ...thread,
           lastMessage: message,
           updatedAt: new Date(message.timestamp),
-          // Keep existing unread count - backend will emit unread_count_update event
         };
         
         console.log('📥 Calling updateThread with updated thread...');
@@ -246,40 +229,6 @@ export const useChatSocketEvents = (threadId: string | null, currentUserId: stri
       }
     };
   }, [isConnected, threadId, addMessage, deleteMessage, markMessageAsRead, updateThread, addThread]);
-
-  // Join all thread rooms when viewing thread list (no specific thread selected)
-  useEffect(() => {
-    if (!isConnected || threadId) {
-      // Only join all threads when on thread list (threadId is null)
-      return;
-    }
-
-    console.log('========================================');
-    console.log('📋 On thread list - joining all thread rooms for real-time updates');
-    console.log('========================================');
-
-    const threads = useChatStore.getState().threads;
-    
-    if (threads && threads.length > 0) {
-      console.log(`📋 Joining ${threads.length} thread rooms...`);
-      threads.forEach(thread => {
-        socketService.joinThread(thread.id);
-        console.log(`✅ Joined thread room: ${thread.id} (${thread.name})`);
-      });
-    }
-
-    // Cleanup: leave all thread rooms when leaving thread list or component unmounts
-    return () => {
-      const threads = useChatStore.getState().threads;
-      if (threads && threads.length > 0) {
-        console.log('🚪 Leaving all thread rooms...');
-        threads.forEach(thread => {
-          socketService.leaveThread(thread.id);
-          console.log(`🚪 Left thread room: ${thread.id}`);
-        });
-      }
-    };
-  }, [isConnected, threadId]);
 
   return {
     isConnected,
