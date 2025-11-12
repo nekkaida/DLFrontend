@@ -24,6 +24,7 @@ interface MessageWindowProps {
   isGroupChat?: boolean;
   onReply?: (message: Message) => void;
   onDeleteMessage?: (messageId: string) => void;
+  onLongPress?: (message: Message) => void;
 }
 
 const { height: screenHeight, width } = Dimensions.get('window');
@@ -45,6 +46,7 @@ export const MessageWindow: React.FC<MessageWindowProps> = ({
   isGroupChat = false,
   onReply,
   onDeleteMessage,
+  onLongPress,
 }) => {
   const { data: session } = useSession();
   const flatListRef = useRef<FlatList>(null);
@@ -59,7 +61,6 @@ export const MessageWindow: React.FC<MessageWindowProps> = ({
     return map;
   }, [messages]);
 
-  // Group messages by date - DO NOT REVERSE HERE
   const groupedMessages = React.useMemo(() => {
     const grouped: { [key: string]: Message[] } = {};
     
@@ -71,10 +72,10 @@ export const MessageWindow: React.FC<MessageWindowProps> = ({
       grouped[date].push(message);
     });
 
-    // Convert to flat array with date dividers - keep natural order
+  
     const flatData: GroupedMessage[] = [];
     Object.entries(grouped)
-      .sort(([dateA], [dateB]) => dateA.localeCompare(dateB)) // Sort dates ascending
+      .sort(([dateA], [dateB]) => dateA.localeCompare(dateB))
       .forEach(([date, dateMessages]) => {
         flatData.push({
           id: `date-${date}`,
@@ -157,6 +158,7 @@ export const MessageWindow: React.FC<MessageWindowProps> = ({
         isGroupChat={isGroupChat}
         onReply={onReply || (() => {})}
         onDelete={onDeleteMessage || (() => {})}
+        onLongPress={onLongPress}
         messageMap={messageMap}
       />
     );

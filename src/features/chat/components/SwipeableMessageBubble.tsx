@@ -1,8 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { format } from 'date-fns';
-import * as Clipboard from 'expo-clipboard';
 import React, { useCallback } from 'react';
-import { Alert, Platform, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
     runOnJS,
@@ -21,6 +20,7 @@ interface SwipeableMessageBubbleProps {
   isGroupChat?: boolean;
   onReply: (message: Message) => void;
   onDelete: (messageId: string) => void;
+  onLongPress?: (message: Message) => void;
   messageMap?: Map<string, Message>; // Efficient O(1) lookup for replied messages
 }
 
@@ -35,6 +35,7 @@ export const SwipeableMessageBubble: React.FC<SwipeableMessageBubbleProps> = ({
   isGroupChat = false,
   onReply,
   onDelete,
+  onLongPress,
   messageMap,
 }) => {
   const translateX = useSharedValue(0);
@@ -51,9 +52,9 @@ export const SwipeableMessageBubble: React.FC<SwipeableMessageBubbleProps> = ({
     ? messageMap.get(message.replyTo)
     : null;
 
-  console.log("Message data", message.metadata);
-  console.log("Reply to ID:", message.replyTo);
-  console.log("Replied message found:", repliedMessage?.content);
+//   console.log("Message data", message.metadata);
+//   console.log("Reply to ID:", message.replyTo);
+//   console.log("Replied message found:", repliedMessage?.content);
     
   // Trigger reply action
   const triggerReply = useCallback(() => {
@@ -96,97 +97,17 @@ export const SwipeableMessageBubble: React.FC<SwipeableMessageBubbleProps> = ({
     });
 
   // Callbacks wrapped for gesture handler compatibility
-  const handleReply = useCallback(() => {
-    onReply(message);
-  }, [message, onReply]);
-
-  const handleCopyToClipboard = useCallback(async () => {
-    try {
-      if (message.content && !message.metadata?.isDeleted) {
-        await Clipboard.setStringAsync(message.content);
-        Alert.alert('Copied', 'Message copied to clipboard');
-      }
-    } catch (error) {
-      console.error('Failed to copy to clipboard:', error);
-      Alert.alert('Error', 'Failed to copy message');
+  const handleLongPress = useCallback(() => {
+    if (onLongPress) {
+      onLongPress(message);
     }
-  }, [message.content, message.metadata?.isDeleted]);
-
-  const handleConfirmDelete = useCallback(() => {
-    Alert.alert(
-      'Delete Message',
-      'Are you sure you want to delete this message?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: () => {
-            onDelete(message.id);
-          },
-        },
-      ]
-    );
-  }, [message.id, onDelete]);
-
-  const showContextMenu = useCallback(() => {
-    const options = ['Reply', 'Copy', isCurrentUser ? 'Delete' : null].filter(Boolean) as string[];
-
-    if (Platform.OS === 'ios') {
-      // iOS Action Sheet
-      Alert.alert(
-        'Message Options',
-        undefined,
-        [
-          {
-            text: 'Reply',
-            onPress: handleReply,
-          },
-          {
-            text: 'Copy',
-            onPress: handleCopyToClipboard,
-          },
-          ...(isCurrentUser
-            ? [
-                {
-                  text: 'Delete',
-                  onPress: handleConfirmDelete,
-                  style: 'destructive' as const,
-                },
-              ]
-            : []),
-          {
-            text: 'Cancel',
-            style: 'cancel' as const,
-          },
-        ],
-        { cancelable: true }
-      );
-    } else {
-      // Android Alert
-      const buttons = [
-        { text: 'Reply', onPress: handleReply },
-        { text: 'Copy', onPress: handleCopyToClipboard },
-      ];
-
-      if (isCurrentUser) {
-        buttons.push({
-          text: 'Delete',
-          onPress: handleConfirmDelete,
-        });
-      }
-
-      buttons.push({ text: 'Cancel', onPress: () => {} });
-
-      Alert.alert('Message Options', undefined, buttons, { cancelable: true });
-    }
-  }, [isCurrentUser, handleReply, handleCopyToClipboard, handleConfirmDelete]);
+  }, [message, onLongPress]);
 
   // Long press gesture for context menu
   const longPressGesture = Gesture.LongPress()
     .minDuration(500)
     .onStart(() => {
-      runOnJS(showContextMenu)();
+      runOnJS(handleLongPress)();
     });
 
   // Combined gesture
