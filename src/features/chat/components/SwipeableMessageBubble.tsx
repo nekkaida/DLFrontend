@@ -1,0 +1,504 @@
+import { Ionicons } from '@expo/vector-icons';
+import { format } from 'date-fns';
+import * as Clipboard from 'expo-clipboard';
+import React, { useCallback } from 'react';
+import { Alert, Platform, StyleSheet, Text, View } from 'react-native';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import Animated, {
+    runOnJS,
+    useAnimatedStyle,
+    useSharedValue,
+    withSpring,
+    withTiming,
+} from 'react-native-reanimated';
+import { Message } from '../types';
+
+interface SwipeableMessageBubbleProps {
+  message: Message;
+  isCurrentUser: boolean;
+  showAvatar: boolean;
+  isLastInGroup?: boolean;
+  isGroupChat?: boolean;
+  onReply: (message: Message) => void;
+  onDelete: (messageId: string) => void;
+  messageMap?: Map<string, Message>; // Efficient O(1) lookup for replied messages
+}
+
+const SWIPE_THRESHOLD = 60;
+const REPLY_ICON_SIZE = 24;
+
+export const SwipeableMessageBubble: React.FC<SwipeableMessageBubbleProps> = ({
+  message,
+  isCurrentUser,
+  showAvatar,
+  isLastInGroup = true,
+  isGroupChat = false,
+  onReply,
+  onDelete,
+  messageMap,
+}) => {
+  const translateX = useSharedValue(0);
+  const replyIconScale = useSharedValue(0);
+  const replyIconOpacity = useSharedValue(0);
+
+  const senderName =
+    message.metadata?.sender?.name ||
+    message.metadata?.sender?.username ||
+    'Unknown';
+
+  // Find the replied message using Map for O(1) lookup instead of O(n) array search
+  const repliedMessage = message.replyTo && messageMap
+    ? messageMap.get(message.replyTo)
+    : null;
+
+  console.log("Message data", message.metadata);
+  console.log("Reply to ID:", message.replyTo);
+  console.log("Replied message found:", repliedMessage?.content);
+    
+  // Trigger reply action
+  const triggerReply = useCallback(() => {
+    onReply(message);
+  }, [message, onReply]);
+
+  // Pan gesture for swipe
+  const panGesture = Gesture.Pan()
+    .onUpdate((event) => {
+      // Swipe right for other's messages, swipe left for own messages
+      if (isCurrentUser) {
+        // Swipe left (negative translation)
+        if (event.translationX < 0) {
+          translateX.value = Math.max(event.translationX, -SWIPE_THRESHOLD * 1.5);
+          const progress = Math.min(Math.abs(event.translationX) / SWIPE_THRESHOLD, 1);
+          replyIconScale.value = progress;
+          replyIconOpacity.value = progress;
+        }
+      } else {
+        // Swipe right (positive translation)
+        if (event.translationX > 0) {
+          translateX.value = Math.min(event.translationX, SWIPE_THRESHOLD * 1.5);
+          const progress = Math.min(event.translationX / SWIPE_THRESHOLD, 1);
+          replyIconScale.value = progress;
+          replyIconOpacity.value = progress;
+        }
+      }
+    })
+    .onEnd((event) => {
+      const shouldTrigger = Math.abs(event.translationX) > SWIPE_THRESHOLD;
+
+      if (shouldTrigger) {
+        runOnJS(triggerReply)();
+      }
+
+      // Reset animation
+      translateX.value = withSpring(0, { damping: 20, stiffness: 300 });
+      replyIconScale.value = withTiming(0, { duration: 200 });
+      replyIconOpacity.value = withTiming(0, { duration: 200 });
+    });
+
+  // Callbacks wrapped for gesture handler compatibility
+  const handleReply = useCallback(() => {
+    onReply(message);
+  }, [message, onReply]);
+
+  const handleCopyToClipboard = useCallback(async () => {
+    try {
+      if (message.content && !message.metadata?.isDeleted) {
+        await Clipboard.setStringAsync(message.content);
+        Alert.alert('Copied', 'Message copied to clipboard');
+      }
+    } catch (error) {
+      console.error('Failed to copy to clipboard:', error);
+      Alert.alert('Error', 'Failed to copy message');
+    }
+  }, [message.content, message.metadata?.isDeleted]);
+
+  const handleConfirmDelete = useCallback(() => {
+    Alert.alert(
+      'Delete Message',
+      'Are you sure you want to delete this message?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: () => {
+            onDelete(message.id);
+          },
+        },
+      ]
+    );
+  }, [message.id, onDelete]);
+
+  const showContextMenu = useCallback(() => {
+    const options = ['Reply', 'Copy', isCurrentUser ? 'Delete' : null].filter(Boolean) as string[];
+
+    if (Platform.OS === 'ios') {
+      // iOS Action Sheet
+      Alert.alert(
+        'Message Options',
+        undefined,
+        [
+          {
+            text: 'Reply',
+            onPress: handleReply,
+          },
+          {
+            text: 'Copy',
+            onPress: handleCopyToClipboard,
+          },
+          ...(isCurrentUser
+            ? [
+                {
+                  text: 'Delete',
+                  onPress: handleConfirmDelete,
+                  style: 'destructive' as const,
+                },
+              ]
+            : []),
+          {
+            text: 'Cancel',
+            style: 'cancel' as const,
+          },
+        ],
+        { cancelable: true }
+      );
+    } else {
+      // Android Alert
+      const buttons = [
+        { text: 'Reply', onPress: handleReply },
+        { text: 'Copy', onPress: handleCopyToClipboard },
+      ];
+
+      if (isCurrentUser) {
+        buttons.push({
+          text: 'Delete',
+          onPress: handleConfirmDelete,
+        });
+      }
+
+      buttons.push({ text: 'Cancel', onPress: () => {} });
+
+      Alert.alert('Message Options', undefined, buttons, { cancelable: true });
+    }
+  }, [isCurrentUser, handleReply, handleCopyToClipboard, handleConfirmDelete]);
+
+  // Long press gesture for context menu
+  const longPressGesture = Gesture.LongPress()
+    .minDuration(500)
+    .onStart(() => {
+      runOnJS(showContextMenu)();
+    });
+
+  // Combined gesture
+  const composedGesture = Gesture.Race(longPressGesture, panGesture);
+
+  // Animated style for message container
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: translateX.value }],
+  }));
+
+  // Animated style for reply icon
+  const replyIconAnimatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: replyIconScale.value }],
+    opacity: replyIconOpacity.value,
+  }));
+
+  return (
+    <View
+      style={[
+        styles.container,
+        isCurrentUser ? styles.currentUserContainer : styles.otherUserContainer,
+      ]}
+    >
+      {/* Reply icon on the left for current user messages */}
+      {isCurrentUser && (
+        <Animated.View
+          style={[styles.replyIconLeft, replyIconAnimatedStyle]}
+          pointerEvents="none"
+        >
+          <Ionicons name="arrow-undo" size={REPLY_ICON_SIZE} color="#863A73" />
+        </Animated.View>
+      )}
+
+      <View
+        style={[
+          styles.swipeableContainer,
+          isCurrentUser ? styles.currentUserSwipeable : styles.otherUserSwipeable,
+        ]}
+      >
+        {!isCurrentUser && isLastInGroup && isGroupChat && (
+          <View style={styles.avatarContainer}>
+            <View style={styles.avatar}>
+              <Text style={styles.avatarText}>{senderName.charAt(0).toUpperCase()}</Text>
+            </View>
+          </View>
+        )}
+        {!isCurrentUser && !isLastInGroup && isGroupChat && (
+          <View style={styles.avatarSpacer} />
+        )}
+
+        <GestureDetector gesture={composedGesture}>
+          <Animated.View style={[styles.messageContainer, animatedStyle]}>
+            {/* Reply preview if replying to another message */}
+            {message.replyTo && repliedMessage && (
+              <View style={styles.replyPreviewContainer}>
+                <View style={styles.replyPreviewBar} />
+                <View style={styles.replyPreviewContent}>
+                  <Text style={styles.replyPreviewSender} numberOfLines={1}>
+                    {repliedMessage.metadata?.sender?.name || repliedMessage.metadata?.sender?.username || 'User'}
+                  </Text>
+                  <Text style={styles.replyPreviewText} numberOfLines={1}>
+                    {repliedMessage.content || 'Message'}
+                  </Text>
+                </View>
+              </View>
+            )}
+
+            {/* Sender name for GROUP chats only */}
+            {!isCurrentUser && showAvatar && isGroupChat && (
+              <Text style={styles.senderName}>{senderName}</Text>
+            )}
+
+            <View
+              style={[
+                styles.bubble,
+                isCurrentUser ? styles.currentUserBubble : styles.otherUserBubble,
+                message.metadata?.isDeleted && styles.deletedBubble,
+                isCurrentUser
+                  ? {
+                      borderBottomRightRadius: isLastInGroup ? 6 : 18,
+                      borderTopRightRadius: showAvatar ? 18 : 6,
+                    }
+                  : {
+                      borderBottomLeftRadius: isLastInGroup ? 6 : 18,
+                      borderTopLeftRadius: showAvatar ? 18 : 6,
+                    },
+              ]}
+            >
+              {message.metadata?.isDeleted ? (
+                <View style={styles.deletedMessageContainer}>
+                  <Ionicons name="trash-outline" size={14} color="#9CA3AF" style={styles.trashIcon} />
+                  <Text style={styles.deletedMessageText}>
+                    This message has been deleted
+                  </Text>
+                </View>
+              ) : (
+                <Text
+                  style={[
+                    styles.messageText,
+                    isCurrentUser ? styles.currentUserText : styles.otherUserText,
+                  ]}
+                >
+                  {message.content}
+                </Text>
+              )}
+
+              <View style={styles.messageFooter}>
+                <Text
+                  style={[
+                    styles.timestamp,
+                    isCurrentUser
+                      ? styles.currentUserTimestamp
+                      : styles.otherUserTimestamp,
+                  ]}
+                >
+                  {format(new Date(message.timestamp), 'HH:mm')}
+                </Text>
+
+                {isCurrentUser && (
+                  <View style={styles.statusContainer}>
+                    {message.isDelivered && <Text style={styles.deliveryStatus}>✓</Text>}
+                    {message.isRead && <Text style={styles.readStatus}>✓</Text>}
+                  </View>
+                )}
+              </View>
+            </View>
+          </Animated.View>
+        </GestureDetector>
+      </View>
+
+      {/* Reply icon on the right for other user messages */}
+      {!isCurrentUser && (
+        <Animated.View
+          style={[styles.replyIconRight, replyIconAnimatedStyle]}
+          pointerEvents="none"
+        >
+          <Ionicons name="arrow-undo" size={REPLY_ICON_SIZE} color="#863A73" />
+        </Animated.View>
+      )}
+    </View>
+  );
+};
+
+const styles = StyleSheet.create({
+  container: {
+    flexDirection: 'row',
+    marginVertical: 1,
+    paddingHorizontal: 4,
+    position: 'relative',
+  },
+  currentUserContainer: {
+    justifyContent: 'flex-end',
+  },
+  otherUserContainer: {
+    justifyContent: 'flex-start',
+  },
+  swipeableContainer: {
+    flexDirection: 'row',
+    maxWidth: '30%',
+  },
+  currentUserSwipeable: {
+    alignSelf: 'flex-end',
+  },
+  otherUserSwipeable: {
+    alignSelf: 'flex-start',
+  },
+  replyIconLeft: {
+    position: 'absolute',
+    left: 8,
+    alignSelf: 'center',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  replyIconRight: {
+    position: 'absolute',
+    right: 8,
+    alignSelf: 'center',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  avatarContainer: {
+    marginRight: 8,
+    alignSelf: 'flex-end',
+    marginBottom: 2,
+  },
+  avatarSpacer: {
+    width: 40,
+  },
+  avatar: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#E5E7EB',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  avatarText: {
+    color: '#6B7280',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  messageContainer: {
+    flex: 1,
+    marginBottom: 2,
+  },
+  replyPreviewContainer: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    backgroundColor: 'rgba(0, 0, 0, 0.05)',
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+    borderRadius: 8,
+    marginBottom: 4,
+  },
+  replyPreviewBar: {
+    width: 3,
+    alignSelf: 'stretch',
+    backgroundColor: '#863A73',
+    marginRight: 8,
+    borderRadius: 2,
+  },
+  replyPreviewContent: {
+    flex: 1,
+  },
+  replyPreviewSender: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#863A73',
+    marginBottom: 2,
+  },
+  replyPreviewText: {
+    flex: 1,
+    fontSize: 13,
+    color: '#6B7280',
+  },
+  senderName: {
+    fontSize: 12,
+    color: '#6B7280',
+    marginBottom: 2,
+    marginLeft: 4,
+    fontWeight: '500',
+  },
+  bubble: {
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 20,
+    minHeight: 40,
+    justifyContent: 'center',
+  },
+  currentUserBubble: {
+    backgroundColor: '#863A73',
+    alignSelf: 'flex-end',
+  },
+  otherUserBubble: {
+    backgroundColor: '#F3F4F6',
+    alignSelf: 'flex-start',
+  },
+  deletedBubble: {
+    backgroundColor: '#F9FAFB',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  deletedMessageContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  trashIcon: {
+    marginRight: 6,
+  },
+  deletedMessageText: {
+    fontSize: 14,
+    fontStyle: 'italic',
+    color: '#9CA3AF',
+    flexShrink: 1,
+  },
+  messageText: {
+    fontSize: 15,
+    lineHeight: 20,
+  },
+  currentUserText: {
+    color: '#FFFFFF',
+  },
+  otherUserText: {
+    color: '#111827',
+  },
+  messageFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    marginTop: 2,
+  },
+  timestamp: {
+    fontSize: 11,
+    marginTop: 2,
+  },
+  currentUserTimestamp: {
+    color: 'rgba(255, 255, 255, 0.7)',
+  },
+  otherUserTimestamp: {
+    color: '#9CA3AF',
+  },
+  statusContainer: {
+    flexDirection: 'row',
+    marginLeft: 4,
+  },
+  deliveryStatus: {
+    fontSize: 10,
+    color: 'rgba(255, 255, 255, 0.7)',
+  },
+  readStatus: {
+    fontSize: 10,
+    color: '#34D399',
+    marginLeft: -2,
+  },
+});
