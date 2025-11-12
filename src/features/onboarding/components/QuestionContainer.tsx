@@ -50,18 +50,6 @@ const getQuestionContext = (questionKey?: string) => {
       text: "Your official doubles rating for accurate assessment",
       tooltip: "Doubles ratings may differ from singles due to partner play dynamics"
     },
-    dupr_reliability_games: { 
-      text: "More games means a more reliable rating",
-      tooltip: "DUPR becomes more accurate with 15+ rated games"
-    },
-    dupr_recent_activity: { 
-      text: "Recent play ensures current skill level",
-      tooltip: "Skills can change over time, recent games reflect current ability"
-    },
-    dupr_competition_level: { 
-      text: "Competition level affects rating accuracy",
-      tooltip: "Tournament games typically provide more accurate ratings"
-    },
     experience: { 
       text: "Experience level helps gauge your development",
       tooltip: "Playing time correlates with skill development patterns"
@@ -89,14 +77,6 @@ const getQuestionContext = (questionKey?: string) => {
     tournament: { 
       text: "Tournament experience indicates skill level",
       tooltip: "Competitive play demonstrates ability under pressure"
-    },
-    consistency_check_1: { 
-      text: "Overall ability check",
-      tooltip: "Helps us verify the consistency of your responses"
-    },
-    consistency_check_2: { 
-      text: "Competition level verification",
-      tooltip: "Cross-validates your skill level assessment"
     },
     coaching_background: {
       text: "Formal instruction background",
