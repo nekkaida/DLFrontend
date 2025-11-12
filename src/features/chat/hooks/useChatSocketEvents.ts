@@ -54,26 +54,15 @@ export const useChatSocketEvents = (threadId: string | null, currentUserId: stri
       return;
     }
 
-    console.log('🎧 Setting up chat socket listeners');
-    console.log('🎧 Current thread:', threadId);
-    console.log('🎧 Current user:', currentUserId);
-    console.log('🎧 Socket connected:', isConnected);
-
     // 📥 Handle new messages
     const handleNewMessage = (backendMessage: any) => {
-      
-      // Transform backend format to frontend format
       const message = transformMessage(backendMessage);
-      console.log('📥 Transformed message:', JSON.stringify(message, null, 2));
       
       // Add message to store
-      console.log('📥 Adding message to store...');
       addMessage(message);
-      console.log('📥 Message added to store!');
       
       // Update thread's last message and move to top (backend will handle unread count)
       const currentThreads = useChatStore.getState().threads;
-      console.log('📥 Current threads count:', currentThreads.length);
       const thread = currentThreads.find(t => t.id === message.threadId);
       if (thread) {      
         const updatedThread = {
@@ -99,7 +88,6 @@ export const useChatSocketEvents = (threadId: string | null, currentUserId: stri
         console.log('📖 Auto-marking message as read');
         socketService.markMessageAsRead(message.id, currentUserIdRef.current);
       }
-      console.log('========================================');
     };
 
     // 🗑️ Handle message deletion
