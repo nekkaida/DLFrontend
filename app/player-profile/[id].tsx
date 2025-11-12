@@ -78,11 +78,11 @@ export default function PlayerProfileScreen() {
         method: 'GET',
       });
 
-      console.log('PlayerProfile: API response:', authResponse);
+      // console.log('PlayerProfile: API response:', authResponse);
 
       if (authResponse && (authResponse as any).data) {
         const playerData = (authResponse as any).data.data || (authResponse as any).data;
-        console.log('PlayerProfile: Setting profile data:', playerData);
+        // console.log('PlayerProfile: Setting profile data:', playerData);
         setProfileData(playerData);
 
         // Fetch achievements if available
@@ -170,7 +170,8 @@ export default function PlayerProfileScreen() {
     }
   }, [session?.user?.id, id, fetchPlayerProfile]);
 
-  // Transform profile data to userData format
+  // Transform profile data to userData format   
+  // update the codebase
   const userData: UserData = profileData
     ? ProfileDataTransformer.transformProfileToUserData(profileData, achievements)
     : {
@@ -183,7 +184,7 @@ export default function PlayerProfileScreen() {
         skillRatings: {},
         sports: [],
         activeSports: [],
-        profileImage: undefined,
+        image: 'loading...',
         achievements: [],
       };
 

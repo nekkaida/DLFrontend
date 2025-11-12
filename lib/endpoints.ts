@@ -9,26 +9,26 @@ const axiosInstance = axios.create({
 
 axiosInstance.interceptors.request.use(
   async (config) => {
-    console.log("📡 [Axios] Request started:", config.method?.toUpperCase(), config.url);
+    // console.log("📡 [Axios] Request started:", config.method?.toUpperCase(), config.url);
 
     try {
       const session = await authClient.getSession();
       const token = session?.data?.session?.token;
       const userId = session?.data?.user?.id;
 
-      console.log("🎫 Session token:", token);
-      console.log("👤 User ID:", userId);
+      // console.log("🎫 Session token:", token);
+      // console.log("👤 User ID:", userId);
 
       // For mobile: send userId in x-user-id header (backend expects this)
       if (userId) {
         config.headers['x-user-id'] = userId;
-        console.log("✅ x-user-id header attached!");
+        // console.log("✅ x-user-id header attached!");
       }
 
       // Also try Bearer token for web compatibility
       if (token) {
         config.headers.Authorization = `Bearer ${token}`;
-        console.log("✅ Authorization Bearer token attached!");
+        // console.log("✅ Authorization Bearer token attached!");
       }
 
       if (!userId && !token) {
@@ -46,7 +46,7 @@ axiosInstance.interceptors.request.use(
 
 axiosInstance.interceptors.response.use(
   (res) => {
-    console.log("✅ [Axios] Response success:", res.status, res.config.url);
+    // console.log("✅ [Axios] Response success:", res.status, res.config.url);
     return res;
   },
   (error: AxiosError) => {
@@ -180,8 +180,13 @@ export const endpoints = {
     getThreadMembers: (threadId: string) => `/api/chat/threads/${threadId}/members`,
     sendMessage: (threadId: string) => `/api/chat/threads/${threadId}/messages`,
     getMessages: (threadId: string) => `/api/chat/threads/${threadId}/messages`,
-    markAsRead: (messageId: string) => `/api/chat/messages/${messageId}/read`,
     getAvailableUsers: (userId: string) => `/api/chat/threads/users/available/${userId}`,
+    deleteMessage: (messageId: string) => `/api/chat/threads/messages/${messageId}`,
+    
+    // Unread count endpoints
+    getUnreadCount: (threadId: string) => `/api/chat/threads/${threadId}/unread-count`,
+    getTotalUnreadCount: (userId: string) => `/api/chat/user/${userId}/total-unread`,
+    markThreadAsRead: (threadId: string) => `/api/chat/${threadId}/mark-read`,
 
     // Add contacts endpoints
     getContacts: (userId: string) => `/api/users/${userId}/contacts`,

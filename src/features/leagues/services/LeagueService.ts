@@ -15,7 +15,7 @@ export interface League {
   memberCount?: number;
   seasonCount?: number;
   categoryCount?: number;
-  totalSeasonMemberships?: number; // Total count of season memberships across all seasons in this league
+  totalSeasonMemberships?: number;
   categories?: Array<{
     id: string;
     name: string;
@@ -70,22 +70,23 @@ export class LeagueService {
 
       // use regular fetch data since it works
       if (regularFetchData && regularFetchData.success && regularFetchData.data && regularFetchData.data.leagues) {
-        console.log('✅ LeagueService: Successfully found leagues via regular fetch:', regularFetchData.data.leagues.length);
-        console.log('✅ LeagueService: Leagues data:', regularFetchData.data.leagues);
+         console.log('✅ LeagueService: Leagues data fetched');
+        // console.log('✅ LeagueService: Successfully found leagues via regular fetch:', regularFetchData.data.leagues.length);
+        // console.log('✅ LeagueService: Leagues data:', regularFetchData.data.leagues);
         return regularFetchData.data.leagues;
       }
 
       // Check auth client cookies
       const authCookies = authClient.getCookie();
-      console.log('🔍 LeagueService: Auth client cookies:', authCookies);
+      // console.log('🔍 LeagueService: Auth client cookies:', authCookies);
 
       const response = await authClient.$fetch(`${backendUrl}/api/league`, {
         method: 'GET',
       });
 
-      console.log('🔍 LeagueService: Raw API response:', response);
-      console.log('🔍 LeagueService: Response type:', typeof response);
-      console.log('🔍 LeagueService: Response keys:', response ? Object.keys(response) : 'null');
+      // console.log('🔍 LeagueService: Raw API response:', response);
+      // console.log('🔍 LeagueService: Response type:', typeof response);
+      // console.log('🔍 LeagueService: Response keys:', response ? Object.keys(response) : 'null');
 
       // handle the ApiResponse structure from backend
       if (response && typeof response === 'object') {
@@ -99,14 +100,15 @@ export class LeagueService {
         });
 
         if (apiResponse.data && apiResponse.data.success && apiResponse.data.data && apiResponse.data.data.leagues) {
-          console.log('✅ LeagueService: Successfully found leagues (authClient wrapped):', apiResponse.data.data.leagues.length);
-          console.log('✅ LeagueService: Leagues data:', apiResponse.data.data.leagues);
+            console.log('✅ LeagueService: Leagues API');
+          // console.log('✅ LeagueService: Successfully found leagues (authClient wrapped):', apiResponse.data.data.leagues.length);
+          // console.log('✅ LeagueService: Leagues data:', apiResponse.data.data.leagues);
           return apiResponse.data.data.leagues;
         }
 
         if (apiResponse.success && apiResponse.data && apiResponse.data.leagues) {
           console.log('✅ LeagueService: Successfully found leagues:', apiResponse.data.leagues.length);
-          console.log('✅ LeagueService: Leagues data:', apiResponse.data.leagues);
+          // console.log('✅ LeagueService: Leagues data:', apiResponse.data.leagues);
           return apiResponse.data.leagues;
         } else {
           console.log('❌ LeagueService: Response structure issue:', {
@@ -164,12 +166,12 @@ export class LeagueService {
         if (apiResponse.data && apiResponse.data.success && apiResponse.data.data && apiResponse.data.data.league) {
           const league = apiResponse.data.data.league as League;
           // console.log('LeagueService: Setting league data (wrapped):', apiResponse.data.data.league);
-          console.log('✅ LeagueService: Fetched league:', {
-            id: league.id,
-            name: league.name,
-            seasons: league.seasonCount || league._count?.seasons || 0,
-            memberships: league._count?.memberships || 0,
-          });
+          // console.log('✅ LeagueService: Fetched league:', {
+          //   id: league.id,
+          //   name: league.name,
+          //   seasons: league.seasonCount || league._count?.seasons || 0,
+          //   memberships: league._count?.memberships || 0,
+          // });
           return league;
         }
         

@@ -1,6 +1,7 @@
 import { getBackendBaseURL } from '@/config/network';
 import { authClient, useSession } from '@/lib/auth-client';
 import { Ionicons } from '@expo/vector-icons';
+import * as Clipboard from 'expo-clipboard';
 import * as Haptics from 'expo-haptics';
 import { router } from 'expo-router';
 import React, { useEffect, useState } from 'react';
@@ -18,9 +19,13 @@ import {
   View
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { toast } from 'sonner-native';
 import { MessageInput } from './components/chat-input';
 import { ThreadList } from './components/chat-list';
 import { MessageWindow } from './components/chat-window';
+import { MessageActionBar } from './components/MessageActionBar';
+import { useChatSocketEvents } from './hooks/useChatSocketEvents';
+import { ChatService } from './services/ChatService';
 import { useChatStore } from './stores/ChatStore';
 import { Thread } from './types';
 
@@ -33,6 +38,9 @@ export const ChatScreen: React.FC = () => {
   const { data: session} = useSession();
   const [filteredThreads, setFilteredThreads] = useState<Thread[]>([]);
   const [profileData, setProfileData] = useState<any>(null);
+  const [refreshKey, setRefreshKey] = useState(0);
+  const [selectedMessage, setSelectedMessage] = useState<any>(null);
+  const [showActionBar, setShowActionBar] = useState(false);
   const insets = useSafeAreaInsets();
   
   const user = session?.user;
@@ -44,13 +52,31 @@ export const ChatScreen: React.FC = () => {
     threads,
     isLoading,
     error,
+    replyingTo,
     setCurrentThread,
     loadMessages,
     loadThreads,
     sendMessage,
     addMessage,
     setConnectionStatus,
+    updateThread,
+    setReplyingTo,
+    handleDeleteMessage: deleteMessageFromStore,
   } = useChatStore();
+
+  // Setup Socket.IO event listeners for real-time chat
+  const { isConnected: socketConnected } = useChatSocketEvents(
+    currentThread?.id || null,
+    user?.id || ''
+  );
+
+  // Force re-render when messages change
+  useEffect(() => {
+    if (currentThread?.id && messages[currentThread.id]) {
+      console.log('💬 Messages updated for current thread:', messages[currentThread.id].length);
+      setRefreshKey(prev => prev + 1);
+    }
+  }, [messages, currentThread?.id]);
 
   // Fetch profile data when component mounts
   useEffect(() => {
@@ -80,8 +106,6 @@ export const ChatScreen: React.FC = () => {
           method: "GET",
         }
       );
-
-      console.log("ChatScreen: Profile API response:", authResponse);
 
       if (
         authResponse &&
@@ -142,21 +166,41 @@ export const ChatScreen: React.FC = () => {
     }
   }, [searchQuery, threads]);
 
-  const handleThreadSelect = (thread: Thread) => {
+  const handleThreadSelect = async (thread: Thread) => {
     console.log('ChatScreen: Thread selected:', thread.name);
     setCurrentThread(thread);
+    
+    // Mark thread as read when opening it
+    if (user?.id && thread.unreadCount > 0) {
+      console.log('ChatScreen: Marking thread as read, unread count:', thread.unreadCount);
+      try {
+        await ChatService.markAllAsRead(thread.id, user.id);
+        console.log('ChatScreen: Thread marked as read successfully');
+        updateThread({
+          ...thread,
+          unreadCount: 0,
+        });
+      } catch (error) {
+        console.error('ChatScreen: Error marking thread as read:', error);
+      }
+    }
   };
 
-  const handleSendMessage = (content: string) => {
+  const handleSendMessage = (content: string, replyToId?: string) => {
     if (!currentThread || !user?.id) return;
 
     console.log('Sending message:', {
       threadId: currentThread.id,
       senderId: user.id,
       content,
+      replyToId,
     });
 
-    sendMessage(currentThread.id, user.id, content);
+    sendMessage(currentThread.id, user.id, content, replyToId);
+    
+    if (replyingTo) {
+      setReplyingTo(null);
+    }
   };
 
   const handleBackToThreads = () => {
@@ -171,6 +215,84 @@ export const ChatScreen: React.FC = () => {
   const handleMatch = () => {
     console.log('Create match button pressed');
     // TO DO ADD MATCH LOGIC LATER
+  };
+
+  const handleReply = (message: any) => {
+    // console.log('📝 Reply to message:', message.id);
+    // console.log('📝 Message content:', message.content);
+    // console.log('📝 Message sender:', message.metadata?.sender);
+    // console.log('📝 Full message object:', JSON.stringify(message, null, 2));
+    setReplyingTo(message);
+  };
+
+  const handleCancelReply = () => {
+    setReplyingTo(null);
+  };
+
+  const handleLongPress = (message: any) => {
+    console.log('Long press on message:', message.id);
+    setSelectedMessage(message);
+    setShowActionBar(true);
+  };
+
+  const handleCloseActionBar = () => {
+    setShowActionBar(false);
+    setSelectedMessage(null);
+  };
+
+  const handleActionBarReply = () => {
+    if (selectedMessage) {
+      handleReply(selectedMessage);
+    }
+  };
+
+  const handleActionBarCopy = async () => {
+    if (selectedMessage?.content && !selectedMessage.metadata?.isDeleted) {
+      try {
+        await Clipboard.setStringAsync(selectedMessage.content);
+        toast.success('Message copied to clipboard');
+      } catch (error) {
+        console.error('Failed to copy:', error);
+        toast.error('Failed to copy message');
+      }
+    }
+  };
+
+  const handleActionBarDelete = async () => {
+    if (selectedMessage) {
+      // Show confirmation toast
+      toast('Delete this message?', {
+        action: {
+          label: 'Delete',
+          onClick: async () => {
+            try {
+              await deleteMessageFromStore(selectedMessage.id, currentThread?.id || '');
+              toast.success('Message deleted');
+            } catch (error) {
+              console.error('Failed to delete:', error);
+              toast.error('Failed to delete message');
+            }
+          },
+        },
+        cancel: {
+          label: 'Cancel',
+          onClick: () => {},
+        },
+      });
+    }
+  };
+
+  const handleDeleteMessageAction = async (messageId: string) => {
+    if (!currentThread) {
+      return;
+    }
+    try {
+      await deleteMessageFromStore(messageId, currentThread.id);
+      console.log('✅ Message deleted successfully');
+    } catch (error) {
+      console.error('❌ Failed to delete message:', error);
+      toast.error('Failed to delete message. Please try again.');
+    }
   };
 
   // Get header content based on chat type
@@ -205,9 +327,6 @@ export const ChatScreen: React.FC = () => {
 
   const headerContent = getHeaderContent();
 
-  console.log('ChatScreen: Rendering - currentThread:', currentThread?.name, 'threads count:', threads?.length);
-
-  // Show loading state
   if (isLoading && (!threads || threads.length === 0)) {
     return (
       <View style={styles.container}>
@@ -219,7 +338,6 @@ export const ChatScreen: React.FC = () => {
     );
   }
 
-  // Show error state
   if (error && (!threads || threads.length === 0)) {
     return (
       <View style={styles.container}>
@@ -234,12 +352,26 @@ export const ChatScreen: React.FC = () => {
   return (
     <View style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
+      
+      {/* Uncomment to see socket debug info */}
+      {/* <SocketDebugPanel /> */}
+      
       {currentThread ? (
         <KeyboardAvoidingView 
           style={styles.chatContainer}
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
           keyboardVerticalOffset={Platform.OS === 'ios' ? STATUS_BAR_HEIGHT : 0}
         >
+          {/* Message Action Bar */}
+          <MessageActionBar
+            visible={showActionBar}
+            isCurrentUser={selectedMessage?.senderId === user?.id}
+            onReply={handleActionBarReply}
+            onCopy={handleActionBarCopy}
+            onDelete={handleActionBarDelete}
+            onClose={handleCloseActionBar}
+          />
+
           <View style={[styles.chatHeader, { paddingTop: STATUS_BAR_HEIGHT + 12 }]}>
             <TouchableOpacity 
               style={styles.backButton}
@@ -260,20 +392,28 @@ export const ChatScreen: React.FC = () => {
               )}
             </View>
             
+            {/* <SocketTestButton threadId={currentThread.id} /> */}
+            
             <TouchableOpacity style={styles.headerAction}>
               <Ionicons name="ellipsis-vertical" size={20} color="#6B7280" />
             </TouchableOpacity>
           </View>
           
           <MessageWindow
+            key={refreshKey}
             messages={messages[currentThread.id] || []}
             threadId={currentThread.id}
             isGroupChat={currentThread.type === 'group'}
+            onReply={handleReply}
+            onDeleteMessage={handleDeleteMessageAction}
+            onLongPress={handleLongPress}
           />
           
           <MessageInput 
             onSendMessage={handleSendMessage}
             onhandleMatch={handleMatch}
+            replyingTo={replyingTo}
+            onCancelReply={handleCancelReply}
           />
         </KeyboardAvoidingView>
       ) : (
