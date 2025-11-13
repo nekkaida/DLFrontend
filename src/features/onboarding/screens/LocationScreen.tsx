@@ -163,11 +163,15 @@ const LocationScreen = () => {
       setIsSearchingLocations(true);
       console.log('🔍 Searching locations for:', query);
 
-      const response = await questionnaireAPI.searchLocations(query.trim(), 5);
+      // Request more results (40 = Nominatim max)
+      const response = await questionnaireAPI.searchLocations(query.trim(), 40);
 
       if (response.success && response.results) {
         console.log(`✅ Found ${response.results.length} locations via API`);
-        setLocationSuggestions(response.results);
+
+        // Sort results to prioritize exact matches
+        const sortedResults = prioritizeExactMatches(response.results, query.trim());
+        setLocationSuggestions(sortedResults);
       } else {
         console.log('⚠️ API returned no locations, using fallback');
         useFallbackLocationSearch(query);
@@ -180,6 +184,50 @@ const LocationScreen = () => {
     }
   };
 
+  /**
+   * Prioritize exact name matches in search results
+   * Sorting logic:
+   * 1. Exact match (e.g., "Sungai Buloh" matches "Sungai Buloh")
+   * 2. Starts with query (e.g., "Sungai" matches "Sungai Buloh")
+   * 3. Contains query (e.g., "Buloh" matches "Sungai Buloh")
+   * 4. Original importance score from Nominatim
+   */
+  const prioritizeExactMatches = (results: any[], query: string) => {
+    const queryLower = query.toLowerCase();
+
+    return [...results].sort((a, b) => {
+      const aName = a.formatted_address?.toLowerCase() || '';
+      const bName = b.formatted_address?.toLowerCase() || '';
+
+      // Extract first part before comma for matching (e.g., "Sungai Buloh" from "Sungai Buloh, Selangor")
+      const aFirstPart = aName.split(',')[0].trim();
+      const bFirstPart = bName.split(',')[0].trim();
+
+      // Exact match gets highest priority
+      const aExactMatch = aFirstPart === queryLower;
+      const bExactMatch = bFirstPart === queryLower;
+      if (aExactMatch && !bExactMatch) return -1;
+      if (!aExactMatch && bExactMatch) return 1;
+
+      // Starts with query gets second priority
+      const aStartsWith = aFirstPart.startsWith(queryLower);
+      const bStartsWith = bFirstPart.startsWith(queryLower);
+      if (aStartsWith && !bStartsWith) return -1;
+      if (!aStartsWith && bStartsWith) return 1;
+
+      // Contains query gets third priority
+      const aContains = aName.includes(queryLower);
+      const bContains = bName.includes(queryLower);
+      if (aContains && !bContains) return -1;
+      if (!aContains && bContains) return 1;
+
+      // Fall back to Nominatim's importance score (higher is better)
+      const aImportance = a.importance || 0;
+      const bImportance = b.importance || 0;
+      return bImportance - aImportance;
+    });
+  };
+
   // Fallback location search - show no results if API fails
   const useFallbackLocationSearch = (query: string) => {
     console.log('🔄 API failed, showing no results');
@@ -187,14 +235,22 @@ const LocationScreen = () => {
   };
 
   // Debounced search function
+  // NOTE: Per Nominatim usage policy, autocomplete is forbidden
+  // We use 1.5s delay and minimum 3 characters to comply
   const debouncedSearch = (query: string) => {
     if (searchTimeoutRef.current) {
       clearTimeout(searchTimeoutRef.current);
     }
-    
+
+    // Only search if query has at least 3 characters (policy compliance)
+    if (query.trim().length < 3) {
+      setLocationSuggestions([]);
+      return;
+    }
+
     searchTimeoutRef.current = setTimeout(() => {
       searchLocations(query);
-    }, 300); // 300ms delay
+    }, 1500); // 1.5 second delay (not autocomplete)
   };
 
   // Fallback reverse geocoding using expo-location
@@ -210,19 +266,28 @@ const LocationScreen = () => {
         const address = reverseGeocode[0];
         console.log('✅ Expo-location reverse geocode result:', address);
 
-        // Format: "City, Postcode State" (e.g., "Bandar Sunway, 47500 Selangor")
-        const city = address.city || address.subregion || address.district || '';
+        // Format: "District, City" (e.g., "Bandar Sunway, Subang Jaya")
+        // expo-location returns: district = suburb, city = city name
+        const district = address.district || address.subLocality || '';
+        const city = address.city || address.locality || '';
         const postcode = address.postalCode || '';
         const state = address.region || '';
 
         let formattedAddress = '';
-        if (city && postcode && state) {
-          formattedAddress = `${city}, ${postcode} ${state}`;
+        // Prioritize district + city format (e.g., "Bandar Sunway, Subang Jaya")
+        if (district && city) {
+          formattedAddress = `${district}, ${city}`;
+        } else if (district && state) {
+          // If no city, use district + state (e.g., "Bandar Sunway, Selangor")
+          formattedAddress = `${district}, ${state}`;
         } else if (city && state) {
+          // If no district, use city + state (e.g., "Subang Jaya, Selangor")
           formattedAddress = `${city}, ${state}`;
-        } else if (city) {
-          formattedAddress = city;
+        } else if (district || city) {
+          // Fallback to just district or city
+          formattedAddress = district || city;
         } else {
+          // Last resort: coordinates
           formattedAddress = `${latitude.toFixed(4)}, ${longitude.toFixed(4)}`;
         }
 
@@ -368,49 +433,11 @@ const LocationScreen = () => {
       const { latitude, longitude } = locationResult.coords;
       console.log('📍 GPS coordinates:', latitude, longitude);
       
-      // Reverse geocode to get address - prioritize expo-location for better results
-      console.log('🗺️ Converting coordinates to address...');
-      
-      // Try expo-location first since it gives better results
-      try {
-        await fallbackReverseGeocode(latitude, longitude);
-      } catch (expoError) {
-        console.log('⚠️ Expo-location failed, trying API fallback:', expoError);
-        
-        // Fallback to API if expo-location fails
-        try {
-          const reverseGeocodeResponse = await questionnaireAPI.reverseGeocode(latitude, longitude);
-          
-          if (reverseGeocodeResponse.success && reverseGeocodeResponse.address) {
-            console.log('✅ API reverse geocode result:', reverseGeocodeResponse.address);
-            
-            setCurrentLocationData({
-              latitude,
-              longitude,
-              address: reverseGeocodeResponse.address,
-            });
-            
-            setLocation(reverseGeocodeResponse.address);
-            setShowSuggestions(false);
-          } else {
-            console.log('⚠️ API also returned no address, using coordinates');
-            setCurrentLocationData({
-              latitude,
-              longitude,
-            });
-            
-            setLocation(`${latitude.toFixed(4)}, ${longitude.toFixed(4)}`);
-          }
-        } catch (apiError) {
-          console.log('⚠️ API also failed, using coordinates:', apiError);
-          setCurrentLocationData({
-            latitude,
-            longitude,
-          });
-          
-          setLocation(`${latitude.toFixed(4)}, ${longitude.toFixed(4)}`);
-        }
-      }
+      // Reverse geocode to get address using native device geocoding
+      console.log('🗺️ Converting coordinates to address using native geocoding...');
+
+      // Use expo-location (native iOS/Android geocoding) - most accurate and free
+      await fallbackReverseGeocode(latitude, longitude);
 
     } catch (error: any) {
       console.error('❌ Error getting location:', error);
@@ -742,10 +769,11 @@ const LocationScreen = () => {
               { opacity: fadeAnim }
             ]}
           >
-            <ScrollView 
+            <ScrollView
               style={styles.suggestionsList}
-              showsVerticalScrollIndicator={false}
+              showsVerticalScrollIndicator={true} // Show scroll indicator so users know list is scrollable
               keyboardShouldPersistTaps="handled"
+              nestedScrollEnabled={true} // Enable nested scrolling for better behavior
             >
               {isSearchingLocations && (
                 <View style={styles.suggestionItem}>
@@ -754,21 +782,6 @@ const LocationScreen = () => {
                 </View>
               )}
               {!isSearchingLocations && locationSuggestions.length > 0 && locationSuggestions.map((item, index) => {
-                // Format: "City, Postcode, State"
-                const formatLocationText = () => {
-                  if (item.components) {
-                    const { city, state } = item.components;
-                    // Try to extract postcode from formatted_address
-                    const postcodeMatch = item.formatted_address.match(/\b\d{5,6}\b/);
-                    const postcode = postcodeMatch ? postcodeMatch[0] : '';
-
-                    if (city && postcode && state) {
-                      return `${city}, ${postcode}, ${state}`;
-                    }
-                  }
-                  return item.formatted_address;
-                };
-
                 return (
                   <TouchableOpacity
                     key={`${item.id}-${index}`}
@@ -779,7 +792,7 @@ const LocationScreen = () => {
                     onPress={() => selectLocation(item)}
                     activeOpacity={0.7}
                   >
-                    <Text style={styles.suggestionText}>{formatLocationText()}</Text>
+                    <Text style={styles.suggestionText}>{item.formatted_address}</Text>
                   </TouchableOpacity>
                 );
               })}
@@ -936,14 +949,15 @@ const styles = StyleSheet.create({
     borderColor: '#BABABA',
     borderBottomLeftRadius: 10,
     borderBottomRightRadius: 10,
-    maxHeight: 240,
+    maxHeight: 450, // Increased to accommodate scrollable list
     marginTop: 0,
     marginLeft: suggestionsMargin,
     marginRight: suggestionsMargin,
-    overflow: 'hidden',
+    // Remove overflow: 'hidden' to allow scrolling
   },
   suggestionsList: {
-    maxHeight: 200,
+    maxHeight: 400, // Scrollable area for results (up to ~10-12 items visible)
+    flexGrow: 0, // Prevent expanding beyond maxHeight
   },
   suggestionItem: {
     paddingHorizontal: 28,
