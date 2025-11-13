@@ -11,16 +11,16 @@ const isSmall = isSmallDevice();
 export const styles = StyleSheet.create({
   // Progress
   progressContainer: {
-    paddingHorizontal: getResponsivePadding(36),
-    paddingBottom: moderateScale(20),
+    paddingHorizontal: getResponsivePadding(isSmall ? 24 : 32),
+    paddingBottom: moderateScale(isSmall ? 12 : 16),
   },
   progressText: {
-    fontSize: scaleFontSize(18),
+    fontSize: scaleFontSize(isSmall ? 16 : 18),
     fontWeight: '600',
     color: '#FFFFFF',
     fontFamily: 'Roboto',
-    marginBottom: moderateScale(20),
-    marginTop: moderateScale(30),
+    marginBottom: moderateScale(isSmall ? 12 : 16),
+    marginTop: moderateScale(isSmall ? 8 : 12),  // Reduced from 30
     textAlign: 'left',
   },
   progressBar: {

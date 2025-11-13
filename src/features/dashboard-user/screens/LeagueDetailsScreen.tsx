@@ -64,52 +64,35 @@ export default function LeagueDetailsScreen({
   const HEADER_MAX_HEIGHT = 180; // Full header height
   const HEADER_MIN_HEIGHT = 80; // Collapsed header height
   const HEADER_SCROLL_DISTANCE = HEADER_MAX_HEIGHT - HEADER_MIN_HEIGHT;
-  const COLLAPSE_START_THRESHOLD = 50; // Start collapsing after scrolling 50px
+  const COLLAPSE_START_THRESHOLD = 40; // Start collapsing after scrolling 50px
   const COLLAPSE_END_THRESHOLD = COLLAPSE_START_THRESHOLD + HEADER_SCROLL_DISTANCE; // End of collapse range
+  
+  const handleScroll = React.useCallback((event: any) => {
+    const { contentOffset, contentSize, layoutMeasurement } = event.nativeEvent;
+    const scrollYValue = contentOffset.y;
+    
+    const availableScrollSpace = contentSize.height - layoutMeasurement.height;
+    
+    const shouldAllowCollapse = availableScrollSpace >= COLLAPSE_END_THRESHOLD;
+    
+    let clampedValue = scrollYValue;
+    if (!shouldAllowCollapse) {
+      clampedValue = Math.min(scrollYValue, Math.max(0, COLLAPSE_START_THRESHOLD - 10));
+    } else {
+      clampedValue = Math.min(scrollYValue, availableScrollSpace);
+    }
+    
+    // Update the animated value
+    scrollY.setValue(clampedValue);
+  }, [scrollY]);
 
   // Set selected sport based on route param
   React.useEffect(() => {
     setSelectedSport(sport);
   }, [sport]);
 
-  // Fetch user gender
-  React.useEffect(() => {
-    const fetchUserGender = async () => {
-      if (!userId) {
-        // If no userId, explicitly set to null so fetchAllData can proceed
-        setUserGender(null);
-        return;
-      }
-
-      try {
-        const { user } = await questionnaireAPI.getUserProfile(userId);
-        setUserGender(user.gender?.toUpperCase() || null);
-      } catch (error) {
-        console.error('Error fetching user profile:', error);
-        // Set to null on error so fetchAllData can still proceed
-        setUserGender(null);
-      }
-    };
-
-    fetchUserGender();
-  }, [userId]);
-
-  // Fetch all data on mount
-  React.useEffect(() => {
-    if (leagueId && userGender !== undefined) {
-      fetchAllData();
-    }
-  }, [leagueId, userGender]);
-
-  // Set default selected category when categories are loaded
-  React.useEffect(() => {
-    if (categories.length > 0 && !selectedCategoryId) {
-      setSelectedCategoryId(categories[0].id);
-    }
-  }, [categories, selectedCategoryId]);
-
   // Helper function to check if a category is visible to the user based on gender
-  const isCategoryVisibleToUser = (category: any): boolean => {
+  const isCategoryVisibleToUser = React.useCallback((category: any): boolean => {
     if (!category) {
       return false;
     }
@@ -157,9 +140,9 @@ export default function LeagueDetailsScreen({
 
     // For OPEN categories, show to everyone
     return categoryGender === 'OPEN';
-  };
+  }, [userGender]);
 
-  const fetchAllData = async () => {
+  const fetchAllData = React.useCallback(async () => {
     if (!leagueId) {
       setIsLoading(false);
       return;
@@ -256,7 +239,43 @@ export default function LeagueDetailsScreen({
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [leagueId, userGender, isCategoryVisibleToUser]);
+
+  // Fetch user gender
+  React.useEffect(() => {
+    const fetchUserGender = async () => {
+      if (!userId) {
+        // If no userId, explicitly set to null so fetchAllData can proceed
+        setUserGender(null);
+        return;
+      }
+
+      try {
+        const { user } = await questionnaireAPI.getUserProfile(userId);
+        setUserGender(user.gender?.toUpperCase() || null);
+      } catch (error) {
+        console.error('Error fetching user profile:', error);
+        // Set to null on error so fetchAllData can still proceed
+        setUserGender(null);
+      }
+    };
+
+    fetchUserGender();
+  }, [userId]);
+
+  // Fetch all data on mount
+  React.useEffect(() => {
+    if (leagueId && userGender !== undefined) {
+      fetchAllData();
+    }
+  }, [leagueId, userGender, fetchAllData]);
+
+  // Set default selected category when categories are loaded
+  React.useEffect(() => {
+    if (categories.length > 0 && !selectedCategoryId) {
+      setSelectedCategoryId(categories[0].id);
+    }
+  }, [categories, selectedCategoryId]);
 
   const filterCategoriesByGender = (categories: Category[], userGender: string | null): Category[] => {
     return categories.filter(category => isCategoryVisibleToUser(category));
@@ -754,7 +773,11 @@ export default function LeagueDetailsScreen({
   useFocusEffect(
     React.useCallback(() => {
       fetchProfileData();
-    }, [fetchProfileData])
+      // Also refresh league/season data to show updated membership status
+      if (leagueId && userGender !== undefined) {
+        fetchAllData();
+      }
+    }, [fetchProfileData, fetchAllData, leagueId, userGender])
   );
 
   // Set selected sport based on route param
@@ -988,10 +1011,7 @@ export default function LeagueDetailsScreen({
               contentContainerStyle={styles.scrollContent}
               showsVerticalScrollIndicator={false}
               scrollEventThrottle={16}
-              onScroll={Animated.event(
-                [{ nativeEvent: { contentOffset: { y: scrollY } } }],
-                { useNativeDriver: false }
-              )}
+              onScroll={handleScroll}
             >
             <View style={styles.scrollTopSpacer} />
             {/* League Info Card */}
@@ -1183,6 +1203,7 @@ const styles = StyleSheet.create({
     height: '100%',
     justifyContent: 'center',
     alignItems: 'center',
+    marginBottom: 4,
   },
   leagueNameContainer: {
     flex: 1,
@@ -1222,6 +1243,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'flex-start',
+    marginBottom: 24,
   },
   collapsedPlayerCount: {
     fontSize: isSmallScreen ? 12 : 13,

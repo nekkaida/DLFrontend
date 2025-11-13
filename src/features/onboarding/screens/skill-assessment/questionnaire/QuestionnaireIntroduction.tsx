@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, ScrollView } from 'react-native';
+import { View, Text, TouchableOpacity } from 'react-native';
 import { SportBranding } from '../components/SportBranding';
 import { styles } from './QuestionnaireIntroduction.styles';
 
