@@ -174,6 +174,11 @@ export class SocketService {
         this.emit('partnership_created', data);
       });
 
+      this._socket.on('team_registration_completed', (data) => {
+        console.log('SocketService: Team registration completed:', data);
+        this.emit('team_registration_completed', data);
+      });
+
       // Join user to their personal room for notifications
       if (session.data.user?.id) {
         this._socket.emit('join_user_room', { userId: session.data.user.id });

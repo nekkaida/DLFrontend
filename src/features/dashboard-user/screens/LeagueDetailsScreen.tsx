@@ -72,44 +72,8 @@ export default function LeagueDetailsScreen({
     setSelectedSport(sport);
   }, [sport]);
 
-  // Fetch user gender
-  React.useEffect(() => {
-    const fetchUserGender = async () => {
-      if (!userId) {
-        // If no userId, explicitly set to null so fetchAllData can proceed
-        setUserGender(null);
-        return;
-      }
-
-      try {
-        const { user } = await questionnaireAPI.getUserProfile(userId);
-        setUserGender(user.gender?.toUpperCase() || null);
-      } catch (error) {
-        console.error('Error fetching user profile:', error);
-        // Set to null on error so fetchAllData can still proceed
-        setUserGender(null);
-      }
-    };
-
-    fetchUserGender();
-  }, [userId]);
-
-  // Fetch all data on mount
-  React.useEffect(() => {
-    if (leagueId && userGender !== undefined) {
-      fetchAllData();
-    }
-  }, [leagueId, userGender]);
-
-  // Set default selected category when categories are loaded
-  React.useEffect(() => {
-    if (categories.length > 0 && !selectedCategoryId) {
-      setSelectedCategoryId(categories[0].id);
-    }
-  }, [categories, selectedCategoryId]);
-
   // Helper function to check if a category is visible to the user based on gender
-  const isCategoryVisibleToUser = (category: any): boolean => {
+  const isCategoryVisibleToUser = React.useCallback((category: any): boolean => {
     if (!category) {
       return false;
     }
@@ -157,9 +121,9 @@ export default function LeagueDetailsScreen({
 
     // For OPEN categories, show to everyone
     return categoryGender === 'OPEN';
-  };
+  }, [userGender]);
 
-  const fetchAllData = async () => {
+  const fetchAllData = React.useCallback(async () => {
     if (!leagueId) {
       setIsLoading(false);
       return;
@@ -256,7 +220,43 @@ export default function LeagueDetailsScreen({
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [leagueId, userGender, isCategoryVisibleToUser]);
+
+  // Fetch user gender
+  React.useEffect(() => {
+    const fetchUserGender = async () => {
+      if (!userId) {
+        // If no userId, explicitly set to null so fetchAllData can proceed
+        setUserGender(null);
+        return;
+      }
+
+      try {
+        const { user } = await questionnaireAPI.getUserProfile(userId);
+        setUserGender(user.gender?.toUpperCase() || null);
+      } catch (error) {
+        console.error('Error fetching user profile:', error);
+        // Set to null on error so fetchAllData can still proceed
+        setUserGender(null);
+      }
+    };
+
+    fetchUserGender();
+  }, [userId]);
+
+  // Fetch all data on mount
+  React.useEffect(() => {
+    if (leagueId && userGender !== undefined) {
+      fetchAllData();
+    }
+  }, [leagueId, userGender, fetchAllData]);
+
+  // Set default selected category when categories are loaded
+  React.useEffect(() => {
+    if (categories.length > 0 && !selectedCategoryId) {
+      setSelectedCategoryId(categories[0].id);
+    }
+  }, [categories, selectedCategoryId]);
 
   const filterCategoriesByGender = (categories: Category[], userGender: string | null): Category[] => {
     return categories.filter(category => isCategoryVisibleToUser(category));
@@ -754,7 +754,11 @@ export default function LeagueDetailsScreen({
   useFocusEffect(
     React.useCallback(() => {
       fetchProfileData();
-    }, [fetchProfileData])
+      // Also refresh league/season data to show updated membership status
+      if (leagueId && userGender !== undefined) {
+        fetchAllData();
+      }
+    }, [fetchProfileData, fetchAllData, leagueId, userGender])
   );
 
   // Set selected sport based on route param
