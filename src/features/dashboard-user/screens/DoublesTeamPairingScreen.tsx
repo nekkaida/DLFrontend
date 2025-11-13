@@ -113,64 +113,7 @@ export default function DoublesTeamPairingScreen({
     });
   }, [invitationStatus, partnershipStatus, selectedPartner, isPairingLoading]);
 
-  // Check pairing status when screen loads
-  React.useEffect(() => {
-    if (seasonId && userId) {
-      checkPairingStatus();
-    }
-  }, [seasonId, userId]);
-
-  // Setup Socket.IO listeners for real-time updates
-  React.useEffect(() => {
-    const socketService = SocketService.getInstance();
-
-    // Handler for when user receives a new season invitation
-    const handleInvitationReceived = (data: any) => {
-      console.log('DoublesTeamPairing: Received invitation:', data);
-      if (data.season?.id === seasonId) {
-        toast.info('New season invitation!', {
-          description: `${data.sender?.name} invited you to join this season.`,
-        });
-        checkPairingStatus(); // Refresh status
-      }
-    };
-
-    // Handler for when sent invitation is accepted
-    const handleInvitationAccepted = (data: any) => {
-      console.log('DoublesTeamPairing: Invitation accepted:', data);
-      if (data.partnership?.season?.id === seasonId) {
-        toast.success('Invitation accepted!', {
-          description: `${data.acceptedBy?.name} accepted your invitation.`,
-        });
-        checkPairingStatus(); // Refresh status
-      }
-    };
-
-    // Handler for partnership creation
-    const handlePartnershipCreated = (data: any) => {
-      console.log('DoublesTeamPairing: Partnership created:', data);
-      if (data.partnership?.season?.id === seasonId) {
-        toast.success('Partnership created!', {
-          description: 'You can now register your team.',
-        });
-        checkPairingStatus(); // Refresh status
-      }
-    };
-
-    // Register listeners
-    socketService.on('season_invitation_received', handleInvitationReceived);
-    socketService.on('season_invitation_accepted', handleInvitationAccepted);
-    socketService.on('partnership_created', handlePartnershipCreated);
-
-    // Cleanup listeners on unmount
-    return () => {
-      socketService.off('season_invitation_received', handleInvitationReceived);
-      socketService.off('season_invitation_accepted', handleInvitationAccepted);
-      socketService.off('partnership_created', handlePartnershipCreated);
-    };
-  }, [seasonId]);
-
-  const checkPairingStatus = async () => {
+  const checkPairingStatus = React.useCallback(async () => {
     if (!seasonId || !userId) return;
 
     try {
@@ -271,9 +214,9 @@ export default function DoublesTeamPairingScreen({
     } finally {
       setIsPairingLoading(false);
     }
-  };
+  }, [seasonId, userId, season]);
 
-  const fetchSeasonData = async (showLoading: boolean = true) => {
+  const fetchSeasonData = React.useCallback(async (showLoading: boolean = true) => {
     if (!seasonId) {
       setIsLoading(false);
       return;
@@ -310,7 +253,108 @@ export default function DoublesTeamPairingScreen({
         setIsLoading(false);
       }
     }
-  };
+  }, [seasonId, leagueId]);
+
+  // Check pairing status when screen loads
+  React.useEffect(() => {
+    if (seasonId && userId) {
+      checkPairingStatus();
+    }
+  }, [seasonId, userId, checkPairingStatus]);
+
+  // Setup Socket.IO listeners for real-time updates
+  React.useEffect(() => {
+    const socketService = SocketService.getInstance();
+
+    // Handler for when user receives a new season invitation
+    const handleInvitationReceived = (data: any) => {
+      console.log('DoublesTeamPairing: Received invitation:', data);
+      if (data.season?.id === seasonId) {
+        toast.info('New season invitation!', {
+          description: `${data.sender?.name} invited you to join this season.`,
+        });
+        checkPairingStatus(); // Refresh status
+      }
+    };
+
+    // Handler for when sent invitation is accepted
+    const handleInvitationAccepted = (data: any) => {
+      console.log('DoublesTeamPairing: Invitation accepted:', data);
+      if (data.partnership?.season?.id === seasonId) {
+        toast.success('Invitation accepted!', {
+          description: `${data.acceptedBy?.name} accepted your invitation.`,
+        });
+        checkPairingStatus(); // Refresh status
+      }
+    };
+
+    // Handler for partnership creation
+    const handlePartnershipCreated = (data: any) => {
+      console.log('DoublesTeamPairing: Partnership created:', data);
+      if (data.partnership?.season?.id === seasonId) {
+        toast.success('Partnership created!', {
+          description: 'You can now register your team.',
+        });
+        checkPairingStatus(); // Refresh status
+      }
+    };
+
+    // Handler for team registration completion
+    const handleTeamRegistrationCompleted = (data: any) => {
+      console.log('🎉 DoublesTeamPairing: Team registration completed event received:', data);
+      console.log('🎉 Current seasonId:', seasonId, 'Event seasonId:', data.partnership?.season?.id);
+      
+      if (data.partnership?.season?.id === seasonId) {
+        const isCaptain = data.partnership.captainId === userId;
+        console.log('🎉 User is captain:', isCaptain, 'userId:', userId, 'captainId:', data.partnership.captainId);
+        
+        toast.success('Team registered successfully!', {
+          description: isCaptain 
+            ? 'Your team has been registered for this season.'
+            : 'Your team captain has completed the registration.',
+        });
+        
+        // Refresh pairing status and season data to update UI
+        console.log('🎉 Refreshing pairing status and season data...');
+        checkPairingStatus();
+        fetchSeasonData(false); // Refresh season data without showing loading
+        
+        // If user is the partner (not captain), redirect to league details page
+        if (!isCaptain && leagueId) {
+          console.log('🎉 Partner detected, redirecting to league details in 500ms...');
+          setTimeout(() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            router.replace({
+              pathname: '/user-dashboard/league-details' as any,
+              params: {
+                leagueId: leagueId,
+                leagueName: league?.name || 'League',
+                sport: sport || 'pickleball'
+              }
+            });
+          }, 500);
+        } else if (!isCaptain && !leagueId) {
+          console.warn('🎉 Partner detected but no leagueId available for redirect');
+        }
+      } else {
+        console.log('🎉 Event season ID does not match current season ID, ignoring');
+      }
+    };
+
+    // Register listeners
+    socketService.on('season_invitation_received', handleInvitationReceived);
+    socketService.on('season_invitation_accepted', handleInvitationAccepted);
+    socketService.on('partnership_created', handlePartnershipCreated);
+    socketService.on('team_registration_completed', handleTeamRegistrationCompleted);
+
+    // Cleanup listeners on unmount
+    return () => {
+      socketService.off('season_invitation_received', handleInvitationReceived);
+      socketService.off('season_invitation_accepted', handleInvitationAccepted);
+      socketService.off('partnership_created', handlePartnershipCreated);
+      socketService.off('team_registration_completed', handleTeamRegistrationCompleted);
+    };
+  }, [seasonId, userId, leagueId, league, sport, checkPairingStatus, fetchSeasonData]);
 
   const handleInvitePartner = () => {
     console.log('🎯 Invite Partner tapped!', { invitationStatus, partnershipStatus });
