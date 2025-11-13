@@ -77,7 +77,7 @@ export default function ProfileScreen() {
     setModalVisible,
   });
 
-  const navigateTo = useNavigationManager();
+  const { navigateTo } = useNavigationManager();
 
   // Fetch profile data
   const fetchProfileData = useCallback(async () => {
