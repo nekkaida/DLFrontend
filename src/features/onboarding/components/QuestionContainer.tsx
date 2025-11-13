@@ -6,7 +6,6 @@ import {
   StyleSheet,
   ViewStyle,
   Alert,
-  ScrollView,
   Platform,
 } from 'react-native';
 import OptionButton from './OptionButton';
@@ -109,28 +108,19 @@ const QuestionContainer: React.FC<QuestionContainerProps> = ({
 
   return (
     <View style={[styles.container, containerStyle]}>
-      <ScrollView 
-        style={styles.scrollContainer}
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-        bounces={false}
-      >
+      <View style={styles.contentWrapper}>
         <Text style={styles.instructionText}>Select an answer</Text>
         <Text style={styles.questionText}>{question}</Text>
-        
+
         {effectiveContextText && (
           <Text style={styles.contextText}>{effectiveContextText}</Text>
         )}
-        
-        <View style={styles.contentContainer}>
-          {children}
-        </View>
-      </ScrollView>
-      
+
+        <View style={styles.contentContainer}>{children}</View>
+      </View>
+
       {navigationButtons && (
-        <View style={styles.navigationContainer}>
-          {navigationButtons}
-        </View>
+        <View style={styles.navigationContainer}>{navigationButtons}</View>
       )}
     </View>
   );
@@ -263,30 +253,25 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
 };
 
 const styles = StyleSheet.create({
-  // Question Card Container - Natural height, no absolute positioning
   questionCardContainer: {
-    // No flex - let it size naturally
+    width: '100%',
   },
 
-  // FULLY RESPONSIVE QUESTION CONTAINER
   container: {
     backgroundColor: '#FFFFFF',
     borderRadius: moderateScale(isSmall ? 24 : 30),
-    padding: 0,
-    ...createShadow('#000', 0.1, 8, 5),
-    // No flex - natural sizing based on content
-  },
-  scrollContainer: {
     paddingHorizontal: getResponsivePadding(isSmall ? 24 : 28),
-    paddingTop: moderateScale(isSmall ? 24 : 28),
+    paddingTop: moderateScale(isSmall ? 22 : 28),
+    paddingBottom: moderateScale(isSmall ? 18 : 24),
+    ...createShadow('#000', 0.12, 10, 6),
   },
-  scrollContent: {
-    paddingBottom: moderateScale(20),
+  contentWrapper: {
+    width: '100%',
   },
   instructionText: {
     fontSize: scaleFontSize(isSmall ? 12 : 13),
     color: '#8C8C8C',
-    marginBottom: moderateScale(isSmall ? 12 : 16),
+    marginBottom: moderateScale(isSmall ? 8 : 10),
     fontFamily: 'Roboto',
     textAlign: 'left',
   },
@@ -294,7 +279,7 @@ const styles = StyleSheet.create({
     fontSize: scaleFontSize(isSmall ? 18 : 20),
     fontWeight: '600',
     color: '#000000',
-    marginBottom: moderateScale(isSmall ? 20 : 24),
+    marginBottom: moderateScale(isSmall ? 16 : 20),
     fontFamily: 'Roboto',
     lineHeight: scaleFontSize(isSmall ? 24 : 28),
     textAlign: 'left',
@@ -302,25 +287,21 @@ const styles = StyleSheet.create({
   contextText: {
     fontSize: scaleFontSize(isSmall ? 14 : 15),
     color: '#6C7278',
-    marginBottom: moderateScale(isSmall ? 16 : 20),
+    marginBottom: moderateScale(isSmall ? 12 : 16),
     fontFamily: 'Roboto',
     lineHeight: scaleFontSize(isSmall ? 20 : 22),
     textAlign: 'left',
     fontStyle: 'italic',
   },
   contentContainer: {
-    gap: moderateScale(isSmall ? 12 : 16),
-    marginBottom: moderateScale(isSmall ? 16 : 20),
+    gap: moderateScale(isSmall ? 10 : 12),
+    marginBottom: moderateScale(isSmall ? 10 : 14),
   },
   navigationContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: getResponsivePadding(isSmall ? 28 : 36),
-    paddingVertical: moderateScale(isSmall ? 16 : 20),
-    backgroundColor: '#FFFFFF',
-    borderBottomLeftRadius: moderateScale(isSmall ? 24 : 30),
-    borderBottomRightRadius: moderateScale(isSmall ? 24 : 30),
+    marginTop: moderateScale(isSmall ? 10 : 14),
   },
 });
 

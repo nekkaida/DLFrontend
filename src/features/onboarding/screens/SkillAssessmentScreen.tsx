@@ -18,6 +18,8 @@ import { PadelQuestionnaire, PadelQuestionnaireResponse } from '../services/Pade
 import { toast } from 'sonner-native';
 import type { SportType } from '../types';
 
+const snapshot = (data: any) => JSON.parse(JSON.stringify(data ?? {}));
+
 const SkillAssessmentScreen = () => {
   const { sport, sportIndex, fromDashboard } = useLocalSearchParams();
   const { data, updateData } = useOnboarding();
@@ -150,7 +152,12 @@ const SkillAssessmentScreen = () => {
   // Initialize question history when questionnaire starts
   useEffect(() => {
     if (isComprehensive && state.questions.length > 0 && state.questionHistory.length === 0) {
-      actions.initHistory([...state.questions], { ...state.responses });
+      actions.initHistory(
+        [...state.questions],
+        snapshot(state.responses),
+        state.currentQuestionIndex,
+        snapshot(state.currentPageAnswers)
+      );
       console.log('📖 Initialized question history with first page');
     }
   }, [isComprehensive, state.questions, state.questionHistory.length, state.responses, actions]);
@@ -370,6 +377,7 @@ const SkillAssessmentScreen = () => {
         {} as Record<string, any>
       );
 
+      const pageSnapshot = snapshot(normalizedPageAnswers);
       const newResponses = { ...state.responses, ...normalizedPageAnswers };
       actions.setResponses(newResponses);
 
@@ -378,9 +386,6 @@ const SkillAssessmentScreen = () => {
 
       // Get next questions based on updated responses
       const nextQuestions = questionnaire.getConditionalQuestions(newResponses);
-
-      // Clear current page answers
-      actions.clearPageAnswers();
 
       // Check if questionnaire is complete
       if (nextQuestions.length === 0) {
@@ -397,12 +402,27 @@ const SkillAssessmentScreen = () => {
 
       // Update questions and reset to first question of new set
       const expandedQuestions = expandSkillMatrixQuestions(nextQuestions);
+      actions.pushHistory(
+        [...state.questions],
+        snapshot(newResponses),
+        state.currentQuestionIndex,
+        pageSnapshot
+      );
+      actions.clearPageAnswers();
       actions.setQuestions(expandedQuestions);
       actions.setQuestionIndex(0);
       actions.incrementPageIndex();
       console.log('📖 Moving to next question set:', expandedQuestions.length, 'questions');
     }
   }, [isComprehensive, state, actions, getCurrentQuestionnaire, completePickleballAssessment, completeTennisAssessment, completePadelAssessment]);
+
+  const handleAnswer = useCallback(
+    (key: string, value: any) => {
+      actions.removeResponse(key);
+      actions.addPageAnswers({ [key]: value });
+    },
+    [actions]
+  );
 
   // Start fresh assessment
   const startFreshAssessment = useCallback(() => {
@@ -499,7 +519,7 @@ const SkillAssessmentScreen = () => {
               currentPageAnswers={state.currentPageAnswers}
               responses={state.responses}
               progress={progress}
-              onAnswer={(key, value) => actions.addPageAnswers({ [key]: value })}
+              onAnswer={handleAnswer}
               onBack={handleBack}
               onNext={proceedToNextQuestion}
             />
