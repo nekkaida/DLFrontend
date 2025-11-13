@@ -40,6 +40,13 @@ const SkillAssessmentScreen = () => {
   // Determine if comprehensive questionnaire
   const isComprehensive = sport === 'pickleball' || sport === 'tennis' || sport === 'padel';
 
+  // Fully reset questionnaire state whenever the selected sport changes so previous answers/history don't bleed over
+  useEffect(() => {
+    if (sport === 'pickleball' || sport === 'tennis' || sport === 'padel') {
+      actions.resetQuestionnaire();
+    }
+  }, [sport, actions]);
+
   // Get current questionnaire instance (memoized)
   const currentQuestionnaire = React.useMemo(() => {
     if (sport === 'pickleball') return pickleballQuestionnaire;
@@ -400,6 +407,9 @@ const SkillAssessmentScreen = () => {
   // Start fresh assessment
   const startFreshAssessment = useCallback(() => {
     console.log('🔍 Starting fresh assessment...');
+
+    // Ensure we start from a clean slate even if the user previously completed another sport
+    actions.resetQuestionnaire();
 
     const emptyResponses = {};
     actions.setResponses(emptyResponses);
