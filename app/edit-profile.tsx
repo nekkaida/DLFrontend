@@ -10,6 +10,7 @@ import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Image,
+  ImageStyle,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -17,7 +18,9 @@ import {
   StyleSheet,
   Text,
   TextInput,
-  View
+  TextStyle,
+  View,
+  ViewStyle
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
@@ -75,7 +78,7 @@ export default function EditProfileScreen() {
         const backendUrl = getBackendBaseURL();
         const response = await authClient.$fetch(`${backendUrl}/api/player/profile/me`, {
           method: 'GET',
-        });
+        }) as any;
 
         if (response && response.data && response.data.data) {
           const profileData = response.data.data;
@@ -166,7 +169,7 @@ export default function EditProfileScreen() {
         headers: {
           'Content-Type': 'application/json',
         },
-      });
+      }) as any;
 
       if (response && response.data && response.data.success) {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -181,14 +184,14 @@ export default function EditProfileScreen() {
         }, 1500);
       } else {
         // Check if it's a successful HTTP response but with success: false
-        const errorMessage = response?.data?.message || response?.message || 'Failed to update profile';
+        const errorMessage = (response?.data?.message || response?.message || 'Failed to update profile') as string;
         throw new Error(errorMessage);
       }
     } catch (error) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       console.error('Error updating profile:', error);
       
-      const errorMessage = error?.message || 'Failed to update profile. Please try again.';
+      const errorMessage = (error instanceof Error ? error.message : 'Failed to update profile. Please try again.');
       toast.error('Error', {
         description: errorMessage,
       });
@@ -389,14 +392,14 @@ const styles = StyleSheet.create({
     right: 0,
     height: '60%', // Match profile page
     zIndex: 0,
-  },
+  } as ViewStyle,
   safeArea: {
     flex: 1,
     zIndex: 1,
-  },
+  } as ViewStyle,
   keyboardAvoid: {
     flex: 1,
-  },
+  } as ViewStyle,
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -404,69 +407,69 @@ const styles = StyleSheet.create({
     paddingHorizontal: theme.spacing.lg,
     paddingVertical: theme.spacing.md,
     backgroundColor: 'transparent',
-  },
+  } as ViewStyle,
   headerButton: {
     minWidth: 60,
     height: 44,
     borderRadius: 22,
     justifyContent: 'center',
     alignItems: 'center',
-  },
+  } as ViewStyle,
   headerButtonDisabled: {
     opacity: 0.5,
-  },
+  } as ViewStyle,
   headerTitle: {
     fontSize: theme.typography.fontSize.xl,
-    fontWeight: theme.typography.fontWeight.heavy,
+    fontWeight: theme.typography.fontWeight.heavy as any,
     color: '#FFFFFF',
     fontFamily: theme.typography.fontFamily.primary,
-  },
+  } as TextStyle,
   headerButtonText: {
     fontSize: theme.typography.fontSize.base,
-    fontWeight: theme.typography.fontWeight.semibold,
+    fontWeight: theme.typography.fontWeight.semibold as any,
     color: '#FFFFFF',
     fontFamily: theme.typography.fontFamily.primary,
-  },
+  } as TextStyle,
   headerButtonTextDisabled: {
     opacity: 0.7,
-  },
+  } as TextStyle,
   scrollView: {
     flex: 1,
     backgroundColor: 'transparent',
-  },
+  } as ViewStyle,
   scrollContent: {
     paddingBottom: theme.spacing.xl,
-  },
+  } as ViewStyle,
   profileSection: {
     alignItems: 'center',
     paddingHorizontal: theme.spacing.lg,
     paddingTop: theme.spacing.lg,
     paddingBottom: theme.spacing.xl,
     backgroundColor: 'transparent',
-  },
+  } as ViewStyle,
   nameSection: {
     alignItems: 'center',
     marginTop: theme.spacing.lg,
-  },
+  } as ViewStyle,
   profileName: {
     fontSize: theme.typography.fontSize['2xl'],
-    fontWeight: theme.typography.fontWeight.heavy,
+    fontWeight: theme.typography.fontWeight.heavy as any,
     color: theme.colors.neutral.gray[700],
     marginBottom: theme.spacing.xs,
     fontFamily: theme.typography.fontFamily.primary,
     textAlign: 'center',
-  },
+  } as TextStyle,
   profileUsername: {
     fontSize: theme.typography.fontSize.lg,
-    fontWeight: theme.typography.fontWeight.medium,
+    fontWeight: theme.typography.fontWeight.medium as any,
     color: theme.colors.neutral.gray[600],
     fontFamily: theme.typography.fontFamily.primary,
     textAlign: 'center',
-  },
+  } as TextStyle,
   profileImageContainer: {
     position: 'relative',
     marginBottom: theme.spacing.md,
-  },
+  } as ViewStyle,
   profileImageWrapper: {
     ...Platform.select({
       ios: {
@@ -479,14 +482,14 @@ const styles = StyleSheet.create({
         elevation: 8,
       },
     }),
-  },
+  } as ViewStyle,
   profileImage: {
     width: 120,
     height: 120,
     borderRadius: 60,
     borderWidth: 4,
     borderColor: theme.colors.neutral.white,
-  },
+  } as ImageStyle,
   defaultProfileImage: {
     width: 120,
     height: 120,
@@ -496,7 +499,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#e7e7e7',
     justifyContent: 'center',
     alignItems: 'center',
-  },
+  } as ViewStyle,
   editImageButton: {
     position: 'absolute',
     bottom: 0,
@@ -520,17 +523,17 @@ const styles = StyleSheet.create({
         elevation: 4,
       },
     }),
-  },
+  } as ViewStyle,
   formSection: {
     paddingHorizontal: theme.spacing.lg,
-  },
+  } as ViewStyle,
   mainSectionTitle: {
     fontSize: theme.typography.fontSize.xl,
-    fontWeight: theme.typography.fontWeight.heavy,
+    fontWeight: theme.typography.fontWeight.heavy as any,
     color: theme.colors.neutral.gray[700],
     marginBottom: theme.spacing.lg,
     fontFamily: theme.typography.fontFamily.primary,
-  },
+  } as TextStyle,
   inputCard: {
     backgroundColor: theme.colors.neutral.white,
     borderRadius: theme.borderRadius.md,
@@ -549,33 +552,33 @@ const styles = StyleSheet.create({
         elevation: 1,
       },
     }),
-  },
+  } as ViewStyle,
   inputContent: {
     // Content wrapper for each input
-  },
+  } as ViewStyle,
   inputLabel: {
     fontSize: theme.typography.fontSize.sm,
-    fontWeight: theme.typography.fontWeight.medium,
+    fontWeight: theme.typography.fontWeight.medium as any,
     color: theme.colors.neutral.gray[500],
     fontFamily: theme.typography.fontFamily.primary,
     marginBottom: theme.spacing.sm,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
-  },
+  } as TextStyle,
   input: {
     fontSize: theme.typography.fontSize.lg,
     fontFamily: theme.typography.fontFamily.primary,
-    color: theme.colors.neutral.gray[900],
-    fontWeight: theme.typography.fontWeight.semibold,
+    color: theme.colors.neutral.gray[700],
+    fontWeight: theme.typography.fontWeight.semibold as any,
     padding: 0,
-  },
+  } as TextStyle,
   inputDisabled: {
     color: theme.colors.neutral.gray[400],
-    fontWeight: theme.typography.fontWeight.normal,
-  },
+    fontWeight: theme.typography.fontWeight.regular as any,
+  } as TextStyle,
   inputLabelDisabled: {
     color: theme.colors.neutral.gray[400],
-  },
+  } as TextStyle,
   bioCard: {
     backgroundColor: theme.colors.neutral.white,
     borderRadius: theme.borderRadius.md,
@@ -594,16 +597,16 @@ const styles = StyleSheet.create({
         elevation: 1,
       },
     }),
-  },
+  } as ViewStyle,
   bioLabel: {
     fontSize: theme.typography.fontSize.sm,
-    fontWeight: theme.typography.fontWeight.medium,
+    fontWeight: theme.typography.fontWeight.medium as any,
     color: theme.colors.neutral.gray[500],
     fontFamily: theme.typography.fontFamily.primary,
     marginBottom: theme.spacing.sm,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
-  },
+  } as TextStyle,
   bioInput: {
     fontSize: theme.typography.fontSize.base,
     color: theme.colors.neutral.gray[600],
@@ -612,17 +615,17 @@ const styles = StyleSheet.create({
     fontFamily: theme.typography.fontFamily.primary,
     fontStyle: 'italic',
     minHeight: 60,
-  },
+  } as TextStyle,
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: theme.spacing.lg,
-  },
+  } as ViewStyle,
   loadingText: {
     fontSize: theme.typography.fontSize.base,
     color: theme.colors.neutral.white,
     fontFamily: theme.typography.fontFamily.primary,
     marginTop: theme.spacing.md,
-  },
+  } as TextStyle,
 });

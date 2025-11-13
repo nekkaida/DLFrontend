@@ -477,8 +477,8 @@ export default function SeasonDetailsScreen({
                     
                     {season?.memberships && season.memberships.length > 0 && (
                       <View style={styles.profilePicturesContainer}>
-                        {season.memberships.slice(0, 6).map((membership: any) => (
-                          <View key={membership.id} style={styles.memberProfilePicture}>
+                        {season.memberships.slice(0, 6).map((membership: any, index: number) => (
+                          <View key={membership.id} style={[styles.memberProfilePicture, index > 0 && styles.memberProfilePictureOverlap]}>
                             {membership.user?.image ? (
                               <Image
                                 source={{ uri: membership.user.image }}
@@ -494,7 +494,7 @@ export default function SeasonDetailsScreen({
                           </View>
                         ))}
                         {season._count?.memberships && season._count.memberships > 6 && (
-                          <View style={styles.remainingCount}>
+                          <View style={[styles.remainingCount, styles.memberProfilePictureOverlap]}>
                             <Text style={styles.remainingCountText}>
                               +{season._count.memberships - 6}
                             </Text>
@@ -834,36 +834,48 @@ const styles = StyleSheet.create({
     fontFamily: 'System',
   },
   memberProfilePicture: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3,
+    elevation: 4,
+  },
+  memberProfilePictureOverlap: {
+    marginLeft: -10,
   },
   memberProfileImage: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
   },
   defaultMemberProfileImage: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     backgroundColor: '#6de9a0',
     justifyContent: 'center',
     alignItems: 'center',
   },
   defaultMemberProfileText: {
     color: '#FFFFFF',
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: 'bold',
   },
   remainingCount: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#FFFFFF',
     justifyContent: 'center',
     alignItems: 'center',
+    overflow: 'hidden',
   },
   remainingCountText: {
     color: '#1C1A1A',

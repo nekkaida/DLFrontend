@@ -304,21 +304,27 @@ const AssessmentResultsScreen = () => {
                 <>
                   <View style={styles.ratingSection}>
                     <Text style={styles.ratingLabel}>Singles</Text>
-                    <Text style={styles.ratingValue}>{(results.rating as any).singles_rating}</Text>
+                    <View style={styles.ratingValueContainer}>
+                      <Text style={styles.ratingValue}>{(results.rating as any).singles_rating}</Text>
+                    </View>
                   </View>
                   <View style={styles.ratingDivider} />
                   <View style={styles.ratingSection}>
                     <Text style={styles.ratingLabel}>Doubles</Text>
-                    <Text style={styles.ratingValue}>{(results.rating as any).doubles_rating}</Text>
+                    <View style={styles.ratingValueContainer}>
+                      <Text style={styles.ratingValue}>{(results.rating as any).doubles_rating}</Text>
+                    </View>
                   </View>
                 </>
               ) : (
                 <View style={styles.ratingSection}>
                   <Text style={styles.ratingLabel}>Rating</Text>
-                  <Text style={styles.ratingValue}>
-                    {typeof results.rating === 'number' ? results.rating : 
-                     (results.rating && typeof results.rating === 'object' && 'rating' in results.rating) ? (results.rating as any).rating : 'N/A'}
-                  </Text>
+                  <View style={styles.ratingValueContainer}>
+                    <Text style={styles.ratingValue}>
+                      {typeof results.rating === 'number' ? results.rating : 
+                       (results.rating && typeof results.rating === 'object' && 'rating' in results.rating) ? (results.rating as any).rating : 'N/A'}
+                    </Text>
+                  </View>
                 </View>
               )}
             </View>
@@ -342,15 +348,13 @@ const AssessmentResultsScreen = () => {
 
           {/* Bottom Section */}
           <LinearGradient
-            colors={sport === 'pickleball' ? ['#A04DFE', '#602E98'] : 
-                   sport === 'tennis' ? ['#A2E047', '#587A27'] : 
-                   ['#83C4FE', '#2196F3']}
+            colors={sport === 'pickleball' ? ['#BC82FD', '#916DB8'] : 
+                   sport === 'tennis' ? ['#B4E56C', '#95AB74'] : 
+                   ['#82C3FC', '#6D94B7']}
             start={{ x: 0.5, y: 0 }}
             end={{ x: 1, y: 0 }}
             style={[
               styles.cardBottomSection,
-              sport === 'tennis' && styles.tennisCardBottomSection,
-              sport === 'padel' && styles.padelCardBottomSection
             ]}
           >
             <Text style={styles.instructionalText}>
@@ -511,20 +515,21 @@ const styles = StyleSheet.create({
     marginHorizontal: 37,
     backgroundColor: '#FFFFFF',
     borderRadius: 20,
-    shadowColor: '#E4E5E7',
+    shadowColor: '#000000',
     shadowOffset: {
       width: 0,
-      height: 4,
+      height: 8,
     },
-    shadowOpacity: 0.24,
-    shadowRadius: 6,
-    elevation: 5,
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 8,
     marginBottom: 20,
     overflow: 'hidden',
   },
   cardTopSection: {
     backgroundColor: '#FFFFFF',
-    padding: 30,
+    padding: 24,
+    paddingHorizontal: 20,
     alignItems: 'center',
   },
   cardBottomSection: {
@@ -532,12 +537,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderBottomLeftRadius: 20,
     borderBottomRightRadius: 20,
-  },
-  tennisCardBottomSection: {
-    // Background color handled by LinearGradient
-  },
-  padelCardBottomSection: {
-    // Background color handled by LinearGradient
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.24,
+    shadowRadius: 6,
+    elevation: 5,
   },
   dmrTitle: {
     fontSize: 14,
@@ -560,17 +566,22 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginTop: 5,
     marginBottom: 24,
+    width: '100%',
   },
   ratingSection: {
     alignItems: 'center',
     flex: 1,
+    minWidth: 0,
+    paddingHorizontal: 2,
+    flexShrink: 1,
   },
   ratingDivider: {
     width: 2,
     height: 80,
     backgroundColor: '#777777',
-    marginHorizontal: 20,
+    marginHorizontal: 8,
     opacity: 0.2,
+    flexShrink: 0,
   },
   ratingLabel: {
     fontSize: 22,
@@ -580,11 +591,17 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter',
     letterSpacing: 0.5,
   },
+  ratingValueContainer: {
+    flexShrink: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   ratingValue: {
-    fontSize: 42,
+    fontSize: 48,
     fontWeight: '900',
     color: '#FEA04D',
     fontFamily: 'Inter',
+    textAlign: 'center',
   },
   skillLevelContainer: {
     alignItems: 'center',

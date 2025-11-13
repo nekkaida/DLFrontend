@@ -39,7 +39,7 @@ export default function RegisterRoute() {
   };
 
   const handleLogin = () => {
-    router.replace('/login');
+    router.push('/login');
   };
 
   const handleSocialSignUp = (provider: 'facebook' | 'google' | 'apple') => {

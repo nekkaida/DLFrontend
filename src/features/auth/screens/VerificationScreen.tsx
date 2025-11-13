@@ -198,7 +198,7 @@ export const VerificationScreen: React.FC<VerificationScreenProps> = ({
                 </Svg>
                 <Text style={{
                   color: '#FFFFFF',
-                  fontSize: 14,
+                  fontSize: 16,
                   fontWeight: '600',
                   lineHeight: 24,
                   zIndex: 1

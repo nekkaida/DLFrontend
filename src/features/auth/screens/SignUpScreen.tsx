@@ -12,6 +12,7 @@ import {
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
 import Svg, { G, Path, Defs, ClipPath, Rect } from 'react-native-svg';
+import { toast } from 'sonner-native';
 import {
   InputField,
   PhoneInputField,
@@ -48,6 +49,8 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [passwordError, setPasswordError] = useState('');
+  const [passwordStrength, setPasswordStrength] = useState<'weak' | 'medium' | 'strong' | null>(null);
 
   // Modal states
   const [showPrivacyPolicy, setShowPrivacyPolicy] = useState(false);
@@ -55,8 +58,48 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({
 
   const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 
+  // Password validation function
+  const validatePassword = (pwd: string): { isValid: boolean; error: string; strength: 'weak' | 'medium' | 'strong' | null } => {
+    if (pwd.length === 0) {
+      return { isValid: true, error: '', strength: null };
+    }
+
+    if (pwd.length < 8) {
+      return { isValid: false, error: 'Password must be at least 8 characters', strength: 'weak' };
+    }
+
+    const hasUpperCase = /[A-Z]/.test(pwd);
+    const hasLowerCase = /[a-z]/.test(pwd);
+    const hasNumber = /\d/.test(pwd);
+    const hasSpecialChar = /[!@#$%^&*(),.?":{}|<>]/.test(pwd);
+
+    const strengthScore = [hasUpperCase, hasLowerCase, hasNumber, hasSpecialChar].filter(Boolean).length;
+
+    if (!hasUpperCase || !hasLowerCase || !hasNumber) {
+      return {
+        isValid: false,
+        error: 'Password must contain uppercase, lowercase, and number',
+        strength: 'weak'
+      };
+    }
+
+    if (strengthScore === 3) {
+      return { isValid: true, error: '', strength: 'medium' };
+    }
+
+    return { isValid: true, error: '', strength: 'strong' };
+  };
+
+  const handlePasswordChange = (text: string) => {
+    setPassword(text);
+    const validation = validatePassword(text);
+    setPasswordError(validation.error);
+    setPasswordStrength(validation.strength);
+  };
+
   const handleSignUp = async () => {
-    if (email && username && password && !isLoading) {
+    const validation = validatePassword(password);
+    if (email && username && password && !isLoading && validation.isValid) {
       try {
         setIsLoading(true);
         // Phone number is now optional - use empty string if not provided
@@ -170,16 +213,125 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({
             /> */}
 
             {/* Password Input */}
-            <InputField
-              label="Password"
-              placeholder="Create a password"
-              value={password}
-              onChangeText={setPassword}
-              icon="lock"
-              secureTextEntry={!showPassword}
-              showEyeIcon
-              onEyePress={() => setShowPassword(!showPassword)}
-            />
+            <View>
+              <InputField
+                label="Password"
+                placeholder="Create a password"
+                value={password}
+                onChangeText={handlePasswordChange}
+                icon="lock"
+                secureTextEntry={!showPassword}
+                showEyeIcon
+                onEyePress={() => setShowPassword(!showPassword)}
+              />
+
+              {/* Password Validation Feedback */}
+              {password.length > 0 && (
+                <View style={{ marginTop: 8, gap: 4 }}>
+                  {/* Error Message */}
+                  {passwordError && (
+                    <Text style={{
+                      fontFamily: 'Inter',
+                      fontSize: 12,
+                      lineHeight: 16,
+                      color: '#EF4444',
+                      fontWeight: '500',
+                    }}>
+                      {passwordError}
+                    </Text>
+                  )}
+
+                  {/* Password Strength Indicator */}
+                  {passwordStrength && (
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                      <View style={{
+                        flexDirection: 'row',
+                        gap: 4,
+                        flex: 1,
+                      }}>
+                        <View style={{
+                          flex: 1,
+                          height: 4,
+                          borderRadius: 2,
+                          backgroundColor: passwordStrength === 'weak' ? '#EF4444' :
+                                         passwordStrength === 'medium' ? '#F59E0B' : '#10B981',
+                        }} />
+                        <View style={{
+                          flex: 1,
+                          height: 4,
+                          borderRadius: 2,
+                          backgroundColor: passwordStrength === 'medium' || passwordStrength === 'strong' ?
+                                         (passwordStrength === 'medium' ? '#F59E0B' : '#10B981') : '#E5E7EB',
+                        }} />
+                        <View style={{
+                          flex: 1,
+                          height: 4,
+                          borderRadius: 2,
+                          backgroundColor: passwordStrength === 'strong' ? '#10B981' : '#E5E7EB',
+                        }} />
+                      </View>
+                      <Text style={{
+                        fontFamily: 'Inter',
+                        fontSize: 12,
+                        lineHeight: 16,
+                        fontWeight: '600',
+                        color: passwordStrength === 'weak' ? '#EF4444' :
+                               passwordStrength === 'medium' ? '#F59E0B' : '#10B981',
+                      }}>
+                        {passwordStrength === 'weak' ? 'Weak' :
+                         passwordStrength === 'medium' ? 'Medium' : 'Strong'}
+                      </Text>
+                    </View>
+                  )}
+
+                  {/* Password Requirements */}
+                  {!passwordError && password.length > 0 && password.length < 8 && (
+                    <View style={{ gap: 2, marginTop: 4 }}>
+                      <Text style={{
+                        fontFamily: 'Inter',
+                        fontSize: 11,
+                        lineHeight: 14,
+                        color: '#6C7278',
+                      }}>
+                        Password must contain:
+                      </Text>
+                      <Text style={{
+                        fontFamily: 'Inter',
+                        fontSize: 11,
+                        lineHeight: 14,
+                        color: '#6C7278',
+                      }}>
+                        • At least 8 characters
+                      </Text>
+                      <Text style={{
+                        fontFamily: 'Inter',
+                        fontSize: 11,
+                        lineHeight: 14,
+                        color: '#6C7278',
+                      }}>
+                        • Uppercase and lowercase letters
+                      </Text>
+                      <Text style={{
+                        fontFamily: 'Inter',
+                        fontSize: 11,
+                        lineHeight: 14,
+                        color: '#6C7278',
+                      }}>
+                        • At least one number
+                      </Text>
+                      <Text style={{
+                        fontFamily: 'Inter',
+                        fontSize: 11,
+                        lineHeight: 14,
+                        color: '#6C7278',
+                      }}>
+                        • Special character for strong password (optional)
+                      </Text>
+                    </View>
+                  )}
+                </View>
+              )}
+            </View>
             </View>
 
             {/* Terms and Conditions */}
@@ -194,8 +346,8 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({
                 fontFamily: 'Inter',
                 fontStyle: 'normal',
                 fontWeight: '500',
-                fontSize: 10,
-                lineHeight: 14,
+                fontSize: 12,
+                lineHeight: 16,
                 letterSpacing: -0.01,
                 color: '#6C7278',
               }}>
@@ -205,8 +357,8 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({
                 fontFamily: 'Inter',
                 fontStyle: 'normal',
                 fontWeight: '600',
-                fontSize: 10,
-                lineHeight: 14,
+                fontSize: 12,
+                lineHeight: 16,
                 letterSpacing: -0.01,
                 color: AuthColors.primary,
               }}>
@@ -216,8 +368,8 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({
                 fontFamily: 'Inter',
                 fontStyle: 'normal',
                 fontWeight: '500',
-                fontSize: 10,
-                lineHeight: 14,
+                fontSize: 12,
+                lineHeight: 16,
                 letterSpacing: -0.01,
                 color: '#6C7278',
               }}>
@@ -228,16 +380,22 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({
                   Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                   setShowPrivacyPolicy(true);
                 }}
+                style={{
+                  paddingTop: Platform.OS === 'ios' ? 0.5 : 0.5,
+                  paddingBottom: Platform.OS === 'ios' ? 0.5 : 0.5,
+                  paddingHorizontal: Platform.OS === 'ios' ? 1 : 0.5,
+                  borderBottomWidth: 1,
+                  borderBottomColor: '#4DABFE',
+                }}
               >
                 <Text style={{
                   fontFamily: 'Inter',
                   fontStyle: 'normal',
                   fontWeight: '500',
-                  fontSize: 10,
-                  lineHeight: 14,
+                  fontSize: 12,
+                  lineHeight: 16,
                   letterSpacing: -0.01,
                   color: '#4DABFE',
-                  textDecorationLine: 'underline',
                 }}>
                   privacy policy
                 </Text>
@@ -246,8 +404,8 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({
                 fontFamily: 'Inter',
                 fontStyle: 'normal',
                 fontWeight: '500',
-                fontSize: 10,
-                lineHeight: 14,
+                fontSize: 12,
+                lineHeight: 16,
                 letterSpacing: -0.01,
                 color: '#6C7278',
               }}>
@@ -258,16 +416,22 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({
                   Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                   setShowTermsOfService(true);
                 }}
+                style={{
+                  paddingTop: Platform.OS === 'ios' ? 1 : 0.5,
+                  paddingBottom: Platform.OS === 'ios' ? 1 : 0.5,
+                  paddingHorizontal: Platform.OS === 'ios' ? 2 : 1,
+                  borderBottomWidth: 1,
+                  borderBottomColor: '#4DABFE',
+                }}
               >
                 <Text style={{
                   fontFamily: 'Inter',
                   fontStyle: 'normal',
                   fontWeight: '500',
-                  fontSize: 10,
-                  lineHeight: 14,
+                  fontSize: 12,
+                  lineHeight: 16,
                   letterSpacing: -0.01,
                   color: '#4DABFE',
-                  textDecorationLine: 'underline',
                 }}>
                   terms of service
                 </Text>
@@ -276,8 +440,8 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({
                 fontFamily: 'Inter',
                 fontStyle: 'normal',
                 fontWeight: '500',
-                fontSize: 10,
-                lineHeight: 14,
+                fontSize: 12,
+                lineHeight: 16,
                 letterSpacing: -0.01,
                 color: '#6C7278',
               }}>
@@ -361,9 +525,42 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({
               alignItems: 'center',
               gap: screenWidth * 0.015
             }}>
-              <SocialButton type="facebook" onPress={() => onSocialSignUp('facebook')} />
-              <SocialButton type="apple" onPress={() => onSocialSignUp('apple')} />
-              <SocialButton type="google" onPress={() => onSocialSignUp('google')} />
+              <SocialButton 
+                type="facebook" 
+                onPress={() => {
+                  try {
+                    onSocialSignUp('facebook');
+                  } catch (error) {
+                    toast.error("Facebook sign up failed", {
+                      description: "Please try again later.",
+                    });
+                  }
+                }} 
+              />
+              <SocialButton 
+                type="apple" 
+                onPress={() => {
+                  try {
+                    onSocialSignUp('apple');
+                  } catch (error) {
+                    toast.error("Apple sign up failed", {
+                      description: "Please try again later.",
+                    });
+                  }
+                }} 
+              />
+              <SocialButton 
+                type="google" 
+                onPress={() => {
+                  try {
+                    onSocialSignUp('google');
+                  } catch (error) {
+                    toast.error("Google sign up failed", {
+                      description: "Please try again later.",
+                    });
+                  }
+                }} 
+              />
             </View>
 
             {/* Login Link */}
@@ -386,6 +583,13 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({
                   Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                   onLogin();
                 }}
+                style={{
+                  paddingTop: Platform.OS === 'ios' ? 2 : 1,
+                  paddingBottom: Platform.OS === 'ios' ? 2 : 1,
+                  paddingHorizontal: Platform.OS === 'ios' ? 3 : 2,
+                  borderBottomWidth: 1,
+                  borderBottomColor: AuthColors.primary,
+                }}
               >
                 <Text style={{
                   fontFamily: 'Inter',
@@ -393,7 +597,6 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({
                   fontSize: 14,
                   lineHeight: 22,
                   letterSpacing: -0.01,
-                  textDecorationLine: 'underline',
                   color: AuthColors.primary,
                 }}>Log in</Text>
               </TouchableOpacity>
