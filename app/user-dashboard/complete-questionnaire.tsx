@@ -376,64 +376,120 @@ export default function CompleteQuestionnaireScreen() {
         <View style={styles.questionnaireContainer}>
           {questions.length > 0 && currentQuestionIndex < questions.length ? (
             <View style={styles.cardStackContainer}>
-              {/* Render current and next question cards */}
-              {questions.slice(currentQuestionIndex, currentQuestionIndex + 2).map((question, index) => {
-                const actualIndex = currentQuestionIndex + index;
-                const isActive = index === 0;
-                
-                // Determine if Next button should be enabled
-                const isNextEnabled = () => {
-                  if (question.type === 'number') {
-                    return currentPageAnswers[question.key] !== undefined || question.optional;
-                  } else {
-                    return currentPageAnswers[question.key] !== undefined;
-                  }
-                };
-                
-                const navigationButtons = (
-                  <>
-                    <TouchableOpacity
-                      style={styles.skipButton}
-                      onPress={handleBack}
-                    >
-                      <Text style={styles.skipButtonText}>Back</Text>
-                    </TouchableOpacity>
-                    
-                    <TouchableOpacity
+              {/* Stack placeholder cards (showing remaining depth) - max 3 visible */}
+              {(() => {
+                const remainingCards = questions.length - currentQuestionIndex - 2; // -2 for current and next card
+                const visibleStackCards = Math.max(0, Math.min(3, remainingCards));
+
+                return [...Array(visibleStackCards)].map((_, i) => {
+                  const cardIndex = currentQuestionIndex + i + 2;
+                  if (cardIndex >= questions.length) return null;
+
+                  // Each card is offset further back and down
+                  const offsetY = (i + 2) * 6; // Stack offset: 12px, 18px, 24px
+                  const offsetX = (i + 2) * 4; // Side offset: 8px, 12px, 16px
+
+                  return (
+                    <View
+                      key={`stack-card-${cardIndex}`}
                       style={[
-                        styles.nextButtonContainer,
-                        !isNextEnabled() && styles.nextButtonDisabled
+                        styles.stackedCardLayer,
+                        {
+                          transform: [
+                            { translateY: offsetY },
+                            { scale: 1 - (i + 2) * 0.02 }, // Slightly smaller: 0.96, 0.94, 0.92
+                          ],
+                          marginHorizontal: offsetX,
+                          zIndex: 8 - i,
+                        },
                       ]}
-                      onPress={handleNext}
-                      disabled={!isNextEnabled()}
                     >
-                      <LinearGradient
-                        colors={['#FEA04D', '#FF7903']}
-                        start={{ x: 0, y: 0 }}
-                        end={{ x: 1, y: 0 }}
-                        style={styles.nextButtonGradient}
-                      >
-                        <Text style={styles.nextButtonText}>
-                          {currentQuestionIndex < questions.length - 1 ? 'Next' : 'Complete'}
-                        </Text>
-                      </LinearGradient>
-                    </TouchableOpacity>
-                  </>
-                );
-                
-                return (
+                      {/* Empty card placeholder showing just the edge - solid white */}
+                      <View style={styles.cardPlaceholder} />
+                    </View>
+                  );
+                });
+              })()}
+
+              {/* Next card (behind current, preview only) */}
+              {currentQuestionIndex < questions.length - 1 && (
+                <View
+                  key={`next-card-${currentQuestionIndex + 1}`}
+                  style={styles.nextCardContainer}
+                >
                   <QuestionCard
-                    key={actualIndex}
-                    question={question}
-                    isActive={isActive}
-                    onAnswer={handleQuestionnaireResponse}
-                    currentPageAnswers={currentPageAnswers}
+                    question={questions[currentQuestionIndex + 1]}
+                    isActive={false}
+                    onAnswer={() => {}}
+                    currentPageAnswers={{}}
                     responses={responses}
-                    navigationButtons={navigationButtons}
+                    navigationButtons={null}
                     sport={currentQuestionnaireType || 'pickleball'}
                   />
-                );
-              })}
+                </View>
+              )}
+
+              {/* Active card (current question) - front */}
+              <View
+                key={`question-card-${currentQuestionIndex}`}
+                style={styles.activeCardContainer}
+              >
+                {/* Determine if Next button should be enabled */}
+                {(() => {
+                  const currentQuestion = questions[currentQuestionIndex];
+                  const isNextEnabled = () => {
+                    if (!currentQuestion) return false;
+                    if (currentQuestion.type === 'number') {
+                      return currentPageAnswers[currentQuestion.key] !== undefined || currentQuestion.optional;
+                    } else {
+                      return currentPageAnswers[currentQuestion.key] !== undefined;
+                    }
+                  };
+
+                  const navigationButtons = (
+                    <>
+                      <TouchableOpacity
+                        style={styles.skipButton}
+                        onPress={handleBack}
+                      >
+                        <Text style={styles.skipButtonText}>Back</Text>
+                      </TouchableOpacity>
+                      
+                      <TouchableOpacity
+                        style={[
+                          styles.nextButtonContainer,
+                          !isNextEnabled() && styles.nextButtonDisabled
+                        ]}
+                        onPress={handleNext}
+                        disabled={!isNextEnabled()}
+                      >
+                        <LinearGradient
+                          colors={['#FEA04D', '#FF7903']}
+                          start={{ x: 0, y: 0 }}
+                          end={{ x: 1, y: 0 }}
+                          style={styles.nextButtonGradient}
+                        >
+                          <Text style={styles.nextButtonText}>
+                            {currentQuestionIndex < questions.length - 1 ? 'Next' : 'Complete'}
+                          </Text>
+                        </LinearGradient>
+                      </TouchableOpacity>
+                    </>
+                  );
+
+                  return (
+                    <QuestionCard
+                      question={currentQuestion}
+                      isActive={true}
+                      onAnswer={handleQuestionnaireResponse}
+                      currentPageAnswers={currentPageAnswers}
+                      responses={responses}
+                      navigationButtons={navigationButtons}
+                      sport={currentQuestionnaireType || 'pickleball'}
+                    />
+                  );
+                })()}
+              </View>
             </View>
           ) : questions.length === 0 ? (
             <View style={styles.questionContainer}>
@@ -535,12 +591,53 @@ const styles = StyleSheet.create({
   },
   questionnaireContainer: {
     flex: 1,
-    justifyContent: 'flex-start',
-    paddingTop: 10,
+    paddingHorizontal: 15,
+    paddingBottom: 20,
   },
   cardStackContainer: {
     flex: 1,
     position: 'relative',
+  },
+  // Stacked Card Layers (showing depth/remaining cards) - only peek at top
+  stackedCardLayer: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    overflow: 'hidden', // Hide most of the card
+  },
+  // Card Placeholder (empty card showing just top edge)
+  cardPlaceholder: {
+    height: '100%',
+    backgroundColor: '#FFFFFF',  // Solid white
+    borderRadius: 30,
+    borderWidth: 1.5,
+    borderColor: 'rgba(0, 0, 0, 0.08)', // Subtle dark border for depth
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.2,
+    shadowRadius: 6,
+    elevation: 5,
+    opacity: 1,  // Ensure fully opaque
+  },
+  // Next Card Container (behind current, preview only)
+  nextCardContainer: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    zIndex: 15, // Behind active card
+  },
+  // Active Card Container (front)
+  activeCardContainer: {
+    position: 'relative',
+    flex: 1,
+    zIndex: 20, // In front of next card
   },
   questionContainer: {
     flex: 1,
