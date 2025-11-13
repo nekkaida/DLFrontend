@@ -252,7 +252,7 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
 const styles = StyleSheet.create({
   // Question Card Container - Natural height, no absolute positioning
   questionCardContainer: {
-    flex: 1,
+    // No flex - let it size naturally
   },
 
   // FULLY RESPONSIVE QUESTION CONTAINER
@@ -261,12 +261,11 @@ const styles = StyleSheet.create({
     borderRadius: moderateScale(isSmall ? 24 : 30),
     padding: 0,
     ...createShadow('#000', 0.1, 8, 5),
-    flex: 1,
+    // No flex - natural sizing based on content
   },
   scrollContainer: {
-    flex: 1,
-    paddingHorizontal: getResponsivePadding(isSmall ? 28 : 36),
-    paddingTop: moderateScale(isSmall ? 28 : 36),
+    paddingHorizontal: getResponsivePadding(isSmall ? 24 : 28),
+    paddingTop: moderateScale(isSmall ? 24 : 28),
   },
   scrollContent: {
     paddingBottom: moderateScale(20),
