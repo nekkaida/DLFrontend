@@ -37,8 +37,17 @@ const NumberInput: React.FC<NumberInputProps> = ({
   allowSkip = false,
   containerStyle,
   placeholder,
+  keyboardType,
   ...textInputProps
 }) => {
+  const defaultKeyboardType =
+    keyboardType ??
+    (Platform.select({
+      ios: 'decimal-pad',
+      android: 'decimal-pad',
+      default: 'numeric',
+    }) as TextInputProps['keyboardType']);
+
   const getPlaceholder = () => {
     if (placeholder) return placeholder;
     if (minValue !== undefined && maxValue !== undefined) {
@@ -61,7 +70,7 @@ const NumberInput: React.FC<NumberInputProps> = ({
           onChangeText={onChangeText}
           placeholder={getPlaceholder()}
           placeholderTextColor="#6C7278"
-          keyboardType={Platform.OS === 'ios' ? 'decimal-pad' : 'numeric'}
+          keyboardType={defaultKeyboardType}
           inputMode="decimal"
           returnKeyType={canSubmit ? 'done' : 'default'}
           onSubmitEditing={canSubmit ? onSubmit : undefined}
