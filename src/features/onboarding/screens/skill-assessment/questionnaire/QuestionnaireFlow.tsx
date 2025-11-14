@@ -1,10 +1,11 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { View, Text, TouchableOpacity, Animated } from 'react-native';
 import { Svg, Path } from 'react-native-svg';
 import { QuestionCard } from '../../../components/QuestionContainer';
 import { QuestionProgressBar } from './QuestionProgressBar';
 import { NavigationButtons } from '../components/NavigationButtons';
 import { styles } from './QuestionnaireFlow.styles';
+import { moderateScale, isSmallDevice } from '../utils/responsive';
 
 interface QuestionnaireFlowProps {
   sport: 'pickleball' | 'tennis' | 'padel';
@@ -32,6 +33,8 @@ export const QuestionnaireFlow: React.FC<QuestionnaireFlowProps> = ({
   // Track displayed question index separately from prop
   const [displayedIndex, setDisplayedIndex] = useState(currentQuestionIndex);
   const [isAnimating, setIsAnimating] = useState(false);
+  const lipHeight = useMemo(() => moderateScale(isSmallDevice() ? 10 : 12), []);
+  const stackPeekOffset = useMemo(() => moderateScale(isSmallDevice() ? 6 : 8), []);
 
   // Animation values for current card (sliding out)
   const slideAnim = useRef(new Animated.Value(0)).current;
@@ -57,16 +60,24 @@ export const QuestionnaireFlow: React.FC<QuestionnaireFlowProps> = ({
     }
   }, [currentQuestionIndex, displayedIndex, isAnimating, slideAnim, scaleAnim, fadeAnim, nextCardTranslateY, nextCardScale, nextCardOpacity]);
 
+  const resetCardAnimations = () => {
+    slideAnim.setValue(0);
+    scaleAnim.setValue(1);
+    fadeAnim.setValue(1);
+    nextCardTranslateY.setValue(20);
+    nextCardScale.setValue(0.95);
+    nextCardOpacity.setValue(0.7);
+  };
+
   const handleNext = () => {
+    if (isAnimating) {
+      return;
+    }
+
     setIsAnimating(true);
 
-    // Update state immediately before animation to prevent key change flash
-    const nextIndex = displayedIndex + 1;
-    setDisplayedIndex(nextIndex);
-    onNext();
-
-    // Simultaneous animation: current card slides left, next card slides up into position
-    Animated.parallel([
+    const runTransition = () =>
+      Animated.parallel([
       // Current card: slides left and fades out
       Animated.timing(slideAnim, {
         toValue: -500, // Slide left off screen
@@ -100,17 +111,29 @@ export const QuestionnaireFlow: React.FC<QuestionnaireFlowProps> = ({
         duration: 600,
         useNativeDriver: true,
       }),
-    ]).start(() => {
-      // After all animations complete, reset for next cycle
-      setIsAnimating(false);
+    ]);
 
-      // Reset animation values for next cycle
-      slideAnim.setValue(0);
-      scaleAnim.setValue(1);
-      fadeAnim.setValue(1);
-      nextCardTranslateY.setValue(20);
-      nextCardScale.setValue(0.95);
-      nextCardOpacity.setValue(0.7);
+    runTransition().start(() => {
+      const finalize = () => {
+        resetCardAnimations();
+        setIsAnimating(false);
+      };
+
+      try {
+        const maybePromise = onNext?.();
+        if (maybePromise && typeof (maybePromise as PromiseLike<void>).then === 'function') {
+          (maybePromise as PromiseLike<void>)
+            .catch((error) => {
+              console.error('Failed to advance questionnaire:', error);
+            })
+            .finally(finalize);
+        } else {
+          finalize();
+        }
+      } catch (error) {
+        console.error('Failed to advance questionnaire:', error);
+        finalize();
+      }
     });
   };
 
@@ -151,41 +174,6 @@ export const QuestionnaireFlow: React.FC<QuestionnaireFlowProps> = ({
       <View style={styles.questionnaireContainer}>
         {questions && questions.length > 0 && displayedIndex < questions.length ? (
           <View style={styles.cardStack}>
-            {/* Render stack placeholder cards (showing remaining depth) - max 3 visible */}
-            {(() => {
-              const remainingCards = questions.length - displayedIndex - 2; // -2 for current and next card
-              const visibleStackCards = Math.max(0, Math.min(3, remainingCards));
-
-              return [...Array(visibleStackCards)].map((_, i) => {
-                const cardIndex = displayedIndex + i + 2;
-                if (cardIndex >= questions.length) return null;
-
-                // Each card is offset further back and down
-                const offsetY = (i + 2) * 6; // Stack offset: 12px, 18px, 24px
-                const offsetX = (i + 2) * 4; // Side offset: 8px, 12px, 16px
-
-                return (
-                  <Animated.View
-                    key={`stack-card-${cardIndex}`}
-                    style={[
-                      styles.stackedCardLayer,
-                      {
-                        transform: [
-                          { translateY: offsetY },
-                          { scale: 1 - (i + 2) * 0.02 }, // Slightly smaller: 0.96, 0.94, 0.92
-                        ],
-                        marginHorizontal: offsetX,
-                        zIndex: 8 - i,
-                      },
-                    ]}
-                  >
-                    {/* Empty card placeholder showing just the edge - solid white */}
-                    <View style={styles.cardPlaceholder} />
-                  </Animated.View>
-                );
-              });
-            })()}
-
             {/* Next card (behind current, animated to slide up) */}
             {displayedIndex < questions.length - 1 && (
               <Animated.View
@@ -198,9 +186,10 @@ export const QuestionnaireFlow: React.FC<QuestionnaireFlowProps> = ({
                       { translateY: nextCardTranslateY },
                       { scale: nextCardScale },
                     ],
-                  },
-                ]}
-              >
+                    paddingTop: stackPeekOffset,
+                },
+              ]}
+            >
                 <QuestionCard
                   question={questions[displayedIndex + 1]}
                   isActive={false}

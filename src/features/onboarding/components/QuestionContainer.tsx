@@ -260,9 +260,9 @@ const styles = StyleSheet.create({
   container: {
     backgroundColor: '#FFFFFF',
     borderRadius: moderateScale(isSmall ? 24 : 30),
-    paddingHorizontal: getResponsivePadding(isSmall ? 24 : 28),
-    paddingTop: moderateScale(isSmall ? 22 : 28),
-    paddingBottom: moderateScale(isSmall ? 18 : 24),
+    paddingHorizontal: getResponsivePadding(isSmall ? 20 : 24),
+    paddingTop: moderateScale(isSmall ? 18 : 22),
+    paddingBottom: moderateScale(isSmall ? 14 : 18),
     ...createShadow('#000', 0.12, 10, 6),
   },
   contentWrapper: {
@@ -271,7 +271,7 @@ const styles = StyleSheet.create({
   instructionText: {
     fontSize: scaleFontSize(isSmall ? 12 : 13),
     color: '#8C8C8C',
-    marginBottom: moderateScale(isSmall ? 8 : 10),
+    marginBottom: moderateScale(isSmall ? 6 : 8),
     fontFamily: 'Roboto',
     textAlign: 'left',
   },
@@ -279,7 +279,7 @@ const styles = StyleSheet.create({
     fontSize: scaleFontSize(isSmall ? 18 : 20),
     fontWeight: '600',
     color: '#000000',
-    marginBottom: moderateScale(isSmall ? 16 : 20),
+    marginBottom: moderateScale(isSmall ? 12 : 16),
     fontFamily: 'Roboto',
     lineHeight: scaleFontSize(isSmall ? 24 : 28),
     textAlign: 'left',
@@ -287,21 +287,22 @@ const styles = StyleSheet.create({
   contextText: {
     fontSize: scaleFontSize(isSmall ? 14 : 15),
     color: '#6C7278',
-    marginBottom: moderateScale(isSmall ? 12 : 16),
+    marginBottom: moderateScale(isSmall ? 10 : 12),
     fontFamily: 'Roboto',
     lineHeight: scaleFontSize(isSmall ? 20 : 22),
     textAlign: 'left',
     fontStyle: 'italic',
   },
   contentContainer: {
-    gap: moderateScale(isSmall ? 10 : 12),
-    marginBottom: moderateScale(isSmall ? 10 : 14),
+    gap: moderateScale(isSmall ? 6 : 8),
+    marginBottom: moderateScale(isSmall ? 6 : 8),
   },
   navigationContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginTop: moderateScale(isSmall ? 10 : 14),
+    marginTop: moderateScale(isSmall ? 6 : 8),
+    paddingBottom: moderateScale(isSmall ? 2 : 4),
   },
 });
 
