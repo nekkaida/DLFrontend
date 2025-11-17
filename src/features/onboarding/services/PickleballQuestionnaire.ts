@@ -31,7 +31,7 @@ export interface RatingResult {
 export interface Question {
   key: string;
   question: string;
-  type: 'single_choice' | 'number' | 'skill_matrix' | 'reliability_check';
+  type: 'single_choice' | 'number' | 'skill_matrix';
   options?: string[];
   sub_questions?: { [key: string]: { question: string; options: string[] } };
   min_value?: number;
@@ -68,6 +68,12 @@ export class PickleballQuestionnaire {
     doubles_bonus: 0.9,
   };
 
+  private MAX_RD = 350;
+  private MIN_RD = 30;
+  private HIGH_CONFIDENCE_RD = 150;
+  private MEDIUM_CONFIDENCE_RD = 250;
+  private LOW_CONFIDENCE_RD = 350;
+
   private questions = {
     has_dupr: {
       question: "Do you have a DUPR (Dynamic Universal Pickleball Rating)?",
@@ -97,39 +103,6 @@ export class PickleballQuestionnaire {
       optional: true,
       help_text: "Leave blank if you don't have a doubles DUPR rating",
     },
-    dupr_reliability_games: {
-      question: "How many games is your DUPR rating based on?",
-      answers: {
-        "Less than 5 games": 0.3,
-        "5-10 games": 0.6,
-        "11-20 games": 0.8,
-        "More than 20 games": 1.0,
-      },
-      conditional: "has_dupr",
-      help_text: "More games generally means a more reliable DUPR rating",
-    },
-    dupr_recent_activity: {
-      question: "When did you last play a DUPR-rated game?",
-      answers: {
-        "Within the last week": 1.0,
-        "Within the last month": 0.9,
-        "1-3 months ago": 0.7,
-        "More than 3 months ago": 0.5,
-      },
-      conditional: "has_dupr",
-      help_text: "Recent activity helps ensure your rating reflects current skill level",
-    },
-    dupr_competition_level: {
-      question: "What level of competition were your DUPR games?",
-      answers: {
-        "Mostly recreational games": 0.6,
-        "Mix of recreational and competitive": 0.8,
-        "Mostly competitive tournaments": 1.0,
-        "High-level competitive events": 1.0,
-      },
-      conditional: "has_dupr",
-      help_text: "Competitive games generally provide more accurate ratings",
-    },
     dupr_singles_reliability: {
       question: "What is your DUPR Singles reliability score?",
       input_type: "number",
@@ -153,9 +126,8 @@ export class PickleballQuestionnaire {
     experience: {
       question: "How long have you been playing pickleball?",
       answers: {
-        "Less than 1 month": -0.7,
-        "1-3 months": -0.4,
-        "3-6 months": -0.1,
+        "Less than 3 months": -0.7,
+        "3-6 months": -0.4,
         "6-12 months": 0.2,
         "1-2 years": 0.5,
         "More than 2 years": 1.0,
@@ -164,27 +136,27 @@ export class PickleballQuestionnaire {
     sports_background: {
       question: "What is your background in racquet sports?",
       answers: {
-        "No experience with racquet sports": -0.8,
+        "No prior experience with racquet sports": -0.8,
         "Casual/recreational player of other racquet sports": -0.3,
-        "Intermediate level in tennis, badminton, or table tennis": 0.4,
+        "Intermediate level in tennis or table tennis": 0.4,
         "Advanced/competitive player in other racquet sports": 0.9,
-        "Professional athlete in racquet sports": 1.0,
+        "Professional or ex-professional athlete in racquet sports": 1.0,
       },
     },
     frequency: {
       question: "How often do you play pickleball?",
       answers: {
-        "Once a month": -0.4,
-        "2-3 times a month": 0.0,
+        "Less than once a month": -0.4,
+        "1-2 times a month": 0.0,
         "Once a week": 0.3,
         "2-3 times a week": 0.7,
         "4+ times a week": 1.0,
       },
     },
     competitive_level: {
-      question: "What level do you typically play at?",
+      question: "What is the highest level you usually play at?",
       answers: {
-        "Recreational/fun games with friends": -0.4,
+        "Recreational/social games": -0.4,
         "Club/DUPR match play": 0.2,
         "Novice/Intermediate Competitive tournaments": 0.7,
         "High-level competitive tournaments": 1.0,
@@ -245,37 +217,15 @@ export class PickleballQuestionnaire {
       question: "Have you competed in pickleball tournaments?",
       answers: {
         "Never": -0.5,
-        "Recreational/local tournaments": 0.0,
-        "Regional tournaments": 0.5,
-        "National tournaments": 1.0,
+        "Recreational/social tournaments": 0.0,
+        "Competitive tournaments": 0.5,
+        "Professional tournaments": 1.0,
       },
-    },
-    consistency_check_1: {
-      question: "On a scale of 1-10, how would you rate your overall pickleball ability?",
-      answers: {
-        "1-2 (Complete beginner)": 1.5,
-        "3-4 (Learning basics)": 2.5,
-        "5-6 (Recreational player)": 3.5,
-        "7-8 (Strong player)": 4.5,
-        "9-10 (Expert/competitive)": 5.5,
-      },
-      help_text: "This helps us verify the consistency of your responses",
-    },
-    consistency_check_2: {
-      question: "What best describes your typical pickleball opponents?",
-      answers: {
-        "Complete beginners like me": 1.5,
-        "Mixed beginners and intermediate": 2.5,
-        "Mostly intermediate players": 3.5,
-        "Advanced and competitive players": 4.5,
-        "Expert and professional level": 5.5,
-      },
-      help_text: "Your regular competition level is a good indicator of your skill",
     },
   };
 
   shouldSkipQuestionnaire(responses: QuestionnaireResponse): boolean {
-    const hasDupr = responses.has_dupr;
+    const hasDupr = responses.has_dupr === 'Yes';
     const duprSingles = responses.dupr_singles;
     const duprDoubles = responses.dupr_doubles;
 
@@ -392,26 +342,6 @@ export class PickleballQuestionnaire {
         ];
       }
 
-      // DUPR reliability questions
-      const duprReliabilityKeys = ['dupr_reliability_games', 'dupr_recent_activity', 'dupr_competition_level'] as const;
-      for (const key of duprReliabilityKeys) {
-        if (!(key in responses)) {
-          const questionData = this.questions[key as keyof typeof this.questions] as any;
-          if (questionData && 'answers' in questionData) {
-            return [
-              {
-                key,
-                question: questionData.question,
-                type: 'single_choice' as const,
-                options: Object.keys(questionData.answers),
-                help_text: questionData.help_text,
-                conditional: 'has_dupr',
-              },
-            ];
-          }
-        }
-      }
-
       if (this.shouldSkipQuestionnaire(responses)) {
         return [];
       }
@@ -430,8 +360,6 @@ export class PickleballQuestionnaire {
       'skills',
       'self_rating',
       'tournament',
-      'consistency_check_1',
-      'consistency_check_2',
     ];
 
     for (const key of questionnaireKeys) {
@@ -474,7 +402,7 @@ export class PickleballQuestionnaire {
           singles_rating: this.BASE_RATING,
           doubles_rating: this.BASE_RATING,
           confidence: 'low',
-          rating_deviation: 350,
+          rating_deviation: this.LOW_CONFIDENCE_RD,
           source: 'default',
         };
       }
@@ -486,251 +414,112 @@ export class PickleballQuestionnaire {
         const doublesReliability = responses.dupr_doubles_reliability ? parseInt(responses.dupr_doubles_reliability.toString()) : null;
         
         const result = this.convertDuprToDmr(duprSingles, duprDoubles, singlesReliability, doublesReliability);
-        return result || this.convertDuprToRatingWithReliability(duprSingles, duprDoubles, responses);
+        if (result) {
+          return result;
+        }
+
+        return {
+          singles_rating: this.BASE_RATING,
+          doubles_rating: this.BASE_RATING,
+          confidence: 'low',
+          rating_deviation: this.LOW_CONFIDENCE_RD,
+          source: 'error_fallback',
+        };
       }
 
-      // Advanced questionnaire-based calculation with pattern recognition
-      const analysisResult = this.analyzeResponsePatterns(responses);
       let ratingAdjustment = 0;
-      const confidenceBreakdown: { [key: string]: number } = {};
+      let weightedConfidenceScore = 0;
+      let maxWeightedConfidence = 0;
 
-      // Process each response category with advanced weighting
-      const categories = ['experience', 'sports_background', 'frequency', 'competitive_level', 'self_rating', 'tournament'];
-      
+      const categories: Array<keyof typeof this.CONFIDENCE_WEIGHTS> = [
+        'experience',
+        'sports_background',
+        'frequency',
+        'competitive_level',
+        'self_rating',
+        'tournament',
+      ];
+
       for (const category of categories) {
-        if (responses[category]) {
-          const answer = responses[category] as string;
-          const questionData = this.questions[category as keyof typeof this.questions] as any;
-          const weight = questionData?.answers?.[answer] || 0;
-          let categoryAdjustment = 0;
+        const answer = responses[category];
+        if (typeof answer === 'string') {
+          const questionData = this.questions[category];
+          const weight = (questionData as any)?.answers?.[answer] ?? 0;
 
           if (category === 'experience') {
-            categoryAdjustment = weight * this.EXPERIENCE_RANGE;
+            ratingAdjustment += weight * this.EXPERIENCE_RANGE;
           } else if (category === 'sports_background') {
-            categoryAdjustment = weight * this.SPORTS_BACKGROUND_RANGE;
+            ratingAdjustment += weight * this.SPORTS_BACKGROUND_RANGE;
           } else if (category === 'frequency') {
-            categoryAdjustment = weight * this.FREQUENCY_RANGE;
+            ratingAdjustment += weight * this.FREQUENCY_RANGE;
           } else if (category === 'competitive_level') {
-            categoryAdjustment = weight * this.COMPETITIVE_RANGE;
+            ratingAdjustment += weight * this.COMPETITIVE_RANGE;
           } else if (category === 'self_rating') {
-            categoryAdjustment = weight * this.SKILL_RANGE * 0.7;
+            ratingAdjustment += weight * this.SKILL_RANGE * 0.7;
           } else if (category === 'tournament') {
-            categoryAdjustment = weight * this.SKILL_RANGE * 0.5;
+            ratingAdjustment += weight * this.SKILL_RANGE * 0.5;
           }
 
-          // Apply reliability modifier based on pattern analysis
-          const reliabilityModifier = analysisResult.reliability_score;
-          categoryAdjustment *= reliabilityModifier;
-          ratingAdjustment += categoryAdjustment;
-
-          confidenceBreakdown[category] = Math.abs(weight) * this.CONFIDENCE_WEIGHTS[category as keyof typeof this.CONFIDENCE_WEIGHTS] * reliabilityModifier;
+          weightedConfidenceScore += Math.abs(weight) * this.CONFIDENCE_WEIGHTS[category];
+          maxWeightedConfidence += this.CONFIDENCE_WEIGHTS[category];
         }
       }
 
-      // Process skills with advanced analysis
       if (responses.skills && typeof responses.skills === 'object') {
-        const skillWeights: number[] = [];
         const skillResponses = responses.skills as SkillQuestions;
-        
+        const skillWeights: number[] = [];
+
         for (const [skill, answer] of Object.entries(skillResponses)) {
           const skillQuestion = this.questions.skills.sub_questions[skill as keyof typeof this.questions.skills.sub_questions];
           if (skillQuestion) {
-            const weight = (skillQuestion as any).answers[answer] || 0;
+            const weight = (skillQuestion as any).answers[answer] ?? 0;
             skillWeights.push(weight);
           }
         }
 
         if (skillWeights.length > 0) {
-          const avgSkillWeight = skillWeights.reduce((a, b) => a + b, 0) / skillWeights.length;
-          const skillVariance = this.calculateVariance(skillWeights);
-          
-          // Apply consistency penalty for inconsistent skill ratings
-          const consistencyModifier = skillVariance > 0.3 ? 0.8 : 1.0;
-          const skillAdjustment = avgSkillWeight * this.SKILL_RANGE * consistencyModifier * analysisResult.reliability_score;
-          
-          ratingAdjustment += skillAdjustment;
-          confidenceBreakdown['skills'] = Math.abs(avgSkillWeight) * this.CONFIDENCE_WEIGHTS.skills * consistencyModifier;
+          const avgSkillWeight = skillWeights.reduce((sum, value) => sum + value, 0) / skillWeights.length;
+          ratingAdjustment += avgSkillWeight * this.SKILL_RANGE;
+          weightedConfidenceScore += Math.abs(avgSkillWeight) * this.CONFIDENCE_WEIGHTS.skills;
+          maxWeightedConfidence += this.CONFIDENCE_WEIGHTS.skills;
         }
       }
 
-      // Calculate overall confidence with pattern recognition
-      const totalConfidence = Object.values(confidenceBreakdown).reduce((a, b) => a + b, 0);
-      const maxPossibleConfidence = Object.values(this.CONFIDENCE_WEIGHTS).reduce((a, b) => a + b, 0);
-      let confidenceRatio = maxPossibleConfidence > 0 ? Math.min(totalConfidence / maxPossibleConfidence, 1.0) : 0;
-
-      // Apply pattern-based confidence adjustments
-      confidenceRatio *= analysisResult.reliability_score;
-
-      let confidence: 'low' | 'medium' | 'medium-high' | 'high';
+      const confidenceRatio = maxWeightedConfidence > 0 ? Math.min(weightedConfidenceScore / maxWeightedConfidence, 1) : 0;
+      let confidence: 'low' | 'medium' | 'high';
       let rd: number;
 
-      if (confidenceRatio < 0.3) {
+      if (confidenceRatio < 0.4) {
         confidence = 'low';
-        rd = 350;
-      } else if (confidenceRatio < 0.5) {
+        rd = this.LOW_CONFIDENCE_RD;
+      } else if (confidenceRatio < 0.7) {
         confidence = 'medium';
-        rd = 280;
-      } else if (confidenceRatio < 0.75) {
-        confidence = 'medium-high';
-        rd = 200;
+        rd = this.MEDIUM_CONFIDENCE_RD;
       } else {
         confidence = 'high';
-        rd = 150;
+        rd = this.HIGH_CONFIDENCE_RD;
       }
 
-      // Final ratings with advanced adjustments
-      let singlesRating = this.BASE_RATING + ratingAdjustment;
-      const doublesAdjustment = ratingAdjustment < 0 ? 50 : 0;
-      let doublesRating = singlesRating + doublesAdjustment;
-
-      // Apply range constraints
-      singlesRating = Math.max(1000, Math.min(8000, singlesRating));
-      doublesRating = Math.max(1000, Math.min(8000, doublesRating));
+      const singlesRating = Math.round(this.BASE_RATING + ratingAdjustment);
+      const doublesRating = Math.round(singlesRating + (ratingAdjustment < 0 ? 50 : 0));
 
       return {
-        singles_rating: Math.round(singlesRating),
-        doubles_rating: Math.round(doublesRating),
+        singles_rating: singlesRating,
+        doubles_rating: doublesRating,
         confidence,
         rating_deviation: rd,
         source: 'questionnaire',
-        reliability_score: analysisResult.reliability_score,
-        pattern_flags: analysisResult.flags,
-        confidence_breakdown: confidenceBreakdown,
-        adjustment_detail: {
-          base_rating: this.BASE_RATING,
-          total_adjustment: ratingAdjustment,
-          confidence_ratio: confidenceRatio,
-          pattern_analysis: analysisResult,
-        },
       };
     } catch (error) {
       return {
         singles_rating: this.BASE_RATING,
         doubles_rating: this.BASE_RATING,
         confidence: 'low',
-        rating_deviation: 350,
+        rating_deviation: this.LOW_CONFIDENCE_RD,
         source: 'error_fallback',
         error: error instanceof Error ? error.message : 'Unknown error',
       };
     }
-  }
-
-  private analyzeResponsePatterns(responses: QuestionnaireResponse): { reliability_score: number; flags: string[] } {
-    const flags: string[] = [];
-    let reliabilityScore = 1.0;
-
-    // Check for consistency between self-assessment questions
-    if (responses.consistency_check_1 && responses.consistency_check_2) {
-      const rating1 = (this.questions.consistency_check_1 as any).answers[responses.consistency_check_1 as string] || 0;
-      const rating2 = (this.questions.consistency_check_2 as any).answers[responses.consistency_check_2 as string] || 0;
-      const difference = Math.abs(rating1 - rating2);
-      
-      if (difference > 1.5) {
-        flags.push('inconsistent_self_assessment');
-        reliabilityScore *= 0.8;
-      }
-    }
-
-    // Check for unrealistic experience vs skill combinations
-    if (responses.experience && responses.self_rating) {
-      const experienceWeight = (this.questions.experience as any).answers[responses.experience as string] || 0;
-      const selfRatingWeight = (this.questions.self_rating as any).answers[responses.self_rating as string] || 0;
-      
-      // Beginner claiming advanced skills
-      if (experienceWeight < -0.3 && selfRatingWeight > 0.3) {
-        flags.push('unrealistic_skill_claim');
-        reliabilityScore *= 0.7;
-      }
-      
-      // Advanced experience with beginner self-rating (possible sandbagger)
-      if (experienceWeight > 0.7 && selfRatingWeight < -0.3) {
-        flags.push('potential_sandbagging');
-        reliabilityScore *= 0.9;
-      }
-    }
-
-    // Check frequency vs competitive level consistency
-    if (responses.frequency && responses.competitive_level) {
-      const frequencyWeight = (this.questions.frequency as any).answers[responses.frequency as string] || 0;
-      const competitiveWeight = (this.questions.competitive_level as any).answers[responses.competitive_level as string] || 0;
-      
-      if (frequencyWeight < 0 && competitiveWeight > 0.5) {
-        flags.push('inconsistent_frequency_competition');
-        reliabilityScore *= 0.85;
-      }
-    }
-
-    // Check tournament experience vs self-rating consistency
-    if (responses.tournament && responses.self_rating) {
-      const tournamentWeight = (this.questions.tournament as any).answers[responses.tournament as string] || 0;
-      const selfRatingWeight = (this.questions.self_rating as any).answers[responses.self_rating as string] || 0;
-      
-      if (tournamentWeight > 0.3 && selfRatingWeight < -0.2) {
-        flags.push('tournament_rating_mismatch');
-        reliabilityScore *= 0.9;
-      }
-    }
-
-    return { reliability_score: Math.max(0.5, reliabilityScore), flags };
-  }
-
-  private calculateVariance(values: number[]): number {
-    if (values.length === 0) return 0;
-    const mean = values.reduce((a, b) => a + b, 0) / values.length;
-    const squaredDiffs = values.map(value => Math.pow(value - mean, 2));
-    return squaredDiffs.reduce((a, b) => a + b, 0) / values.length;
-  }
-
-  private convertDuprToRatingWithReliability(duprSingles: number | null, duprDoubles: number | null, responses: QuestionnaireResponse): RatingResult {
-    // Calculate base DUPR conversion
-    const baseResult = this.convertDuprToRating(duprSingles, duprDoubles);
-    
-    // Calculate DUPR reliability score
-    let duprReliabilityScore = 1.0;
-    const reliabilityFactors: string[] = [];
-
-    if (responses.dupr_reliability_games) {
-      const gamesReliability = (this.questions.dupr_reliability_games as any).answers[responses.dupr_reliability_games as string] || 0;
-      duprReliabilityScore *= gamesReliability;
-      if (gamesReliability < 0.6) reliabilityFactors.push('few_games');
-    }
-
-    if (responses.dupr_recent_activity) {
-      const activityReliability = (this.questions.dupr_recent_activity as any).answers[responses.dupr_recent_activity as string] || 0;
-      duprReliabilityScore *= activityReliability;
-      if (activityReliability < 0.7) reliabilityFactors.push('outdated_rating');
-    }
-
-    if (responses.dupr_competition_level) {
-      const competitionReliability = (this.questions.dupr_competition_level as any).answers[responses.dupr_competition_level as string] || 0;
-      duprReliabilityScore *= competitionReliability;
-      if (competitionReliability < 0.8) reliabilityFactors.push('low_competition_level');
-    }
-
-    // Adjust confidence and rating deviation based on reliability
-    let adjustedConfidence: 'low' | 'medium' | 'medium-high' | 'high' = 'high';
-    let adjustedRD = 110;
-
-    if (duprReliabilityScore < 0.6) {
-      adjustedConfidence = 'medium';
-      adjustedRD = 180;
-    } else if (duprReliabilityScore < 0.8) {
-      adjustedConfidence = 'medium-high';
-      adjustedRD = 140;
-    }
-
-    return {
-      ...baseResult,
-      confidence: adjustedConfidence,
-      rating_deviation: adjustedRD,
-      reliability_score: duprReliabilityScore,
-      pattern_flags: reliabilityFactors,
-      adjustment_detail: {
-        ...baseResult.adjustment_detail,
-        dupr_reliability_score: duprReliabilityScore,
-        reliability_factors: reliabilityFactors,
-      },
-    };
   }
 
   private validateDuprInput(duprValue: any, ratingType: string = 'singles'): [number | null, string | null] {
@@ -816,18 +605,17 @@ export class PickleballQuestionnaire {
 
   private skillAwareEstimation(knownDupr: number, knownFormat: string, reliabilityScore: number | null = null): number {
     if (knownFormat === 'doubles') {
-      // Estimate singles from doubles - singles usually higher
-      const baseOffsets: { [key: number]: number } = {
-        2.5: 0.05,
-        3.5: 0.15,
-        4.5: 0.25,
-        6.0: 0.15,
-        8.0: 0.05,
-      };
+      const baseOffsets: Array<[number, number]> = [
+        [2.5, 0.05],
+        [3.5, 0.15],
+        [4.5, 0.25],
+        [6.0, 0.15],
+        [8.0, 0.05],
+      ];
 
-      let offset = 0.15; // default
-      for (const [threshold, off] of Object.entries(baseOffsets)) {
-        if (knownDupr <= parseFloat(threshold)) {
+      let offset = 0.15;
+      for (const [threshold, off] of baseOffsets) {
+        if (knownDupr <= threshold) {
           offset = off;
           break;
         }
@@ -841,19 +629,17 @@ export class PickleballQuestionnaire {
 
       return Math.min(8.0, knownDupr + offset);
     } else {
-      // known_format === 'singles'
-      // Estimate doubles from singles - doubles usually lower
-      const baseOffsets: { [key: number]: number } = {
-        2.5: 0.05,
-        3.5: 0.1,
-        4.5: 0.2,
-        6.0: 0.15,
-        8.0: 0.05,
-      };
+      const baseOffsets: Array<[number, number]> = [
+        [2.5, 0.05],
+        [3.5, 0.1],
+        [4.5, 0.2],
+        [6.0, 0.15],
+        [8.0, 0.05],
+      ];
 
-      let offset = 0.15; // default
-      for (const [threshold, off] of Object.entries(baseOffsets)) {
-        if (knownDupr <= parseFloat(threshold)) {
+      let offset = 0.15;
+      for (const [threshold, off] of baseOffsets) {
+        if (knownDupr <= threshold) {
           offset = off;
           break;
         }

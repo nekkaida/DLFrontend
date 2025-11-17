@@ -7,6 +7,8 @@ export interface TennisSkillQuestions {
 }
 
 export interface TennisRatingResult {
+  singles_rating: number;
+  doubles_rating: number;
   rating: number;
   confidence: 'low' | 'medium' | 'high';
   rating_deviation: number;
@@ -66,17 +68,17 @@ export class TennisQuestionnaire {
         "Monthly (1-2 times per month)": -0.2,
         "Weekly (1-2 times per week)": 0.3,
         "Regular (3-4 times per week)": 0.7,
-        "Daily/Intensive (5+ times per week)": 1.0,
+        "Daily (5+ times per week)": 1.0,
       },
       context_text: "Current playing frequency",
       help_text: "Consider your average playing frequency over the past few months",
     },
     competitive_level: {
-      question: "What level do you typically play at?",
+      question: "What is the highest level of tennis you usually compete in??",
       answers: {
-        "Recreational/social tennis with friends": -0.5,
-        "Social/friendly matches": -0.1,
-        "Local/small tournaments": 0.4,
+        "Recreational/social play with friends": -0.5,
+        "Friendly matches (informal, but with some competitiveness)": -0.1,
+        "Local club/small tournaments": 0.4,
         "Regional/state tournaments": 0.8,
         "National tournaments": 1.0,
       },
@@ -87,10 +89,10 @@ export class TennisQuestionnaire {
       question: "What is your experience with tennis coaching/instruction?",
       answers: {
         "Self-taught/no formal instruction": -0.7,
-        "Some coaching experience (group or private)": -0.3,
-        "Regular coaching in the past or ongoing group lessons": 0.2,
-        "Extensive private coaching experience": 0.6,
-        "Professional/academy training background": 1.0,
+        "A few group or private lessons": -0.3,
+        "Regular group or private lessons": 0.2,
+        "Extensive private coaching": 0.6,
+        "Professional/academy training": 1.0,
       },
       context_text: "Formal instruction background",
       help_text: "Include any lessons, clinics, or formal training you've received",
@@ -116,7 +118,7 @@ export class TennisQuestionnaire {
           question: "Serving",
           answers: {
             "Beginner (learning basic serve motion)": -0.8,
-            "Developing (consistent first serve, learning second serve)": -0.3,
+            "Developing (improving first serve; learning second serve)": -0.3,
             "Intermediate (good first serve placement, reliable second serve)": 0.3,
             "Advanced (variety of serves with good placement and power)": 0.8,
           },
@@ -245,6 +247,8 @@ export class TennisQuestionnaire {
       if (!responses || Object.keys(responses).length === 0) {
         return {
           rating: this.BASE_RATING,
+          singles_rating: this.BASE_RATING,
+          doubles_rating: this.BASE_RATING,
           confidence: 'low',
           rating_deviation: 350,
           source: 'default',
@@ -336,8 +340,12 @@ export class TennisQuestionnaire {
       let finalRating = this.BASE_RATING + ratingAdjustment;
       finalRating = Math.max(800, Math.min(8000, finalRating));
 
+      const roundedRating = Math.round(finalRating);
+
       return {
-        rating: Math.round(finalRating),
+        rating: roundedRating,
+        singles_rating: roundedRating,
+        doubles_rating: roundedRating,
         confidence,
         rating_deviation: rd,
         source: 'questionnaire',
@@ -351,6 +359,8 @@ export class TennisQuestionnaire {
     } catch (error) {
       return {
         rating: this.BASE_RATING,
+        singles_rating: this.BASE_RATING,
+        doubles_rating: this.BASE_RATING,
         confidence: 'low',
         rating_deviation: 350,
         source: 'error_fallback',
@@ -360,7 +370,7 @@ export class TennisQuestionnaire {
   }
 
   generateFeedback(ratingData: TennisRatingResult): string {
-    const rating = ratingData.rating;
+    const rating = ratingData.singles_rating ?? ratingData.rating;
     const confidence = ratingData.confidence;
 
     // Determine skill level label based on rating

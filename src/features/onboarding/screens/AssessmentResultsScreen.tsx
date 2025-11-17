@@ -149,6 +149,43 @@ const AssessmentResultsScreen = () => {
   };
 
   const results = getAssessmentResults();
+  const ratingData = results?.rating;
+
+  const extractSplitRatings = () => {
+    if (!ratingData || typeof ratingData !== 'object') return null;
+    const ratingObj = ratingData as any;
+    if ('singles_rating' in ratingObj && 'doubles_rating' in ratingObj) {
+      return {
+        singles: ratingObj.singles_rating,
+        doubles: ratingObj.doubles_rating,
+      };
+    }
+    if ('singles' in ratingObj && 'doubles' in ratingObj) {
+      return {
+        singles: ratingObj.singles,
+        doubles: ratingObj.doubles,
+      };
+    }
+    return null;
+  };
+
+  const splitRatings = extractSplitRatings();
+  const shouldShowSplitRatings =
+    !!splitRatings && (sport === 'pickleball' || sport === 'tennis');
+
+  const getPrimaryRatingValue = (): number | null => {
+    if (!ratingData) return null;
+    if (typeof ratingData === 'number') return ratingData;
+    if (typeof ratingData === 'object') {
+      const ratingObj = ratingData as any;
+      if ('singles_rating' in ratingObj) return ratingObj.singles_rating;
+      if ('singles' in ratingObj) return ratingObj.singles;
+      if ('rating' in ratingObj) return ratingObj.rating;
+    }
+    return null;
+  };
+
+  const primaryRatingValue = getPrimaryRatingValue();
   
   const getSportTitle = () => {
     return typeof sport === 'string' ? sport.charAt(0).toUpperCase() + sport.slice(1) : '';
@@ -300,19 +337,23 @@ const AssessmentResultsScreen = () => {
             </Text>
             {/* Main Rating Display */}
             <View style={styles.ratingContainer}>
-              {sport === 'pickleball' && results.rating && typeof results.rating === 'object' && 'singles_rating' in results.rating ? (
+              {shouldShowSplitRatings ? (
                 <>
                   <View style={styles.ratingSection}>
                     <Text style={styles.ratingLabel}>Singles</Text>
                     <View style={styles.ratingValueContainer}>
-                      <Text style={styles.ratingValue}>{(results.rating as any).singles_rating}</Text>
+                      <Text style={styles.ratingValue}>
+                        {splitRatings ? splitRatings.singles : 'N/A'}
+                      </Text>
                     </View>
                   </View>
                   <View style={styles.ratingDivider} />
                   <View style={styles.ratingSection}>
                     <Text style={styles.ratingLabel}>Doubles</Text>
                     <View style={styles.ratingValueContainer}>
-                      <Text style={styles.ratingValue}>{(results.rating as any).doubles_rating}</Text>
+                      <Text style={styles.ratingValue}>
+                        {splitRatings ? splitRatings.doubles : 'N/A'}
+                      </Text>
                     </View>
                   </View>
                 </>
@@ -321,8 +362,7 @@ const AssessmentResultsScreen = () => {
                   <Text style={styles.ratingLabel}>Rating</Text>
                   <View style={styles.ratingValueContainer}>
                     <Text style={styles.ratingValue}>
-                      {typeof results.rating === 'number' ? results.rating : 
-                       (results.rating && typeof results.rating === 'object' && 'rating' in results.rating) ? (results.rating as any).rating : 'N/A'}
+                      {primaryRatingValue ?? 'N/A'}
                     </Text>
                   </View>
                 </View>
@@ -333,15 +373,7 @@ const AssessmentResultsScreen = () => {
             {/* <View style={styles.skillLevelContainer}>
               <Text style={styles.skillLevelLabel}>Level</Text>
               <Text style={styles.skillLevelValue}>
-                {getSkillLevelFromRating(
-                  sport === 'pickleball' && results.rating && typeof results.rating === 'object' && 'singles_rating' in results.rating
-                    ? (results.rating as any).singles_rating
-                    : typeof results.rating === 'number' 
-                      ? results.rating 
-                      : (results.rating && typeof results.rating === 'object' && 'rating' in results.rating) 
-                        ? (results.rating as any).rating 
-                        : 0
-                )}
+                {getSkillLevelFromRating(primaryRatingValue ?? 0)}
               </Text>
             </View> */}
           </View>
