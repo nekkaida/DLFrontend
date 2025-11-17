@@ -88,9 +88,9 @@ export class PadelQuestionnaire {
     competitive_level: {
       question: "What is the highest level you usually play at?",
       answers: {
-        "Social/recreational games with friends": -0.5,
-        "Club-level matches": -0.1,
-        "Local club-level social tournaments": 0.3,
+        "Social/recreational games only": -0.5,
+        "Friendly matches": -0.1,
+        "Club-level social tournaments": 0.3,
         "Regional tournaments": 0.7,
         "Professional tournaments": 1.0,
       },
