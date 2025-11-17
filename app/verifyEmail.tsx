@@ -102,16 +102,25 @@ export default function VerifyEmailScreen() {
     setIsLoading(true);
     try {
       console.log('VerifyEmailScreen: Manually resending verification email to:', email);
-      await authClient.emailOtp.sendVerificationOtp({
+      const result = await authClient.emailOtp.sendVerificationOtp({
         email: email,
         type: "email-verification",
       });
+
+      console.log('VerifyEmailScreen: Resend OTP result:', result);
+
+      if (result.error) {
+        console.error('VerifyEmailScreen: Error from backend:', result.error);
+        Alert.alert('Error', result.error.message || 'Failed to send verification code. Please check your email address.');
+        return;
+      }
+
       setOtpSent(true);
-      console.log('VerifyEmailScreen: Resend OTP request completed');
+      console.log('VerifyEmailScreen: Resend OTP request completed successfully');
       Alert.alert('Code Sent', `A new verification code has been sent to ${email}.`);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'An unknown error occurred.';
-      console.error('VerifyEmailScreen: Error resending OTP:', err);
+      console.error('VerifyEmailScreen: Exception resending OTP:', err);
       Alert.alert('Error', message);
     } finally {
       setIsLoading(false);
