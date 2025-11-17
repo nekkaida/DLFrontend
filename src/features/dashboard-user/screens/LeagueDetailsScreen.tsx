@@ -64,8 +64,27 @@ export default function LeagueDetailsScreen({
   const HEADER_MAX_HEIGHT = 180; // Full header height
   const HEADER_MIN_HEIGHT = 80; // Collapsed header height
   const HEADER_SCROLL_DISTANCE = HEADER_MAX_HEIGHT - HEADER_MIN_HEIGHT;
-  const COLLAPSE_START_THRESHOLD = 50; // Start collapsing after scrolling 50px
+  const COLLAPSE_START_THRESHOLD = 40; // Start collapsing after scrolling 50px
   const COLLAPSE_END_THRESHOLD = COLLAPSE_START_THRESHOLD + HEADER_SCROLL_DISTANCE; // End of collapse range
+  
+  const handleScroll = React.useCallback((event: any) => {
+    const { contentOffset, contentSize, layoutMeasurement } = event.nativeEvent;
+    const scrollYValue = contentOffset.y;
+    
+    const availableScrollSpace = contentSize.height - layoutMeasurement.height;
+    
+    const shouldAllowCollapse = availableScrollSpace >= COLLAPSE_END_THRESHOLD;
+    
+    let clampedValue = scrollYValue;
+    if (!shouldAllowCollapse) {
+      clampedValue = Math.min(scrollYValue, Math.max(0, COLLAPSE_START_THRESHOLD - 10));
+    } else {
+      clampedValue = Math.min(scrollYValue, availableScrollSpace);
+    }
+    
+    // Update the animated value
+    scrollY.setValue(clampedValue);
+  }, [scrollY]);
 
   // Set selected sport based on route param
   React.useEffect(() => {
@@ -992,10 +1011,7 @@ export default function LeagueDetailsScreen({
               contentContainerStyle={styles.scrollContent}
               showsVerticalScrollIndicator={false}
               scrollEventThrottle={16}
-              onScroll={Animated.event(
-                [{ nativeEvent: { contentOffset: { y: scrollY } } }],
-                { useNativeDriver: false }
-              )}
+              onScroll={handleScroll}
             >
             <View style={styles.scrollTopSpacer} />
             {/* League Info Card */}
@@ -1187,6 +1203,7 @@ const styles = StyleSheet.create({
     height: '100%',
     justifyContent: 'center',
     alignItems: 'center',
+    marginBottom: 4,
   },
   leagueNameContainer: {
     flex: 1,
@@ -1226,6 +1243,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'flex-start',
+    marginBottom: 24,
   },
   collapsedPlayerCount: {
     fontSize: isSmallScreen ? 12 : 13,

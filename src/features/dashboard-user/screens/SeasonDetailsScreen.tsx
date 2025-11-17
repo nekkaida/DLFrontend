@@ -1,5 +1,5 @@
 import React from 'react';
-import { ScrollView, Text, View, StyleSheet, Dimensions, TouchableOpacity, ActivityIndicator, Image, StatusBar } from 'react-native';
+import { ScrollView, Text, View, StyleSheet, Dimensions, TouchableOpacity, ActivityIndicator, Image, StatusBar, Animated } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
@@ -47,6 +47,35 @@ export default function SeasonDetailsScreen({
   const STATUS_BAR_HEIGHT = insets.top;
 
   const userId = session?.user?.id;
+
+  // Animated scroll value for collapsing header
+  const scrollY = React.useRef(new Animated.Value(0)).current;
+  
+  // Constants for header animation
+  const TOP_HEADER_HEIGHT = STATUS_BAR_HEIGHT + (isSmallScreen ? 36 : isTablet ? 44 : 40);
+  const HEADER_MAX_HEIGHT = 180; // Full header height
+  const HEADER_MIN_HEIGHT = 80; // Collapsed header height
+  const HEADER_SCROLL_DISTANCE = HEADER_MAX_HEIGHT - HEADER_MIN_HEIGHT;
+  const COLLAPSE_START_THRESHOLD = 40; // Start collapsing after scrolling 40px
+  const COLLAPSE_END_THRESHOLD = COLLAPSE_START_THRESHOLD + HEADER_SCROLL_DISTANCE; // End of collapse range
+  
+  const handleScroll = React.useCallback((event: any) => {
+    const { contentOffset, contentSize, layoutMeasurement } = event.nativeEvent;
+    const scrollYValue = contentOffset.y;
+    
+    const availableScrollSpace = contentSize.height - layoutMeasurement.height;
+    
+    const shouldAllowCollapse = availableScrollSpace >= COLLAPSE_END_THRESHOLD;
+    
+    let clampedValue = scrollYValue;
+    if (!shouldAllowCollapse) {
+      clampedValue = Math.min(scrollYValue, Math.max(0, COLLAPSE_START_THRESHOLD - 10));
+    } else {
+      clampedValue = Math.min(scrollYValue, availableScrollSpace);
+    }
+    
+    scrollY.setValue(clampedValue);
+  }, [scrollY]);
 
   React.useEffect(() => {
     fetchSeasonData();
@@ -376,6 +405,45 @@ export default function SeasonDetailsScreen({
     return ["pickleball", "tennis", "padel"];
   };
 
+  // Animated styles for collapsing header
+  const headerHeight = scrollY.interpolate({
+    inputRange: [0, COLLAPSE_START_THRESHOLD, COLLAPSE_END_THRESHOLD],
+    outputRange: [HEADER_MAX_HEIGHT, HEADER_MAX_HEIGHT, HEADER_MIN_HEIGHT],
+    extrapolate: 'clamp',
+  });
+
+  const leagueNameOpacity = scrollY.interpolate({
+    inputRange: [0, COLLAPSE_START_THRESHOLD, COLLAPSE_START_THRESHOLD + (HEADER_SCROLL_DISTANCE * 0.7)],
+    outputRange: [1, 1, 0],
+    extrapolate: 'clamp',
+  });
+
+  const bannerContainerOpacity = scrollY.interpolate({
+    inputRange: [0, COLLAPSE_START_THRESHOLD, COLLAPSE_START_THRESHOLD + (HEADER_SCROLL_DISTANCE * 0.5)],
+    outputRange: [1, 1, 0],
+    extrapolate: 'clamp',
+  });
+
+  const bannerContainerTranslateY = scrollY.interpolate({
+    inputRange: [0, COLLAPSE_START_THRESHOLD, COLLAPSE_START_THRESHOLD + (HEADER_SCROLL_DISTANCE * 0.5)],
+    outputRange: [0, 0, -20],
+    extrapolate: 'clamp',
+  });
+
+  // Collapsed season name opacity
+  const collapsedSeasonNameOpacity = scrollY.interpolate({
+    inputRange: [0, COLLAPSE_START_THRESHOLD + (HEADER_SCROLL_DISTANCE * 0.7), COLLAPSE_END_THRESHOLD],
+    outputRange: [0, 0, 1],
+    extrapolate: 'clamp',
+  });
+
+  // Collapsed player count opacity
+  const collapsedPlayerCountOpacity = scrollY.interpolate({
+    inputRange: [0, COLLAPSE_START_THRESHOLD + (HEADER_SCROLL_DISTANCE * 0.5), COLLAPSE_END_THRESHOLD],
+    outputRange: [0, 0, 1],
+    extrapolate: 'clamp',
+  });
+
   return (
     <View style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
@@ -433,12 +501,19 @@ export default function SeasonDetailsScreen({
           </View>
         ) : (
           <>
-            <View style={styles.gradientHeaderContainer}>
+            <Animated.View 
+              style={[
+                styles.gradientHeaderContainer,
+                {
+                  height: headerHeight,
+                }
+              ]}
+            >
               <LinearGradient
                 colors={getHeaderGradientColors(sport)}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 0 }}
-                style={styles.seasonHeaderGradient}
+                style={[styles.seasonHeaderGradient, { flex: 1 }]}
               >
                 <View style={styles.seasonHeaderContent}>
                   <View style={styles.topRow}>
@@ -453,11 +528,57 @@ export default function SeasonDetailsScreen({
                         <BackButtonIcon width={12} height={19} />
                       </TouchableOpacity>
                     </View>
-                    <View style={styles.leagueNameContainer}>
+                    <Animated.View 
+                      style={[
+                        styles.leagueNameContainer,
+                        {
+                          opacity: leagueNameOpacity,
+                        }
+                      ]}
+                    >
                       <Text style={styles.leagueName} numberOfLines={2}>{league?.name || 'League'}</Text>
-                    </View>
+                    </Animated.View>
+                    {/* Collapsed header content */}
+                    <Animated.View 
+                      style={[
+                        styles.collapsedHeaderContent,
+                        {
+                          opacity: collapsedSeasonNameOpacity,
+                        }
+                      ]}
+                    >
+                      <Text style={styles.collapsedSeasonName} numberOfLines={1}>
+                        {(() => {
+                          const categories = getNormalizedCategories(season);
+                          const categoryName = categories?.[0]?.name;
+                          return categoryName ? `${categoryName} | ` : '';
+                        })()}
+                        <Text style={styles.collapsedSeasonNameHighlight}>{season?.name || seasonName}</Text>
+                      </Text>
+                      <Animated.View 
+                        style={[
+                          styles.collapsedPlayerCountContainer,
+                          {
+                            opacity: collapsedPlayerCountOpacity,
+                          }
+                        ]}
+                      >
+                        <View style={styles.statusCircle} />
+                        <Text style={styles.collapsedPlayerCount}>
+                          {`${season?._count?.memberships || season?.memberships?.length || 0} players`}
+                        </Text>
+                      </Animated.View>
+                    </Animated.View>
                   </View>
-                  <View style={styles.bannerContainer}>
+                  <Animated.View 
+                    style={[
+                      styles.bannerContainer,
+                      {
+                        opacity: bannerContainerOpacity,
+                        transform: [{ translateY: bannerContainerTranslateY }],
+                      }
+                    ]}
+                  >
                     <View style={[styles.nameBanner, { backgroundColor: getBannerBackgroundColor(sport) }]}>
                       <Text style={styles.seasonName}>
                         {(() => {
@@ -502,15 +623,17 @@ export default function SeasonDetailsScreen({
                         )}
                       </View>
                     )}
-                  </View>
+                  </Animated.View>
                 </View>
               </LinearGradient>
-            </View>
+            </Animated.View>
 
-            <ScrollView
+            <Animated.ScrollView
               style={styles.scrollContainer}
               contentContainerStyle={styles.scrollContent}
               showsVerticalScrollIndicator={false}
+              scrollEventThrottle={16}
+              onScroll={handleScroll}
             >
               <View style={styles.scrollTopSpacer} />
               
@@ -624,7 +747,7 @@ export default function SeasonDetailsScreen({
                   </View>
                 </View>
               </View>
-            </ScrollView>
+            </Animated.ScrollView>
           </>
         )}
         </View>
@@ -722,7 +845,7 @@ const styles = StyleSheet.create({
   topRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    marginTop: 2,
+    marginTop: 0,
     gap: 12,
   },
   backButtonContainer: {
@@ -742,6 +865,36 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingRight: 52, // Offset to balance the back button width + gap
+  },
+  collapsedHeaderContent: {
+    position: 'absolute',
+    left: 52,
+    right: 0,
+    alignItems: 'flex-start',
+    top: 0,
+    bottom: 20,
+    paddingLeft: 12,
+  },
+  collapsedSeasonName: {
+    fontSize: isSmallScreen ? 14 : 16,
+    fontWeight: '600',
+    color: '#FDFDFD',
+    textAlign: 'left',
+  },
+  collapsedSeasonNameHighlight: {
+    fontSize: isSmallScreen ? 14 : 16,
+    fontWeight: '600',
+    color: '#FEA04D',
+  },
+  collapsedPlayerCountContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-start',
+  },
+  collapsedPlayerCount: {
+    fontSize: isSmallScreen ? 12 : 13,
+    color: '#FDFDFD',
+    fontWeight: '600',
   },
   bannerContainer: {
     alignItems: 'center',
