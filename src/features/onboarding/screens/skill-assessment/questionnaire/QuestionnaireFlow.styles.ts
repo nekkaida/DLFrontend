@@ -14,22 +14,13 @@ export const styles = StyleSheet.create({
   questionnaireHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    justifyContent: 'center',
     paddingHorizontal: getResponsivePadding(20),
     paddingTop: Platform.select({
-      ios: moderateScale(isSmall ? 50 : 60),     // Much more space for iOS
-      android: moderateScale(isSmall ? 40 : 50), // More space for Android
+      ios: moderateScale(isSmall ? 16 : 20),
+      android: moderateScale(isSmall ? 12 : 16),
     }),
     paddingBottom: moderateScale(isSmall ? 12 : 16),
-  },
-  backButton: {
-    width: moderateScale(48),
-    height: moderateScale(48),
-    justifyContent: 'center',
-    alignItems: 'center',
-    // Ensure minimum touch target
-    minWidth: 44,
-    minHeight: 44,
   },
   questionnaireTitle: {
     fontSize: scaleFontSize(isSmall ? 24 : 28),
@@ -43,9 +34,6 @@ export const styles = StyleSheet.create({
   },
   padelQuestionnaireTitle: {
     color: '#9BD0FF',
-  },
-  headerSpacer: {
-    width: moderateScale(40),
   },
 
   // Question Container - Card stack layout
@@ -91,15 +79,26 @@ export const styles = StyleSheet.create({
     top: 0,
     left: 0,
     right: 0,
-    bottom: 0,
+    bottom: 0, // Use bottom instead of height: 100% for proper flex calculation
     zIndex: 15, // Behind active card
   },
 
   // Active Card Container (animated, slides left)
   activeCardContainer: {
-    position: 'relative',
-    flex: 1,
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0, // Use bottom instead of height: 100% for proper flex calculation
     zIndex: 20, // In front of next card
+  },
+
+  // Blank card (white card for preview)
+  blankCard: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
+    borderRadius: moderateScale(isSmall ? 24 : 30),
+    ...createShadow('#000', 0.1, 8, 5),
   },
 
   // Loading/Error
