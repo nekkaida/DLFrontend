@@ -119,8 +119,8 @@ export class TennisQuestionnaire {
           answers: {
             "Beginner (learning basic serve motion)": -0.8,
             "Developing (improving first serve; learning second serve)": -0.3,
-            "Intermediate (good first serve placement, reliable second serve)": 0.3,
-            "Advanced (variety of serves with good placement and power)": 0.8,
+            "Intermediate (good placement; reliable second serve)": 0.3,
+            "Advanced (variety with strong placement and power)": 0.8,
           },
           tooltip: "Rate your serving ability including first serve consistency, second serve reliability, and placement control",
         },
