@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import {
   View,
   Text,
@@ -6,8 +6,10 @@ import {
   StyleSheet,
   ViewStyle,
   Alert,
+  ScrollView,
   Platform,
 } from 'react-native';
+import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
 import OptionButton from './OptionButton';
 import NumberInput from './NumberInput';
 import { toast } from 'sonner-native';
@@ -30,6 +32,7 @@ interface QuestionContainerProps {
   containerStyle?: ViewStyle;
   navigationButtons?: React.ReactNode;
   questionKey?: string;
+  showContent?: boolean; // Control content visibility for entrance animations
 }
 
 // Question context mapping
@@ -48,6 +51,18 @@ const getQuestionContext = (questionKey?: string) => {
     dupr_doubles: { 
       text: "Your official doubles rating for accurate assessment",
       tooltip: "Doubles ratings may differ from singles due to partner play dynamics"
+    },
+    dupr_reliability_games: { 
+      text: "More games means a more reliable rating",
+      tooltip: "DUPR becomes more accurate with 15+ rated games"
+    },
+    dupr_recent_activity: { 
+      text: "Recent play ensures current skill level",
+      tooltip: "Skills can change over time, recent games reflect current ability"
+    },
+    dupr_competition_level: { 
+      text: "Competition level affects rating accuracy",
+      tooltip: "Tournament games typically provide more accurate ratings"
     },
     experience: { 
       text: "Experience level helps gauge your development",
@@ -77,6 +92,14 @@ const getQuestionContext = (questionKey?: string) => {
       text: "Tournament experience indicates skill level",
       tooltip: "Competitive play demonstrates ability under pressure"
     },
+    consistency_check_1: { 
+      text: "Overall ability check",
+      tooltip: "Helps us verify the consistency of your responses"
+    },
+    consistency_check_2: { 
+      text: "Competition level verification",
+      tooltip: "Cross-validates your skill level assessment"
+    },
     coaching_background: {
       text: "Formal instruction background",
       tooltip: "Coaching experience often indicates higher skill levels"
@@ -95,6 +118,7 @@ const QuestionContainer: React.FC<QuestionContainerProps> = ({
   containerStyle,
   navigationButtons,
   questionKey,
+  showContent = true,
 }) => {
   const showTooltip = () => {
     if (tooltipText) {
@@ -108,19 +132,49 @@ const QuestionContainer: React.FC<QuestionContainerProps> = ({
 
   return (
     <View style={[styles.container, containerStyle]}>
-      <View style={styles.contentWrapper}>
-        <Text style={styles.instructionText}>Select an answer</Text>
-        <Text style={styles.questionText}>{question}</Text>
+      {showContent ? (
+        <>
+          <ScrollView
+            key={`scroll-${questionKey}-${showContent}`} // Force remount for animations
+            style={styles.scrollContainer}
+            contentContainerStyle={styles.scrollContent}
+            showsVerticalScrollIndicator={false}
+            bounces={false}
+          >
+            <Animated.View entering={FadeIn.duration(300).delay(100)}>
+              <Text style={styles.instructionText}>Select an answer</Text>
+            </Animated.View>
 
-        {effectiveContextText && (
-          <Text style={styles.contextText}>{effectiveContextText}</Text>
-        )}
+            <Animated.View entering={FadeInDown.duration(400).delay(150)}>
+              <Text style={styles.questionText}>{question}</Text>
+            </Animated.View>
 
-        <View style={styles.contentContainer}>{children}</View>
-      </View>
+            {effectiveContextText && (
+              <Animated.View entering={FadeIn.duration(300).delay(250)}>
+                <Text style={styles.contextText}>{effectiveContextText}</Text>
+              </Animated.View>
+            )}
 
-      {navigationButtons && (
-        <View style={styles.navigationContainer}>{navigationButtons}</View>
+            <Animated.View
+              entering={FadeInDown.duration(400).delay(300)}
+              style={styles.contentContainer}
+            >
+              {children}
+            </Animated.View>
+          </ScrollView>
+
+          {navigationButtons && (
+            <Animated.View
+              entering={FadeIn.duration(200).delay(350)}
+              style={styles.navigationContainer}
+            >
+              {navigationButtons}
+            </Animated.View>
+          )}
+        </>
+      ) : (
+        // Blank card - no content or buttons visible during transition
+        <View style={styles.blankCardContent} />
       )}
     </View>
   );
@@ -135,6 +189,7 @@ interface QuestionCardProps {
   responses: any;
   navigationButtons: React.ReactNode;
   sport?: 'pickleball' | 'tennis' | 'padel';
+  showContent?: boolean; // Control content visibility for entrance animations
 }
 
 export const QuestionCard: React.FC<QuestionCardProps> = ({
@@ -145,16 +200,19 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
   responses,
   navigationButtons,
   sport = 'pickleball',
+  showContent = true,
 }) => {
   const renderQuestionContent = () => {
     switch (question.type) {
       case 'single_choice':
         return (
           <QuestionContainer
+            key={question.key} // Force re-mount for fade-in animation
             question={question.question}
             helpText={question.help_text}
             questionKey={question.key}
             navigationButtons={navigationButtons}
+            showContent={showContent}
           >
             {question.options?.map((option: string, index: number) => (
               <OptionButton
@@ -171,64 +229,33 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
       case 'number':
         return (
           <QuestionContainer
+            key={question.key} // Force re-mount for fade-in animation
             question={question.question}
             helpText={question.help_text}
             questionKey={question.key}
             navigationButtons={navigationButtons}
+            showContent={showContent}
           >
             <NumberInput
-              value={
-                currentPageAnswers[question.key] !== undefined &&
-                currentPageAnswers[question.key] !== null
-                  ? String(currentPageAnswers[question.key])
-                  : ''
-              }
+              value={currentPageAnswers[question.key] ? String(currentPageAnswers[question.key]) : ''}
               onChangeText={(text) => {
-                const normalizedText = text.replace(',', '.');
-
-                if (normalizedText.trim() === '' || normalizedText.endsWith('.')) {
-                  onAnswer(question.key, normalizedText);
-                  return;
-                }
-
-                const numValue = parseFloat(normalizedText);
-                if (!isNaN(numValue)) {
-                  const belowMin =
-                    question.min_value !== undefined && numValue < question.min_value;
-                  const aboveMax =
-                    question.max_value !== undefined && numValue > question.max_value;
-
-                  if (belowMin || aboveMax) {
-                    onAnswer(question.key, normalizedText);
-                    return;
-                  }
-
+                const numValue = parseFloat(text);
+                if (!isNaN(numValue) &&
+                    (!question.min_value || numValue >= question.min_value) &&
+                    (!question.max_value || numValue <= question.max_value)) {
                   onAnswer(question.key, numValue);
-                } else {
-                  onAnswer(question.key, normalizedText);
                 }
               }}
               onSubmit={() => {
-                const text =
-                  currentPageAnswers[question.key] !== undefined &&
-                  currentPageAnswers[question.key] !== null
-                    ? String(currentPageAnswers[question.key])
-                    : '';
-                const normalizedText = text.replace(',', '.');
-                const numValue = parseFloat(normalizedText);
-                if (
-                  !isNaN(numValue) &&
-                  (question.min_value === undefined || numValue >= question.min_value) &&
-                  (question.max_value === undefined || numValue <= question.max_value)
-                ) {
+                const text = currentPageAnswers[question.key] ? String(currentPageAnswers[question.key]) : '';
+                const numValue = parseFloat(text);
+                if (!isNaN(numValue) &&
+                    (!question.min_value || numValue >= question.min_value) &&
+                    (!question.max_value || numValue <= question.max_value)) {
                   onAnswer(question.key, numValue);
                 } else {
                   toast.error('Invalid Input', {
-                    description: `Please enter a valid number${
-                      question.min_value !== undefined && question.max_value !== undefined
-                        ? ` between ${question.min_value} and ${question.max_value}`
-                        : ''
-                    }`,
+                    description: `Please enter a valid number ${question.min_value ? `between ${question.min_value} and ${question.max_value}` : ''}`,
                   });
                 }
               }}
@@ -253,25 +280,31 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
 };
 
 const styles = StyleSheet.create({
+  // Question Card Container - Must fill absolute parent
   questionCardContainer: {
-    width: '100%',
+    flex: 1, // Fill the absolute positioned parent
   },
 
+  // FULLY RESPONSIVE QUESTION CONTAINER
   container: {
+    flex: 1, // Take full available height for consistent card size
     backgroundColor: '#FFFFFF',
     borderRadius: moderateScale(isSmall ? 24 : 30),
-    paddingHorizontal: getResponsivePadding(isSmall ? 20 : 24),
-    paddingTop: moderateScale(isSmall ? 18 : 22),
-    paddingBottom: moderateScale(isSmall ? 14 : 18),
-    ...createShadow('#000', 0.12, 10, 6),
+    padding: 0,
+    ...createShadow('#000', 0.1, 8, 5),
   },
-  contentWrapper: {
-    width: '100%',
+  scrollContainer: {
+    flexGrow: 1, // Allow scroll to grow but not enforce full height
+    paddingHorizontal: getResponsivePadding(isSmall ? 24 : 28),
+    paddingTop: moderateScale(isSmall ? 24 : 28),
+  },
+  scrollContent: {
+    paddingBottom: moderateScale(20),
   },
   instructionText: {
     fontSize: scaleFontSize(isSmall ? 12 : 13),
     color: '#8C8C8C',
-    marginBottom: moderateScale(isSmall ? 6 : 8),
+    marginBottom: moderateScale(isSmall ? 12 : 16),
     fontFamily: 'Roboto',
     textAlign: 'left',
   },
@@ -279,7 +312,7 @@ const styles = StyleSheet.create({
     fontSize: scaleFontSize(isSmall ? 18 : 20),
     fontWeight: '600',
     color: '#000000',
-    marginBottom: moderateScale(isSmall ? 12 : 16),
+    marginBottom: moderateScale(isSmall ? 20 : 24),
     fontFamily: 'Roboto',
     lineHeight: scaleFontSize(isSmall ? 24 : 28),
     textAlign: 'left',
@@ -287,22 +320,28 @@ const styles = StyleSheet.create({
   contextText: {
     fontSize: scaleFontSize(isSmall ? 14 : 15),
     color: '#6C7278',
-    marginBottom: moderateScale(isSmall ? 10 : 12),
+    marginBottom: moderateScale(isSmall ? 16 : 20),
     fontFamily: 'Roboto',
     lineHeight: scaleFontSize(isSmall ? 20 : 22),
     textAlign: 'left',
     fontStyle: 'italic',
   },
   contentContainer: {
-    gap: moderateScale(isSmall ? 6 : 8),
-    marginBottom: moderateScale(isSmall ? 6 : 8),
+    gap: moderateScale(isSmall ? 12 : 16),
+    marginBottom: moderateScale(isSmall ? 16 : 20),
   },
   navigationContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginTop: moderateScale(isSmall ? 6 : 8),
-    paddingBottom: moderateScale(isSmall ? 2 : 4),
+    paddingHorizontal: getResponsivePadding(isSmall ? 28 : 36),
+    paddingVertical: moderateScale(isSmall ? 16 : 20),
+    backgroundColor: '#FFFFFF',
+    borderBottomLeftRadius: moderateScale(isSmall ? 24 : 30),
+    borderBottomRightRadius: moderateScale(isSmall ? 24 : 30),
+  },
+  blankCardContent: {
+    flex: 1, // Fill space with nothing (truly blank)
   },
 });
 

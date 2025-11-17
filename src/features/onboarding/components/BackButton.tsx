@@ -1,7 +1,8 @@
 import React from 'react';
-import { TouchableOpacity, StyleSheet } from 'react-native';
+import { TouchableOpacity, StyleSheet, Platform } from 'react-native';
 import { useRouter } from 'expo-router';
 import Svg, { Path } from 'react-native-svg';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 interface BackButtonProps {
   onPress?: () => void;
@@ -14,15 +15,16 @@ interface BackButtonProps {
  * Reusable back navigation button used across onboarding screens
  *
  * @param onPress - Optional custom onPress handler (defaults to router.back())
- * @param top - Optional top position (defaults to 62)
+ * @param top - Optional top position (auto-calculated from safe area if not provided)
  * @param left - Optional left position (defaults to 19)
  */
 const BackButton: React.FC<BackButtonProps> = ({
   onPress,
-  top = 62,
+  top,
   left = 19,
 }) => {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
 
   const handlePress = () => {
     if (onPress) {
@@ -32,9 +34,16 @@ const BackButton: React.FC<BackButtonProps> = ({
     }
   };
 
+  // Calculate responsive top position if not provided
+  const calculatedTop = top !== undefined ? top : Platform.select({
+    ios: insets.top + 8, // SafeArea top + 8px padding
+    android: 16, // Fixed 16px on Android
+    default: 16,
+  });
+
   return (
     <TouchableOpacity
-      style={[styles.backButton, { top, left }]}
+      style={[styles.backButton, { top: calculatedTop, left }]}
       onPress={handlePress}
     >
       <Svg width="36" height="36" viewBox="0 0 36 36" fill="none">

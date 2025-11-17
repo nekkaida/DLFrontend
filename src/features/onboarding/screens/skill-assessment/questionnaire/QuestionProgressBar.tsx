@@ -1,5 +1,12 @@
-import React, { useMemo, useRef, useEffect } from 'react';
-import { View, Text, Animated } from 'react-native';
+import React, { useMemo, useEffect } from 'react';
+import { View, Text } from 'react-native';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withTiming,
+  Easing,
+  interpolate,
+} from 'react-native-reanimated';
 import { styles } from './QuestionProgressBar.styles';
 
 interface QuestionProgressBarProps {
@@ -15,26 +22,24 @@ export const QuestionProgressBar: React.FC<QuestionProgressBarProps> = ({
     return (current / total) * 100;
   }, [current, total]);
 
-  const animatedWidth = useRef(new Animated.Value(percentage)).current;
-  const isInitialMount = useRef(true);
+  const animatedProgress = useSharedValue(percentage);
 
   useEffect(() => {
-    if (isInitialMount.current) {
-      animatedWidth.setValue(percentage);
-      isInitialMount.current = false;
-    } else {
-      Animated.timing(animatedWidth, {
-        toValue: percentage,
-        duration: 200,
-        useNativeDriver: false,
-      }).start();
-    }
-  }, [percentage, animatedWidth]);
+    animatedProgress.value = withTiming(percentage, {
+      duration: 300,
+      easing: Easing.out(Easing.cubic),
+    });
+  }, [percentage]);
 
-  const widthInterpolation = animatedWidth.interpolate({
-    inputRange: [0, 100],
-    outputRange: ['0%', '100%'],
-    extrapolate: 'clamp',
+  const progressStyle = useAnimatedStyle(() => {
+    const width = interpolate(
+      animatedProgress.value,
+      [0, 100],
+      [0, 100]
+    );
+    return {
+      width: `${width}%`,
+    };
   });
 
   return (
@@ -44,7 +49,7 @@ export const QuestionProgressBar: React.FC<QuestionProgressBarProps> = ({
       </Text>
       <View style={styles.progressBar}>
         <Animated.View
-          style={[styles.progressFill, { width: widthInterpolation }]}
+          style={[styles.progressFill, progressStyle]}
         />
       </View>
     </View>
