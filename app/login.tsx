@@ -1,12 +1,29 @@
 import { authClient } from "@/lib/auth-client";
 import axiosInstance, { endpoints } from "@/lib/endpoints";
 import { LoginScreen } from "@/src/features/auth/screens/LoginScreen";
-import { useRouter } from "expo-router";
-import React from "react";
+import { useRouter, useNavigation } from "expo-router";
+import React, { useEffect } from "react";
 import { toast } from "sonner-native";
+import { useSession } from "@/lib/auth-client";
 
 export default function LoginRoute() {
   const router = useRouter();
+  const navigation = useNavigation();
+  const { data: session } = useSession();
+
+  // Disable gesture navigation when user is unauthenticated (after logout)
+  // This prevents users from swiping back to protected pages
+  useEffect(() => {
+    if (!session?.user) {
+      navigation.setOptions({
+        gestureEnabled: false,
+      });
+    } else {
+      navigation.setOptions({
+        gestureEnabled: true,
+      });
+    }
+  }, [session?.user, navigation]);
 
   const handleLogin = async (emailOrUsername: string, password: string) => {
     try {

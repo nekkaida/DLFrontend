@@ -8,6 +8,9 @@ import {
   Switch,
   Alert,
   Platform,
+  ViewStyle,
+  TextStyle,
+  StyleProp,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -18,6 +21,7 @@ import * as Haptics from 'expo-haptics';
 import { authClient } from '@/lib/auth-client';
 import * as SecureStore from 'expo-secure-store';
 import { toast } from 'sonner-native';
+import { navigateAndClearStack } from '@/src/core/navigation/navigationUtils';
 
 // BackgroundGradient Component (consistent with profile)
 const BackgroundGradient = () => {
@@ -25,7 +29,7 @@ const BackgroundGradient = () => {
     <LinearGradient
       colors={['#FE9F4D', '#FFF5EE', '#FFFFFF']}
       locations={[0, 0.4, 1.0]}
-      style={styles.backgroundGradient}
+      style={styles.backgroundGradient as ViewStyle}
       start={{ x: 0.5, y: 0 }}
       end={{ x: 0.5, y: 1 }}
     />
@@ -109,6 +113,8 @@ export default function SettingsScreen() {
               
               console.log('Successfully signed out');
 
+              // Navigate to login and clear navigation stack to prevent back navigation
+              navigateAndClearStack('/login');
               
               console.log('Logout process completed - user should see login page');
               
@@ -195,7 +201,10 @@ export default function SettingsScreen() {
           subtitle: 'Get help and support',
           type: 'navigate',
           icon: 'help-circle-outline',
-          action: () => router.push('/help'),
+          action: () => {
+            // TODO: Create these routes or use a type-safe navigation helper
+            router.push('/help' as Parameters<typeof router.push>[0]);
+          },
         },
         {
           id: 'feedback',
@@ -203,7 +212,10 @@ export default function SettingsScreen() {
           subtitle: 'Share your thoughts with us',
           type: 'navigate',
           icon: 'chatbubble-outline',
-          action: () => router.push('/feedback'),
+          action: () => {
+            // TODO: Create these routes or use a type-safe navigation helper
+            router.push('/feedback' as Parameters<typeof router.push>[0]);
+          },
         },
         {
           id: 'about',
@@ -211,7 +223,10 @@ export default function SettingsScreen() {
           subtitle: 'Version 1.0.0',
           type: 'navigate',
           icon: 'information-circle-outline',
-          action: () => router.push('/about'),
+          action: () => {
+            // TODO: Create these routes or use a type-safe navigation helper
+            router.push('/about' as Parameters<typeof router.push>[0]);
+          },
         },
       ],
     },
@@ -245,8 +260,8 @@ export default function SettingsScreen() {
     return (
       <Pressable
         key={item.id}
-        style={({ pressed }) => [
-          styles.settingItem,
+        style={({ pressed }): StyleProp<ViewStyle> => [
+          styles.settingItem as ViewStyle,
           { opacity: pressed ? 0.7 : 1 }
         ]}
         onPress={handlePress}
@@ -254,9 +269,9 @@ export default function SettingsScreen() {
         accessibilityRole="button"
         accessibilityLabel={item.title}
       >
-        <View style={styles.settingLeft}>
+        <View style={styles.settingLeft as ViewStyle}>
           <View style={[
-            styles.settingIcon,
+            styles.settingIcon as ViewStyle,
             item.iconColor && { backgroundColor: `${item.iconColor}15` }
           ]}>
             <Ionicons 
@@ -265,20 +280,20 @@ export default function SettingsScreen() {
               color={item.iconColor || theme.colors.neutral.gray[600]} 
             />
           </View>
-          <View style={styles.settingText}>
+          <View style={styles.settingText as ViewStyle}>
             <Text style={[
-              styles.settingTitle,
+              styles.settingTitle as TextStyle,
               item.iconColor && { color: item.iconColor }
             ]}>
               {item.title}
             </Text>
             {item.subtitle && (
-              <Text style={styles.settingSubtitle}>{item.subtitle}</Text>
+              <Text style={styles.settingSubtitle as TextStyle}>{item.subtitle}</Text>
             )}
           </View>
         </View>
 
-        <View style={styles.settingRight}>
+        <View style={styles.settingRight as ViewStyle}>
           {item.type === 'toggle' ? (
             <Switch
               value={item.value}
@@ -303,14 +318,14 @@ export default function SettingsScreen() {
   };
 
   return (
-    <View style={styles.container}>
+    <View style={styles.container as ViewStyle}>
       <BackgroundGradient />
       
-      <SafeAreaView style={styles.safeArea}>
+      <SafeAreaView style={styles.safeArea as ViewStyle}>
         {/* Header */}
-        <View style={styles.header}>
+        <View style={styles.header as ViewStyle}>
           <Pressable
-            style={styles.backButton}
+            style={styles.backButton as ViewStyle}
             onPress={() => {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
               router.back();
@@ -322,26 +337,26 @@ export default function SettingsScreen() {
             <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
           </Pressable>
           
-          <Text style={styles.headerTitle}>Settings</Text>
+          <Text style={styles.headerTitle as TextStyle}>Settings</Text>
           
-          <View style={styles.headerSpacer} />
+          <View style={styles.headerSpacer as ViewStyle} />
         </View>
 
         <ScrollView 
-          style={styles.scrollView}
+          style={styles.scrollView as ViewStyle}
           showsVerticalScrollIndicator={false}
-          contentContainerStyle={styles.scrollContent}
+          contentContainerStyle={styles.scrollContent as ViewStyle}
         >
           {settingSections.map((section, sectionIndex) => (
-            <View key={section.id} style={styles.section}>
-              <Text style={styles.sectionTitle}>{section.title}</Text>
+            <View key={section.id} style={styles.section as ViewStyle}>
+              <Text style={styles.sectionTitle as TextStyle}>{section.title}</Text>
               
-              <View style={styles.sectionContent}>
+              <View style={styles.sectionContent as ViewStyle}>
                 {section.items.map((item, itemIndex) => (
                   <React.Fragment key={item.id}>
                     {renderSettingItem(item)}
                     {itemIndex < section.items.length - 1 && (
-                      <View style={styles.itemDivider} />
+                      <View style={styles.itemDivider as ViewStyle} />
                     )}
                   </React.Fragment>
                 ))}
@@ -350,8 +365,8 @@ export default function SettingsScreen() {
           ))}
 
           {/* Footer */}
-          <View style={styles.footer}>
-            <Text style={styles.footerText}>Version 1.0.0</Text>
+          <View style={styles.footer as ViewStyle}>
+            <Text style={styles.footerText as TextStyle}>Version 1.0.0</Text>
           </View>
         </ScrollView>
       </SafeAreaView>
@@ -393,7 +408,7 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     fontSize: theme.typography.fontSize.xl,
-    fontWeight: theme.typography.fontWeight.heavy,
+    fontWeight: theme.typography.fontWeight.heavy as any,
     color: '#FFFFFF',
     fontFamily: theme.typography.fontFamily.primary,
   },
@@ -412,7 +427,7 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontSize: theme.typography.fontSize.lg,
-    fontWeight: theme.typography.fontWeight.bold,
+    fontWeight: theme.typography.fontWeight.bold as any,
     color: theme.colors.neutral.gray[700],
     fontFamily: theme.typography.fontFamily.primary,
     marginBottom: theme.spacing.md,
@@ -460,8 +475,8 @@ const styles = StyleSheet.create({
   },
   settingTitle: {
     fontSize: theme.typography.fontSize.base,
-    fontWeight: theme.typography.fontWeight.semibold,
-    color: theme.colors.neutral.gray[900],
+    fontWeight: theme.typography.fontWeight.semibold as any,
+    color: (theme.colors.neutral.gray as any)[900] || theme.colors.neutral.gray[700],
     fontFamily: theme.typography.fontFamily.primary,
     marginBottom: 2,
   },
@@ -486,7 +501,7 @@ const styles = StyleSheet.create({
   },
   footerText: {
     fontSize: theme.typography.fontSize.lg,
-    fontWeight: theme.typography.fontWeight.bold,
+    fontWeight: theme.typography.fontWeight.bold as any,
     color: theme.colors.neutral.gray[700],
     fontFamily: theme.typography.fontFamily.primary,
     marginBottom: theme.spacing.xs,

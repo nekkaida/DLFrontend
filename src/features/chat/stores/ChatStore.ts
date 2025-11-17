@@ -174,11 +174,29 @@ export const useChatStore = create<ChatState & ChatActions>((set, get) => ({
   },
 
   addThread: (newThread) => {
+    // Validate thread before adding
+    if (!newThread || !newThread.id) {
+      console.warn('ChatStore: Attempted to add invalid thread:', newThread);
+      return;
+    }
+    
     console.log('ChatStore: Adding new thread:', newThread.name);
     const { threads } = get();
     
-    // Add thread to beginning and sort
-    const updatedThreads = [newThread, ...threads].sort((a, b) => {
+    // Ensure updatedAt is a Date object
+    const threadToAdd: Thread = {
+      ...newThread,
+      updatedAt: newThread.updatedAt instanceof Date 
+        ? newThread.updatedAt 
+        : new Date(newThread.updatedAt || Date.now()),
+      createdAt: newThread.createdAt instanceof Date 
+        ? newThread.createdAt 
+        : new Date(newThread.createdAt || Date.now()),
+    };
+    
+    // Filter out any null/invalid threads and remove existing thread with same ID to prevent duplicates
+    const validThreads = threads.filter(t => t && t.id && t.id !== threadToAdd.id);
+    const updatedThreads = [threadToAdd, ...validThreads].sort((a, b) => {
       const dateA = a.updatedAt ? new Date(a.updatedAt).getTime() : 0;
       const dateB = b.updatedAt ? new Date(b.updatedAt).getTime() : 0;
       return dateB - dateA;
@@ -192,8 +210,14 @@ export const useChatStore = create<ChatState & ChatActions>((set, get) => ({
     try {
       set({ isLoading: true, error: null });
       const threads = await ChatService.getThreads(userId);
-      console.log('ChatStore: Loaded threads:', threads.length);
-      set({ threads, isLoading: false });
+      
+      // Deduplicate threads by ID in case backend returns duplicates
+      const uniqueThreads = Array.from(
+        new Map(threads.map(thread => [thread.id, thread])).values()
+      );
+      
+      console.log('ChatStore: Loaded threads:', uniqueThreads.length);
+      set({ threads: uniqueThreads, isLoading: false });
     } catch (error) {
       console.error('ChatStore: Error loading threads:', error);
       set({ 
