@@ -1,5 +1,5 @@
 import React from 'react';
-import { ScrollView, Text, View, StyleSheet, Dimensions, TouchableOpacity, ActivityIndicator, Image, StatusBar } from 'react-native';
+import { ScrollView, Text, View, StyleSheet, Dimensions, TouchableOpacity, ActivityIndicator, Image, StatusBar, Animated } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
@@ -49,6 +49,35 @@ export default function SeasonDetailsScreen({
   const STATUS_BAR_HEIGHT = insets.top;
 
   const userId = session?.user?.id;
+
+  // Animated scroll value for collapsing header
+  const scrollY = React.useRef(new Animated.Value(0)).current;
+  
+  // Constants for header animation
+  const TOP_HEADER_HEIGHT = STATUS_BAR_HEIGHT + (isSmallScreen ? 36 : isTablet ? 44 : 40);
+  const HEADER_MAX_HEIGHT = 180; // Full header height
+  const HEADER_MIN_HEIGHT = 80; // Collapsed header height
+  const HEADER_SCROLL_DISTANCE = HEADER_MAX_HEIGHT - HEADER_MIN_HEIGHT;
+  const COLLAPSE_START_THRESHOLD = 40; // Start collapsing after scrolling 40px
+  const COLLAPSE_END_THRESHOLD = COLLAPSE_START_THRESHOLD + HEADER_SCROLL_DISTANCE; // End of collapse range
+  
+  const handleScroll = React.useCallback((event: any) => {
+    const { contentOffset, contentSize, layoutMeasurement } = event.nativeEvent;
+    const scrollYValue = contentOffset.y;
+    
+    const availableScrollSpace = contentSize.height - layoutMeasurement.height;
+    
+    const shouldAllowCollapse = availableScrollSpace >= COLLAPSE_END_THRESHOLD;
+    
+    let clampedValue = scrollYValue;
+    if (!shouldAllowCollapse) {
+      clampedValue = Math.min(scrollYValue, Math.max(0, COLLAPSE_START_THRESHOLD - 10));
+    } else {
+      clampedValue = Math.min(scrollYValue, availableScrollSpace);
+    }
+    
+    scrollY.setValue(clampedValue);
+  }, [scrollY]);
 
   React.useEffect(() => {
     fetchSeasonData();
@@ -148,15 +177,12 @@ export default function SeasonDetailsScreen({
     
     // Check if this is a doubles season by checking category name
     // Categories like "Men's Doubles", "Women's Doubles", "Mixed Doubles" should go to team pairing
-    const isDoublesSeason = season.categories?.some(cat => 
-      cat.name?.toLowerCase().includes('doubles') || 
-      cat.matchFormat?.toLowerCase().includes('doubles') || 
-      (cat as any).game_type === 'DOUBLES'
-    );
+    const doublesSeason = isDoublesSeason(season);
+    const categories = getNormalizedCategories(season);
     
-    console.log('Is doubles season?', isDoublesSeason, 'Categories:', season.categories?.map(c => c.name));
+    console.log('Is doubles season?', doublesSeason, 'Categories:', categories.map(c => c.name));
     
-    if (isDoublesSeason) {
+    if (doublesSeason) {
       // Navigate to doubles team pairing screen
       router.push({
         pathname: '/user-dashboard/doubles-team-pairing' as any,
@@ -321,6 +347,26 @@ export default function SeasonDetailsScreen({
     return getSubheadingGradientColors(sport)[0];
   };
 
+  // Helper function to normalize categories (handle both singular and plural)
+  const getNormalizedCategories = (season: Season | null): any[] => {
+    if (!season) return [];
+    const category = (season as any)?.category;
+    const categories = (season as any)?.categories || (category ? [category] : []);
+    const normalizedCategories = Array.isArray(categories) ? categories : [categories].filter(Boolean);
+    return normalizedCategories;
+  };
+
+  // Helper function to check if season is doubles
+  const isDoublesSeason = (season: Season | null): boolean => {
+    if (!season) return false;
+    const categories = getNormalizedCategories(season);
+    return categories.some(cat =>
+      cat.name?.toLowerCase().includes('doubles') ||
+      cat.matchFormat?.toLowerCase().includes('doubles') ||
+      (cat as any).game_type === 'DOUBLES'
+    );
+  };
+
   // Button configuration based on user registration status
   const getButtonConfig = () => {
     if (!season || !userId) {
@@ -336,14 +382,10 @@ export default function SeasonDetailsScreen({
     const isUserRegistered = !!userMembership;
 
     // For doubles seasons, check if user needs to complete team registration/payment
-    const isDoublesSeason = season.categories?.some(cat =>
-      cat.name?.toLowerCase().includes('doubles') ||
-      cat.matchFormat?.toLowerCase().includes('doubles') ||
-      (cat as any).game_type === 'DOUBLES'
-    );
+    const doublesSeason = isDoublesSeason(season);
 
     // If doubles season and membership is PENDING (not paid), show Register Team
-    if (isDoublesSeason && userMembership && userMembership.status === 'PENDING') {
+    if (doublesSeason && userMembership && userMembership.status === 'PENDING') {
       return {
         text: 'Register Team',
         color: '#FEA04D',
@@ -393,6 +435,45 @@ export default function SeasonDetailsScreen({
   const getUserSelectedSports = () => {
     return ["pickleball", "tennis", "padel"];
   };
+
+  // Animated styles for collapsing header
+  const headerHeight = scrollY.interpolate({
+    inputRange: [0, COLLAPSE_START_THRESHOLD, COLLAPSE_END_THRESHOLD],
+    outputRange: [HEADER_MAX_HEIGHT, HEADER_MAX_HEIGHT, HEADER_MIN_HEIGHT],
+    extrapolate: 'clamp',
+  });
+
+  const leagueNameOpacity = scrollY.interpolate({
+    inputRange: [0, COLLAPSE_START_THRESHOLD, COLLAPSE_START_THRESHOLD + (HEADER_SCROLL_DISTANCE * 0.7)],
+    outputRange: [1, 1, 0],
+    extrapolate: 'clamp',
+  });
+
+  const bannerContainerOpacity = scrollY.interpolate({
+    inputRange: [0, COLLAPSE_START_THRESHOLD, COLLAPSE_START_THRESHOLD + (HEADER_SCROLL_DISTANCE * 0.5)],
+    outputRange: [1, 1, 0],
+    extrapolate: 'clamp',
+  });
+
+  const bannerContainerTranslateY = scrollY.interpolate({
+    inputRange: [0, COLLAPSE_START_THRESHOLD, COLLAPSE_START_THRESHOLD + (HEADER_SCROLL_DISTANCE * 0.5)],
+    outputRange: [0, 0, -20],
+    extrapolate: 'clamp',
+  });
+
+  // Collapsed season name opacity
+  const collapsedSeasonNameOpacity = scrollY.interpolate({
+    inputRange: [0, COLLAPSE_START_THRESHOLD + (HEADER_SCROLL_DISTANCE * 0.7), COLLAPSE_END_THRESHOLD],
+    outputRange: [0, 0, 1],
+    extrapolate: 'clamp',
+  });
+
+  // Collapsed player count opacity
+  const collapsedPlayerCountOpacity = scrollY.interpolate({
+    inputRange: [0, COLLAPSE_START_THRESHOLD + (HEADER_SCROLL_DISTANCE * 0.5), COLLAPSE_END_THRESHOLD],
+    outputRange: [0, 0, 1],
+    extrapolate: 'clamp',
+  });
 
   return (
     <View style={styles.container}>
@@ -451,12 +532,19 @@ export default function SeasonDetailsScreen({
           </View>
         ) : (
           <>
-            <View style={styles.gradientHeaderContainer}>
+            <Animated.View 
+              style={[
+                styles.gradientHeaderContainer,
+                {
+                  height: headerHeight,
+                }
+              ]}
+            >
               <LinearGradient
                 colors={getHeaderGradientColors(sport)}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 0 }}
-                style={styles.seasonHeaderGradient}
+                style={[styles.seasonHeaderGradient, { flex: 1 }]}
               >
                 <View style={styles.seasonHeaderContent}>
                   <View style={styles.topRow}>
@@ -471,14 +559,64 @@ export default function SeasonDetailsScreen({
                         <BackButtonIcon width={12} height={19} />
                       </TouchableOpacity>
                     </View>
-                    <View style={styles.leagueNameContainer}>
+                    <Animated.View 
+                      style={[
+                        styles.leagueNameContainer,
+                        {
+                          opacity: leagueNameOpacity,
+                        }
+                      ]}
+                    >
                       <Text style={styles.leagueName} numberOfLines={2}>{league?.name || 'League'}</Text>
-                    </View>
+                    </Animated.View>
+                    {/* Collapsed header content */}
+                    <Animated.View 
+                      style={[
+                        styles.collapsedHeaderContent,
+                        {
+                          opacity: collapsedSeasonNameOpacity,
+                        }
+                      ]}
+                    >
+                      <Text style={styles.collapsedSeasonName} numberOfLines={1}>
+                        {(() => {
+                          const categories = getNormalizedCategories(season);
+                          const categoryName = categories?.[0]?.name;
+                          return categoryName ? `${categoryName} | ` : '';
+                        })()}
+                        <Text style={styles.collapsedSeasonNameHighlight}>{season?.name || seasonName}</Text>
+                      </Text>
+                      <Animated.View 
+                        style={[
+                          styles.collapsedPlayerCountContainer,
+                          {
+                            opacity: collapsedPlayerCountOpacity,
+                          }
+                        ]}
+                      >
+                        <View style={styles.statusCircle} />
+                        <Text style={styles.collapsedPlayerCount}>
+                          {`${season?._count?.memberships || season?.memberships?.length || 0} players`}
+                        </Text>
+                      </Animated.View>
+                    </Animated.View>
                   </View>
-                  <View style={styles.bannerContainer}>
+                  <Animated.View 
+                    style={[
+                      styles.bannerContainer,
+                      {
+                        opacity: bannerContainerOpacity,
+                        transform: [{ translateY: bannerContainerTranslateY }],
+                      }
+                    ]}
+                  >
                     <View style={[styles.nameBanner, { backgroundColor: getBannerBackgroundColor(sport) }]}>
                       <Text style={styles.seasonName}>
-                        {season?.categories?.[0]?.name ? `${season.categories[0].name} | ` : ''}
+                        {(() => {
+                          const categories = getNormalizedCategories(season);
+                          const categoryName = categories?.[0]?.name;
+                          return categoryName ? `${categoryName} | ` : '';
+                        })()}
                         <Text style={styles.seasonNameHighlight}>{season?.name || seasonName}</Text>
                       </Text>
                     </View>
@@ -491,8 +629,8 @@ export default function SeasonDetailsScreen({
                     
                     {season?.memberships && season.memberships.length > 0 && (
                       <View style={styles.profilePicturesContainer}>
-                        {season.memberships.slice(0, 6).map((membership: any) => (
-                          <View key={membership.id} style={styles.memberProfilePicture}>
+                        {season.memberships.slice(0, 6).map((membership: any, index: number) => (
+                          <View key={membership.id} style={[styles.memberProfilePicture, index > 0 && styles.memberProfilePictureOverlap]}>
                             {membership.user?.image ? (
                               <Image
                                 source={{ uri: membership.user.image }}
@@ -508,7 +646,7 @@ export default function SeasonDetailsScreen({
                           </View>
                         ))}
                         {season._count?.memberships && season._count.memberships > 6 && (
-                          <View style={styles.remainingCount}>
+                          <View style={[styles.remainingCount, styles.memberProfilePictureOverlap]}>
                             <Text style={styles.remainingCountText}>
                               +{season._count.memberships - 6}
                             </Text>
@@ -516,15 +654,17 @@ export default function SeasonDetailsScreen({
                         )}
                       </View>
                     )}
-                  </View>
+                  </Animated.View>
                 </View>
               </LinearGradient>
-            </View>
+            </Animated.View>
 
-            <ScrollView
+            <Animated.ScrollView
               style={styles.scrollContainer}
               contentContainerStyle={styles.scrollContent}
               showsVerticalScrollIndicator={false}
+              scrollEventThrottle={16}
+              onScroll={handleScroll}
             >
               <View style={styles.scrollTopSpacer} />
               
@@ -638,7 +778,7 @@ export default function SeasonDetailsScreen({
                   </View>
                 </View>
               </View>
-            </ScrollView>
+            </Animated.ScrollView>
           </>
         )}
         </View>
@@ -737,7 +877,7 @@ const styles = StyleSheet.create({
   topRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    marginTop: 2,
+    marginTop: 0,
     gap: 12,
   },
   backButtonContainer: {
@@ -757,6 +897,36 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingRight: 52, // Offset to balance the back button width + gap
+  },
+  collapsedHeaderContent: {
+    position: 'absolute',
+    left: 52,
+    right: 0,
+    alignItems: 'flex-start',
+    top: 0,
+    bottom: 20,
+    paddingLeft: 12,
+  },
+  collapsedSeasonName: {
+    fontSize: isSmallScreen ? 14 : 16,
+    fontWeight: '600',
+    color: '#FDFDFD',
+    textAlign: 'left',
+  },
+  collapsedSeasonNameHighlight: {
+    fontSize: isSmallScreen ? 14 : 16,
+    fontWeight: '600',
+    color: '#FEA04D',
+  },
+  collapsedPlayerCountContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-start',
+  },
+  collapsedPlayerCount: {
+    fontSize: isSmallScreen ? 12 : 13,
+    color: '#FDFDFD',
+    fontWeight: '600',
   },
   bannerContainer: {
     alignItems: 'center',
@@ -849,36 +1019,48 @@ const styles = StyleSheet.create({
     fontFamily: 'System',
   },
   memberProfilePicture: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3,
+    elevation: 4,
+  },
+  memberProfilePictureOverlap: {
+    marginLeft: -10,
   },
   memberProfileImage: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
   },
   defaultMemberProfileImage: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     backgroundColor: '#6de9a0',
     justifyContent: 'center',
     alignItems: 'center',
   },
   defaultMemberProfileText: {
     color: '#FFFFFF',
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: 'bold',
   },
   remainingCount: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#FFFFFF',
     justifyContent: 'center',
     alignItems: 'center',
+    overflow: 'hidden',
   },
   remainingCountText: {
     color: '#1C1A1A',

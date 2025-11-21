@@ -14,6 +14,13 @@ import type {
 } from '../types/questionnaire.types';
 
 // State shape
+interface QuestionHistoryEntry {
+  questions: Question[] | TennisQuestion[] | PadelQuestion[];
+  responses: any;
+  currentQuestionIndex: number;
+  pageAnswers: { [key: string]: any };
+}
+
 interface QuestionnaireState {
   // Question flow
   currentQuestionIndex: number;
@@ -28,10 +35,7 @@ interface QuestionnaireState {
   forceShowQuestionnaire: boolean;
 
   // History
-  questionHistory: Array<{
-    questions: Question[] | TennisQuestion[] | PadelQuestion[];
-    responses: any;
-  }>;
+  questionHistory: QuestionHistoryEntry[];
   currentPageIndex: number;
 }
 
@@ -46,11 +50,12 @@ type QuestionnaireAction =
   | { type: 'SET_QUESTIONNAIRE_TYPE'; payload: 'pickleball' | 'tennis' | 'padel' }
   | { type: 'SHOW_INTRODUCTION'; payload: boolean }
   | { type: 'FORCE_SHOW_QUESTIONNAIRE'; payload: boolean }
-  | { type: 'PUSH_HISTORY'; payload: { questions: any[]; responses: any } }
+  | { type: 'PUSH_HISTORY'; payload: QuestionHistoryEntry }
   | { type: 'GO_BACK_HISTORY' }
   | { type: 'RESET_QUESTIONNAIRE' }
   | { type: 'INCREMENT_PAGE_INDEX' }
-  | { type: 'INIT_HISTORY'; payload: { questions: any[]; responses: any } };
+  | { type: 'INIT_HISTORY'; payload: QuestionHistoryEntry }
+  | { type: 'REMOVE_RESPONSE'; payload: string };
 
 // Initial state
 const initialState: QuestionnaireState = {
@@ -131,23 +136,44 @@ function questionnaireReducer(
         currentPageIndex: state.currentPageIndex + 1,
       };
 
-    case 'GO_BACK_HISTORY':
-      if (state.currentPageIndex === 0) return state;
-      const previousPage = state.questionHistory[state.currentPageIndex - 1];
+    case 'GO_BACK_HISTORY': {
+      if (state.questionHistory.length === 0) return state;
+      const previousPage = state.questionHistory[state.questionHistory.length - 1];
+      if (!previousPage) return state;
+      const updatedHistory = state.questionHistory.slice(0, -1);
       return {
         ...state,
-        questions: previousPage.questions,
-        responses: previousPage.responses,
-        currentPageIndex: state.currentPageIndex - 1,
-        currentPageAnswers: {},
+        questions: previousPage.questions || [],
+        responses: previousPage.responses || {},
+        currentPageAnswers: previousPage.pageAnswers || {},
+        currentQuestionIndex: previousPage.currentQuestionIndex ?? 0,
+        questionHistory: updatedHistory,
+        currentPageIndex: Math.max(state.currentPageIndex - 1, 0),
         skillResponses: {},
       };
+    }
 
     case 'RESET_QUESTIONNAIRE':
       return {
         ...initialState,
         currentQuestionnaireType: state.currentQuestionnaireType,
       };
+
+    case 'REMOVE_RESPONSE': {
+      const { [action.payload]: _, ...rest } = state.responses as Record<string, any>;
+      return {
+        ...state,
+        responses: rest,
+      };
+    }
+
+    case 'REMOVE_RESPONSE': {
+      const { [action.payload]: _, ...rest } = state.responses as Record<string, any>;
+      return {
+        ...state,
+        responses: rest,
+      };
+    }
 
     default:
       return state;
@@ -203,11 +229,27 @@ export function useQuestionnaire() {
     forceShowQuestionnaire: (force: boolean) =>
       dispatch({ type: 'FORCE_SHOW_QUESTIONNAIRE', payload: force }),
 
-    initHistory: (questions: any[], responses: any) =>
-      dispatch({ type: 'INIT_HISTORY', payload: { questions, responses } }),
+    initHistory: (
+      questions: any[],
+      responses: any,
+      currentQuestionIndex: number,
+      pageAnswers: any
+    ) =>
+      dispatch({
+        type: 'INIT_HISTORY',
+        payload: { questions, responses, currentQuestionIndex, pageAnswers },
+      }),
 
-    pushHistory: (questions: any[], responses: any) =>
-      dispatch({ type: 'PUSH_HISTORY', payload: { questions, responses } }),
+    pushHistory: (
+      questions: any[],
+      responses: any,
+      currentQuestionIndex: number,
+      pageAnswers: any
+    ) =>
+      dispatch({
+        type: 'PUSH_HISTORY',
+        payload: { questions, responses, currentQuestionIndex, pageAnswers },
+      }),
 
     incrementPageIndex: () =>
       dispatch({ type: 'INCREMENT_PAGE_INDEX' }),
@@ -217,6 +259,9 @@ export function useQuestionnaire() {
 
     resetQuestionnaire: () =>
       dispatch({ type: 'RESET_QUESTIONNAIRE' }),
+
+    removeResponse: (key: string) =>
+      dispatch({ type: 'REMOVE_RESPONSE', payload: key }),
   }), []);
 
   return {

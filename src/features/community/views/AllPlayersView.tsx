@@ -1,6 +1,6 @@
 import React from 'react';
-import { View, StyleSheet } from 'react-native';
-import { PlayerListItem, EmptyState } from '../components';
+import { StyleSheet, View } from 'react-native';
+import { EmptyState, PlayerListItem } from '../components';
 import { Player } from '../types';
 
 interface AllPlayersViewProps {

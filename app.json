@@ -55,7 +55,8 @@
           "locationAlwaysPermission": "Allow Deuce League to use your location to find nearby courts and leagues.",
           "locationWhenInUsePermission": "Allow Deuce League to use your location to find nearby courts and leagues."
         }
-      ]
+      ],
+      "expo-video"
     ],
     "experiments": {
       "typedRoutes": true

@@ -23,6 +23,8 @@ import { authClient } from '@/lib/auth-client';
 import { getBackendBaseURL } from '@/src/config/network';
 import { PlayerInviteListItem } from './PlayerInviteListItem';
 import { toast } from 'sonner-native';
+import EmptyPartnerIcon from '@/assets/icons/empty_partner.svg';
+import { useVideoPlayer, VideoView } from 'expo-video';
 
 interface Player {
   id: string;
@@ -68,6 +70,13 @@ export const InvitePartnerBottomSheet: React.FC<InvitePartnerBottomSheetProps> =
   const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const insets = useSafeAreaInsets();
 
+  // Create video player for empty state
+  const videoPlayer = useVideoPlayer(require('@/assets/videos/connect_partner.mp4'), player => {
+    player.loop = true;
+    player.muted = true;
+    player.play();
+  });
+
   // Use percentage-based snap points for better iOS compatibility
   const snapPoints = useMemo(() => ['85%'], []);
 
@@ -101,22 +110,29 @@ export const InvitePartnerBottomSheet: React.FC<InvitePartnerBottomSheetProps> =
         const responseData = (response as any).data;
         console.log('📦 Response data structure:', responseData);
 
-        // Backend returns { data: { players: [...], friendsCount, totalCount, usedFallback } }
-        // Extract the players array from the nested data object
+        let actualData = responseData;
+        
+        if (responseData.success && responseData.data) {
+          actualData = responseData.data;
+          console.log('📦 Unwrapped response data:', actualData);
+        }
+
+        // Backend returns { players: [...], friendsCount, totalCount, usedFallback }
+        // Extract the players array from the data object
         let playersArray: Player[] = [];
 
-        if (Array.isArray(responseData.players)) {
+        if (Array.isArray(actualData.players)) {
           // Direct players array
-          playersArray = responseData.players;
-        } else if (responseData.data && Array.isArray(responseData.data.players)) {
+          playersArray = actualData.players;
+        } else if (actualData.data && Array.isArray(actualData.data.players)) {
           // Nested in data.players
-          playersArray = responseData.data.players;
-        } else if (Array.isArray(responseData.data)) {
+          playersArray = actualData.data.players;
+        } else if (Array.isArray(actualData.data)) {
           // data is the array itself
-          playersArray = responseData.data;
-        } else if (Array.isArray(responseData)) {
-          // responseData is the array
-          playersArray = responseData;
+          playersArray = actualData.data;
+        } else if (Array.isArray(actualData)) {
+          // actualData is the array
+          playersArray = actualData;
         }
 
         console.log('👥 Players array extracted:', playersArray);
@@ -124,11 +140,18 @@ export const InvitePartnerBottomSheet: React.FC<InvitePartnerBottomSheetProps> =
         console.log('✅ Players state updated with', playersArray.length, 'players');
 
         // Show info toast if fallback was used
-        if (responseData.usedFallback) {
-          toast.info('No Friends Available', {
-            description: 'Showing all eligible players since you have no friends to pair with',
-          });
+        if (actualData.usedFallback) {
+          // toast.info('No Friends Available', {
+          //   description: 'Showing all eligible players since you have no friends to pair with',
+          // });
         }
+      } else if (response && (response as any).error) {
+        // Handle error response
+        const errorData = (response as any).error;
+        console.error('❌ API Error:', errorData);
+        toast.error('Error', {
+          description: errorData.message || 'Failed to load available players',
+        });
       } else {
         console.log('⚠️ Unexpected response format:', response);
       }
@@ -215,7 +238,7 @@ export const InvitePartnerBottomSheet: React.FC<InvitePartnerBottomSheetProps> =
         <Ionicons name="search" size={18} color="#86868B" style={styles.searchIcon} />
         <TextInput
           style={styles.searchInput}
-          placeholder="Search by name or username"
+          placeholder="Search friends..."
           placeholderTextColor="#86868B"
           value={searchQuery}
           onChangeText={handleSearchChange}
@@ -238,23 +261,40 @@ export const InvitePartnerBottomSheet: React.FC<InvitePartnerBottomSheetProps> =
     if (players.length === 0) {
       return (
         <View style={styles.emptyState}>
-          <Ionicons name="people-outline" size={48} color="#BABABA" />
+          {/* <Ionicons name="people-outline" size={48} color="#BABABA" /> */}
+          <View style={styles.videoContainer}>
+            <VideoView
+              player={videoPlayer}
+              contentFit="contain"
+              nativeControls={false}
+              style={styles.video}
+            />
+          </View>
           <Text style={styles.emptyStateText}>
-            {searchQuery ? 'No players found' : 'No friends yet'}
+            {searchQuery ? 'No players found' : 'Oops, looks a little empty here!'}
           </Text>
           <Text style={styles.emptyStateSubtext}>
             {searchQuery 
               ? 'Try a different search term' 
-              : 'Add friends first before selecting them as your partner'}
+              : (
+                <>
+                  Only your friends show up here. Head to{' '}
+                  <Text style={styles.connectLinkText}>Connect</Text>
+                  {' '}to find and add friends before inviting them to your doubles team.
+                </>
+              )}
           </Text>
           {!searchQuery && (
-            <TouchableOpacity 
-              style={styles.connectButton} 
-              onPress={handleConnectPress}
-              activeOpacity={0.7}
-            >
-              <Text style={styles.connectButtonText}>Go to Connect</Text>
-            </TouchableOpacity>
+            <>
+              {/* <EmptyPartnerIcon width={82} height={46} style={styles.emptyPartnerIcon} /> */}
+              <TouchableOpacity 
+                style={styles.connectButton} 
+                onPress={handleConnectPress}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.connectButtonText}>Connect</Text>
+              </TouchableOpacity>
+            </>
           )}
         </View>
       );
@@ -288,7 +328,6 @@ export const InvitePartnerBottomSheet: React.FC<InvitePartnerBottomSheetProps> =
       android_keyboardInputMode="adjustResize"
       keyboardBlurBehavior="restore"
       keyboardBehavior="interactive"
-      bottomInset={insets.bottom}
       detached={false}
     >
       <BottomSheetFlatList
@@ -311,6 +350,7 @@ export const InvitePartnerBottomSheet: React.FC<InvitePartnerBottomSheetProps> =
         contentContainerStyle={[
           styles.listContent,
           isEmpty && styles.listContentEmpty,
+          { paddingBottom: 20 + insets.bottom },
         ]}
         style={styles.listStyle}
       />
@@ -349,7 +389,7 @@ const styles = StyleSheet.create({
   },
   headerContainer: {
     paddingTop: 8,
-    paddingBottom: 16,
+    paddingBottom: 8,
   },
   header: {
     marginBottom: 20,
@@ -374,7 +414,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     paddingHorizontal: 12,
     paddingVertical: 8,
-    marginBottom: 16,
+    marginBottom: 8,
   },
   searchIcon: {
     marginRight: 8,
@@ -390,7 +430,6 @@ const styles = StyleSheet.create({
   },
   listContent: {
     paddingHorizontal: 20,
-    paddingBottom: 20,
   },
   listContentEmpty: {
     flexGrow: 1,
@@ -399,28 +438,37 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingVertical: 40,
+    paddingTop: 20,
+    paddingBottom: 40,
     minHeight: 300,
   },
   emptyStateText: {
-    fontSize: 16,
+    fontSize: 22,
     fontWeight: '600',
-    color: '#86868B',
-    marginTop: 12,
+    color: '#1D1D1F',
+    marginTop: 4,
     textAlign: 'center',
   },
   emptyStateSubtext: {
-    fontSize: 14,
-    color: '#BABABA',
-    marginTop: 6,
+    fontSize: 16,
+    color: '#86868B',
+    marginTop: 14,
     textAlign: 'center',
     paddingHorizontal: 20,
   },
+  connectLinkText: {
+    color: '#FEA04D',
+    textDecorationLine: 'underline',
+  },
+  emptyPartnerIcon: {
+    marginTop: 48,
+    marginBottom: 8,
+  },
   connectButton: {
-    marginTop: 20,
+    marginTop: 28,
     paddingHorizontal: 24,
     paddingVertical: 12,
-    backgroundColor: '#A04DFE',
+    backgroundColor: '#FEA04D',
     borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
@@ -428,6 +476,16 @@ const styles = StyleSheet.create({
   connectButtonText: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#FFFFFF',
+    color: '#1D1D1F',
+  },
+  videoContainer: {
+    width: 300,
+    height: 300,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  video: {
+    width: 300,
+    height: 300,
   },
 });

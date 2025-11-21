@@ -1,19 +1,50 @@
 import { useColorScheme } from '@/hooks/useColorScheme';
+import { useSession } from '@/lib/auth-client';
+import { socketService } from '@/lib/socket-service';
 import { NavigationInterceptor } from '@core/navigation/NavigationInterceptor';
 import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { useFonts } from 'expo-font';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { useEffect } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import 'react-native-reanimated';
 import { Toaster } from 'sonner-native';
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
+  const { data: session } = useSession();
   const [loaded] = useFonts({
     SpaceMono: require('../assets/fonts/SpaceMono-Regular.ttf'),
   });
+
+  // Initialize socket connection when user is authenticated
+  useEffect(() => {
+    const initSocket = async () => {
+      if (session?.user?.id) {
+        console.log('🔌 RootLayout: User authenticated, initializing socket connection...');
+        try {
+          await socketService.connect();
+          console.log('✅ RootLayout: Socket connection initialized');
+        } catch (error) {
+          console.error('❌ RootLayout: Failed to initialize socket:', error);
+        }
+      } else {
+        console.log('👤 RootLayout: No user session, skipping socket initialization');
+      }
+    };
+
+    initSocket();
+
+    // Cleanup on unmount
+    return () => {
+      if (session?.user?.id) {
+        console.log('🔌 RootLayout: Disconnecting socket on unmount');
+        socketService.disconnect();
+      }
+    };
+  }, [session?.user?.id]);
 
   if (!loaded) {
     // Async font loading only occurs in development.
@@ -50,7 +81,7 @@ export default function RootLayout() {
           name="login" 
           options={{ 
             headerShown: false,
-            gestureEnabled: true,
+            gestureEnabled: false,
           }} 
         />
         <Stack.Screen 

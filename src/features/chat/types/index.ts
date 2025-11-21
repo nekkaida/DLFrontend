@@ -53,4 +53,5 @@ export interface ChatState {
   isConnected: boolean;
   isLoading: boolean;
   error: string | null;
+  replyingTo: Message | null;
 }

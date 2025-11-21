@@ -1,17 +1,34 @@
 import { authClient } from "@/lib/auth-client";
+import axiosInstance, { endpoints } from "@/lib/endpoints";
 import { LoginScreen } from "@/src/features/auth/screens/LoginScreen";
-import { useRouter } from "expo-router";
-import React from "react";
+import { useRouter, useNavigation } from "expo-router";
+import React, { useEffect } from "react";
 import { toast } from "sonner-native";
+import { useSession } from "@/lib/auth-client";
 
 export default function LoginRoute() {
   const router = useRouter();
+  const navigation = useNavigation();
+  const { data: session } = useSession();
+
+  // Disable gesture navigation when user is unauthenticated (after logout)
+  // This prevents users from swiping back to protected pages
+  useEffect(() => {
+    if (!session?.user) {
+      navigation.setOptions({
+        gestureEnabled: false,
+      });
+    } else {
+      navigation.setOptions({
+        gestureEnabled: true,
+      });
+    }
+  }, [session?.user, navigation]);
 
   const handleLogin = async (emailOrUsername: string, password: string) => {
     try {
       console.log("Login attempt with:", emailOrUsername);
-
-      // Check if input looks like an email (contains @)
+      
       const isEmail = emailOrUsername.includes("@");
 
       let result;
@@ -31,13 +48,35 @@ export default function LoginRoute() {
 
       console.log("Login result:", result);
 
-      if (result.data) {
-        console.log("Login successful, checking session...");
+      if (result.data?.user?.id) {
+        console.log("Login successful, tracking last login...");
 
-        // Wait a moment for session to be established
-        await new Promise((resolve) => setTimeout(resolve, 200));
+        // Update Last Login 
+        try {
+          console.log("📤 Sending trackLogin request with userId:", result.data.user.id);
+          const trackResponse = await axiosInstance.put(
+            endpoints.user.trackLogin, 
+            { userId: result.data.user.id },
+            {
+              headers: {
+                'Content-Type': 'application/json',
+              }
+            }
+          );
+          
+          console.log("✅ Last login tracked successfully:", trackResponse.data);
+        } catch (trackErr: any) {
+          console.error("❌ Failed to track last login:", trackErr.message);
+          if (trackErr.response) {
+            console.error("❌ Response status:", trackErr.response.status);
+            console.error("❌ Response data:", trackErr.response.data);
+          }
+        }
 
-        // Check session after login
+        // Wait a moment for session to be established in SecureStore
+        await new Promise((resolve) => setTimeout(resolve, 300));
+
+        // Confirm session is saved
         const sessionCheck = await authClient.getSession();
         console.log("Session after login:", sessionCheck);
 
@@ -59,7 +98,7 @@ export default function LoginRoute() {
   };
 
   const handleSignUp = () => {
-    router.replace("/register");
+    router.push("/register");
   };
 
   const handleForgotPassword = () => {

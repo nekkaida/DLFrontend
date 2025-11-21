@@ -83,7 +83,6 @@ export class SeasonService {
   static async fetchAllSeasons(): Promise<Season[]> {
     try {
       const backendUrl = getBackendBaseURL();
-      console.log('SeasonService: Fetching all seasons');
       console.log('SeasonService: API URL:', `${backendUrl}/api/season`);
 
       
@@ -96,14 +95,14 @@ export class SeasonService {
       if (response && typeof response === 'object') {
         const apiResponse = response as any;
         
-        console.log('SeasonService: Debug - response structure:', {
-          hasData: 'data' in apiResponse,
-          hasError: 'error' in apiResponse,
-          dataType: typeof apiResponse.data,
-          dataKeys: apiResponse.data ? Object.keys(apiResponse.data) : 'no data',
-          isArray: Array.isArray(apiResponse.data),
-          responseKeys: Object.keys(apiResponse)
-        });
+        // console.log('SeasonService: Debug - response structure:', {
+        //   hasData: 'data' in apiResponse,
+        //   hasError: 'error' in apiResponse,
+        //   dataType: typeof apiResponse.data,
+        //   dataKeys: apiResponse.data ? Object.keys(apiResponse.data) : 'no data',
+        //   isArray: Array.isArray(apiResponse.data),
+        //   responseKeys: Object.keys(apiResponse)
+        // });
         
         // Handle direct array response (from backend controller)
         if (Array.isArray(apiResponse)) {

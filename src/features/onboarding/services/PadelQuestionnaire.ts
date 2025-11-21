@@ -65,7 +65,7 @@ export class PadelQuestionnaire {
       question: "What is your background in racquet sports?",
       answers: {
         "No experience with racquet sports": -0.8,
-        "Casual player in tennis/squash/badminton": -0.2,
+        "Casual player in other racquet sports": -0.2,
         "Intermediate level in tennis or squash": 0.4,
         "Advanced/competitive player in tennis or squash": 0.8,
         "Professional athlete in racquet sports": 1.0,
@@ -86,11 +86,11 @@ export class PadelQuestionnaire {
       help_text: "Consider your average playing frequency over the past few months",
     },
     competitive_level: {
-      question: "What level do you typically play at?",
+      question: "What is the highest level you usually play at?",
       answers: {
-        "Social/recreational games with friends": -0.5,
-        "Club-level matches": -0.1,
-        "Local club-level social tournaments": 0.3,
+        "Social/recreational games only": -0.5,
+        "Friendly matches": -0.1,
+        "Club-level social tournaments": 0.3,
         "Regional tournaments": 0.7,
         "Professional tournaments": 1.0,
       },
@@ -101,7 +101,7 @@ export class PadelQuestionnaire {
       question: "Have you had any padel coaching or instruction?",
       answers: {
         "Self-taught/no formal instruction": -0.7,
-        "Some group lessons or clinics": -0.3,
+        "A few group or private lessons": -0.3,
         "Regular group lessons": 0.2,
         "Consistent private coaching sessions": 0.6,
         "Professional/academy training": 1.0,

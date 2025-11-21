@@ -8,7 +8,7 @@ import {
 export const styles = StyleSheet.create({
   // Skip Button
   skipButton: {
-    paddingVertical: moderateScale(12),
+    paddingVertical: moderateScale(10),
     paddingHorizontal: getResponsivePadding(20),
     minHeight: 44,  // Minimum touch target
     justifyContent: 'center',
@@ -29,7 +29,7 @@ export const styles = StyleSheet.create({
   },
   nextButtonGradient: {
     borderRadius: moderateScale(25),
-    paddingVertical: moderateScale(12),
+    paddingVertical: moderateScale(11),
     paddingHorizontal: getResponsivePadding(32),
     minWidth: moderateScale(100),
     minHeight: 44,  // Minimum touch target

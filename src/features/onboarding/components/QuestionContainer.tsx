@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import {
   View,
   Text,
@@ -9,6 +9,7 @@ import {
   ScrollView,
   Platform,
 } from 'react-native';
+import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
 import OptionButton from './OptionButton';
 import NumberInput from './NumberInput';
 import { toast } from 'sonner-native';
@@ -31,6 +32,7 @@ interface QuestionContainerProps {
   containerStyle?: ViewStyle;
   navigationButtons?: React.ReactNode;
   questionKey?: string;
+  showContent?: boolean; // Control content visibility for entrance animations
 }
 
 // Question context mapping
@@ -116,6 +118,7 @@ const QuestionContainer: React.FC<QuestionContainerProps> = ({
   containerStyle,
   navigationButtons,
   questionKey,
+  showContent = true,
 }) => {
   const showTooltip = () => {
     if (tooltipText) {
@@ -129,28 +132,49 @@ const QuestionContainer: React.FC<QuestionContainerProps> = ({
 
   return (
     <View style={[styles.container, containerStyle]}>
-      <ScrollView 
-        style={styles.scrollContainer}
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-        bounces={false}
-      >
-        <Text style={styles.instructionText}>Select an answer</Text>
-        <Text style={styles.questionText}>{question}</Text>
-        
-        {effectiveContextText && (
-          <Text style={styles.contextText}>{effectiveContextText}</Text>
-        )}
-        
-        <View style={styles.contentContainer}>
-          {children}
-        </View>
-      </ScrollView>
-      
-      {navigationButtons && (
-        <View style={styles.navigationContainer}>
-          {navigationButtons}
-        </View>
+      {showContent ? (
+        <>
+          <ScrollView
+            key={`scroll-${questionKey}-${showContent}`} // Force remount for animations
+            style={styles.scrollContainer}
+            contentContainerStyle={styles.scrollContent}
+            showsVerticalScrollIndicator={false}
+            bounces={false}
+          >
+            <Animated.View entering={FadeIn.duration(300).delay(100)}>
+              <Text style={styles.instructionText}>Select an answer</Text>
+            </Animated.View>
+
+            <Animated.View entering={FadeInDown.duration(400).delay(150)}>
+              <Text style={styles.questionText}>{question}</Text>
+            </Animated.View>
+
+            {effectiveContextText && (
+              <Animated.View entering={FadeIn.duration(300).delay(250)}>
+                <Text style={styles.contextText}>{effectiveContextText}</Text>
+              </Animated.View>
+            )}
+
+            <Animated.View
+              entering={FadeInDown.duration(400).delay(300)}
+              style={styles.contentContainer}
+            >
+              {children}
+            </Animated.View>
+          </ScrollView>
+
+          {navigationButtons && (
+            <Animated.View
+              entering={FadeIn.duration(200).delay(350)}
+              style={styles.navigationContainer}
+            >
+              {navigationButtons}
+            </Animated.View>
+          )}
+        </>
+      ) : (
+        // Blank card - no content or buttons visible during transition
+        <View style={styles.blankCardContent} />
       )}
     </View>
   );
@@ -165,6 +189,7 @@ interface QuestionCardProps {
   responses: any;
   navigationButtons: React.ReactNode;
   sport?: 'pickleball' | 'tennis' | 'padel';
+  showContent?: boolean; // Control content visibility for entrance animations
 }
 
 export const QuestionCard: React.FC<QuestionCardProps> = ({
@@ -175,16 +200,19 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
   responses,
   navigationButtons,
   sport = 'pickleball',
+  showContent = true,
 }) => {
   const renderQuestionContent = () => {
     switch (question.type) {
       case 'single_choice':
         return (
           <QuestionContainer
+            key={question.key} // Force re-mount for fade-in animation
             question={question.question}
             helpText={question.help_text}
             questionKey={question.key}
             navigationButtons={navigationButtons}
+            showContent={showContent}
           >
             {question.options?.map((option: string, index: number) => (
               <OptionButton
@@ -201,16 +229,18 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
       case 'number':
         return (
           <QuestionContainer
+            key={question.key} // Force re-mount for fade-in animation
             question={question.question}
             helpText={question.help_text}
             questionKey={question.key}
             navigationButtons={navigationButtons}
+            showContent={showContent}
           >
             <NumberInput
               value={currentPageAnswers[question.key] ? String(currentPageAnswers[question.key]) : ''}
               onChangeText={(text) => {
                 const numValue = parseFloat(text);
-                if (!isNaN(numValue) && 
+                if (!isNaN(numValue) &&
                     (!question.min_value || numValue >= question.min_value) &&
                     (!question.max_value || numValue <= question.max_value)) {
                   onAnswer(question.key, numValue);
@@ -219,7 +249,7 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
               onSubmit={() => {
                 const text = currentPageAnswers[question.key] ? String(currentPageAnswers[question.key]) : '';
                 const numValue = parseFloat(text);
-                if (!isNaN(numValue) && 
+                if (!isNaN(numValue) &&
                     (!question.min_value || numValue >= question.min_value) &&
                     (!question.max_value || numValue <= question.max_value)) {
                   onAnswer(question.key, numValue);
@@ -243,30 +273,30 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
   };
 
   return (
-    <View style={[styles.stackedCard, isActive ? styles.activeCard : styles.inactiveCard]}>
+    <View style={styles.questionCardContainer}>
       {renderQuestionContent()}
     </View>
   );
 };
 
 const styles = StyleSheet.create({
+  // Question Card Container - Must fill absolute parent
+  questionCardContainer: {
+    flex: 1, // Fill the absolute positioned parent
+  },
+
   // FULLY RESPONSIVE QUESTION CONTAINER
   container: {
+    flex: 1, // Take full available height for consistent card size
     backgroundColor: '#FFFFFF',
     borderRadius: moderateScale(isSmall ? 24 : 30),
     padding: 0,
-    marginHorizontal: moderateScale(12),
-    marginVertical: moderateScale(10),
     ...createShadow('#000', 0.1, 8, 5),
-    minHeight: moderateScale(isSmall ? 500 : 550),  // Responsive minHeight (was 600)
-    maxHeight: '85%',
-    maxWidth: '100%',
-    flex: 1,
   },
   scrollContainer: {
-    flex: 1,
-    paddingHorizontal: getResponsivePadding(isSmall ? 28 : 36),
-    paddingTop: moderateScale(isSmall ? 28 : 36),
+    flexGrow: 1, // Allow scroll to grow but not enforce full height
+    paddingHorizontal: getResponsivePadding(isSmall ? 24 : 28),
+    paddingTop: moderateScale(isSmall ? 24 : 28),
   },
   scrollContent: {
     paddingBottom: moderateScale(20),
@@ -310,22 +340,8 @@ const styles = StyleSheet.create({
     borderBottomLeftRadius: moderateScale(isSmall ? 24 : 30),
     borderBottomRightRadius: moderateScale(isSmall ? 24 : 30),
   },
-  // Stacked card styles
-  stackedCard: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-  },
-  activeCard: {
-    zIndex: 2,
-    opacity: 1,
-  },
-  inactiveCard: {
-    zIndex: 1,
-    opacity: 0.7,
-    transform: [{ scale: 0.95 }],
+  blankCardContent: {
+    flex: 1, // Fill space with nothing (truly blank)
   },
 });
 

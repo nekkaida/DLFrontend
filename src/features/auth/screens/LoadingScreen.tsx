@@ -7,6 +7,7 @@ import * as Haptics from 'expo-haptics';
 import { SocialButton } from '../components/AuthComponents';
 import { AuthStyles, AuthColors } from '../styles/AuthStyles';
 import DeuceLogo from '../../onboarding/components/DeuceLogo';
+import DeuceSvg from '@/assets/images/DEUCE.svg';
 
 interface LoadingScreenProps {
   onGetStarted: () => void;
@@ -66,17 +67,15 @@ export const LoadingScreen: React.FC<LoadingScreenProps> = ({ onGetStarted, onLo
         {/* Cross-platform Status Bar */}
         <StatusBar style="light" backgroundColor="transparent" />
 
-        {/* Logo positioned exactly as in Figma */}
         <View style={dynamicStyles.logoContainer}>
           <View style={dynamicStyles.textShadowContainer}>
-            <Text style={dynamicStyles.logoText}>DEUCE</Text>
+            <DeuceSvg width={260} height={94} />
           </View>
           <View style={dynamicStyles.logoShadowContainer}>
-            <DeuceLogo width={80} height={80} />
+            <DeuceLogo width={100} height={100} />
           </View>
         </View>
 
-        {/* Tagline positioned exactly as in Figma */}
         <Text style={dynamicStyles.taglineText}>
           Your ultimate{'\n'}sports flex league platform.
         </Text>
@@ -156,8 +155,9 @@ const getStyles = (screenWidth: number, screenHeight: number, bottomInset: numbe
   },
   logoContainer: {
     position: 'absolute',
-    left: screenWidth * 0.5 - 100, // Center horizontally (assuming logo width ~200px)
-    top: screenHeight * 0.15, // Moved higher up from 0.25 to 0.15
+    width: screenWidth,
+    left: 0,
+    top: screenHeight * 0.15,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -181,6 +181,7 @@ const getStyles = (screenWidth: number, screenHeight: number, bottomInset: numbe
     shadowOpacity: 0.15,
     shadowRadius: 2,
     elevation: 2, // For Android shadow
+    marginBottom: 20,
   },
   logoShadowContainer: {
     shadowColor: '#000000',
@@ -280,16 +281,18 @@ const getStyles = (screenWidth: number, screenHeight: number, bottomInset: numbe
     color: '#404040',
   },
   loginLinkButton: {
-    paddingVertical: Platform.OS === 'ios' ? 4 : 2,
-    paddingHorizontal: Platform.OS === 'ios' ? 4 : 2,
+    paddingTop: Platform.OS === 'ios' ? 2 : 1,
+    paddingBottom: Platform.OS === 'ios' ? 2 : 1,
+    paddingHorizontal: Platform.OS === 'ios' ? 3 : 2,
+    borderBottomWidth: 1,
+    borderBottomColor: '#FEA04D',
   },
   loginLinkButtonText: {
     fontFamily: 'Inter',
-    fontWeight: '800',
+    fontWeight: '600',
     fontSize: Platform.OS === 'ios' ? 14 : 13,
     lineHeight: Platform.OS === 'ios' ? 18 : 17,
     letterSpacing: -0.01,
-    textDecorationLine: 'underline',
     color: '#FEA04D',
   },
 });

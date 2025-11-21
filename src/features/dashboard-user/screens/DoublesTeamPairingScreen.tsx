@@ -113,12 +113,154 @@ export default function DoublesTeamPairingScreen({
     });
   }, [invitationStatus, partnershipStatus, selectedPartner, isPairingLoading]);
 
+  const checkPairingStatus = React.useCallback(async () => {
+    if (!seasonId || !userId) return;
+
+    try {
+      setIsPairingLoading(true);
+      const backendUrl = getBackendBaseURL();
+
+      // Check for active partnership
+      const partnershipResponse = await authClient.$fetch(
+        `${backendUrl}/api/pairing/partnership/active/${seasonId}`,
+        { method: 'GET' }
+      );
+
+      const partnershipData = (partnershipResponse as any)?.data?.data || (partnershipResponse as any)?.data;
+      console.log('🔎 Partnership response:', {
+        partnershipData,
+        hasData: !!partnershipData,
+        rawResponse: partnershipResponse,
+        responseData: (partnershipResponse as any)?.data,
+      });
+
+      if (partnershipData && partnershipData.id) {
+        // Active partnership exists
+        setPartnershipStatus('active');
+        setCurrentPartnership(partnershipData);
+        setInvitationStatus('accepted');
+
+        // Debug: Check captain and partner before extraction
+        console.log('🔍 Partnership data structure:', {
+          hasCaptain: !!partnershipData.captain,
+          hasPartner: !!partnershipData.partner,
+          captainId: partnershipData.captain?.id,
+          partnerId: partnershipData.partner?.id,
+          captainName: partnershipData.captain?.name,
+          partnerName: partnershipData.partner?.name,
+          captainHasSkillRatings: !!partnershipData.captain?.skillRatings,
+          partnerHasSkillRatings: !!partnershipData.partner?.skillRatings,
+          captainSkillRatings: partnershipData.captain?.skillRatings,
+          partnerSkillRatings: partnershipData.partner?.skillRatings,
+          captainSkillRatingsKeys: partnershipData.captain?.skillRatings ? Object.keys(partnershipData.captain.skillRatings) : [],
+          partnerSkillRatingsKeys: partnershipData.partner?.skillRatings ? Object.keys(partnershipData.partner.skillRatings) : [],
+        });
+
+        // Set partner based on role
+        let partner = partnershipData.captainId === userId
+          ? partnershipData.partner
+          : partnershipData.captain;
+
+        // Ensure partner has skillRatings (always an object, even if empty)
+        if (partner) {
+          partner = {
+            ...partner,
+            skillRatings: partner.skillRatings || {},
+          };
+        }
+
+        // Debug logging for partner data
+        console.log('🔍 Setting partner from partnership:', {
+          partnerId: partner?.id,
+          partnerName: partner?.name,
+          hasSkillRatings: !!partner?.skillRatings,
+          skillRatingsKeys: partner?.skillRatings ? Object.keys(partner.skillRatings) : [],
+          skillRatings: partner?.skillRatings,
+          seasonSport: season ? getSeasonSport(season) : 'unknown',
+          fullPartnerObject: partner,
+        });
+
+        setSelectedPartner(partner);
+        return;
+      }
+
+      // No partnership, check for pending invitation
+      const invitationResponse = await authClient.$fetch(
+        `${backendUrl}/api/pairing/season/invitation/pending/${seasonId}`,
+        { method: 'GET' }
+      );
+
+      const invitationData = (invitationResponse as any)?.data?.data || (invitationResponse as any)?.data;
+      console.log('🔎 Invitation response:', { invitationData, hasData: !!invitationData });
+
+      if (invitationData && invitationData.id) {
+        setCurrentInvitation(invitationData);
+
+        // Determine invitation status based on direction
+        if (invitationData.direction === 'sent') {
+          setInvitationStatus('pending_sent');
+          setSelectedPartner(invitationData.recipient);
+        } else {
+          setInvitationStatus('pending_received');
+          setSelectedPartner(invitationData.sender);
+        }
+      } else {
+        // No invitation or partnership
+        setInvitationStatus('none');
+        setPartnershipStatus('none');
+      }
+    } catch (error) {
+      console.error('Error checking pairing status:', error);
+    } finally {
+      setIsPairingLoading(false);
+    }
+  }, [seasonId, userId, season]);
+
+  const fetchSeasonData = React.useCallback(async (showLoading: boolean = true) => {
+    if (!seasonId) {
+      setIsLoading(false);
+      return;
+    }
+
+    try {
+      if (showLoading) {
+        setIsLoading(true);
+      }
+      setError(null);
+
+      const allSeasons = await SeasonService.fetchAllSeasons();
+      const foundSeason = allSeasons.find(s => s.id === seasonId);
+
+      if (foundSeason) {
+        setSeason(foundSeason);
+        
+        if (leagueId) {
+          try {
+            const leagueData = await LeagueService.fetchLeagueById(leagueId);
+            setLeague(leagueData);
+          } catch (err) {
+            console.error('Error fetching league data:', err);
+          }
+        }
+      } else {
+        setError('Season not found');
+      }
+    } catch (err) {
+      console.error('Error fetching season data:', err);
+      setError('Failed to load season details');
+    } finally {
+      if (showLoading) {
+        setIsLoading(false);
+      }
+    }
+  }, [seasonId, leagueId]);
+
   // Check pairing status when screen loads
   React.useEffect(() => {
     if (seasonId && userId) {
       checkPairingStatus();
     }
-  }, [seasonId, userId]);
+  }, [seasonId, userId, checkPairingStatus]);
 
   // Setup Socket.IO listeners for real-time updates
   React.useEffect(() => {
@@ -157,119 +299,62 @@ export default function DoublesTeamPairingScreen({
       }
     };
 
+    // Handler for team registration completion
+    const handleTeamRegistrationCompleted = (data: any) => {
+      console.log('🎉 DoublesTeamPairing: Team registration completed event received:', data);
+      console.log('🎉 Current seasonId:', seasonId, 'Event seasonId:', data.partnership?.season?.id);
+      
+      if (data.partnership?.season?.id === seasonId) {
+        const isCaptain = data.partnership.captainId === userId;
+        console.log('🎉 User is captain:', isCaptain, 'userId:', userId, 'captainId:', data.partnership.captainId);
+        
+        toast.success('Team registered successfully!', {
+          description: isCaptain 
+            ? 'Your team has been registered for this season.'
+            : 'Your team captain has completed the registration.',
+        });
+        
+        // Refresh pairing status and season data to update UI
+        console.log('🎉 Refreshing pairing status and season data...');
+        checkPairingStatus();
+        fetchSeasonData(false); // Refresh season data without showing loading
+        
+        // If user is the partner (not captain), redirect to league details page
+        if (!isCaptain && leagueId) {
+          console.log('🎉 Partner detected, redirecting to league details in 500ms...');
+          setTimeout(() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            router.replace({
+              pathname: '/user-dashboard/league-details' as any,
+              params: {
+                leagueId: leagueId,
+                leagueName: league?.name || 'League',
+                sport: sport || 'pickleball'
+              }
+            });
+          }, 500);
+        } else if (!isCaptain && !leagueId) {
+          console.warn('🎉 Partner detected but no leagueId available for redirect');
+        }
+      } else {
+        console.log('🎉 Event season ID does not match current season ID, ignoring');
+      }
+    };
+
     // Register listeners
     socketService.on('season_invitation_received', handleInvitationReceived);
     socketService.on('season_invitation_accepted', handleInvitationAccepted);
     socketService.on('partnership_created', handlePartnershipCreated);
+    socketService.on('team_registration_completed', handleTeamRegistrationCompleted);
 
     // Cleanup listeners on unmount
     return () => {
       socketService.off('season_invitation_received', handleInvitationReceived);
       socketService.off('season_invitation_accepted', handleInvitationAccepted);
       socketService.off('partnership_created', handlePartnershipCreated);
+      socketService.off('team_registration_completed', handleTeamRegistrationCompleted);
     };
-  }, [seasonId]);
-
-  const checkPairingStatus = async () => {
-    if (!seasonId || !userId) return;
-
-    try {
-      setIsPairingLoading(true);
-      const backendUrl = getBackendBaseURL();
-
-      // Check for active partnership
-      const partnershipResponse = await authClient.$fetch(
-        `${backendUrl}/api/pairing/partnership/active/${seasonId}`,
-        { method: 'GET' }
-      );
-
-      const partnershipData = (partnershipResponse as any)?.data?.data || (partnershipResponse as any)?.data;
-      console.log('🔎 Partnership response:', { partnershipData, hasData: !!partnershipData });
-
-      if (partnershipData && partnershipData.id) {
-        // Active partnership exists
-        setPartnershipStatus('active');
-        setCurrentPartnership(partnershipData);
-        setInvitationStatus('accepted');
-
-        // Set partner based on role
-        const partner = partnershipData.captainId === userId
-          ? partnershipData.partner
-          : partnershipData.captain;
-        setSelectedPartner(partner);
-        return;
-      }
-
-      // No partnership, check for pending invitation
-      const invitationResponse = await authClient.$fetch(
-        `${backendUrl}/api/pairing/season/invitation/pending/${seasonId}`,
-        { method: 'GET' }
-      );
-
-      const invitationData = (invitationResponse as any)?.data?.data || (invitationResponse as any)?.data;
-      console.log('🔎 Invitation response:', { invitationData, hasData: !!invitationData });
-
-      if (invitationData && invitationData.id) {
-        setCurrentInvitation(invitationData);
-
-        // Determine invitation status based on direction
-        if (invitationData.direction === 'sent') {
-          setInvitationStatus('pending_sent');
-          setSelectedPartner(invitationData.recipient);
-        } else {
-          setInvitationStatus('pending_received');
-          setSelectedPartner(invitationData.sender);
-        }
-      } else {
-        // No invitation or partnership
-        setInvitationStatus('none');
-        setPartnershipStatus('none');
-      }
-    } catch (error) {
-      console.error('Error checking pairing status:', error);
-    } finally {
-      setIsPairingLoading(false);
-    }
-  };
-
-  const fetchSeasonData = async (showLoading: boolean = true) => {
-    if (!seasonId) {
-      setIsLoading(false);
-      return;
-    }
-
-    try {
-      if (showLoading) {
-        setIsLoading(true);
-      }
-      setError(null);
-
-      const allSeasons = await SeasonService.fetchAllSeasons();
-      const foundSeason = allSeasons.find(s => s.id === seasonId);
-
-      if (foundSeason) {
-        setSeason(foundSeason);
-        
-        if (leagueId) {
-          try {
-            const leagueData = await LeagueService.fetchLeagueById(leagueId);
-            setLeague(leagueData);
-          } catch (err) {
-            console.error('Error fetching league data:', err);
-          }
-        }
-      } else {
-        setError('Season not found');
-      }
-    } catch (err) {
-      console.error('Error fetching season data:', err);
-      setError('Failed to load season details');
-    } finally {
-      if (showLoading) {
-        setIsLoading(false);
-      }
-    }
-  };
+  }, [seasonId, userId, leagueId, league, sport, checkPairingStatus, fetchSeasonData]);
 
   const handleInvitePartner = () => {
     console.log('🎯 Invite Partner tapped!', { invitationStatus, partnershipStatus });
@@ -520,19 +605,9 @@ export default function DoublesTeamPairingScreen({
     return getTeamDMR(profileData?.skillRatings, selectedPartner.skillRatings, seasonSport);
   }, [profileData?.skillRatings, selectedPartner, partnershipStatus, seasonSport]);
 
+  // Helper function to get available sports for SportSwitcher
   const getUserSelectedSports = () => {
-    if (!profileData?.sports) return [];
-    const sports = profileData.sports.map((sport: string) => sport.toLowerCase());
-    const preferredOrder = ['pickleball', 'tennis', 'padel'];
-    const configuredSports = sports.filter((sport: string) => ['pickleball', 'tennis', 'padel'].includes(sport));
-    return configuredSports.sort((a: string, b: string) => {
-      const indexA = preferredOrder.indexOf(a);
-      const indexB = preferredOrder.indexOf(b);
-      if (indexA !== -1 && indexB !== -1) return indexA - indexB;
-      if (indexA !== -1) return -1;
-      if (indexB !== -1) return 1;
-      return 0;
-    });
+    return ["pickleball", "tennis", "padel"];
   };
 
   const getHeaderGradientColors = (sport: 'pickleball' | 'tennis' | 'padel'): [string, string] => {
@@ -588,7 +663,13 @@ export default function DoublesTeamPairingScreen({
         <SportSwitcher
           currentSport={selectedSport}
           availableSports={getUserSelectedSports()}
-          onSportChange={setSelectedSport}
+          onSportChange={(newSport) => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            router.push({
+              pathname: '/user-dashboard' as any,
+              params: { sport: newSport }
+            });
+          }}
         />
         
         <View style={styles.headerRight} />
@@ -639,7 +720,13 @@ export default function DoublesTeamPairingScreen({
                   <View style={styles.bannerContainer}>
                     <View style={[styles.nameBanner, { backgroundColor: getBannerBackgroundColor(selectedSport) }]}>
                       <Text style={styles.seasonName}>
-                        {season?.categories?.[0]?.name ? `${season.categories[0].name} | ` : ''}
+                        {(() => {
+                          const category = (season as any)?.category;
+                          const categories = (season as any)?.categories || (category ? [category] : []);
+                          const normalizedCategories = Array.isArray(categories) ? categories : [categories].filter(Boolean);
+                          const categoryName = normalizedCategories?.[0]?.name;
+                          return categoryName ? `${categoryName} | ` : '';
+                        })()}
                         <Text style={styles.seasonNameHighlight}>{season?.name || seasonName}</Text>
                       </Text>
                     </View>
@@ -695,6 +782,10 @@ export default function DoublesTeamPairingScreen({
                     )}
                     {invitationStatus === 'pending_received' && (
                       <Text style={styles.roleLabel}>Team Member</Text>
+                    )}
+                    {/* Show role label during active partnership */}
+                    {partnershipStatus === 'active' && currentPartnership?.captainId === userId && (
+                      <Text style={styles.roleLabel}>Team Captain</Text>
                     )}
                   </View>
 
@@ -763,6 +854,9 @@ export default function DoublesTeamPairingScreen({
                         {partnershipStatus === 'active' && (
                           <>
                             <Text style={styles.playerDMR}>DMR: {partnerDMR}</Text>
+                            {currentPartnership?.captainId !== userId && (
+                              <Text style={styles.roleLabel}>Team Captain</Text>
+                            )}
                             <TouchableOpacity style={styles.unlinkButton} onPress={handleUnlink}>
                               <Text style={styles.unlinkButtonText}>Unlink</Text>
                             </TouchableOpacity>
@@ -832,7 +926,7 @@ export default function DoublesTeamPairingScreen({
                   ? 'Waiting for Partner'
                   : invitationStatus === 'pending_received'
                   ? 'Accept in Invitations Tab'
-                  : 'Select Partner First'}
+                  : 'Select a Partner First'}
               </Text>
             </TouchableOpacity>
           </View>
@@ -1091,16 +1185,28 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-start',
   },
   pendingAvatarContainer: {
+    width: 90,
+    height: 90,
+    borderRadius: 42,
     borderWidth: 2,
     borderStyle: 'dashed',
     borderColor: '#FFA500',
-    borderRadius: 35,
     padding: 2,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   playerAvatar: {
     width: 80,
     height: 80,
     borderRadius: 40,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 4,
   },
   defaultAvatar: {
     width: 80,
@@ -1109,6 +1215,14 @@ const styles = StyleSheet.create({
     backgroundColor: '#6de9a0',
     justifyContent: 'center',
     alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 4,
   },
   defaultAvatarText: {
     color: '#FFFFFF',
@@ -1127,15 +1241,15 @@ const styles = StyleSheet.create({
     backgroundColor: '#F5F5F5',
   },
   playerName: {
-    fontSize: isSmallScreen ? 13 : 14,
+    fontSize: isSmallScreen ? 15 : 16,
     fontWeight: '600',
     color: '#1D1D1F',
     marginTop: 12,
     textAlign: 'center',
   },
   playerDMR: {
-    fontSize: isSmallScreen ? 11 : 12,
-    color: '#86868B',
+    fontSize: isSmallScreen ? 15 : 16,
+    color: '#1D1D1F',
     marginTop: 4,
   },
   inviteText: {
@@ -1151,21 +1265,23 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   roleLabel: {
-    fontSize: isSmallScreen ? 10 : 11,
-    color: '#A04DFE',
+    fontSize: isSmallScreen ? 12 : 13,
+    color: '#86868B',
     marginTop: 6,
-    fontWeight: '600',
+    fontWeight: '400',
   },
   unlinkButton: {
     marginTop: 8,
     paddingHorizontal: 12,
     paddingVertical: 6,
-    backgroundColor: '#FF3B30',
-    borderRadius: 6,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#7525CF',
   },
   unlinkButtonText: {
-    color: '#FFFFFF',
-    fontSize: 11,
+    color: '#7525CF',
+    fontSize: 12,
     fontWeight: '600',
   },
   statusLabel: {
@@ -1182,10 +1298,10 @@ const styles = StyleSheet.create({
   },
   plusContainer: {
     width: 56,
-    height: 70,
-    justifyContent: 'flex-start',
+    height: 80,
+    justifyContent: 'center',
     alignItems: 'center',
-    paddingTop: 0,
+    marginTop: -100,
   },
   teamDMRChipContainer: {
     width: '100%',
@@ -1195,11 +1311,11 @@ const styles = StyleSheet.create({
   teamDMRChip: {
     paddingHorizontal: 24,
     paddingVertical: 10,
-    borderRadius: 8,
+    borderRadius: 12,
   },
   teamDMRText: {
     color: '#FDFDFD',
-    fontSize: 13,
+    fontSize: isSmallScreen ? 16 : isTablet ? 20 : 18,
     fontWeight: '600',
   },
   stickyButtonContainer: {

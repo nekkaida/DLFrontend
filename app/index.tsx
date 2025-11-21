@@ -11,11 +11,11 @@ export default function HomeRoute() {
   const fadeAnim = useRef(new Animated.Value(0)).current;
 
   const handleGetStarted = () => {
-    router.replace('/register');
+    router.push('/register');
   };
 
   const handleLogin = () => {
-    router.replace('/login');
+    router.push('/login');
   };
 
   const handleSplashComplete = () => {

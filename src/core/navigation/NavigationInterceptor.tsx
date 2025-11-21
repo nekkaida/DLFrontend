@@ -208,6 +208,8 @@ export const NavigationInterceptor: React.FC<NavigationInterceptorProps> = ({ ch
     // Handle unauthenticated users accessing protected routes
     if (!session?.user && isProtectedRoute) {
       console.warn('NavigationInterceptor: Unauthenticated user accessing protected route, redirecting to login:', currentRoute);
+      // Clear navigation stack to prevent back navigation to protected routes
+      navigationStack.current = ['/login'];
       setTimeout(() => router.replace('/login'), 100);
       return;
     }
@@ -297,6 +299,14 @@ export const NavigationInterceptor: React.FC<NavigationInterceptorProps> = ({ ch
         return false; // This will minimize/exit the app
       }
 
+      // Prevent back navigation from login page when unauthenticated
+      // This prevents users from accessing protected routes after logout
+      if (currentRoute === '/login' && !session?.user) {
+        console.warn('Back navigation from login page blocked for unauthenticated user');
+        // Exit app or stay on login page
+        return true; // Prevent back navigation
+      }
+
       // For onboarding pages, use router.back() for natural navigation
       if (currentRoute.includes('/onboarding/')) {
         router.back();
@@ -310,6 +320,14 @@ export const NavigationInterceptor: React.FC<NavigationInterceptorProps> = ({ ch
         // Prevent back navigation to blocked auth pages for authenticated users
         if (session?.user && isBlockedAuthPage(previousRoute)) {
           console.warn('Back navigation to auth page blocked for authenticated user');
+          // Stay on current page instead of forcing navigation
+          return true;
+        }
+
+        // Prevent back navigation to protected routes for unauthenticated users
+        const protectedRoutes = ['/user-dashboard', '/profile', '/edit-profile', '/settings', '/match-history'];
+        if (!session?.user && protectedRoutes.some(route => previousRoute.startsWith(route))) {
+          console.warn('Back navigation to protected route blocked for unauthenticated user');
           // Stay on current page instead of forcing navigation
           return true;
         }

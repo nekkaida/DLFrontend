@@ -96,9 +96,10 @@ export interface LocationSearchResult {
   types: string[];
   // Optional structured address components from backend
   components?: {
-    country: string;
-    state: string;
-    city: string;
+    suburb?: string;
+    city?: string;
+    postcode?: string;
+    state?: string;
   };
   // Raw address details if provided
   address?: any;

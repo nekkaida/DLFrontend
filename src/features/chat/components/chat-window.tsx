@@ -6,22 +6,30 @@ import {
   ActivityIndicator,
   Dimensions,
   FlatList,
+  Platform,
   StyleSheet,
   Text,
   TouchableOpacity,
   View
 } from 'react-native';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { Message } from '../types';
-import { MessageBubble } from './chat-bubble';
+import { SwipeableMessageBubble } from './SwipeableMessageBubble';
 
 interface MessageWindowProps {
   messages: Message[];
   threadId: string;
   onLoadMore?: () => void;
   loading?: boolean;
+  isGroupChat?: boolean;
+  onReply?: (message: Message) => void;
+  onDeleteMessage?: (messageId: string) => void;
+  onLongPress?: (message: Message) => void;
 }
 
-const { height: screenHeight } = Dimensions.get('window');
+const { height: screenHeight, width } = Dimensions.get('window');
+const isSmallScreen = width < 375;
+const isTablet = width > 768;
 
 interface GroupedMessage {
   id: string;
@@ -35,15 +43,24 @@ export const MessageWindow: React.FC<MessageWindowProps> = ({
   threadId,
   onLoadMore,
   loading = false,
+  isGroupChat = false,
+  onReply,
+  onDeleteMessage,
+  onLongPress,
 }) => {
   const { data: session } = useSession();
   const flatListRef = useRef<FlatList>(null);
-  const [isAtBottom, setIsAtBottom] = useState(true);
   const [showScrollButton, setShowScrollButton] = useState(false);
 
   const user = session?.user;
 
-  // Group messages by date
+  // Create a message lookup map for O(1) access - memoized for performance
+  const messageMap = React.useMemo(() => {
+    const map = new Map<string, Message>();
+    messages.forEach(msg => map.set(msg.id, msg));
+    return map;
+  }, [messages]);
+
   const groupedMessages = React.useMemo(() => {
     const grouped: { [key: string]: Message[] } = {};
     
@@ -55,35 +72,39 @@ export const MessageWindow: React.FC<MessageWindowProps> = ({
       grouped[date].push(message);
     });
 
-    // Convert to flat array with date dividers
+  
     const flatData: GroupedMessage[] = [];
-    Object.entries(grouped).forEach(([date, dateMessages]) => {
-      flatData.push({
-        id: `date-${date}`,
-        type: 'date',
-        date: dateMessages[0].timestamp.toISOString(),
-      });
-      
-      // Add messages for this date
-      dateMessages.forEach(message => {
+    Object.entries(grouped)
+      .sort(([dateA], [dateB]) => dateA.localeCompare(dateB))
+      .forEach(([date, dateMessages]) => {
         flatData.push({
-          id: message.id,
-          type: 'message',
-          message,
+          id: `date-${date}`,
+          type: 'date',
+          date: dateMessages[0].timestamp.toISOString(),
         });
+        
+        // Add messages for this date in order
+        dateMessages
+          .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())
+          .forEach(message => {
+            flatData.push({
+              id: message.id,
+              type: 'message',
+              message,
+            });
+          });
       });
-    });
 
-    return flatData.reverse();
+    return flatData;
   }, [messages]);
 
   useEffect(() => {
-    if (isAtBottom && messages.length > 0) {
+    if (messages.length > 0) {
       setTimeout(() => {
-        flatListRef.current?.scrollToIndex({ index: 0, animated: true });
+        flatListRef.current?.scrollToEnd({ animated: true });
       }, 100);
     }
-  }, [messages.length, isAtBottom]);
+  }, [messages.length]);
 
   const getDateLabel = (dateString: string) => {
     const messageDate = new Date(dateString);
@@ -119,23 +140,26 @@ export const MessageWindow: React.FC<MessageWindowProps> = ({
 
     const message = item.message!;
     const isCurrentUser = message.senderId === user?.id;
-    const previousItem = groupedMessages[index + 1];
-    const nextItem = groupedMessages[index - 1];
+    const previousItem = index > 0 ? groupedMessages[index - 1] : null;
+    const nextItem = index < groupedMessages.length - 1 ? groupedMessages[index + 1] : null;
     
     const previousMessage = previousItem?.type === 'message' ? previousItem.message : null;
     const nextMessage = nextItem?.type === 'message' ? nextItem.message : null;
     
     const showAvatar = !previousMessage || previousMessage.senderId !== message.senderId;
     const isLastInGroup = !nextMessage || nextMessage.senderId !== message.senderId;
-    const isGroupChat = false; // TODO: Pass this from parent component based on thread type
     
     return (
-      <MessageBubble
+      <SwipeableMessageBubble
         message={message}
         isCurrentUser={isCurrentUser}
         showAvatar={showAvatar}
         isLastInGroup={isLastInGroup}
         isGroupChat={isGroupChat}
+        onReply={onReply || (() => {})}
+        onDelete={onDeleteMessage || (() => {})}
+        onLongPress={onLongPress}
+        messageMap={messageMap}
       />
     );
   };
@@ -161,30 +185,23 @@ export const MessageWindow: React.FC<MessageWindowProps> = ({
   const handleScroll = (event: any) => {
     const { contentOffset, contentSize, layoutMeasurement } = event.nativeEvent;
     const isNearBottom = contentSize.height - contentOffset.y - layoutMeasurement.height < 100;
-    
-    setIsAtBottom(isNearBottom);
     setShowScrollButton(!isNearBottom && messages.length > 10);
   };
 
   const scrollToBottom = () => {
-    if (groupedMessages.length > 0) {
-      flatListRef.current?.scrollToIndex({ 
-        index: 0, 
-        animated: true 
-      });
-    }
+    flatListRef.current?.scrollToEnd({ animated: true });
   };
 
   if (loading && messages.length === 0) {
     return (
-      <View style={[styles.container, { height: screenHeight * 0.65 }]}>
+      <View style={styles.container}>
         {renderLoadingSkeleton()}
       </View>
     );
   }
 
   return (
-    <View style={[styles.container, { height: screenHeight * 0.65 }]}>
+    <GestureHandlerRootView style={styles.container}>
       <FlatList
         ref={flatListRef}
         data={groupedMessages}
@@ -195,18 +212,15 @@ export const MessageWindow: React.FC<MessageWindowProps> = ({
           styles.contentContainer,
           groupedMessages.length === 0 && styles.emptyContentContainer
         ]}
-        inverted
         showsVerticalScrollIndicator={false}
         onEndReached={onLoadMore}
         onEndReachedThreshold={0.1}
         onScroll={handleScroll}
         scrollEventThrottle={16}
         ListEmptyComponent={renderEmpty}
-        getItemLayout={(data, index) => ({
-          length: 80, // Approximate item height
-          offset: 80 * index,
-          index,
-        })}
+        maintainVisibleContentPosition={{
+          minIndexForVisible: 0,
+        }}
       />
 
       {/* Loading indicator for sending messages */}
@@ -227,21 +241,21 @@ export const MessageWindow: React.FC<MessageWindowProps> = ({
           <Ionicons name="chevron-down" size={20} color="#FFFFFF" />
         </TouchableOpacity>
       )}
-    </View>
+    </GestureHandlerRootView>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
+    flex: 1,
     backgroundColor: '#FFFFFF',
-    position: 'relative',
   },
   messagesList: {
     flex: 1,
   },
   contentContainer: {
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingHorizontal: isSmallScreen ? 12 : isTablet ? 24 : 16,
+    paddingVertical: isSmallScreen ? 8 : isTablet ? 16 : 12,
     flexGrow: 1,
   },
   emptyContentContainer: {
@@ -251,16 +265,16 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    paddingVertical: 16,
+    paddingVertical: isSmallScreen ? 12 : isTablet ? 20 : 16,
   },
   dateDividerBadge: {
     backgroundColor: '#F3F4F6',
-    paddingHorizontal: 12,
-    paddingVertical: 4,
+    paddingHorizontal: isSmallScreen ? 10 : isTablet ? 16 : 12,
+    paddingVertical: isSmallScreen ? 3 : isTablet ? 6 : 4,
     borderRadius: 16,
   },
   dateDividerText: {
-    fontSize: 12,
+    fontSize: isSmallScreen ? 11 : isTablet ? 14 : 12,
     color: '#6B7280',
     fontWeight: '500',
   },
@@ -271,20 +285,21 @@ const styles = StyleSheet.create({
     paddingVertical: 50,
   },
   emptyEmoji: {
-    fontSize: 60,
-    marginBottom: 16,
+    fontSize: isSmallScreen ? 50 : isTablet ? 70 : 60,
+    marginBottom: isSmallScreen ? 12 : isTablet ? 20 : 16,
   },
   emptyText: {
-    fontSize: 18,
+    fontSize: isSmallScreen ? 16 : isTablet ? 20 : 18,
     fontWeight: '600',
     color: '#6B7280',
-    marginBottom: 8,
+    marginBottom: isSmallScreen ? 6 : isTablet ? 10 : 8,
   },
   emptySubtext: {
-    fontSize: 14,
+    fontSize: isSmallScreen ? 13 : isTablet ? 16 : 14,
     color: '#9CA3AF',
     textAlign: 'center',
-    lineHeight: 20,
+    lineHeight: isSmallScreen ? 18 : isTablet ? 22 : 20,
+    paddingHorizontal: 20,
   },
   loadingContainer: {
     flex: 1,
@@ -326,26 +341,32 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   sendingText: {
-    fontSize: 14,
+    fontSize: isSmallScreen ? 13 : isTablet ? 16 : 14,
     color: '#6B7280',
   },
   scrollToBottomButton: {
     position: 'absolute',
     bottom: 16,
     right: 16,
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: isSmallScreen ? 36 : isTablet ? 48 : 40,
+    height: isSmallScreen ? 36 : isTablet ? 48 : 40,
+    borderRadius: isSmallScreen ? 18 : isTablet ? 24 : 20,
     backgroundColor: '#863A73',
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: {
+          width: 0,
+          height: 2,
+        },
+        shadowOpacity: 0.25,
+        shadowRadius: 3.84,
+      },
+      android: {
+        elevation: 5,
+      },
+    }),
   },
 });

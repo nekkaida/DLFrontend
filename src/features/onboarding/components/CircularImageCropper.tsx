@@ -38,39 +38,17 @@ const CircularImageCropper: React.FC<CircularImageCropperProps> = ({
   const [isCropping, setIsCropping] = useState(false);
   const [isImageLoaded, setIsImageLoaded] = useState(false);
 
-  const scale = useSharedValue(1);
-  const savedScale = useSharedValue(1);
-  const translateX = useSharedValue(0);
-  const translateY = useSharedValue(0);
-  const savedTranslateX = useSharedValue(0);
-  const savedTranslateY = useSharedValue(0);
-
-  // Shared values for rendered dimensions (for worklet access)
+  // Separate previous/current state prevents transform drift
+  const scalePrevious = useSharedValue(1);
+  const scaleCurrent = useSharedValue(1);
+  const translateXPrevious = useSharedValue(0);
+  const translateYPrevious = useSharedValue(0);
+  const translateXCurrent = useSharedValue(0);
+  const translateYCurrent = useSharedValue(0);
+  const focalX = useSharedValue(0);
+  const focalY = useSharedValue(0);
   const renderedWidth = useSharedValue(CROP_SIZE);
   const renderedHeight = useSharedValue(CROP_SIZE);
-
-  // Reset transforms when modal opens
-  useEffect(() => {
-    if (visible && imageUri) {
-      scale.value = 1;
-      savedScale.value = 1;
-      translateX.value = 0;
-      translateY.value = 0;
-      savedTranslateX.value = 0;
-      savedTranslateY.value = 0;
-      setIsImageLoaded(false);
-
-      Image.getSize(imageUri, (width, height) => {
-        console.log('=== IMAGE SIZE VERIFICATION ===');
-        console.log('Image URI:', imageUri);
-        console.log('Image.getSize() returned:', { width, height });
-        console.log('Aspect ratio:', width / height);
-        console.log('==============================');
-        setImageSize({ width, height });
-        setIsImageLoaded(true);
-      });
-    }
-  }, [visible, imageUri]);
 
   // Memoize rendered dimensions to avoid recalculation on every render
   const renderedDimensions = useMemo(() => {
@@ -95,19 +73,48 @@ const CircularImageCropper: React.FC<CircularImageCropperProps> = ({
     }
   }, [imageSize.width, imageSize.height]);
 
+  // Reset transforms when modal opens
+  useEffect(() => {
+    if (visible && imageUri) {
+      scalePrevious.value = 1;
+      scaleCurrent.value = 1;
+      translateXPrevious.value = 0;
+      translateYPrevious.value = 0;
+      translateXCurrent.value = 0;
+      translateYCurrent.value = 0;
+      focalX.value = 0;
+      focalY.value = 0;
+      setIsImageLoaded(false);
+
+      Image.getSize(imageUri, (width, height) => {
+        setImageSize({ width, height });
+        setIsImageLoaded(true);
+      });
+    }
+  }, [visible, imageUri]);
+
+  // Center the image when dimensions are calculated
+  useEffect(() => {
+    if (isImageLoaded && renderedDimensions.width > 0) {
+      const imageCenterX = renderedDimensions.width / 2;
+      const imageCenterY = renderedDimensions.height / 2;
+      const cropCenterX = CROP_SIZE / 2;
+      const cropCenterY = CROP_SIZE / 2;
+
+      const initialTranslateX = cropCenterX - imageCenterX;
+      const initialTranslateY = cropCenterY - imageCenterY;
+
+      translateXPrevious.value = initialTranslateX;
+      translateYPrevious.value = initialTranslateY;
+      translateXCurrent.value = 0;
+      translateYCurrent.value = 0;
+    }
+  }, [isImageLoaded, renderedDimensions.width, renderedDimensions.height]);
+
   // Update shared values when dimensions change
   useEffect(() => {
     renderedWidth.value = renderedDimensions.width;
     renderedHeight.value = renderedDimensions.height;
-
-    console.log('=== RENDERED DIMENSIONS UPDATE ===');
-    console.log('Calculated rendered dimensions:', renderedDimensions);
-    console.log('CROP_SIZE:', CROP_SIZE);
-    console.log('Rendered/CROP ratio:', {
-      widthRatio: renderedDimensions.width / CROP_SIZE,
-      heightRatio: renderedDimensions.height / CROP_SIZE
-    });
-    console.log('===================================');
   }, [renderedDimensions]);
 
   const clampScale = (value: number) => {
@@ -117,120 +124,136 @@ const CircularImageCropper: React.FC<CircularImageCropperProps> = ({
 
   const getClampLimits = (currentScale: number) => {
     'worklet';
-    const scaledWidth = renderedWidth.value * currentScale;
-    const scaledHeight = renderedHeight.value * currentScale;
+
+    const baseWidth = renderedWidth.value;
+    const baseHeight = renderedHeight.value;
+    const scaledWidth = baseWidth * currentScale;
+    const scaledHeight = baseHeight * currentScale;
+
+    const maxTranslateX = (scaledWidth - baseWidth) / 2;
+    const maxTranslateY = (scaledHeight - baseHeight) / 2;
+    const minTranslateX = CROP_SIZE - (baseWidth + scaledWidth) / 2;
+    const minTranslateY = CROP_SIZE - (baseHeight + scaledHeight) / 2;
 
     return {
-      maxX: Math.max(0, (scaledWidth - CROP_SIZE) / 2),
-      maxY: Math.max(0, (scaledHeight - CROP_SIZE) / 2),
+      minX: minTranslateX,
+      maxX: maxTranslateX,
+      minY: minTranslateY,
+      maxY: maxTranslateY,
     };
   };
 
   const pinchGesture = Gesture.Pinch()
+    .onStart((e) => {
+      if (e.numberOfPointers === 2) {
+        focalX.value = e.focalX;
+        focalY.value = e.focalY;
+      }
+    })
     .onUpdate((e) => {
-      const newScale = clampScale(savedScale.value * e.scale);
-      scale.value = newScale;
+      const newScale = clampScale(scalePrevious.value * e.scale);
+      scaleCurrent.value = newScale;
 
-      // Re-clamp translation for new scale
+      // Focal point scaling formula
+      const focalOffsetX = (1 - newScale) * (focalX.value - CROP_SIZE / 2);
+      const focalOffsetY = (1 - newScale) * (focalY.value - CROP_SIZE / 2);
+
+      const newTranslateX = translateXPrevious.value + focalOffsetX;
+      const newTranslateY = translateYPrevious.value + focalOffsetY;
+
       const limits = getClampLimits(newScale);
-      translateX.value = Math.min(Math.max(savedTranslateX.value, -limits.maxX), limits.maxX);
-      translateY.value = Math.min(Math.max(savedTranslateY.value, -limits.maxY), limits.maxY);
+      translateXCurrent.value = Math.min(Math.max(newTranslateX, limits.minX), limits.maxX);
+      translateYCurrent.value = Math.min(Math.max(newTranslateY, limits.minY), limits.maxY);
     })
     .onEnd(() => {
-      savedScale.value = scale.value;
-      savedTranslateX.value = translateX.value;
-      savedTranslateY.value = translateY.value;
+      scalePrevious.value = scaleCurrent.value;
+      scaleCurrent.value = 1;
+
+      translateXPrevious.value = translateXCurrent.value;
+      translateYPrevious.value = translateYCurrent.value;
+      translateXCurrent.value = 0;
+      translateYCurrent.value = 0;
     });
 
   const panGesture = Gesture.Pan()
     .onUpdate((e) => {
-      const limits = getClampLimits(scale.value);
-      translateX.value = Math.min(
-        Math.max(savedTranslateX.value + e.translationX, -limits.maxX),
-        limits.maxX
-      );
-      translateY.value = Math.min(
-        Math.max(savedTranslateY.value + e.translationY, -limits.maxY),
-        limits.maxY
-      );
+      const currentScale = scalePrevious.value * scaleCurrent.value;
+      const limits = getClampLimits(currentScale);
+
+      const newTranslateX = translateXPrevious.value + e.translationX;
+      const newTranslateY = translateYPrevious.value + e.translationY;
+
+      translateXCurrent.value = Math.min(Math.max(newTranslateX, limits.minX), limits.maxX);
+      translateYCurrent.value = Math.min(Math.max(newTranslateY, limits.minY), limits.maxY);
     })
     .onEnd(() => {
-      savedTranslateX.value = translateX.value;
-      savedTranslateY.value = translateY.value;
+      if (translateXCurrent.value !== 0 || translateYCurrent.value !== 0) {
+        translateXPrevious.value = translateXCurrent.value;
+        translateYPrevious.value = translateYCurrent.value;
+        translateXCurrent.value = 0;
+        translateYCurrent.value = 0;
+      }
     });
 
   const composedGesture = Gesture.Simultaneous(pinchGesture, panGesture);
 
-  const animatedStyle = useAnimatedStyle(() => ({
-    transform: [
-      { scale: scale.value },
-      { translateX: translateX.value },
-      { translateY: translateY.value },
-    ],
-  }));
+  const animatedStyle = useAnimatedStyle(() => {
+    const totalScale = scalePrevious.value * scaleCurrent.value;
+    const totalTranslateX = translateXPrevious.value + translateXCurrent.value;
+    const totalTranslateY = translateYPrevious.value + translateYCurrent.value;
+
+    return {
+      transform: [
+        { scale: totalScale },
+        { translateX: totalTranslateX },
+        { translateY: totalTranslateY },
+      ],
+    };
+  });
 
   const handleCrop = async () => {
+    if (isCropping) return; // Prevent double-tap
+
     setIsCropping(true);
     try {
       if (!imageSize.width || !imageSize.height) {
-        console.error('Image size not available');
+        console.error('[CircularImageCropper] Image size not available');
         return;
       }
 
-      const currentScale = savedScale.value;
-      const currentTranslateX = savedTranslateX.value;
-      const currentTranslateY = savedTranslateY.value;
+      if (!imageUri) {
+        console.error('[CircularImageCropper] No image URI provided');
+        return;
+      }
 
-      // Use memoized rendered dimensions
+      const currentScale = scalePrevious.value;
+      const currentTranslateX = translateXPrevious.value;
+      const currentTranslateY = translateYPrevious.value;
+
       const rendered = renderedDimensions;
 
-      // Calculate what portion of the rendered image is visible in the crop area
-      // The image is centered in the container via flexbox (justifyContent/alignItems: center)
-      // This means the image may overflow the container on some sides
-
-      // Calculate initial image offset due to centering
-      const initialImageOffsetX = (rendered.width - CROP_SIZE) / 2;
-      const initialImageOffsetY = (rendered.height - CROP_SIZE) / 2;
-
-      // At default state (scale=1, translate=0), the container shows:
-      // - Horizontally: from initialImageOffsetX to (initialImageOffsetX + CROP_SIZE)
-      // - Vertically: from initialImageOffsetY to (initialImageOffsetY + CROP_SIZE)
-
-      // After user transforms (scale + translate), calculate visible portion
-      // Transform origin is at the image center
       const imageCenterX = rendered.width / 2;
       const imageCenterY = rendered.height / 2;
 
-      // Container center relative to image center
-      const containerCenterX = CROP_SIZE / 2;
-      const containerCenterY = CROP_SIZE / 2;
+      // React Native applies scale around original center: center = original_center + translation * scale
+      const imageCenterInContainerX = imageCenterX + currentTranslateX * currentScale;
+      const imageCenterInContainerY = imageCenterY + currentTranslateY * currentScale;
 
-      // Distance from image center to container center (before transforms)
-      const centerOffsetX = containerCenterX - imageCenterX + initialImageOffsetX;
-      const centerOffsetY = containerCenterY - imageCenterY + initialImageOffsetY;
+      const cropCircleCenterX = CROP_SIZE / 2;
+      const cropCircleCenterY = CROP_SIZE / 2;
 
-      // Apply inverse transforms to find what part of the image is visible
-      // Work backwards: undo translate, then undo scale
-      const afterTranslateX = centerOffsetX - currentTranslateX;
-      const afterTranslateY = centerOffsetY - currentTranslateY;
+      const centerToCropX = cropCircleCenterX - imageCenterInContainerX;
+      const centerToCropY = cropCircleCenterY - imageCenterInContainerY;
 
-      const afterScaleX = afterTranslateX / currentScale;
-      const afterScaleY = afterTranslateY / currentScale;
+      const cropCenterInImageX = imageCenterX + (centerToCropX / currentScale);
+      const cropCenterInImageY = imageCenterY + (centerToCropY / currentScale);
 
-      // Calculate the size of the visible area in rendered space
       const visibleWidth = CROP_SIZE / currentScale;
       const visibleHeight = CROP_SIZE / currentScale;
 
-      // Convert from center-relative to top-left coordinates
-      // afterScaleX/Y gives us the CENTER of the visible area relative to image center
-      // We need to subtract half the visible size to get the top-left corner
-      const visibleCenterX = imageCenterX + afterScaleX;
-      const visibleCenterY = imageCenterY + afterScaleY;
+      const visibleLeft = cropCenterInImageX - (visibleWidth / 2);
+      const visibleTop = cropCenterInImageY - (visibleHeight / 2);
 
-      const visibleLeft = visibleCenterX - (visibleWidth / 2);
-      const visibleTop = visibleCenterY - (visibleHeight / 2);
-
-      // Convert from rendered space to original image space
       const scaleX = imageSize.width / rendered.width;
       const scaleY = imageSize.height / rendered.height;
 
@@ -239,78 +262,17 @@ const CircularImageCropper: React.FC<CircularImageCropperProps> = ({
       const cropWidth = Math.min(imageSize.width - cropX, visibleWidth * scaleX);
       const cropHeight = Math.min(imageSize.height - cropY, visibleHeight * scaleY);
 
-      console.log('=== DETAILED CROP CALCULATION ===');
-      console.log('1. Image Info:');
-      console.log('   - Original size:', imageSize);
-      console.log('   - Rendered size:', rendered);
-      console.log('   - Aspect ratio:', imageSize.width / imageSize.height);
-      console.log('   - CROP_SIZE:', CROP_SIZE);
-
-      console.log('2. Initial Offsets & Centers:');
-      console.log('   - Initial image offset:', { x: initialImageOffsetX, y: initialImageOffsetY });
-      console.log('   - Container center:', { x: containerCenterX, y: containerCenterY });
-      console.log('   - Image center:', { x: imageCenterX, y: imageCenterY });
-      console.log('   - Center offset:', { x: centerOffsetX, y: centerOffsetY });
-
-      console.log('3. User Transforms:');
-      console.log('   - Scale:', currentScale);
-      console.log('   - TranslateX:', currentTranslateX);
-      console.log('   - TranslateY:', currentTranslateY);
-
-      console.log('4. Reverse Transform Steps:');
-      console.log('   - After undo translate:', { x: afterTranslateX, y: afterTranslateY });
-      console.log('   - After undo scale:', { x: afterScaleX, y: afterScaleY });
-      console.log('   - Visible position in rendered space:', { left: visibleLeft, top: visibleTop });
-      console.log('   - Visible size:', { width: visibleWidth, height: visibleHeight });
-
-      console.log('5. Convert to Original Space:');
-      console.log('   - Scale factors:', { scaleX, scaleY });
-      console.log('   - Crop position:', { x: cropX, y: cropY });
-      console.log('   - Crop size:', { width: cropWidth, height: cropHeight });
-
-      console.log('6. Final Crop Rectangle:');
-      console.log('   - originX:', Math.round(cropX));
-      console.log('   - originY:', Math.round(cropY));
-      console.log('   - width:', Math.round(cropWidth));
-      console.log('   - height:', Math.round(cropHeight));
-      console.log('================================');
-
-      // Image is already normalized before being passed to cropper, just crop it
-      console.log('=== CROPPING IMAGE ===');
-      console.log('Image URI (already normalized):', imageUri);
-      console.log('Crop params:', {
-        originX: Math.round(cropX),
-        originY: Math.round(cropY),
-        width: Math.round(cropWidth),
-        height: Math.round(cropHeight),
-      });
-      console.log('======================');
-
-      // CRITICAL: manipulateAsync reads raw image dimensions, not EXIF-rotated dimensions
-      // We need to detect if there's a dimension mismatch and adjust crop coordinates
+      // Handle EXIF dimension mismatch
       const testRead = await manipulateAsync(imageUri, [], { compress: 1, format: SaveFormat.JPEG });
 
-      console.log('=== DIMENSION MISMATCH DETECTION ===');
-      console.log('Image.getSize() dimensions:', { width: imageSize.width, height: imageSize.height });
-      console.log('manipulateAsync dimensions:', { width: testRead.width, height: testRead.height });
-
-      // Calculate scaling factor if dimensions don't match
       const dimensionScaleX = testRead.width / imageSize.width;
       const dimensionScaleY = testRead.height / imageSize.height;
 
-      console.log('Dimension scale factors:', { dimensionScaleX, dimensionScaleY });
-
-      // Adjust crop coordinates for the actual image dimensions
       const adjustedCropX = Math.round(cropX * dimensionScaleX);
       const adjustedCropY = Math.round(cropY * dimensionScaleY);
       const adjustedCropWidth = Math.round(cropWidth * dimensionScaleX);
       const adjustedCropHeight = Math.round(cropHeight * dimensionScaleY);
 
-      console.log('Original crop:', { originX: Math.round(cropX), originY: Math.round(cropY), width: Math.round(cropWidth), height: Math.round(cropHeight) });
-      console.log('Adjusted crop:', { originX: adjustedCropX, originY: adjustedCropY, width: adjustedCropWidth, height: adjustedCropHeight });
-      console.log('====================================');
-
-      // First crop only, then check dimensions
       const croppedOnly = await manipulateAsync(
         testRead.uri,
         [
@@ -326,14 +288,6 @@ const CircularImageCropper: React.FC<CircularImageCropperProps> = ({
         { compress: 1, format: SaveFormat.JPEG }
       );
 
-      console.log('=== AFTER CROP (before resize) ===');
-      console.log('Cropped URI:', croppedOnly.uri);
-      console.log('Cropped dimensions:', { width: croppedOnly.width, height: croppedOnly.height });
-      console.log('Expected dimensions:', { width: Math.round(cropWidth), height: Math.round(cropHeight) });
-      console.log('===================================');
-
-      // Then resize to 500×500
-      // CRITICAL: Use PNG to avoid any JPEG/EXIF issues
       const croppedImage = await manipulateAsync(
         croppedOnly.uri,
         [
@@ -346,12 +300,6 @@ const CircularImageCropper: React.FC<CircularImageCropperProps> = ({
         ],
         { compress: 1, format: SaveFormat.PNG, base64: false }
       );
-
-      console.log('=== CROPPED IMAGE RESULT ===');
-      console.log('Cropped image URI:', croppedImage.uri);
-      console.log('Cropped image width:', croppedImage.width);
-      console.log('Cropped image height:', croppedImage.height);
-      console.log('============================');
 
       onCropComplete(croppedImage.uri);
     } catch (error) {
@@ -394,10 +342,12 @@ const CircularImageCropper: React.FC<CircularImageCropperProps> = ({
                         width: renderedDimensions.width,
                         height: renderedDimensions.height,
                         position: 'absolute',
+                        top: 0,
+                        left: 0,
                       },
                       animatedStyle,
                     ]}
-                    resizeMode="contain"
+                    resizeMode="stretch"
                   />
                 </GestureDetector>
               </View>

@@ -1,3 +1,4 @@
+import { useSession } from "@/lib/auth-client";
 import { Ionicons } from "@expo/vector-icons";
 import React from "react";
 import {
@@ -17,8 +18,8 @@ interface ThreadListProps {
 
 export const ThreadList: React.FC<ThreadListProps> = ({ onThreadSelect }) => {
   const { threads, loadThreads, isLoading } = useChatStore();
-
-  console.log("ThreadList: Rendering with threads:", threads?.length || 0);
+  const { data: session } = useSession();
+  const userId = session?.user?.id;
 
   const renderThread = ({ item }: { item: Thread }) => (
     <TouchableOpacity
@@ -54,17 +55,34 @@ export const ThreadList: React.FC<ThreadListProps> = ({ onThreadSelect }) => {
           </Text>
         </View>
 
-        {item.type === "group" && (
-          <Text style={styles.participantCount}>
-            {item.participants.length} participants
-          </Text>
-        )}
-
-        {item.lastMessage && (
-          <Text style={styles.lastMessage} numberOfLines={2}>
-            {item.lastMessage.content}
-          </Text>
-        )}
+        <View style={styles.messageContainer}>
+          {item.lastMessage ? (
+            <View style={styles.messageRow}>
+              {item.type === "group" && item.lastMessage.metadata?.sender && (
+                <Text style={styles.senderName} numberOfLines={1}>
+                  {item.lastMessage.metadata.sender.name || 
+                   item.lastMessage.metadata.sender.username || 
+                   "Unknown"}: 
+                </Text>
+              )}
+              <Text 
+                style={[
+                  styles.lastMessage,
+                  item.lastMessage.metadata?.isDeleted && styles.deletedMessage
+                ]} 
+                numberOfLines={2}
+              >
+                {item.lastMessage.metadata?.isDeleted 
+                  ? "This message was deleted" 
+                  : item.lastMessage.content || "No message content"}
+              </Text>
+            </View>
+          ) : (
+            <Text style={styles.emptyMessage} numberOfLines={1}>
+              No messages yet
+            </Text>
+          )}
+        </View>
       </View>
     </TouchableOpacity>
   );
@@ -95,14 +113,24 @@ export const ThreadList: React.FC<ThreadListProps> = ({ onThreadSelect }) => {
     <FlatList
       data={threads || []}
       renderItem={renderThread}
-      keyExtractor={(item) => item.id}
+      keyExtractor={(item) => {
+        if (!item || !item.id) return `null-thread-${Math.random()}`;
+        // Use thread ID as key since it's guaranteed to be unique
+        return item.id;
+      }}
+      extraData={threads}
       style={styles.container}
       contentContainerStyle={
         !threads || threads.length === 0 ? styles.emptyContainer : undefined
       }
       ListEmptyComponent={renderEmpty}
       refreshing={isLoading}
-      onRefresh={loadThreads}
+      onRefresh={() => {
+        console.log('🔄 Refreshing threads for user:', userId);
+        if (userId) {
+          loadThreads(userId);
+        }
+      }}
       showsVerticalScrollIndicator={false}
     />
   );
@@ -175,30 +203,50 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 4,
+    marginBottom: 6,
   },
   threadName: {
     flex: 1,
     fontSize: 16,
     fontWeight: "600",
     color: "#111827",
-    marginBottom: 2,
+    marginRight: 8,
   },
   timestamp: {
     fontSize: 12,
     color: "#6B7280",
-    fontWeight: '600',
-    marginTop: 1, 
+    fontWeight: '500',
+    flexShrink: 0,
   },
-  participantCount: {
-    fontSize: 12,
-    color: '#9CA3AF',
-    marginBottom: 2,
+  messageContainer: {
+    marginTop: 2,
+  },
+  messageRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    flex: 1,
+  },
+  senderName: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#111827",
+    marginRight: 4,
+    flexShrink: 0,
   },
   lastMessage: {
     fontSize: 14,
     color: "#6B7280",
     lineHeight: 20,
+    flex: 1,
+  },
+  deletedMessage: {
+    fontStyle: 'italic',
+    color: "#9CA3AF",
+  },
+  emptyMessage: {
+    fontSize: 14,
+    color: "#9CA3AF",
+    fontStyle: 'italic',
   },
   emptyContainer: {
     flex: 1,
