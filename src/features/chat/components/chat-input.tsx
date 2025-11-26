@@ -19,6 +19,8 @@ interface MessageInputProps {
   onEmojiPress?: () => void;
   replyingTo?: Message | null;
   onCancelReply?: () => void;
+  sportType?: 'PICKLEBALL' | 'TENNIS' | 'PADEL' | null;
+  isGroupChat?: boolean;
 }
 
 export const MessageInput: React.FC<MessageInputProps> = ({
@@ -29,12 +31,47 @@ export const MessageInput: React.FC<MessageInputProps> = ({
   onEmojiPress,
   replyingTo,
   onCancelReply,
+  sportType,
+  isGroupChat = false,
 }) => {
   const [message, setMessage] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const inputRef = useRef<TextInput>(null);
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const insets = useSafeAreaInsets();
+
+  // TO DO create constant for chat colors 
+  // Get sport-specific color for send button
+  const getSendButtonColor = () => {
+    if (!isGroupChat || !message.trim()) return message.trim() ? '#863A73' : '#E5E7EB';
+    
+    switch (sportType) {
+      case 'PICKLEBALL':
+        return '#863A73'; // Purple
+      case 'TENNIS':
+        return '#65B741'; // Green
+      case 'PADEL':
+        return '#3B82F6'; // Blue
+      default:
+        return '#863A73'; // Default purple
+    }
+  };
+
+  // Get sport-specific color for calendar icon
+  const getCalendarIconColor = () => {
+    if (!isGroupChat) return '#6B7280'; // Gray for individual chats
+    
+    switch (sportType) {
+      case 'PICKLEBALL':
+        return '#863A73'; // Purple
+      case 'TENNIS':
+        return '#65B741'; // Green
+      case 'PADEL':
+        return '#3B82F6'; // Blue
+      default:
+        return '#6B7280'; // Default gray
+    }
+  };
 
   const handleTextChange = (text: string) => {
     setMessage(text);
@@ -111,7 +148,7 @@ export const MessageInput: React.FC<MessageInputProps> = ({
           onPress={handleMatch}
           activeOpacity={0.7}
         >
-         <Ionicons name="game-controller" size={24} color="#6B7280" />  
+         <Ionicons name="calendar-clear-outline" size={24} color={getCalendarIconColor()} />  
         </TouchableOpacity>
         
         <View style={styles.textInputContainer}>
@@ -131,7 +168,7 @@ export const MessageInput: React.FC<MessageInputProps> = ({
         <TouchableOpacity
           style={[
             styles.sendButton,
-            { backgroundColor: message.trim() ? '#863A73' : '#E5E7EB' }
+            { backgroundColor: getSendButtonColor() }
           ]}
           onPress={handleSend}
           disabled={!message.trim()}

@@ -1,14 +1,13 @@
 import { Ionicons } from '@expo/vector-icons';
-import { format } from 'date-fns';
 import React, { useCallback } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
-    runOnJS,
-    useAnimatedStyle,
-    useSharedValue,
-    withSpring,
-    withTiming,
+  runOnJS,
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
+  withTiming,
 } from 'react-native-reanimated';
 import { Message } from '../types';
 
@@ -46,11 +45,11 @@ export const SwipeableMessageBubble: React.FC<SwipeableMessageBubbleProps> = ({
     
     switch (sportType) {
       case 'PICKLEBALL':
-        return '#863A73'; // Purple
+        return '#DCC6FD'; // Purple
       case 'TENNIS':
-        return '#65B741'; // Green
+        return '#D4F0B4'; // Green
       case 'PADEL':
-        return '#3B82F6'; // Blue
+        return '#B9DEFD'; // Blue
       default:
         return '#863A73'; // Default purple
     }
@@ -234,7 +233,8 @@ export const SwipeableMessageBubble: React.FC<SwipeableMessageBubbleProps> = ({
                 </Text>
               )}
 
-              <View style={styles.messageFooter}>
+              {/* Commented out as its not in their design - requiring confirmation */}
+              {/* <View style={styles.messageFooter}>
                 <Text
                   style={[
                     styles.timestamp,
@@ -252,7 +252,7 @@ export const SwipeableMessageBubble: React.FC<SwipeableMessageBubbleProps> = ({
                     {message.isRead && <Text style={styles.readStatus}>✓</Text>}
                   </View>
                 )}
-              </View>
+              </View> */}
             </View>
           </Animated.View>
         </GestureDetector>
@@ -408,7 +408,7 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   currentUserText: {
-    color: '#FFFFFF',
+    color: '#000000ff',
   },
   otherUserText: {
     color: '#111827',

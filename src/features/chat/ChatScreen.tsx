@@ -317,7 +317,7 @@ export const ChatScreen: React.FC = () => {
       // Group chat: show group name and participant count
       return {
         title: currentThread.name || 'Group Chat',
-        subtitle: `${currentThread.participants.length} participants`,
+        subtitle: null, //TO DO update this to show the season name 
         sportType: currentThread.sportType
       };
     } else {
@@ -344,6 +344,27 @@ export const ChatScreen: React.FC = () => {
 
   const headerContent = getHeaderContent();
   const sportColors = getSportColors(headerContent.sportType);
+
+  // Generate participant preview text for group chats
+  const getParticipantPreview = () => {
+    if (!currentThread || currentThread.type !== 'group') return '';
+    
+    const participantNames = currentThread.participants
+      .slice(0, 5) // Show first 5 participants
+      .map(p => {
+        // Get first name only
+        const firstName = p.name?.split(' ')[0] || p.username || 'Unknown';
+        // Shorten long names
+        return firstName.length > 10 ? firstName.substring(0, 8) + '.' : firstName;
+      });
+    
+    // Add ellipsis if there are more participants
+    if (currentThread.participants.length > 5) {
+      return participantNames.join(', ') + '...';
+    }
+    
+    return participantNames.join(', ');
+  };
 
   if (isLoading && (!threads || threads.length === 0)) {
     return (
@@ -399,34 +420,88 @@ export const ChatScreen: React.FC = () => {
               <Ionicons name="arrow-back" size={24} color="#111827" />
             </TouchableOpacity>
             
-            <View style={styles.chatHeaderContent}>
-              <View style={styles.chatHeaderTitleRow}>
-                <Text style={styles.chatHeaderTitle} numberOfLines={1}>
-                  {headerContent.title}
-                </Text>
-                {currentThread?.type === 'group' && sportColors.label && (
+            {currentThread?.type === 'group' ? (
+              // Group chat header with avatar
+              <>
+                <View style={styles.groupHeaderAvatar}>
                   <View style={[
-                    styles.sportBadge,
-                    { 
-                      borderColor: sportColors.badgeColor,
-                      borderWidth: 1.5,
-                    }
+                    styles.groupAvatarCircle,
+                    { backgroundColor: sportColors.background }
                   ]}>
-                    <Text style={[
-                      styles.sportBadgeText,
-                      { color: sportColors.badgeColor }
-                    ]}>{sportColors.label}</Text>
+                    <Text style={styles.groupAvatarText}>
+                      {currentThread.name?.charAt(0)?.toUpperCase() || 'G'}
+                    </Text>
                   </View>
-                )}
-              </View>
-              {headerContent.subtitle && (
-                <Text style={styles.chatHeaderSubtitle} numberOfLines={1}>
-                  {headerContent.subtitle}
-                </Text>
-              )}
-            </View>
-            
-            {/* <SocketTestButton threadId={currentThread.id} /> */}
+                  {/* Badge number overlay */}
+                  <View style={styles.groupBadgeOverlay}>
+                    <Text style={styles.groupBadgeNumber}>
+                      {currentThread.participants.length}
+                    </Text>
+                  </View>
+                </View>
+                
+                <View style={styles.groupHeaderContent}>
+                  <View style={styles.groupHeaderTopRow}>
+                    {sportColors.label && (
+                      <View style={[
+                        styles.sportBadgeHeader,
+                        { 
+                          borderColor: sportColors.badgeColor,
+                          borderWidth: 1.5,
+                        }
+                      ]}>
+                        <Text style={[
+                          styles.sportBadgeHeaderText,
+                          { color: sportColors.badgeColor }
+                        ]}>{sportColors.label}</Text>
+                      </View>
+                    )}
+                    <Text style={styles.groupHeaderTitle} numberOfLines={1}>
+                      {headerContent.title}
+                    </Text>
+                  </View>
+                  <Text style={styles.groupHeaderParticipants} numberOfLines={1}>
+                    {getParticipantPreview()}
+                  </Text>
+                  
+                  {/* Action buttons */}
+                  <View style={styles.groupActionButtons}>
+                    <TouchableOpacity 
+                      style={[
+                        styles.actionButton, 
+                        styles.primaryActionButton,
+                        { backgroundColor: sportColors.background }
+                      ]}
+                      activeOpacity={0.8}
+                    >
+                      <Text style={styles.primaryActionText}>View Standings</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity 
+                      style={[styles.actionButton, styles.secondaryActionButton]}
+                      activeOpacity={0.8}
+                    >
+                      <Text style={styles.secondaryActionText}>View All Matches</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              </>
+            ) : (
+              // Direct chat header (original design)
+              <>
+                <View style={styles.chatHeaderContent}>
+                  <View style={styles.chatHeaderTitleRow}>
+                    <Text style={styles.chatHeaderTitle} numberOfLines={1}>
+                      {headerContent.title}
+                    </Text>
+                  </View>
+                  {headerContent.subtitle && (
+                    <Text style={styles.chatHeaderSubtitle} numberOfLines={1}>
+                      {headerContent.subtitle}
+                    </Text>
+                  )}
+                </View>
+              </>
+            )}
             
             <TouchableOpacity style={styles.headerAction}>
               <Ionicons name="ellipsis-vertical" size={20} color="#6B7280" />
@@ -449,6 +524,8 @@ export const ChatScreen: React.FC = () => {
             onhandleMatch={handleMatch}
             replyingTo={replyingTo}
             onCancelReply={handleCancelReply}
+            sportType={currentThread.sportType}
+            isGroupChat={currentThread.type === 'group'}
           />
         </KeyboardAvoidingView>
       ) : (
@@ -600,6 +677,122 @@ const styles = StyleSheet.create({
   },
   headerAction: {
     padding: 4,
+  },
+  // Group chat header styles
+  groupHeaderAvatar: {
+    position: 'relative',
+    marginRight: 12,
+  },
+  groupAvatarCircle: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  groupAvatarText: {
+    color: '#FFFFFF',
+    fontSize: 20,
+    fontWeight: '700',
+  },
+  groupBadgeOverlay: {
+    position: 'absolute',
+    bottom: -2,
+    right: -2,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: {
+          width: 0,
+          height: 1,
+        },
+        shadowOpacity: 0.2,
+        shadowRadius: 2,
+      },
+      android: {
+        elevation: 3,
+      },
+    }),
+  },
+  groupBadgeNumber: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#111827',
+  },
+  groupHeaderContent: {
+    flex: 1,
+    justifyContent: 'center',
+  },
+  groupHeaderTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 2,
+  },
+  sportBadgeHeader: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 8,
+    backgroundColor: 'transparent',
+  },
+  sportBadgeHeaderText: {
+    fontSize: 8,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 0.3,
+  },
+  groupHeaderTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#111827',
+    flexShrink: 1,
+  },
+  groupHeaderSubtitle: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: '#6B7280',
+    marginBottom: 2,
+  },
+  groupHeaderParticipants: {
+    fontSize: 12,
+    color: '#6B7280',
+    marginBottom: 8,
+    fontWeight: '500',
+  },
+  groupActionButtons: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  actionButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 7,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  primaryActionButton: {
+    backgroundColor: '#863A73',
+  },
+  secondaryActionButton: {
+    backgroundColor: 'transparent',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  primaryActionText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#FFFFFF',
+  },
+  secondaryActionText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#6B7280',
   },
   centerContainer: {
     flex: 1,
