@@ -6,6 +6,8 @@ import {
   ScrollView,
   Pressable,
   Platform,
+  ViewStyle,
+  TextStyle,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -15,15 +17,36 @@ import { theme } from '@core/theme/theme';
 import { router } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 
+// Types
+interface MatchScore {
+  player1: number | null;
+  player2: number | null;
+}
+
+interface Match {
+  id: string;
+  league: string;
+  player1: string;
+  player2: string;
+  status: 'completed' | 'ongoing' | 'upcoming';
+  scores: {
+    set1: MatchScore;
+    set2: MatchScore;
+    set3: MatchScore;
+  };
+  date: string;
+  time: string;
+}
+
 // Default Profile Icon Component (reused from profile)
 const DefaultProfileIcon = () => (
-  <View style={styles.profileIcon}>
+  <View style={styles.profileIcon as ViewStyle}>
     <Svg width="20" height="20" viewBox="0 0 24 24">
-      <Path 
-        fill="#FFFFFF" 
-        fillRule="evenodd" 
-        d="M8 7a4 4 0 1 1 8 0a4 4 0 0 1-8 0m0 6a5 5 0 0 0-5 5a3 3 0 0 0 3 3h12a3 3 0 0 0 3-3a5 5 0 0 0-5-5z" 
-        clipRule="evenodd" 
+      <Path
+        fill="#FFFFFF"
+        fillRule="evenodd"
+        d="M8 7a4 4 0 1 1 8 0a4 4 0 0 1-8 0m0 6a5 5 0 0 0-5 5a3 3 0 0 0 3 3h12a3 3 0 0 0 3-3a5 5 0 0 0-5-5z"
+        clipRule="evenodd"
       />
     </Svg>
   </View>
@@ -31,35 +54,39 @@ const DefaultProfileIcon = () => (
 
 
 // Real match data - currently empty until match system is implemented
-const matches = []; // Will be populated from API when match system is ready
+const matches: Match[] = []; // Will be populated from API when match system is ready
 
-const MatchCard = ({ match }) => {
+const MatchCard = ({ match }: { match: Match }) => {
   // Determine winner based on sets won
-  const getWinner = () => {
+  const getWinner = (): 'player1' | 'player2' | null => {
     if (match.status !== 'completed') return null;
-    
+
     let player1Sets = 0;
     let player2Sets = 0;
-    
+
     // Count sets won
-    if (match.scores.set1.player1 > match.scores.set1.player2) player1Sets++;
-    else if (match.scores.set1.player2 > match.scores.set1.player1) player2Sets++;
-    
-    if (match.scores.set2.player1 > match.scores.set2.player2) player1Sets++;
-    else if (match.scores.set2.player2 > match.scores.set2.player1) player2Sets++;
-    
+    if (match.scores.set1.player1 !== null && match.scores.set1.player2 !== null) {
+      if (match.scores.set1.player1 > match.scores.set1.player2) player1Sets++;
+      else if (match.scores.set1.player2 > match.scores.set1.player1) player2Sets++;
+    }
+
+    if (match.scores.set2.player1 !== null && match.scores.set2.player2 !== null) {
+      if (match.scores.set2.player1 > match.scores.set2.player2) player1Sets++;
+      else if (match.scores.set2.player2 > match.scores.set2.player1) player2Sets++;
+    }
+
     if (match.scores.set3.player1 !== null && match.scores.set3.player2 !== null) {
       if (match.scores.set3.player1 > match.scores.set3.player2) player1Sets++;
       else if (match.scores.set3.player2 > match.scores.set3.player1) player2Sets++;
     }
-    
+
     if (player1Sets > player2Sets) return 'player1';
     if (player2Sets > player1Sets) return 'player2';
     return null; // Draw or incomplete
   };
-  
+
   const winner = getWinner();
-  const getStatusBackgroundColor = (status) => {
+  const getStatusBackgroundColor = (status: Match['status']): string => {
     switch (status) {
       case 'completed':
         return '#eeeeee';
@@ -72,7 +99,7 @@ const MatchCard = ({ match }) => {
     }
   };
 
-  const getStatusTextColor = (status) => {
+  const getStatusTextColor = (status: Match['status']): string => {
     switch (status) {
       case 'completed':
         return '#fda04d';
@@ -85,7 +112,7 @@ const MatchCard = ({ match }) => {
     }
   };
 
-  const getStatusText = (status) => {
+  const getStatusText = (status: Match['status']): string => {
     switch (status) {
       case 'completed':
         return 'Completed';
@@ -99,92 +126,93 @@ const MatchCard = ({ match }) => {
   };
 
   return (
-    <Pressable 
-      style={styles.matchCard}
+    <Pressable
+      style={styles.matchCard as ViewStyle}
       onPress={() => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
         // Navigate to match details
       }}
     >
       {/* League Name with Container */}
-      <View style={styles.leagueNameContainer}>
-        <Text style={styles.leagueName}>{match.league}</Text>
+      <View style={styles.leagueNameContainer as ViewStyle}>
+        <Text style={styles.leagueName as TextStyle}>{match.league}</Text>
       </View>
-      
+
       {/* Scoreboard */}
-      <View style={styles.scoreboardContainer}>
+      <View style={styles.scoreboardContainer as ViewStyle}>
         {/* Player Names Column with Profile Icons */}
-        <View style={styles.playerColumn}>
-          <View style={styles.playerRow}>
+        <View style={styles.playerColumn as ViewStyle}>
+          <View style={styles.playerRow as ViewStyle}>
             <DefaultProfileIcon />
-            <Text style={[styles.playerName, winner === 'player1' && styles.winnerText]}>{match.player1}</Text>
+            <Text style={[styles.playerName, winner === 'player1' && styles.winnerText] as unknown as TextStyle}>{match.player1}</Text>
           </View>
-          <View style={styles.playerRow}>
+          <View style={styles.playerRow as ViewStyle}>
             <DefaultProfileIcon />
-            <Text style={[styles.playerName, winner === 'player2' && styles.winnerText]}>{match.player2}</Text>
+            <Text style={[styles.playerName, winner === 'player2' && styles.winnerText] as unknown as TextStyle}>{match.player2}</Text>
           </View>
         </View>
-        
+
         {/* Set 1 */}
-        <View style={styles.setColumn}>
-          <Text style={styles.setHeader}>Set 1</Text>
-          <View style={styles.scoreContainer}>
-            <Text style={[styles.score, winner === 'player1' && styles.winnerText]}>
+        <View style={styles.setColumn as ViewStyle}>
+          <Text style={styles.setHeader as TextStyle}>Set 1</Text>
+          <View style={styles.scoreContainer as ViewStyle}>
+            <Text style={[styles.score, winner === 'player1' && styles.winnerText] as unknown as TextStyle}>
               {match.scores.set1.player1 !== null ? match.scores.set1.player1 : '-'}
             </Text>
           </View>
-          <View style={styles.scoreContainer}>
-            <Text style={[styles.score, winner === 'player2' && styles.winnerText]}>
+          <View style={styles.scoreContainer as ViewStyle}>
+            <Text style={[styles.score, winner === 'player2' && styles.winnerText] as unknown as TextStyle}>
               {match.scores.set1.player2 !== null ? match.scores.set1.player2 : '-'}
             </Text>
           </View>
         </View>
-        
+
         {/* Set 2 */}
-        <View style={styles.setColumn}>
-          <Text style={styles.setHeader}>Set 2</Text>
-          <View style={styles.scoreContainer}>
-            <Text style={[styles.score, winner === 'player1' && styles.winnerText]}>
+        <View style={styles.setColumn as ViewStyle}>
+          <Text style={styles.setHeader as TextStyle}>Set 2</Text>
+          <View style={styles.scoreContainer as ViewStyle}>
+            <Text style={[styles.score, winner === 'player1' && styles.winnerText] as unknown as TextStyle}>
               {match.scores.set2.player1 !== null ? match.scores.set2.player1 : '-'}
             </Text>
           </View>
-          <View style={styles.scoreContainer}>
-            <Text style={[styles.score, winner === 'player2' && styles.winnerText]}>
+          <View style={styles.scoreContainer as ViewStyle}>
+            <Text style={[styles.score, winner === 'player2' && styles.winnerText] as unknown as TextStyle}>
               {match.scores.set2.player2 !== null ? match.scores.set2.player2 : '-'}
             </Text>
           </View>
         </View>
-        
+
         {/* Set 3 */}
-        <View style={styles.setColumn}>
-          <Text style={styles.setHeader}>Set 3</Text>
-          <View style={styles.scoreContainer}>
-            <Text style={[styles.score, winner === 'player1' && styles.winnerText]}>
+        <View style={styles.setColumn as ViewStyle}>
+          <Text style={styles.setHeader as TextStyle}>Set 3</Text>
+          <View style={styles.scoreContainer as ViewStyle}>
+            <Text style={[styles.score, winner === 'player1' && styles.winnerText] as unknown as TextStyle}>
               {match.scores.set3.player1 !== null ? match.scores.set3.player1 : '-'}
             </Text>
           </View>
-          <View style={styles.scoreContainer}>
-            <Text style={[styles.score, winner === 'player2' && styles.winnerText]}>
+          <View style={styles.scoreContainer as ViewStyle}>
+            <Text style={[styles.score, winner === 'player2' && styles.winnerText] as unknown as TextStyle}>
               {match.scores.set3.player2 !== null ? match.scores.set3.player2 : '-'}
             </Text>
           </View>
         </View>
       </View>
-      
+
+
       {/* Divider */}
-      <View style={styles.divider} />
-      
+      <View style={styles.divider as ViewStyle} />
+
       {/* Bottom Section */}
-      <View style={styles.bottomSection}>
+      <View style={styles.bottomSection as ViewStyle}>
         {/* Date and Time */}
-        <View style={styles.dateTimeContainer}>
-          <Text style={styles.dateText}>{match.date}</Text>
-          <Text style={styles.timeText}>{match.time}</Text>
+        <View style={styles.dateTimeContainer as ViewStyle}>
+          <Text style={styles.dateText as TextStyle}>{match.date}</Text>
+          <Text style={styles.timeText as TextStyle}>{match.time}</Text>
         </View>
-        
+
         {/* Status */}
-        <View style={[styles.statusContainer, { backgroundColor: getStatusBackgroundColor(match.status) }]}>
-          <Text style={[styles.statusText, { color: getStatusTextColor(match.status), fontWeight: (match.status === 'completed' || match.status === 'ongoing') ? 'bold' : 'normal' }]}>
+        <View style={[styles.statusContainer, { backgroundColor: getStatusBackgroundColor(match.status) }] as unknown as ViewStyle}>
+          <Text style={[styles.statusText, { color: getStatusTextColor(match.status), fontWeight: (match.status === 'completed' || match.status === 'ongoing') ? 'bold' as const : 'normal' as const }] as unknown as TextStyle}>
             {getStatusText(match.status)}
           </Text>
         </View>
@@ -200,18 +228,18 @@ export default function MatchHistoryScreen() {
   };
 
   return (
-    <View style={styles.container}>
+    <View style={styles.container as ViewStyle}>
       {/* Orange Header */}
       <LinearGradient
         colors={[theme.colors.primary, '#FFA366']}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
-        style={styles.headerGradient}
+        style={styles.headerGradient as ViewStyle}
       >
-        <SafeAreaView edges={['top']} style={styles.safeHeader}>
-          <View style={styles.header}>
-            <Pressable 
-              style={styles.backButton}
+        <SafeAreaView edges={['top']} style={styles.safeHeader as ViewStyle}>
+          <View style={styles.header as ViewStyle}>
+            <Pressable
+              style={styles.backButton as ViewStyle}
               onPress={handleBackPress}
               accessible={true}
               accessibilityLabel="Go back"
@@ -219,16 +247,16 @@ export default function MatchHistoryScreen() {
             >
               <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
             </Pressable>
-            <Text style={styles.headerTitle}>Match History</Text>
-            <View style={styles.headerSpacer} />
+            <Text style={styles.headerTitle as TextStyle}>Match History</Text>
+            <View style={styles.headerSpacer as ViewStyle} />
           </View>
         </SafeAreaView>
       </LinearGradient>
-      
+
       {/* White Background Content */}
-      <ScrollView 
-        style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
+      <ScrollView
+        style={styles.scrollView as ViewStyle}
+        contentContainerStyle={styles.scrollContent as ViewStyle}
         showsVerticalScrollIndicator={false}
       >
         {matches.length > 0 ? (
@@ -236,10 +264,10 @@ export default function MatchHistoryScreen() {
             <MatchCard key={match.id} match={match} />
           ))
         ) : (
-          <View style={styles.noDataContainer}>
+          <View style={styles.noDataContainer as ViewStyle}>
             <Ionicons name="tennisball-outline" size={64} color="#E5E7EB" />
-            <Text style={styles.noDataTitle}>No Match History</Text>
-            <Text style={styles.noDataText}>
+            <Text style={styles.noDataTitle as TextStyle}>No Match History</Text>
+            <Text style={styles.noDataText as TextStyle}>
               You haven't played any matches yet.{'\n'}
               Start playing to see your match history here!
             </Text>
@@ -278,7 +306,7 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     fontSize: theme.typography.fontSize.xl,
-    fontWeight: theme.typography.fontWeight.bold,
+    fontWeight: theme.typography.fontWeight.bold as any,
     color: '#FFFFFF',
     fontFamily: theme.typography.fontFamily.primary,
   },
@@ -322,7 +350,7 @@ const styles = StyleSheet.create({
   },
   leagueName: {
     fontSize: theme.typography.fontSize.base,
-    fontWeight: theme.typography.fontWeight.semibold,
+    fontWeight: theme.typography.fontWeight.semibold as any,
     color: theme.colors.primary,
     fontFamily: theme.typography.fontFamily.primary,
   },
@@ -357,20 +385,20 @@ const styles = StyleSheet.create({
     fontSize: theme.typography.fontSize.base, // Bigger font
     color: theme.colors.neutral.gray[700],
     fontFamily: theme.typography.fontFamily.primary,
-    fontWeight: theme.typography.fontWeight.semibold,
+    fontWeight: theme.typography.fontWeight.semibold as any,
   },
   setHeader: {
     fontSize: theme.typography.fontSize.xs,
     color: theme.colors.neutral.gray[500],
     fontFamily: theme.typography.fontFamily.primary,
     marginBottom: theme.spacing.xs,
-    fontWeight: theme.typography.fontWeight.medium,
+    fontWeight: theme.typography.fontWeight.medium as any,
   },
   score: {
     fontSize: theme.typography.fontSize.sm,
     color: theme.colors.neutral.gray[700],
     fontFamily: theme.typography.fontFamily.primary,
-    fontWeight: theme.typography.fontWeight.bold,
+    fontWeight: theme.typography.fontWeight.bold as any,
     height: 32,
     lineHeight: 32,
     textAlign: 'center',
@@ -393,7 +421,7 @@ const styles = StyleSheet.create({
     fontSize: theme.typography.fontSize.sm,
     color: theme.colors.neutral.gray[600],
     fontFamily: theme.typography.fontFamily.primary,
-    fontWeight: theme.typography.fontWeight.medium,
+    fontWeight: theme.typography.fontWeight.medium as any,
   },
   timeText: {
     fontSize: theme.typography.fontSize.xs,
@@ -408,7 +436,7 @@ const styles = StyleSheet.create({
   },
   statusText: {
     fontSize: theme.typography.fontSize.xs,
-    fontWeight: theme.typography.fontWeight.semibold,
+    fontWeight: theme.typography.fontWeight.semibold as any,
     fontFamily: theme.typography.fontFamily.primary,
     textTransform: 'uppercase',
   },
@@ -420,7 +448,7 @@ const styles = StyleSheet.create({
   },
   winnerText: {
     color: theme.colors.primary,
-    fontWeight: theme.typography.fontWeight.bold,
+    fontWeight: theme.typography.fontWeight.bold as any,
   },
   noDataContainer: {
     flex: 1,
@@ -431,8 +459,8 @@ const styles = StyleSheet.create({
   },
   noDataTitle: {
     fontSize: theme.typography.fontSize.xl,
-    fontWeight: theme.typography.fontWeight.bold,
-    color: theme.colors.neutral.gray[800],
+    fontWeight: theme.typography.fontWeight.bold as any,
+    color: theme.colors.neutral.gray[700],
     fontFamily: theme.typography.fontFamily.primary,
     marginTop: theme.spacing.lg,
     marginBottom: theme.spacing.md,
