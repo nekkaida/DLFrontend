@@ -31,6 +31,7 @@ export interface Thread {
   id: string;
   name?: string;
   type: 'direct' | 'group' | 'division';
+  sportType?: 'PICKLEBALL' | 'TENNIS' | 'PADEL' | null;
   participants: User[];
   lastMessage?: Message;
   unreadCount: number;

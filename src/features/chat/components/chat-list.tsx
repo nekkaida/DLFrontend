@@ -21,7 +21,41 @@ export const ThreadList: React.FC<ThreadListProps> = ({ onThreadSelect }) => {
   const { data: session } = useSession();
   const userId = session?.user?.id;
 
-  const renderThread = ({ item }: { item: Thread }) => (
+  // Get sport-specific colors
+  const getSportColors = (sportType: string | null | undefined) => {
+    switch (sportType) {
+      case 'PICKLEBALL':
+        return {
+          background: '#863A73',
+          badgeColor: '#A855F7',
+          label: 'Pickleball',
+        };
+      case 'TENNIS':
+        return {
+          background: '#65B741',
+          badgeColor: '#22C55E',
+          label: 'Tennis',
+        };
+      case 'PADEL':
+        return {
+          background: '#3B82F6',
+          badgeColor: '#60A5FA',
+          label: 'Padel',
+        };
+      default:
+        return {
+          background: '#863A73', 
+          badgeColor: null,
+          label: null,
+        };
+    }
+  };
+
+  const renderThread = ({ item }: { item: Thread }) => {
+    const sportColors = getSportColors(item.sportType);
+    const isGroupChat = item.type === 'group';
+
+    return (
     <TouchableOpacity
       style={styles.threadItem}
       onPress={() => {
@@ -30,7 +64,10 @@ export const ThreadList: React.FC<ThreadListProps> = ({ onThreadSelect }) => {
       activeOpacity={0.7}
     >
       <View style={styles.avatarContainer}>
-        <View style={styles.avatarPlaceholder}>
+        <View style={[
+          styles.avatarPlaceholder,
+          { backgroundColor: sportColors.background }
+        ]}>
           <Text style={styles.avatarText}>{item.name?.charAt(0) || "?"}</Text>
         </View>
         {item.unreadCount > 0 && (
@@ -42,9 +79,25 @@ export const ThreadList: React.FC<ThreadListProps> = ({ onThreadSelect }) => {
 
       <View style={styles.threadContent}>
         <View style={styles.threadHeader}>
-          <Text style={styles.threadName} numberOfLines={1}>
-            {item.name || "Chat"}
-          </Text>
+          <View style={styles.threadNameContainer}>
+            <Text style={styles.threadName} numberOfLines={1}>
+              {item.name || "Chat"}
+            </Text>
+            {isGroupChat && sportColors.label && (
+              <View style={[
+                styles.sportBadge,
+                { 
+                  borderColor: sportColors.badgeColor,
+                  borderWidth: 1.5,
+                }
+              ]}>
+                <Text style={[
+                  styles.sportBadgeText,
+                  { color: sportColors.badgeColor }
+                ]}>{sportColors.label}</Text>
+              </View>
+            )}
+          </View>
           <Text style={styles.timestamp}>
             {new Date(
               item.lastMessage?.timestamp || item.updatedAt
@@ -86,6 +139,7 @@ export const ThreadList: React.FC<ThreadListProps> = ({ onThreadSelect }) => {
       </View>
     </TouchableOpacity>
   );
+  };
 
   const renderEmpty = () => (
     <View style={styles.emptyContainer}>
@@ -205,12 +259,29 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginBottom: 6,
   },
-  threadName: {
+  threadNameContainer: {
     flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  threadName: {
     fontSize: 16,
     fontWeight: "600",
     color: "#111827",
-    marginRight: 8,
+    flexShrink: 1,
+  },
+  sportBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 12,
+    flexShrink: 0,
+    backgroundColor: 'transparent',
+  },
+  sportBadgeText: {
+    fontSize: 10,
+    fontWeight: '600',
+    textTransform: 'uppercase',
   },
   timestamp: {
     fontSize: 12,
