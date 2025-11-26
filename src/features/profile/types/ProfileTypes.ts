@@ -5,8 +5,10 @@
  * new types needed for the refactored components.
  */
 
+import { GameData, UserData } from '../types';
+
 // Re-export existing types for convenience
-export type { GameData, UserData, DropdownModalProps, WinRateCircleProps, MatchDetailsModalProps, EloProgressGraphProps, LeagueStatsProps } from '../types';
+export type { DropdownModalProps, EloProgressGraphProps, GameData, LeagueStatsProps, MatchDetailsModalProps, UserData, WinRateCircleProps } from '../types';
 
 /**
  * Profile data structure from API

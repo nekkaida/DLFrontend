@@ -1,14 +1,13 @@
 import { Ionicons } from '@expo/vector-icons';
-import { format } from 'date-fns';
 import React, { useCallback } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
-    runOnJS,
-    useAnimatedStyle,
-    useSharedValue,
-    withSpring,
-    withTiming,
+  runOnJS,
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
+  withTiming,
 } from 'react-native-reanimated';
 import { Message } from '../types';
 
@@ -18,6 +17,7 @@ interface SwipeableMessageBubbleProps {
   showAvatar: boolean;
   isLastInGroup?: boolean;
   isGroupChat?: boolean;
+  sportType?: 'PICKLEBALL' | 'TENNIS' | 'PADEL' | null;
   onReply: (message: Message) => void;
   onDelete: (messageId: string) => void;
   onLongPress?: (message: Message) => void;
@@ -33,11 +33,29 @@ export const SwipeableMessageBubble: React.FC<SwipeableMessageBubbleProps> = ({
   showAvatar,
   isLastInGroup = true,
   isGroupChat = false,
+  sportType,
   onReply,
   onDelete,
   onLongPress,
   messageMap,
 }) => {
+  // Get sport-specific color for current user messages
+  const getSportColor = () => {
+    if (!isCurrentUser) return '#863A73'; // Default for received messages
+    
+    switch (sportType) {
+      case 'PICKLEBALL':
+        return '#DCC6FD'; // Purple
+      case 'TENNIS':
+        return '#D4F0B4'; // Green
+      case 'PADEL':
+        return '#B9DEFD'; // Blue
+      default:
+        return '#DCC6FD'; // Default purple
+    }
+  };
+  
+  const bubbleColor = getSportColor();
   const translateX = useSharedValue(0);
   const replyIconScale = useSharedValue(0);
   const replyIconOpacity = useSharedValue(0);
@@ -184,6 +202,7 @@ export const SwipeableMessageBubble: React.FC<SwipeableMessageBubbleProps> = ({
               style={[
                 styles.bubble,
                 isCurrentUser ? styles.currentUserBubble : styles.otherUserBubble,
+                isCurrentUser && { backgroundColor: bubbleColor },
                 message.metadata?.isDeleted && styles.deletedBubble,
                 isCurrentUser
                   ? {
@@ -214,7 +233,8 @@ export const SwipeableMessageBubble: React.FC<SwipeableMessageBubbleProps> = ({
                 </Text>
               )}
 
-              <View style={styles.messageFooter}>
+              {/* Commented out as its not in their design - requiring confirmation */}
+              {/* <View style={styles.messageFooter}>
                 <Text
                   style={[
                     styles.timestamp,
@@ -232,7 +252,7 @@ export const SwipeableMessageBubble: React.FC<SwipeableMessageBubbleProps> = ({
                     {message.isRead && <Text style={styles.readStatus}>✓</Text>}
                   </View>
                 )}
-              </View>
+              </View> */}
             </View>
           </Animated.View>
         </GestureDetector>
@@ -266,7 +286,7 @@ const styles = StyleSheet.create({
   },
   swipeableContainer: {
     flexDirection: 'row',
-    maxWidth: '30%',
+    maxWidth: '85%',
   },
   currentUserSwipeable: {
     alignSelf: 'flex-end',
@@ -325,7 +345,7 @@ const styles = StyleSheet.create({
   replyPreviewBar: {
     width: 3,
     alignSelf: 'stretch',
-    backgroundColor: '#863A73',
+    backgroundColor: '#A855F7',
     marginRight: 8,
     borderRadius: 2,
   },
@@ -388,7 +408,7 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   currentUserText: {
-    color: '#FFFFFF',
+    color: '#000000ff',
   },
   otherUserText: {
     color: '#111827',
