@@ -10,6 +10,7 @@ import {
   Platform,
   ViewStyle,
   TextStyle,
+  StyleProp,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -20,6 +21,7 @@ import * as Haptics from 'expo-haptics';
 import { authClient } from '@/lib/auth-client';
 import * as SecureStore from 'expo-secure-store';
 import { toast } from 'sonner-native';
+import { navigateAndClearStack } from '@/src/core/navigation/navigationUtils';
 
 // BackgroundGradient Component (consistent with profile)
 const BackgroundGradient = () => {
@@ -111,6 +113,8 @@ export default function SettingsScreen() {
               
               console.log('Successfully signed out');
 
+              // Navigate to login and clear navigation stack to prevent back navigation
+              navigateAndClearStack('/login');
               
               console.log('Logout process completed - user should see login page');
               
@@ -198,8 +202,8 @@ export default function SettingsScreen() {
           type: 'navigate',
           icon: 'help-circle-outline',
           action: () => {
-            // TODO: Implement help center page
-            console.log('Help center not implemented');
+            // TODO: Create these routes or use a type-safe navigation helper
+            router.push('/help' as Parameters<typeof router.push>[0]);
           },
         },
         {
@@ -209,8 +213,8 @@ export default function SettingsScreen() {
           type: 'navigate',
           icon: 'chatbubble-outline',
           action: () => {
-            // TODO: Implement feedback page
-            console.log('Feedback page not implemented');
+            // TODO: Create these routes or use a type-safe navigation helper
+            router.push('/feedback' as Parameters<typeof router.push>[0]);
           },
         },
         {
@@ -220,8 +224,8 @@ export default function SettingsScreen() {
           type: 'navigate',
           icon: 'information-circle-outline',
           action: () => {
-            // TODO: Implement about page
-            console.log('About page not implemented');
+            // TODO: Create these routes or use a type-safe navigation helper
+            router.push('/about' as Parameters<typeof router.push>[0]);
           },
         },
       ],
@@ -256,10 +260,10 @@ export default function SettingsScreen() {
     return (
       <Pressable
         key={item.id}
-        style={({ pressed }) => [
-          styles.settingItem,
+        style={({ pressed }): StyleProp<ViewStyle> => [
+          styles.settingItem as ViewStyle,
           { opacity: pressed ? 0.7 : 1 }
-        ] as unknown as ViewStyle}
+        ]}
         onPress={handlePress}
         accessible={true}
         accessibilityRole="button"
@@ -267,20 +271,20 @@ export default function SettingsScreen() {
       >
         <View style={styles.settingLeft as ViewStyle}>
           <View style={[
-            styles.settingIcon,
+            styles.settingIcon as ViewStyle,
             item.iconColor && { backgroundColor: `${item.iconColor}15` }
-          ] as unknown as ViewStyle}>
-            <Ionicons
-              name={item.icon as any}
-              size={20}
-              color={item.iconColor || theme.colors.neutral.gray[600]}
+          ]}>
+            <Ionicons 
+              name={item.icon as any} 
+              size={20} 
+              color={item.iconColor || theme.colors.neutral.gray[600]} 
             />
           </View>
           <View style={styles.settingText as ViewStyle}>
             <Text style={[
-              styles.settingTitle,
+              styles.settingTitle as TextStyle,
               item.iconColor && { color: item.iconColor }
-            ] as unknown as TextStyle}>
+            ]}>
               {item.title}
             </Text>
             {item.subtitle && (
@@ -302,10 +306,10 @@ export default function SettingsScreen() {
               ios_backgroundColor={theme.colors.neutral.gray[200]}
             />
           ) : (
-            <Ionicons
-              name="chevron-forward"
-              size={18}
-              color={theme.colors.neutral.gray[400]}
+            <Ionicons 
+              name="chevron-forward" 
+              size={18} 
+              color={theme.colors.neutral.gray[400]} 
             />
           )}
         </View>
@@ -316,7 +320,7 @@ export default function SettingsScreen() {
   return (
     <View style={styles.container as ViewStyle}>
       <BackgroundGradient />
-
+      
       <SafeAreaView style={styles.safeArea as ViewStyle}>
         {/* Header */}
         <View style={styles.header as ViewStyle}>
@@ -332,13 +336,13 @@ export default function SettingsScreen() {
           >
             <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
           </Pressable>
-
+          
           <Text style={styles.headerTitle as TextStyle}>Settings</Text>
-
+          
           <View style={styles.headerSpacer as ViewStyle} />
         </View>
 
-        <ScrollView
+        <ScrollView 
           style={styles.scrollView as ViewStyle}
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.scrollContent as ViewStyle}
@@ -346,7 +350,7 @@ export default function SettingsScreen() {
           {settingSections.map((section, sectionIndex) => (
             <View key={section.id} style={styles.section as ViewStyle}>
               <Text style={styles.sectionTitle as TextStyle}>{section.title}</Text>
-
+              
               <View style={styles.sectionContent as ViewStyle}>
                 {section.items.map((item, itemIndex) => (
                   <React.Fragment key={item.id}>
@@ -472,7 +476,7 @@ const styles = StyleSheet.create({
   settingTitle: {
     fontSize: theme.typography.fontSize.base,
     fontWeight: theme.typography.fontWeight.semibold as any,
-    color: theme.colors.neutral.gray[700],
+    color: (theme.colors.neutral.gray as any)[900] || theme.colors.neutral.gray[700],
     fontFamily: theme.typography.fontFamily.primary,
     marginBottom: 2,
   },

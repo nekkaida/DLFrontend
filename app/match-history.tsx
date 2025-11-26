@@ -17,7 +17,23 @@ import { theme } from '@core/theme/theme';
 import { router } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 
-// Types
+// Default Profile Icon Component (reused from profile)
+const DefaultProfileIcon = () => (
+  <View style={styles.profileIcon}>
+    <Svg width="20" height="20" viewBox="0 0 24 24">
+      <Path 
+        fill="#FFFFFF" 
+        fillRule="evenodd" 
+        d="M8 7a4 4 0 1 1 8 0a4 4 0 0 1-8 0m0 6a5 5 0 0 0-5 5a3 3 0 0 0 3 3h12a3 3 0 0 0 3-3a5 5 0 0 0-5-5z" 
+        clipRule="evenodd" 
+      />
+    </Svg>
+  </View>
+);
+
+
+type MatchStatus = 'completed' | 'ongoing' | 'upcoming';
+
 interface MatchScore {
   player1: number | null;
   player2: number | null;
@@ -26,67 +42,90 @@ interface MatchScore {
 interface Match {
   id: string;
   league: string;
+  status: MatchStatus;
   player1: string;
   player2: string;
-  status: 'completed' | 'ongoing' | 'upcoming';
+  date: string;
+  time: string;
   scores: {
     set1: MatchScore;
     set2: MatchScore;
     set3: MatchScore;
   };
-  date: string;
-  time: string;
 }
-
-// Default Profile Icon Component (reused from profile)
-const DefaultProfileIcon = () => (
-  <View style={styles.profileIcon as ViewStyle}>
-    <Svg width="20" height="20" viewBox="0 0 24 24">
-      <Path
-        fill="#FFFFFF"
-        fillRule="evenodd"
-        d="M8 7a4 4 0 1 1 8 0a4 4 0 0 1-8 0m0 6a5 5 0 0 0-5 5a3 3 0 0 0 3 3h12a3 3 0 0 0 3-3a5 5 0 0 0-5-5z"
-        clipRule="evenodd"
-      />
-    </Svg>
-  </View>
-);
-
 
 // Real match data - currently empty until match system is implemented
 const matches: Match[] = []; // Will be populated from API when match system is ready
 
-const MatchCard = ({ match }: { match: Match }) => {
+interface MatchCardProps {
+  match: Match;
+}
+
+const formatScore = (value: number | null): string =>
+  value !== null && value !== undefined ? String(value) : '-';
+
+type Styles = {
+  container: ViewStyle;
+  headerGradient: ViewStyle;
+  safeHeader: ViewStyle;
+  header: ViewStyle;
+  backButton: ViewStyle;
+  headerTitle: TextStyle;
+  headerSpacer: ViewStyle;
+  scrollView: ViewStyle;
+  scrollContent: ViewStyle;
+  matchCard: ViewStyle;
+  leagueNameContainer: ViewStyle;
+  leagueName: TextStyle;
+  scoreboardContainer: ViewStyle;
+  playerColumn: ViewStyle;
+  playerRow: ViewStyle;
+  profileIcon: ViewStyle;
+  setColumn: ViewStyle;
+  playerName: TextStyle;
+  setHeader: TextStyle;
+  score: TextStyle;
+  divider: ViewStyle;
+  bottomSection: ViewStyle;
+  dateTimeContainer: ViewStyle;
+  dateText: TextStyle;
+  timeText: TextStyle;
+  statusContainer: ViewStyle;
+  statusText: TextStyle;
+  scoreContainer: ViewStyle;
+  winnerText: TextStyle;
+  noDataContainer: ViewStyle;
+  noDataTitle: TextStyle;
+  noDataText: TextStyle;
+};
+
+const MatchCard: React.FC<MatchCardProps> = ({ match }) => {
   // Determine winner based on sets won
-  const getWinner = (): 'player1' | 'player2' | null => {
-    if (match.status !== 'completed') return null;
-
-    let player1Sets = 0;
-    let player2Sets = 0;
-
-    // Count sets won
-    if (match.scores.set1.player1 !== null && match.scores.set1.player2 !== null) {
-      if (match.scores.set1.player1 > match.scores.set1.player2) player1Sets++;
-      else if (match.scores.set1.player2 > match.scores.set1.player1) player2Sets++;
+  const addSetResult = (player1Score: number | null, player2Score: number | null, tally: { p1: number; p2: number }) => {
+    const p1 = player1Score ?? 0;
+    const p2 = player2Score ?? 0;
+    if (p1 > p2) {
+      tally.p1 += 1;
+    } else if (p2 > p1) {
+      tally.p2 += 1;
     }
-
-    if (match.scores.set2.player1 !== null && match.scores.set2.player2 !== null) {
-      if (match.scores.set2.player1 > match.scores.set2.player2) player1Sets++;
-      else if (match.scores.set2.player2 > match.scores.set2.player1) player2Sets++;
-    }
-
-    if (match.scores.set3.player1 !== null && match.scores.set3.player2 !== null) {
-      if (match.scores.set3.player1 > match.scores.set3.player2) player1Sets++;
-      else if (match.scores.set3.player2 > match.scores.set3.player1) player2Sets++;
-    }
-
-    if (player1Sets > player2Sets) return 'player1';
-    if (player2Sets > player1Sets) return 'player2';
-    return null; // Draw or incomplete
   };
 
+  const getWinner = (): 'player1' | 'player2' | null => {
+    if (match.status !== 'completed') return null;
+    
+    const tally = { p1: 0, p2: 0 };
+    addSetResult(match.scores.set1.player1, match.scores.set1.player2, tally);
+    addSetResult(match.scores.set2.player1, match.scores.set2.player2, tally);
+    addSetResult(match.scores.set3.player1, match.scores.set3.player2, tally);
+
+    if (tally.p1 > tally.p2) return 'player1';
+    if (tally.p2 > tally.p1) return 'player2';
+    return null;
+  };
+  
   const winner = getWinner();
-  const getStatusBackgroundColor = (status: Match['status']): string => {
+  const getStatusBackgroundColor = (status: MatchStatus): string => {
     switch (status) {
       case 'completed':
         return '#eeeeee';
@@ -99,7 +138,7 @@ const MatchCard = ({ match }: { match: Match }) => {
     }
   };
 
-  const getStatusTextColor = (status: Match['status']): string => {
+  const getStatusTextColor = (status: MatchStatus): string => {
     switch (status) {
       case 'completed':
         return '#fda04d';
@@ -112,7 +151,7 @@ const MatchCard = ({ match }: { match: Match }) => {
     }
   };
 
-  const getStatusText = (status: Match['status']): string => {
+  const getStatusText = (status: MatchStatus): string => {
     switch (status) {
       case 'completed':
         return 'Completed';
@@ -126,93 +165,92 @@ const MatchCard = ({ match }: { match: Match }) => {
   };
 
   return (
-    <Pressable
-      style={styles.matchCard as ViewStyle}
+    <Pressable 
+      style={styles.matchCard}
       onPress={() => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
         // Navigate to match details
       }}
     >
       {/* League Name with Container */}
-      <View style={styles.leagueNameContainer as ViewStyle}>
-        <Text style={styles.leagueName as TextStyle}>{match.league}</Text>
+      <View style={styles.leagueNameContainer}>
+        <Text style={styles.leagueName}>{match.league}</Text>
       </View>
-
+      
       {/* Scoreboard */}
-      <View style={styles.scoreboardContainer as ViewStyle}>
+      <View style={styles.scoreboardContainer}>
         {/* Player Names Column with Profile Icons */}
-        <View style={styles.playerColumn as ViewStyle}>
-          <View style={styles.playerRow as ViewStyle}>
+        <View style={styles.playerColumn}>
+          <View style={styles.playerRow}>
             <DefaultProfileIcon />
-            <Text style={[styles.playerName, winner === 'player1' && styles.winnerText] as unknown as TextStyle}>{match.player1}</Text>
+            <Text style={[styles.playerName, winner === 'player1' && styles.winnerText]}>{match.player1}</Text>
           </View>
-          <View style={styles.playerRow as ViewStyle}>
+          <View style={styles.playerRow}>
             <DefaultProfileIcon />
-            <Text style={[styles.playerName, winner === 'player2' && styles.winnerText] as unknown as TextStyle}>{match.player2}</Text>
+            <Text style={[styles.playerName, winner === 'player2' && styles.winnerText]}>{match.player2}</Text>
           </View>
         </View>
-
+        
         {/* Set 1 */}
-        <View style={styles.setColumn as ViewStyle}>
-          <Text style={styles.setHeader as TextStyle}>Set 1</Text>
-          <View style={styles.scoreContainer as ViewStyle}>
-            <Text style={[styles.score, winner === 'player1' && styles.winnerText] as unknown as TextStyle}>
-              {match.scores.set1.player1 !== null ? match.scores.set1.player1 : '-'}
+        <View style={styles.setColumn}>
+          <Text style={styles.setHeader}>Set 1</Text>
+          <View style={styles.scoreContainer}>
+            <Text style={[styles.score, winner === 'player1' && styles.winnerText]}>
+              {formatScore(match.scores.set1.player1)}
             </Text>
           </View>
-          <View style={styles.scoreContainer as ViewStyle}>
-            <Text style={[styles.score, winner === 'player2' && styles.winnerText] as unknown as TextStyle}>
-              {match.scores.set1.player2 !== null ? match.scores.set1.player2 : '-'}
+          <View style={styles.scoreContainer}>
+            <Text style={[styles.score, winner === 'player2' && styles.winnerText]}>
+              {formatScore(match.scores.set1.player2)}
             </Text>
           </View>
         </View>
-
+        
         {/* Set 2 */}
-        <View style={styles.setColumn as ViewStyle}>
-          <Text style={styles.setHeader as TextStyle}>Set 2</Text>
-          <View style={styles.scoreContainer as ViewStyle}>
-            <Text style={[styles.score, winner === 'player1' && styles.winnerText] as unknown as TextStyle}>
-              {match.scores.set2.player1 !== null ? match.scores.set2.player1 : '-'}
+        <View style={styles.setColumn}>
+          <Text style={styles.setHeader}>Set 2</Text>
+          <View style={styles.scoreContainer}>
+            <Text style={[styles.score, winner === 'player1' && styles.winnerText]}>
+              {formatScore(match.scores.set2.player1)}
             </Text>
           </View>
-          <View style={styles.scoreContainer as ViewStyle}>
-            <Text style={[styles.score, winner === 'player2' && styles.winnerText] as unknown as TextStyle}>
-              {match.scores.set2.player2 !== null ? match.scores.set2.player2 : '-'}
+          <View style={styles.scoreContainer}>
+            <Text style={[styles.score, winner === 'player2' && styles.winnerText]}>
+              {formatScore(match.scores.set2.player2)}
             </Text>
           </View>
         </View>
-
+        
         {/* Set 3 */}
-        <View style={styles.setColumn as ViewStyle}>
-          <Text style={styles.setHeader as TextStyle}>Set 3</Text>
-          <View style={styles.scoreContainer as ViewStyle}>
-            <Text style={[styles.score, winner === 'player1' && styles.winnerText] as unknown as TextStyle}>
-              {match.scores.set3.player1 !== null ? match.scores.set3.player1 : '-'}
+        <View style={styles.setColumn}>
+          <Text style={styles.setHeader}>Set 3</Text>
+          <View style={styles.scoreContainer}>
+            <Text style={[styles.score, winner === 'player1' && styles.winnerText]}>
+              {formatScore(match.scores.set3.player1)}
             </Text>
           </View>
-          <View style={styles.scoreContainer as ViewStyle}>
-            <Text style={[styles.score, winner === 'player2' && styles.winnerText] as unknown as TextStyle}>
-              {match.scores.set3.player2 !== null ? match.scores.set3.player2 : '-'}
+          <View style={styles.scoreContainer}>
+            <Text style={[styles.score, winner === 'player2' && styles.winnerText]}>
+              {formatScore(match.scores.set3.player2)}
             </Text>
           </View>
         </View>
       </View>
-
-
+      
       {/* Divider */}
-      <View style={styles.divider as ViewStyle} />
-
+      <View style={styles.divider} />
+      
       {/* Bottom Section */}
-      <View style={styles.bottomSection as ViewStyle}>
+      <View style={styles.bottomSection}>
         {/* Date and Time */}
-        <View style={styles.dateTimeContainer as ViewStyle}>
-          <Text style={styles.dateText as TextStyle}>{match.date}</Text>
-          <Text style={styles.timeText as TextStyle}>{match.time}</Text>
+        <View style={styles.dateTimeContainer}>
+          <Text style={styles.dateText}>{match.date}</Text>
+          <Text style={styles.timeText}>{match.time}</Text>
         </View>
-
+        
         {/* Status */}
-        <View style={[styles.statusContainer, { backgroundColor: getStatusBackgroundColor(match.status) }] as unknown as ViewStyle}>
-          <Text style={[styles.statusText, { color: getStatusTextColor(match.status), fontWeight: (match.status === 'completed' || match.status === 'ongoing') ? 'bold' as const : 'normal' as const }] as unknown as TextStyle}>
+        <View style={[styles.statusContainer, { backgroundColor: getStatusBackgroundColor(match.status) }]}>
+          <Text style={[styles.statusText, { color: getStatusTextColor(match.status), fontWeight: (match.status === 'completed' || match.status === 'ongoing') ? 'bold' : 'normal' }]}>
             {getStatusText(match.status)}
           </Text>
         </View>
@@ -228,18 +266,18 @@ export default function MatchHistoryScreen() {
   };
 
   return (
-    <View style={styles.container as ViewStyle}>
+    <View style={styles.container}>
       {/* Orange Header */}
       <LinearGradient
         colors={[theme.colors.primary, '#FFA366']}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
-        style={styles.headerGradient as ViewStyle}
+        style={styles.headerGradient}
       >
-        <SafeAreaView edges={['top']} style={styles.safeHeader as ViewStyle}>
-          <View style={styles.header as ViewStyle}>
-            <Pressable
-              style={styles.backButton as ViewStyle}
+        <SafeAreaView edges={['top']} style={styles.safeHeader}>
+          <View style={styles.header}>
+            <Pressable 
+              style={styles.backButton}
               onPress={handleBackPress}
               accessible={true}
               accessibilityLabel="Go back"
@@ -247,16 +285,16 @@ export default function MatchHistoryScreen() {
             >
               <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
             </Pressable>
-            <Text style={styles.headerTitle as TextStyle}>Match History</Text>
-            <View style={styles.headerSpacer as ViewStyle} />
+            <Text style={styles.headerTitle}>Match History</Text>
+            <View style={styles.headerSpacer} />
           </View>
         </SafeAreaView>
       </LinearGradient>
-
+      
       {/* White Background Content */}
-      <ScrollView
-        style={styles.scrollView as ViewStyle}
-        contentContainerStyle={styles.scrollContent as ViewStyle}
+      <ScrollView 
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
         {matches.length > 0 ? (
@@ -264,10 +302,10 @@ export default function MatchHistoryScreen() {
             <MatchCard key={match.id} match={match} />
           ))
         ) : (
-          <View style={styles.noDataContainer as ViewStyle}>
+          <View style={styles.noDataContainer}>
             <Ionicons name="tennisball-outline" size={64} color="#E5E7EB" />
-            <Text style={styles.noDataTitle as TextStyle}>No Match History</Text>
-            <Text style={styles.noDataText as TextStyle}>
+            <Text style={styles.noDataTitle}>No Match History</Text>
+            <Text style={styles.noDataText}>
               You haven't played any matches yet.{'\n'}
               Start playing to see your match history here!
             </Text>
@@ -278,7 +316,7 @@ export default function MatchHistoryScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const styles = StyleSheet.create<Styles>({
   container: {
     flex: 1,
     backgroundColor: theme.colors.neutral.gray[50], // Gray background like profile
@@ -306,7 +344,7 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     fontSize: theme.typography.fontSize.xl,
-    fontWeight: theme.typography.fontWeight.bold as any,
+    fontWeight: theme.typography.fontWeight.bold,
     color: '#FFFFFF',
     fontFamily: theme.typography.fontFamily.primary,
   },
@@ -350,7 +388,7 @@ const styles = StyleSheet.create({
   },
   leagueName: {
     fontSize: theme.typography.fontSize.base,
-    fontWeight: theme.typography.fontWeight.semibold as any,
+    fontWeight: theme.typography.fontWeight.semibold,
     color: theme.colors.primary,
     fontFamily: theme.typography.fontFamily.primary,
   },
@@ -385,20 +423,20 @@ const styles = StyleSheet.create({
     fontSize: theme.typography.fontSize.base, // Bigger font
     color: theme.colors.neutral.gray[700],
     fontFamily: theme.typography.fontFamily.primary,
-    fontWeight: theme.typography.fontWeight.semibold as any,
+    fontWeight: theme.typography.fontWeight.semibold,
   },
   setHeader: {
     fontSize: theme.typography.fontSize.xs,
     color: theme.colors.neutral.gray[500],
     fontFamily: theme.typography.fontFamily.primary,
     marginBottom: theme.spacing.xs,
-    fontWeight: theme.typography.fontWeight.medium as any,
+    fontWeight: theme.typography.fontWeight.medium,
   },
   score: {
     fontSize: theme.typography.fontSize.sm,
     color: theme.colors.neutral.gray[700],
     fontFamily: theme.typography.fontFamily.primary,
-    fontWeight: theme.typography.fontWeight.bold as any,
+    fontWeight: theme.typography.fontWeight.bold,
     height: 32,
     lineHeight: 32,
     textAlign: 'center',
@@ -421,7 +459,7 @@ const styles = StyleSheet.create({
     fontSize: theme.typography.fontSize.sm,
     color: theme.colors.neutral.gray[600],
     fontFamily: theme.typography.fontFamily.primary,
-    fontWeight: theme.typography.fontWeight.medium as any,
+    fontWeight: theme.typography.fontWeight.medium,
   },
   timeText: {
     fontSize: theme.typography.fontSize.xs,
@@ -436,7 +474,7 @@ const styles = StyleSheet.create({
   },
   statusText: {
     fontSize: theme.typography.fontSize.xs,
-    fontWeight: theme.typography.fontWeight.semibold as any,
+    fontWeight: theme.typography.fontWeight.semibold,
     fontFamily: theme.typography.fontFamily.primary,
     textTransform: 'uppercase',
   },
@@ -448,7 +486,7 @@ const styles = StyleSheet.create({
   },
   winnerText: {
     color: theme.colors.primary,
-    fontWeight: theme.typography.fontWeight.bold as any,
+    fontWeight: theme.typography.fontWeight.bold,
   },
   noDataContainer: {
     flex: 1,
@@ -459,8 +497,8 @@ const styles = StyleSheet.create({
   },
   noDataTitle: {
     fontSize: theme.typography.fontSize.xl,
-    fontWeight: theme.typography.fontWeight.bold as any,
-    color: theme.colors.neutral.gray[700],
+    fontWeight: theme.typography.fontWeight.bold,
+    color: theme.colors.neutral.gray[800],
     fontFamily: theme.typography.fontFamily.primary,
     marginTop: theme.spacing.lg,
     marginBottom: theme.spacing.md,

@@ -84,10 +84,14 @@ export default function VerifyEmailScreen() {
         Alert.alert(
           'Success',
           'Your email has been verified successfully.',
-          [{ text: 'OK', onPress: () => {
-            clearAuthPagesFromHistory();
-            navigateAndClearStack('/onboarding/personal-info');
-          }}]
+          [{
+            text: 'OK',
+            onPress: () => {
+              // NavigationInterceptor now handles redirecting verified users into onboarding.
+              // clearAuthPagesFromHistory();
+              // navigateAndClearStack('/onboarding/personal-info');
+            },
+          }]
         );
       }
     } catch (err) {
