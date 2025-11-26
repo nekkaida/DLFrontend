@@ -6,6 +6,8 @@ import {
   Pressable,
   StyleSheet,
   Platform,
+  ViewStyle,
+  TextStyle,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { theme } from '@core/theme/theme';
@@ -26,29 +28,29 @@ export const DropdownModal: React.FC<DropdownModalProps> = ({
       animationType="fade"
       onRequestClose={onClose}
     >
-      <Pressable style={styles.modalOverlay} onPress={onClose}>
-        <View style={styles.dropdownModal}>
-          <View style={styles.dropdownModalHeader}>
-            <Text style={styles.dropdownModalTitle}>{title}</Text>
-            <Pressable onPress={onClose} style={styles.modalCloseButton}>
+      <Pressable style={styles.modalOverlay as ViewStyle} onPress={onClose}>
+        <View style={styles.dropdownModal as ViewStyle}>
+          <View style={styles.dropdownModalHeader as ViewStyle}>
+            <Text style={styles.dropdownModalTitle as TextStyle}>{title}</Text>
+            <Pressable onPress={onClose} style={styles.modalCloseButton as ViewStyle}>
               <Ionicons name="close" size={24} color={theme.colors.neutral.gray[600]} />
             </Pressable>
           </View>
-          
-          <View style={styles.dropdownOptions}>
+
+          <View style={styles.dropdownOptions as ViewStyle}>
             {options.map((option, index) => (
               <Pressable
                 key={index}
                 style={[
                   styles.dropdownOption,
                   option === selectedValue && styles.dropdownOptionSelected
-                ]}
+                ] as unknown as ViewStyle}
                 onPress={() => onSelect(option)}
               >
                 <Text style={[
                   styles.dropdownOptionText,
                   option === selectedValue && styles.dropdownOptionTextSelected
-                ]}>
+                ] as unknown as TextStyle}>
                   {option}
                 </Text>
                 {option === selectedValue && (
@@ -97,7 +99,7 @@ const styles = StyleSheet.create({
   },
   dropdownModalTitle: {
     fontSize: theme.typography.fontSize.lg,
-    fontWeight: theme.typography.fontWeight.semibold,
+    fontWeight: theme.typography.fontWeight.semibold as any,
     color: theme.colors.neutral.gray[700],
   },
   modalCloseButton: {
@@ -121,10 +123,10 @@ const styles = StyleSheet.create({
   dropdownOptionText: {
     fontSize: theme.typography.fontSize.base,
     color: theme.colors.neutral.gray[700],
-    fontWeight: theme.typography.fontWeight.medium,
+    fontWeight: theme.typography.fontWeight.medium as any,
   },
   dropdownOptionTextSelected: {
     color: theme.colors.primary,
-    fontWeight: theme.typography.fontWeight.semibold,
+    fontWeight: theme.typography.fontWeight.semibold as any,
   },
 });
