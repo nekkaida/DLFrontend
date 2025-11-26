@@ -51,7 +51,7 @@ export const SwipeableMessageBubble: React.FC<SwipeableMessageBubbleProps> = ({
       case 'PADEL':
         return '#B9DEFD'; // Blue
       default:
-        return '#863A73'; // Default purple
+        return '#DCC6FD'; // Default purple
     }
   };
   
