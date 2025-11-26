@@ -1,4 +1,4 @@
-import { StyleSheet, Text, type TextProps } from 'react-native';
+import { StyleSheet, Text, type TextProps, TextStyle } from 'react-native';
 
 import { useThemeColor } from '@/hooks/useThemeColor';
 
@@ -27,7 +27,7 @@ export function ThemedText({
         type === 'subtitle' ? styles.subtitle : undefined,
         type === 'link' ? styles.link : undefined,
         style,
-      ]}
+      ] as unknown as TextStyle}
       {...rest}
     />
   );
