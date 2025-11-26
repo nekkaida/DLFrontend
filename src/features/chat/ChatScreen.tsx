@@ -295,15 +295,30 @@ export const ChatScreen: React.FC = () => {
     }
   };
 
+  // Get sport colors based on sport type
+  const getSportColors = (sportType: 'PICKLEBALL' | 'TENNIS' | 'PADEL' | null | undefined) => {
+    switch (sportType) {
+      case 'PICKLEBALL':
+        return { background: '#863A73', badgeColor: '#A855F7', label: 'PICKLEBALL' };
+      case 'TENNIS':
+        return { background: '#65B741', badgeColor: '#22C55E', label: 'TENNIS' };
+      case 'PADEL':
+        return { background: '#3B82F6', badgeColor: '#60A5FA', label: 'PADEL' };
+      default:
+        return { background: '#863A73', badgeColor: null, label: null };
+    }
+  };
+
   // Get header content based on chat type
   const getHeaderContent = () => {
-    if (!currentThread || !user?.id) return { title: 'Chat', subtitle: null };
+    if (!currentThread || !user?.id) return { title: 'Chat', subtitle: null, sportType: null };
 
     if (currentThread.type === 'group') {
       // Group chat: show group name and participant count
       return {
         title: currentThread.name || 'Group Chat',
-        subtitle: `${currentThread.participants.length} participants`
+        subtitle: `${currentThread.participants.length} participants`,
+        sportType: currentThread.sportType
       };
     } else {
       // Direct chat: show other participant's name and username
@@ -314,18 +329,21 @@ export const ChatScreen: React.FC = () => {
       if (otherParticipant) {
         return {
           title: otherParticipant.name || otherParticipant.username || 'Unknown User',
-          subtitle: otherParticipant.username ? `@${otherParticipant.username}` : null
+          subtitle: otherParticipant.username ? `@${otherParticipant.username}` : null,
+          sportType: null
         };
       } else {
         return {
           title: 'Chat',
-          subtitle: null
+          subtitle: null,
+          sportType: null
         };
       }
     }
   };
 
   const headerContent = getHeaderContent();
+  const sportColors = getSportColors(headerContent.sportType);
 
   if (isLoading && (!threads || threads.length === 0)) {
     return (
@@ -382,9 +400,25 @@ export const ChatScreen: React.FC = () => {
             </TouchableOpacity>
             
             <View style={styles.chatHeaderContent}>
-              <Text style={styles.chatHeaderTitle} numberOfLines={1}>
-                {headerContent.title}
-              </Text>
+              <View style={styles.chatHeaderTitleRow}>
+                <Text style={styles.chatHeaderTitle} numberOfLines={1}>
+                  {headerContent.title}
+                </Text>
+                {currentThread?.type === 'group' && sportColors.label && (
+                  <View style={[
+                    styles.sportBadge,
+                    { 
+                      borderColor: sportColors.badgeColor,
+                      borderWidth: 1.5,
+                    }
+                  ]}>
+                    <Text style={[
+                      styles.sportBadgeText,
+                      { color: sportColors.badgeColor }
+                    ]}>{sportColors.label}</Text>
+                  </View>
+                )}
+              </View>
               {headerContent.subtitle && (
                 <Text style={styles.chatHeaderSubtitle} numberOfLines={1}>
                   {headerContent.subtitle}
@@ -532,11 +566,30 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
   },
+  chatHeaderTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
   chatHeaderTitle: {
     fontSize: isSmallScreen ? 16 : isTablet ? 20 : 18,
     fontWeight: '600',
     color: '#111827',
     lineHeight: isSmallScreen ? 20 : isTablet ? 24 : 22,
+    flexShrink: 1,
+  },
+  sportBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 10,
+    alignSelf: 'flex-start',
+    backgroundColor: 'transparent',
+  },
+  sportBadgeText: {
+    fontSize: 9,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
   chatHeaderSubtitle: {
     fontSize: isSmallScreen ? 12 : isTablet ? 16 : 14,
