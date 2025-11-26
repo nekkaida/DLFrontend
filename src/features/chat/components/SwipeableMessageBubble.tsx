@@ -18,6 +18,7 @@ interface SwipeableMessageBubbleProps {
   showAvatar: boolean;
   isLastInGroup?: boolean;
   isGroupChat?: boolean;
+  sportType?: 'PICKLEBALL' | 'TENNIS' | 'PADEL' | null;
   onReply: (message: Message) => void;
   onDelete: (messageId: string) => void;
   onLongPress?: (message: Message) => void;
@@ -33,11 +34,29 @@ export const SwipeableMessageBubble: React.FC<SwipeableMessageBubbleProps> = ({
   showAvatar,
   isLastInGroup = true,
   isGroupChat = false,
+  sportType,
   onReply,
   onDelete,
   onLongPress,
   messageMap,
 }) => {
+  // Get sport-specific color for current user messages
+  const getSportColor = () => {
+    if (!isCurrentUser) return '#863A73'; // Default for received messages
+    
+    switch (sportType) {
+      case 'PICKLEBALL':
+        return '#863A73'; // Purple
+      case 'TENNIS':
+        return '#65B741'; // Green
+      case 'PADEL':
+        return '#3B82F6'; // Blue
+      default:
+        return '#863A73'; // Default purple
+    }
+  };
+  
+  const bubbleColor = getSportColor();
   const translateX = useSharedValue(0);
   const replyIconScale = useSharedValue(0);
   const replyIconOpacity = useSharedValue(0);
@@ -184,6 +203,7 @@ export const SwipeableMessageBubble: React.FC<SwipeableMessageBubbleProps> = ({
               style={[
                 styles.bubble,
                 isCurrentUser ? styles.currentUserBubble : styles.otherUserBubble,
+                isCurrentUser && { backgroundColor: bubbleColor },
                 message.metadata?.isDeleted && styles.deletedBubble,
                 isCurrentUser
                   ? {
@@ -266,7 +286,7 @@ const styles = StyleSheet.create({
   },
   swipeableContainer: {
     flexDirection: 'row',
-    maxWidth: '30%',
+    maxWidth: '85%',
   },
   currentUserSwipeable: {
     alignSelf: 'flex-end',
@@ -325,7 +345,7 @@ const styles = StyleSheet.create({
   replyPreviewBar: {
     width: 3,
     alignSelf: 'stretch',
-    backgroundColor: '#863A73',
+    backgroundColor: '#A855F7',
     marginRight: 8,
     borderRadius: 2,
   },

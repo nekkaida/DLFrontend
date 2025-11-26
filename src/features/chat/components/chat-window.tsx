@@ -22,6 +22,7 @@ interface MessageWindowProps {
   onLoadMore?: () => void;
   loading?: boolean;
   isGroupChat?: boolean;
+  sportType?: 'PICKLEBALL' | 'TENNIS' | 'PADEL' | null;
   onReply?: (message: Message) => void;
   onDeleteMessage?: (messageId: string) => void;
   onLongPress?: (message: Message) => void;
@@ -44,6 +45,7 @@ export const MessageWindow: React.FC<MessageWindowProps> = ({
   onLoadMore,
   loading = false,
   isGroupChat = false,
+  sportType,
   onReply,
   onDeleteMessage,
   onLongPress,
@@ -156,6 +158,7 @@ export const MessageWindow: React.FC<MessageWindowProps> = ({
         showAvatar={showAvatar}
         isLastInGroup={isLastInGroup}
         isGroupChat={isGroupChat}
+        sportType={sportType}
         onReply={onReply || (() => {})}
         onDelete={onDeleteMessage || (() => {})}
         onLongPress={onLongPress}

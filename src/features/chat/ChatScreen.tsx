@@ -438,6 +438,7 @@ export const ChatScreen: React.FC = () => {
             messages={messages[currentThread.id] || []}
             threadId={currentThread.id}
             isGroupChat={currentThread.type === 'group'}
+            sportType={currentThread.sportType}
             onReply={handleReply}
             onDeleteMessage={handleDeleteMessageAction}
             onLongPress={handleLongPress}
