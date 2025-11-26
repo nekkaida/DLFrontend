@@ -43,7 +43,7 @@ const styles = StyleSheet.create({
   matchHistoryText: {
     fontSize: theme.typography.fontSize.lg,
     fontWeight: theme.typography.fontWeight.bold as any,
-    color: theme.colors.neutral.gray[900],
+    color: theme.colors.neutral.gray[700],
     fontFamily: theme.typography.fontFamily.primary,
   },
 });
