@@ -23,10 +23,12 @@ import { toast } from 'sonner-native';
 import { MessageInput } from './components/chat-input';
 import { ThreadList } from './components/chat-list';
 import { MessageWindow } from './components/chat-window';
+import { CreateMatchModal, MatchFormData } from './components/CreateMatchModal';
 import { MessageActionBar } from './components/MessageActionBar';
 import { useChatSocketEvents } from './hooks/useChatSocketEvents';
 import { ChatService } from './services/ChatService';
 import { useChatStore } from './stores/ChatStore';
+
 import { Thread } from './types';
 
 const { width } = Dimensions.get('window');
@@ -40,6 +42,7 @@ export const ChatScreen: React.FC = () => {
   const [profileData, setProfileData] = useState<any>(null);
   const [refreshKey, setRefreshKey] = useState(0);
   const [selectedMessage, setSelectedMessage] = useState<any>(null);
+  const [showMatchModal, setShowMatchModal] = useState(false);
   const [showActionBar, setShowActionBar] = useState(false);
   const insets = useSafeAreaInsets();
   
@@ -212,9 +215,15 @@ export const ChatScreen: React.FC = () => {
     setSearchQuery('');
   };
 
-  const handleMatch = () => {
+ const handleMatch = () => {
     console.log('Create match button pressed');
-    // TO DO ADD MATCH LOGIC LATER
+    setShowMatchModal(true);
+  };
+
+  const handleCreateMatch = (matchData: MatchFormData) => {
+    console.log('Match created:', matchData);
+    setShowMatchModal(false);
+    toast.success('Match created successfully!');
   };
 
   const handleReply = (message: any) => {
@@ -579,6 +588,22 @@ export const ChatScreen: React.FC = () => {
           /> 
         </View>
       )}
+
+        {/* Create Match Modal */}
+      {currentThread?.type === 'group' && (
+        <CreateMatchModal
+          visible={showMatchModal}
+          onClose={() => setShowMatchModal(false)}
+          leagueInfo={{
+            name: currentThread.name || 'League Chat',
+            season: 'Season 1', // TODO: Get from thread metadata
+            division: 'Division I', // TODO: Get from thread metadata
+            sportType: currentThread.sportType || 'PICKLEBALL',
+          }}
+          onCreateMatch={handleCreateMatch}
+        />
+      )}
+      
     </View>
   );
 };
