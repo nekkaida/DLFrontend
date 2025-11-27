@@ -106,7 +106,10 @@ export const MessageInput: React.FC<MessageInputProps> = ({
   };
 
   const handleMatch = () => {
-    onhandleMatch?.();
+    console.log('handleMatch called, onhandleMatch:', onhandleMatch);
+    if (onhandleMatch) {
+      onhandleMatch();
+    }
   };
 
   
@@ -148,7 +151,7 @@ export const MessageInput: React.FC<MessageInputProps> = ({
           onPress={handleMatch}
           activeOpacity={0.7}
         >
-         <Ionicons name="calendar-clear-outline" size={24} color={getCalendarIconColor()} />  
+         <Ionicons name="calendar-clear-outline" size={24} color="#6B7280" />  
         </TouchableOpacity>
         
         <View style={styles.textInputContainer}>
