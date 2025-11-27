@@ -108,7 +108,7 @@ export const CreateMatchModal: React.FC<CreateMatchModalProps> = ({
 
   const handleCreateMatch = () => {
     // Validate required fields
-    if (!formData.date || !formData.time || !formData.location || !formData.numberOfPlayers) {
+    if (!formData.date || !formData.time || !formData.numberOfPlayers) {
       // TODO: Show error toast
       return;
     }
@@ -124,6 +124,7 @@ export const CreateMatchModal: React.FC<CreateMatchModalProps> = ({
       fee: 'FREE',
       description: '',
     });
+    onClose();
   };
 
   const handleClose = () => {

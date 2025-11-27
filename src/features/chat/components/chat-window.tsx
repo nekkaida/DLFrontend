@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { Message } from '../types';
+import { MatchMessageBubble } from './MatchMessageBubble';
 import { SwipeableMessageBubble } from './SwipeableMessageBubble';
 
 interface MessageWindowProps {
@@ -22,7 +23,6 @@ interface MessageWindowProps {
   onLoadMore?: () => void;
   loading?: boolean;
   isGroupChat?: boolean;
-  sportType?: 'PICKLEBALL' | 'TENNIS' | 'PADEL' | null;
   onReply?: (message: Message) => void;
   onDeleteMessage?: (messageId: string) => void;
   onLongPress?: (message: Message) => void;
@@ -45,7 +45,6 @@ export const MessageWindow: React.FC<MessageWindowProps> = ({
   onLoadMore,
   loading = false,
   isGroupChat = false,
-  sportType,
   onReply,
   onDeleteMessage,
   onLongPress,
@@ -151,6 +150,22 @@ export const MessageWindow: React.FC<MessageWindowProps> = ({
     const showAvatar = !previousMessage || previousMessage.senderId !== message.senderId;
     const isLastInGroup = !nextMessage || nextMessage.senderId !== message.senderId;
     
+    // Debug logging
+    console.log('🔍 Rendering message:', message.id, 'Type:', message.type, 'Has matchData:', !!message.matchData);
+    
+    // Render MatchMessageBubble for match type messages
+    if (message.type === 'match') {
+      console.log('✅ Rendering MatchMessageBubble for message:', message.id);
+      return (
+        <MatchMessageBubble
+          message={message}
+          isCurrentUser={isCurrentUser}
+          isGroupChat={isGroupChat}
+        />
+      );
+    }
+    
+    // Render regular text message bubble
     return (
       <SwipeableMessageBubble
         message={message}
@@ -158,7 +173,6 @@ export const MessageWindow: React.FC<MessageWindowProps> = ({
         showAvatar={showAvatar}
         isLastInGroup={isLastInGroup}
         isGroupChat={isGroupChat}
-        sportType={sportType}
         onReply={onReply || (() => {})}
         onDelete={onDeleteMessage || (() => {})}
         onLongPress={onLongPress}
