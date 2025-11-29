@@ -155,11 +155,42 @@ export const endpoints = {
   },
 
   match: {
+    // Match CRUD
     create: "/api/match/create",
     getAll: "/api/match",
+    getMy: "/api/match/my",
+    getAvailable: (divisionId: string) => `/api/match/available/${divisionId}`,
     getById: (id: string) => `/api/match/${id}`,
     update: (id: string) => `/api/match/${id}`,
     delete: (id: string) => `/api/match/delete/${id}`,
+    
+    // Join match
+    join: (id: string) => `/api/match/${id}/join`,
+    
+    // Time slots
+    proposeTimeSlot: (id: string) => `/api/match/${id}/timeslots`,
+    voteForTimeSlot: (id: string) => `/api/match/timeslots/${id}/vote`,
+    confirmTimeSlot: (id: string) => `/api/match/timeslots/${id}/confirm`,
+    
+    // Invitations
+    respondToInvitation: (id: string) => `/api/match/invitations/${id}/respond`,
+    
+    // Results
+    getResult: (id: string) => `/api/match/${id}/result`,
+    submitResult: (id: string) => `/api/match/${id}/result`,
+    confirmResult: (id: string) => `/api/match/${id}/confirm`,
+    submitWalkover: (id: string) => `/api/match/${id}/walkover`,
+    
+    // Cancel/Reschedule
+    cancel: (id: string) => `/api/match/${id}/cancel`,
+    requestReschedule: (id: string) => `/api/match/${id}/reschedule`,
+    
+    // History and Statistics
+    getHistory: "/api/match/history",
+    getStats: "/api/match/stats",
+    getUpcoming: "/api/match/upcoming",
+    getRecent: "/api/match/recent",
+    getHeadToHead: (opponentId: string) => `/api/match/head-to-head/${opponentId}`,
   },
 
   notifications: {
