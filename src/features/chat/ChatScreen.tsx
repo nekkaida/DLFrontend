@@ -222,6 +222,57 @@ export const ChatScreen: React.FC = () => {
 
   const handleCreateMatch = (matchData: MatchFormData) => {
     console.log('Match created:', matchData);
+    
+    if (!currentThread || !user) {
+      console.error('Cannot create match: missing thread or user');
+      return;
+    }
+
+    // Create a match message with mock data
+    const matchMessage = {
+      id: `match-${Date.now()}`,
+      threadId: currentThread.id,
+      senderId: user.id,
+      content: `📅 Match scheduled for ${matchData.date} at ${matchData.time}`,
+      timestamp: new Date(),
+      isRead: false,
+      isDelivered: true,
+      type: 'match' as const,
+      matchData: {
+        ...matchData,
+        location: matchData.location || 'Home', // Provide default location if empty
+        sportType: currentThread.sportType || 'PICKLEBALL',
+        leagueName: currentThread.name || 'League Match',
+        courtBooked: true, // Mock: set to true for demo
+      },
+      metadata: {
+        sender: {
+          id: user.id,
+          name: user.name || user.username || 'You',
+          username: user.username,
+        },
+      },
+    };
+
+    // Log the match message for DB structure reference
+    console.log('Match message structure for DB:', JSON.stringify(matchMessage, null, 2));
+    console.log('🎯 Match message TYPE:', matchMessage.type);
+    console.log('🎯 Has matchData:', !!matchMessage.matchData);
+
+    // Send the match message
+    // For now, we'll just add it locally as mock data
+    // TODO: Replace with actual backend API call
+    const currentMessages = messages[currentThread.id] || [];
+    const updatedMessages = [...currentMessages, matchMessage as any];
+    
+    // Update local state (this simulates what the backend would do)
+    useChatStore.setState((state) => ({
+      messages: {
+        ...state.messages,
+        [currentThread.id]: updatedMessages,
+      },
+    }));
+
     setShowMatchModal(false);
     toast.success('Match created successfully!');
   };
@@ -603,7 +654,6 @@ export const ChatScreen: React.FC = () => {
           onCreateMatch={handleCreateMatch}
         />
       )}
-      
     </View>
   );
 };

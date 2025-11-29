@@ -268,7 +268,6 @@ export class ChatService {
         backendThread.name ||
         this.generateThreadName(backendThread.members, backendThread.isGroup, currentUserId),
       type: backendThread.isGroup ? "group" : "direct",
-      sportType: backendThread.sportType || null,
       participants:
         backendThread.members?.map((member: any) =>
           this.transformBackendUser(member.user)

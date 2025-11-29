@@ -17,6 +17,19 @@ export interface Message {
   isRead: boolean;
   isDelivered: boolean;
   replyTo?: string;
+  type?: 'text' | 'match'; // Add message type
+  matchData?: { // Add match-specific data
+    date: string;
+    time: string;
+    duration: number;
+    numberOfPlayers: string;
+    location: string;
+    fee: 'FREE' | 'SPLIT';
+    description: string;
+    sportType: 'PICKLEBALL' | 'TENNIS' | 'PADEL';
+    leagueName: string;
+    courtBooked?: boolean;
+  };
   metadata?: {
     isEdited?: boolean;
     isDeleted?: boolean;
