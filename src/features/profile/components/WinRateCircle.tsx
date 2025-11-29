@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, ViewStyle, TextStyle } from 'react-native';
 import Svg, { Circle } from 'react-native-svg';
 import { theme } from '@core/theme/theme';
 import type { WinRateCircleProps } from '../types';
@@ -13,7 +13,7 @@ export const WinRateCircle: React.FC<WinRateCircleProps> = ({ winRate }) => {
   const strokeDashoffset = circumference - (winRate / 100) * circumference;
 
   return (
-    <View style={styles.circleContainer}>
+    <View style={styles.circleContainer as ViewStyle}>
       <Svg width={size} height={size}>
         {/* Background circle */}
         <Circle
@@ -38,9 +38,9 @@ export const WinRateCircle: React.FC<WinRateCircleProps> = ({ winRate }) => {
           transform={`rotate(-90 ${size / 2} ${size / 2})`}
         />
       </Svg>
-      <View style={styles.circleTextContainer}>
-        <Text style={styles.circlePercentage}>{winRate}%</Text>
-        <Text style={styles.circleLabel}>Win Rate</Text>
+      <View style={styles.circleTextContainer as ViewStyle}>
+        <Text style={styles.circlePercentage as TextStyle}>{winRate}%</Text>
+        <Text style={styles.circleLabel as TextStyle}>Win Rate</Text>
       </View>
     </View>
   );
@@ -59,8 +59,8 @@ const styles = StyleSheet.create({
   },
   circlePercentage: {
     fontSize: theme.typography.fontSize['2xl'],
-    fontWeight: theme.typography.fontWeight.bold,
-    color: theme.colors.neutral.gray[900],
+    fontWeight: theme.typography.fontWeight.bold as any,
+    color: theme.colors.neutral.gray[700],
     fontFamily: theme.typography.fontFamily.primary,
   },
   circleLabel: {
