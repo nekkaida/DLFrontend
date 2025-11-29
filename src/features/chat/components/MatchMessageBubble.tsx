@@ -22,19 +22,24 @@ export const MatchMessageBubble: React.FC<MatchMessageBubbleProps> = ({
                     message.metadata?.sender?.username || 
                     'Unknown';
 
-  if (!matchData) return null;
+  if (!matchData) {
+    console.log('❌ No matchData found for match message:', message.id);
+    return null;
+  }
+
+  console.log('📊 Match data:', matchData);
 
   // Get sport-specific colors
   const getSportColors = () => {
     switch (matchData.sportType) {
       case 'PICKLEBALL':
-        return { background: '#863A73', badge: '#A855F7', label: 'Pickleball' };
+        return { background: '#863A73', badge: '#A855F7', label: 'Pickleball', buttonColor: '#65B741' };
       case 'TENNIS':
-        return { background: '#65B741', badge: '#22C55E', label: 'Tennis' };
+        return { background: '#65B741', badge: '#22C55E', label: 'Tennis', buttonColor: '#65B741' };
       case 'PADEL':
-        return { background: '#3B82F6', badge: '#60A5FA', label: 'Padel' };
+        return { background: '#3B82F6', badge: '#60A5FA', label: 'Padel', buttonColor: '#65B741' };
       default:
-        return { background: '#863A73', badge: '#A855F7', label: 'League' };
+        return { background: '#863A73', badge: '#A855F7', label: 'League', buttonColor: '#65B741' };
     }
   };
 
@@ -49,68 +54,96 @@ export const MatchMessageBubble: React.FC<MatchMessageBubbleProps> = ({
     });
   };
 
-  return (
-    <View style={[
-      styles.container,
-      isCurrentUser ? styles.currentUserContainer : styles.otherUserContainer
-    ]}>
-      {!isCurrentUser && isGroupChat && (
-        <View style={styles.avatarContainer}>
-          <View style={styles.avatar}>
-            <Text style={styles.avatarText}>
-              {senderName.charAt(0).toUpperCase()}
-            </Text>
-          </View>
-        </View>
-      )}
-      
-      <View style={styles.matchCard}>
-        {/* Sender name for GROUP chats only */}
-        {!isCurrentUser && isGroupChat && (
-          <Text style={styles.senderName}>{senderName}</Text>
-        )}
+  // Format time to remove seconds if present
+  const formatTime = (timeString: string) => {
+    // Handle both "8:00 PM" and "20:00:00" formats
+    if (timeString.includes('M')) return timeString;
+    const [hours, minutes] = timeString.split(':');
+    const hour = parseInt(hours);
+    const ampm = hour >= 12 ? 'PM' : 'AM';
+    const displayHour = hour % 12 || 12;
+    return `${displayHour}:${minutes} ${ampm}`;
+  };
 
-        {/* Sport Badge */}
-        <View style={[styles.sportBadge, { borderColor: sportColors.badge }]}>
-          <Text style={[styles.sportBadgeText, { color: sportColors.badge }]}>
-            {sportColors.label}
+  // Calculate end time based on duration
+  const calculateEndTime = (startTime: string, durationHours: number) => {
+    const [time, modifier] = startTime.split(' ');
+    const [hours, minutes] = time.split(':').map(Number);
+    let startHour = modifier === 'PM' && hours !== 12 ? hours + 12 : hours;
+    if (modifier === 'AM' && hours === 12) startHour = 0;
+    
+    const totalMinutes = startHour * 60 + minutes + (durationHours * 60);
+    const endHour = Math.floor(totalMinutes / 60) % 24;
+    const endMinutes = totalMinutes % 60;
+    
+    const displayEndHour = endHour % 12 || 12;
+    const endModifier = endHour >= 12 ? 'PM' : 'AM';
+    return `${displayEndHour}:${String(endMinutes).padStart(2, '0')} ${endModifier}`;
+  };
+
+  return (
+    <View style={styles.container}>
+      <View style={styles.matchCard}>
+        {/* Header with sender name and timestamp */}
+        <View style={styles.headerRow}>
+          <View style={styles.senderRow}>
+            <View style={styles.avatar}>
+              <Text style={styles.avatarText}>
+                {senderName.charAt(0).toUpperCase()}
+              </Text>
+            </View>
+            <Text style={styles.senderName}>{senderName} posted a league match</Text>
+          </View>
+          <Text style={styles.timestamp}>
+            {format(new Date(message.timestamp), 'HH:mm')}
           </Text>
         </View>
 
-        {/* Match Title */}
-        <Text style={styles.matchTitle}>Singles League Match</Text>
+        {/* Match Title with Sport Badge */}
+        <View style={styles.titleRow}>
+          <Text style={styles.matchTitle}>
+            {matchData.numberOfPlayers === '2' ? 'Singles' : 'Doubles'} League Match
+          </Text>
+          <View style={[styles.sportBadge, { borderColor: sportColors.badge }]}>
+            <Text style={[styles.sportBadgeText, { color: sportColors.badge }]}>
+              {sportColors.label}
+            </Text>
+          </View>
+        </View>
 
         {/* Location */}
         <View style={styles.infoRow}>
-          <Ionicons name="location-outline" size={16} color="#6B7280" />
-          <Text style={styles.infoText}>{matchData.location}</Text>
+          <Ionicons name="location-outline" size={20} color="#6B7280" />
+          <Text style={styles.infoText}>{matchData.location || 'TBD'}</Text>
         </View>
 
         {/* Date */}
         <View style={styles.infoRow}>
-          <Ionicons name="calendar-outline" size={16} color="#6B7280" />
+          <Ionicons name="calendar-outline" size={20} color="#6B7280" />
           <Text style={styles.infoText}>{formatDisplayDate(matchData.date)}</Text>
         </View>
 
-        {/* Time */}
+        {/* Time Range */}
         <View style={styles.infoRow}>
-          <Ionicons name="time-outline" size={16} color="#6B7280" />
-          <Text style={styles.infoText}>{matchData.time}</Text>
+          <Ionicons name="time-outline" size={20} color="#6B7280" />
+          <Text style={styles.infoText}>
+            {formatTime(matchData.time)} – {calculateEndTime(matchData.time, matchData.duration)}
+          </Text>
         </View>
 
         {/* Cost */}
         <View style={styles.infoRow}>
-          <Text style={styles.costLabel}>$</Text>
+          <Text style={styles.costIcon}>$</Text>
           <Text style={styles.infoText}>
-            {matchData.fee === 'FREE' ? 'Free' : `Split • RM${matchData.fee === 'SPLIT' ? '40.00' : '0'} per player`}
+            {matchData.fee === 'FREE' ? 'Free •' : 'Split •'}
           </Text>
         </View>
 
         {/* Court Booked Badge */}
-        {matchData.courtBooked && (
+        {matchData.courtBooked !== false && (
           <View style={styles.courtBadge}>
             <Text style={styles.courtBadgeText}>Court booked</Text>
-            <Ionicons name="checkmark-circle" size={16} color="#22C55E" />
+            <Ionicons name="checkmark-circle" size={16} color="#16A34A" />
           </View>
         )}
 
@@ -119,20 +152,16 @@ export const MatchMessageBubble: React.FC<MatchMessageBubbleProps> = ({
 
         {/* Action Buttons */}
         <View style={styles.actionButtons}>
-          <TouchableOpacity style={styles.infoButton}>
+          <TouchableOpacity style={styles.infoButton} activeOpacity={0.7}>
             <Text style={styles.infoButtonText}>Info</Text>
           </TouchableOpacity>
           <TouchableOpacity 
-            style={[styles.joinButton, { backgroundColor: sportColors.background }]}
+            style={[styles.joinButton, { backgroundColor: sportColors.buttonColor }]}
+            activeOpacity={0.8}
           >
             <Text style={styles.joinButtonText}>Join match</Text>
           </TouchableOpacity>
         </View>
-
-        {/* Timestamp */}
-        <Text style={styles.timestamp}>
-          {format(new Date(message.timestamp), 'HH:mm')}
-        </Text>
       </View>
     </View>
   );
@@ -140,20 +169,27 @@ export const MatchMessageBubble: React.FC<MatchMessageBubbleProps> = ({
 
 const styles = StyleSheet.create({
   container: {
-    flexDirection: 'row',
-    marginVertical: 4,
+    marginVertical: 8,
     paddingHorizontal: 16,
   },
-  currentUserContainer: {
-    justifyContent: 'flex-end',
+  matchCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    padding: 16,
+    maxWidth: SCREEN_WIDTH * 0.95,
   },
-  otherUserContainer: {
-    justifyContent: 'flex-start',
+  headerRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 16,
   },
-  avatarContainer: {
-    marginRight: 8,
-    alignSelf: 'flex-end',
-    marginBottom: 2,
+  senderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
   },
   avatar: {
     width: 32,
@@ -162,46 +198,47 @@ const styles = StyleSheet.create({
     backgroundColor: '#E5E7EB',
     justifyContent: 'center',
     alignItems: 'center',
+    marginRight: 8,
   },
   avatarText: {
     color: '#6B7280',
-    fontSize: 12,
+    fontSize: 14,
     fontWeight: '600',
-  },
-  matchCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    padding: 16,
-    flex: 1,
   },
   senderName: {
+    fontSize: 13,
+    color: '#111827',
+    fontWeight: '400',
+    flex: 1,
+  },
+  timestamp: {
     fontSize: 12,
-    color: '#6B7280',
-    marginBottom: 8,
-    fontWeight: '500',
+    color: '#9CA3AF',
+    marginLeft: 8,
   },
-  sportBadge: {
-    alignSelf: 'flex-start',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 10,
-    borderWidth: 1.5,
-    backgroundColor: 'transparent',
-    marginBottom: 8,
-  },
-  sportBadgeText: {
-    fontSize: 9,
-    fontWeight: '600',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
+  titleRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
   },
   matchTitle: {
-    fontSize: 16,
+    fontSize: 20,
     fontWeight: '700',
     color: '#111827',
-    marginBottom: 12,
+    flex: 1,
+  },
+  sportBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    backgroundColor: 'transparent',
+    marginLeft: 8,
+  },
+  sportBadgeText: {
+    fontSize: 11,
+    fontWeight: '600',
   },
   infoRow: {
     flexDirection: 'row',
@@ -209,16 +246,15 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   infoText: {
-    fontSize: 14,
+    fontSize: 15,
     color: '#374151',
     marginLeft: 8,
-    fontWeight: '500',
   },
-  costLabel: {
-    fontSize: 14,
-    fontWeight: '600',
+  costIcon: {
+    fontSize: 15,
+    fontWeight: '500',
     color: '#6B7280',
-    width: 16,
+    width: 20,
   },
   courtBadge: {
     flexDirection: 'row',
@@ -234,7 +270,7 @@ const styles = StyleSheet.create({
   courtBadgeText: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#22C55E',
+    color: '#16A34A',
     marginRight: 4,
   },
   divider: {
@@ -248,7 +284,7 @@ const styles = StyleSheet.create({
   },
   infoButton: {
     flex: 1,
-    paddingVertical: 10,
+    paddingVertical: 12,
     borderRadius: 8,
     borderWidth: 1,
     borderColor: '#E5E7EB',
@@ -256,25 +292,19 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
   },
   infoButtonText: {
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: '600',
     color: '#374151',
   },
   joinButton: {
     flex: 1,
-    paddingVertical: 10,
+    paddingVertical: 12,
     borderRadius: 8,
     alignItems: 'center',
   },
   joinButtonText: {
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: '600',
     color: '#FFFFFF',
-  },
-  timestamp: {
-    fontSize: 11,
-    color: '#9CA3AF',
-    marginTop: 8,
-    textAlign: 'right',
   },
 });
