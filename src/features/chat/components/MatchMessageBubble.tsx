@@ -27,19 +27,16 @@ export const MatchMessageBubble: React.FC<MatchMessageBubbleProps> = ({
     return null;
   }
 
-  console.log('📊 Match data:', matchData);
-
-  // Get sport-specific colors
   const getSportColors = () => {
     switch (matchData.sportType) {
       case 'PICKLEBALL':
-        return { background: '#863A73', badge: '#A855F7', label: 'Pickleball', buttonColor: '#65B741' };
+        return { background: '#863A73', badge: '#A855F7', label: 'Pickleball', buttonColor: '#602E98' };
       case 'TENNIS':
-        return { background: '#65B741', badge: '#22C55E', label: 'Tennis', buttonColor: '#65B741' };
+        return { background: '#65B741', badge: '#22C55E', label: 'Tennis', buttonColor: '#587A27' };
       case 'PADEL':
-        return { background: '#3B82F6', badge: '#60A5FA', label: 'Padel', buttonColor: '#65B741' };
+        return { background: '#3B82F6', badge: '#60A5FA', label: 'Padel', buttonColor: '#2E6698' };
       default:
-        return { background: '#863A73', badge: '#A855F7', label: 'League', buttonColor: '#65B741' };
+        return { background: '#863A73', badge: '#A855F7', label: 'League', buttonColor: '#602E98' };
     }
   };
 
@@ -83,23 +80,23 @@ export const MatchMessageBubble: React.FC<MatchMessageBubbleProps> = ({
 
   return (
     <View style={styles.container}>
-      <View style={styles.matchCard}>
-        {/* Header with sender name and timestamp */}
-        <View style={styles.headerRow}>
-          <View style={styles.senderRow}>
-            <View style={styles.avatar}>
-              <Text style={styles.avatarText}>
-                {senderName.charAt(0).toUpperCase()}
-              </Text>
-            </View>
-            <Text style={styles.senderName}>{senderName} posted a league match</Text>
+      {/* Header with sender name and timestamp - outside card */}
+      <View style={styles.headerRow}>
+        <View style={styles.senderRow}>
+          <View style={styles.avatar}>
+            <Text style={styles.avatarText}>
+              {senderName.charAt(0).toUpperCase()}
+            </Text>
           </View>
-          <Text style={styles.timestamp}>
-            {format(new Date(message.timestamp), 'HH:mm')}
-          </Text>
+          <Text style={styles.senderName}>{senderName} posted a league match</Text>
         </View>
+        <Text style={styles.timestamp}>
+          {format(new Date(message.timestamp), 'HH:mm')}
+        </Text>
+      </View>
 
-        {/* Match Title with Sport Badge */}
+      <View style={styles.matchCard}>
+        {/* Match Title Row with Sport Badge */}
         <View style={styles.titleRow}>
           <Text style={styles.matchTitle}>
             {matchData.numberOfPlayers === '2' ? 'Singles' : 'Doubles'} League Match
@@ -111,56 +108,73 @@ export const MatchMessageBubble: React.FC<MatchMessageBubbleProps> = ({
           </View>
         </View>
 
-        {/* Location */}
-        <View style={styles.infoRow}>
-          <Ionicons name="location-outline" size={20} color="#6B7280" />
-          <Text style={styles.infoText}>{matchData.location || 'TBD'}</Text>
-        </View>
+        {/* Main Content Row */}
+        <View style={styles.contentRow}>
+          {/* Left Column - Info */}
+          <View style={styles.leftColumn}>
+            {/* Location */}
+            <View style={styles.infoRow}>
+              <Ionicons name="location-outline" size={16} color="#6B7280" />
+              <Text style={styles.infoText}>{matchData.location || 'TBD'}</Text>
+            </View>
 
-        {/* Date */}
-        <View style={styles.infoRow}>
-          <Ionicons name="calendar-outline" size={20} color="#6B7280" />
-          <Text style={styles.infoText}>{formatDisplayDate(matchData.date)}</Text>
-        </View>
+            {/* Date */}
+            <View style={styles.infoRow}>
+              <Ionicons name="calendar-outline" size={16} color="#6B7280" />
+              <Text style={styles.infoText}>{formatDisplayDate(matchData.date)}</Text>
+            </View>
 
-        {/* Time Range */}
-        <View style={styles.infoRow}>
-          <Ionicons name="time-outline" size={20} color="#6B7280" />
-          <Text style={styles.infoText}>
-            {formatTime(matchData.time)} – {calculateEndTime(matchData.time, matchData.duration)}
-          </Text>
-        </View>
+            {/* Time Range */}
+            <View style={styles.infoRow}>
+              <Ionicons name="time-outline" size={16} color="#6B7280" />
+              <Text style={styles.infoText}>
+                {formatTime(matchData.time)} – {calculateEndTime(matchData.time, matchData.duration)}
+              </Text>
+            </View>
 
-        {/* Cost */}
-        <View style={styles.infoRow}>
-          <Text style={styles.costIcon}>$</Text>
-          <Text style={styles.infoText}>
-            {matchData.fee === 'FREE' ? 'Free •' : 'Split •'}
-          </Text>
-        </View>
-
-        {/* Court Booked Badge */}
-        {matchData.courtBooked !== false && (
-          <View style={styles.courtBadge}>
-            <Text style={styles.courtBadgeText}>Court booked</Text>
-            <Ionicons name="checkmark-circle" size={16} color="#16A34A" />
+            {/* Cost */}
+            <View style={styles.infoRow}>
+              <Text style={styles.costIcon}>$</Text>
+              <Text style={styles.infoText}>
+                {matchData.fee === 'FREE' ? 'Free •' : 'Split •'}
+              </Text>
+            </View>
           </View>
-        )}
 
-        {/* Divider */}
-        <View style={styles.divider} />
+          {/* Right Column - Court Badge and Buttons */}
+          <View style={styles.rightColumn}>
 
-        {/* Action Buttons */}
-        <View style={styles.actionButtons}>
-          <TouchableOpacity style={styles.infoButton} activeOpacity={0.7}>
-            <Text style={styles.infoButtonText}>Info</Text>
-          </TouchableOpacity>
-          <TouchableOpacity 
-            style={[styles.joinButton, { backgroundColor: sportColors.buttonColor }]}
-            activeOpacity={0.8}
-          >
-            <Text style={styles.joinButtonText}>Join match</Text>
-          </TouchableOpacity>
+            {/* Court Booked Badge */}
+            <View style={[
+              styles.courtBadge,
+              matchData.courtBooked ? styles.courtBadgeBooked : styles.courtBadgeNotBooked
+            ]}>
+              <Text style={[
+                styles.courtBadgeText,
+                matchData.courtBooked ? styles.courtBadgeTextBooked : styles.courtBadgeTextNotBooked
+              ]}>
+                Court {matchData.courtBooked ? 'booked' : 'not booked'}
+              </Text>
+              <Ionicons 
+                name={matchData.courtBooked ? "checkmark-circle" : "close-circle"} 
+                size={14} 
+                color={matchData.courtBooked ? "#16A34A" : "#DC2626"} 
+              />
+            </View>
+
+            {/* Action Buttons */}
+            <View style={styles.actionButtons}>
+              <TouchableOpacity style={styles.infoButton} activeOpacity={0.7}>
+                <Text style={styles.infoButtonText}>Info</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={[styles.joinButton, { backgroundColor: sportColors.buttonColor }]}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.joinButtonText}>Join match</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
         </View>
       </View>
     </View>
@@ -169,22 +183,14 @@ export const MatchMessageBubble: React.FC<MatchMessageBubbleProps> = ({
 
 const styles = StyleSheet.create({
   container: {
-    marginVertical: 8,
+    marginVertical: 4,
     paddingHorizontal: 16,
-  },
-  matchCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    padding: 16,
-    maxWidth: SCREEN_WIDTH * 0.95,
   },
   headerRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 16,
+    alignItems: 'center',
+    marginBottom: 8,
   },
   senderRow: {
     flexDirection: 'row',
@@ -192,9 +198,9 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   avatar: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
     backgroundColor: '#E5E7EB',
     justifyContent: 'center',
     alignItems: 'center',
@@ -202,12 +208,12 @@ const styles = StyleSheet.create({
   },
   avatarText: {
     color: '#6B7280',
-    fontSize: 14,
+    fontSize: 12,
     fontWeight: '600',
   },
   senderName: {
-    fontSize: 13,
-    color: '#111827',
+    fontSize: 12,
+    color: '#6B7280',
     fontWeight: '400',
     flex: 1,
   },
@@ -216,75 +222,99 @@ const styles = StyleSheet.create({
     color: '#9CA3AF',
     marginLeft: 8,
   },
+  matchCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    padding: 16,
+    maxWidth: SCREEN_WIDTH * 0.95,
+  },
   titleRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: 12,
   },
   matchTitle: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: '700',
     color: '#111827',
     flex: 1,
   },
+  contentRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  leftColumn: {
+    flex: 1,
+  },
+  rightColumn: {
+    alignItems: 'flex-end',
+    justifyContent: 'space-between',
+    marginLeft: 16,
+    gap: 8,
+  },
   sportBadge: {
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 12,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 10,
     borderWidth: 1.5,
     backgroundColor: 'transparent',
-    marginLeft: 8,
   },
   sportBadgeText: {
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: '600',
   },
   infoRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: 6,
   },
   infoText: {
-    fontSize: 15,
+    fontSize: 13,
     color: '#374151',
-    marginLeft: 8,
+    marginLeft: 6,
   },
   costIcon: {
-    fontSize: 15,
+    fontSize: 13,
     fontWeight: '500',
     color: '#6B7280',
-    width: 20,
+    width: 16,
   },
   courtBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F0FDF4',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
     borderRadius: 6,
-    marginTop: 4,
-    marginBottom: 12,
-    alignSelf: 'flex-start',
+    alignSelf: 'flex-end',
+  },
+  courtBadgeBooked: {
+    backgroundColor: '#F0FDF4',
+  },
+  courtBadgeNotBooked: {
+    backgroundColor: '#FEF2F2',
   },
   courtBadgeText: {
-    fontSize: 12,
+    fontSize: 10,
     fontWeight: '600',
-    color: '#16A34A',
-    marginRight: 4,
+    marginRight: 3,
   },
-  divider: {
-    height: 1,
-    backgroundColor: '#E5E7EB',
-    marginVertical: 12,
+  courtBadgeTextBooked: {
+    color: '#16A34A',
+  },
+  courtBadgeTextNotBooked: {
+    color: '#DC2626',
   },
   actionButtons: {
-    flexDirection: 'row',
-    gap: 8,
+    flexDirection: 'column',
+    gap: 6,
+    width: 110,
   },
   infoButton: {
-    flex: 1,
-    paddingVertical: 12,
+    paddingVertical: 8,
+    paddingHorizontal: 20,
     borderRadius: 8,
     borderWidth: 1,
     borderColor: '#E5E7EB',
@@ -292,18 +322,18 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
   },
   infoButtonText: {
-    fontSize: 15,
+    fontSize: 13,
     fontWeight: '600',
     color: '#374151',
   },
   joinButton: {
-    flex: 1,
-    paddingVertical: 12,
+    paddingVertical: 8,
+    paddingHorizontal: 20,
     borderRadius: 8,
     alignItems: 'center',
   },
   joinButtonText: {
-    fontSize: 15,
+    fontSize: 13,
     fontWeight: '600',
     color: '#FFFFFF',
   },

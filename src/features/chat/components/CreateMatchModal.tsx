@@ -48,6 +48,7 @@ export interface MatchFormData {
   numberOfPlayers: string;
   location: string;
   fee: 'FREE' | 'SPLIT';
+  courtBooked: boolean;
   description: string;
 }
 
@@ -65,6 +66,7 @@ export const CreateMatchModal: React.FC<CreateMatchModalProps> = ({
     numberOfPlayers: '',
     location: '',
     fee: 'FREE',
+    courtBooked: false,
     description: '',
   });
   
@@ -122,6 +124,7 @@ export const CreateMatchModal: React.FC<CreateMatchModalProps> = ({
       numberOfPlayers: '',
       location: '',
       fee: 'FREE',
+      courtBooked: false,
       description: '',
     });
     onClose();
@@ -136,6 +139,7 @@ export const CreateMatchModal: React.FC<CreateMatchModalProps> = ({
       numberOfPlayers: '',
       location: '',
       fee: 'FREE',
+      courtBooked: false,
       description: '',
     });
     onClose();
@@ -271,6 +275,32 @@ export const CreateMatchModal: React.FC<CreateMatchModalProps> = ({
                   placeholderTextColor="#9CA3AF"
                 />
               </View>
+              {/* Court Booked Toggle */}
+              <TouchableOpacity
+                style={styles.courtBookedRow}
+                onPress={() => setFormData({ ...formData, courtBooked: !formData.courtBooked })}
+                activeOpacity={0.7}
+              >
+                <View style={styles.courtBookedLeft}>
+                  <Text style={styles.courtBookedLabel}>Court booked</Text>
+                  {formData.courtBooked && (
+                    <Ionicons name="checkmark-circle" size={16} color="#16A34A" style={styles.checkIcon} />
+                  )}
+                </View>
+                <View
+                  style={[
+                    styles.toggleSwitch,
+                    formData.courtBooked && styles.toggleSwitchActive,
+                  ]}
+                >
+                  <View
+                    style={[
+                      styles.toggleThumb,
+                      formData.courtBooked && styles.toggleThumbActive,
+                    ]}
+                  />
+                </View>
+              </TouchableOpacity>
             </View>
 
             {/* Fee Toggle */}
@@ -731,5 +761,53 @@ const styles = StyleSheet.create({
 
   matchButton:{
        backgroundColor: '#FEA04D',
-  }
+  },
+  courtBookedRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    marginTop: 12,
+    borderRadius: 8,
+    backgroundColor: '#F9FAFB',
+  },
+  courtBookedLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  courtBookedLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#374151',
+  },
+  checkIcon: {
+    marginLeft: 4,
+  },
+  toggleSwitch: {
+    width: 48,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: '#D1D5DB',
+    justifyContent: 'center',
+    paddingHorizontal: 3,
+  },
+  toggleSwitchActive: {
+    backgroundColor: '#16A34A',
+  },
+  toggleThumb: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: '#FFFFFF',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+    elevation: 2,
+  },
+  toggleThumbActive: {
+    alignSelf: 'flex-end',
+  },
 });

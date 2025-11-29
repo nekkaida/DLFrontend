@@ -270,6 +270,7 @@ export const ChatScreen: React.FC = () => {
           location: matchData.location || 'TBD',
           notes: matchData.description,
           duration: matchData.duration ? Math.round(matchData.duration * 60) : 120, // Convert to minutes
+          courtBooked: matchData.courtBooked || false,
         }),
       });
 
@@ -299,7 +300,7 @@ export const ChatScreen: React.FC = () => {
           description: matchData.description,
           sportType: currentThread.sportType || 'PICKLEBALL',
           leagueName: currentThread.name || 'Match',
-          courtBooked: false,
+          courtBooked: matchData.courtBooked || false,
           status: 'SCHEDULED',
         },
       };
