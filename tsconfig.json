@@ -3,6 +3,8 @@
   "compilerOptions": {
     "strict": true,
     "baseUrl": ".",
+    "types": ["jest"],
+    "skipLibCheck": true,
     "paths": {
       "@/*": ["./*", "./src/*"],
       "@features/*": ["./src/features/*"],
