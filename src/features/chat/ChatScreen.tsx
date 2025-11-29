@@ -23,10 +23,12 @@ import { toast } from 'sonner-native';
 import { MessageInput } from './components/chat-input';
 import { ThreadList } from './components/chat-list';
 import { MessageWindow } from './components/chat-window';
+import { CreateMatchModal, MatchFormData } from './components/CreateMatchModal';
 import { MessageActionBar } from './components/MessageActionBar';
 import { useChatSocketEvents } from './hooks/useChatSocketEvents';
 import { ChatService } from './services/ChatService';
 import { useChatStore } from './stores/ChatStore';
+
 import { Thread } from './types';
 
 const { width } = Dimensions.get('window');
@@ -40,6 +42,7 @@ export const ChatScreen: React.FC = () => {
   const [profileData, setProfileData] = useState<any>(null);
   const [refreshKey, setRefreshKey] = useState(0);
   const [selectedMessage, setSelectedMessage] = useState<any>(null);
+  const [showMatchModal, setShowMatchModal] = useState(false);
   const [showActionBar, setShowActionBar] = useState(false);
   const insets = useSafeAreaInsets();
   
@@ -212,9 +215,152 @@ export const ChatScreen: React.FC = () => {
     setSearchQuery('');
   };
 
-  const handleMatch = () => {
+ const handleMatch = () => {
     console.log('Create match button pressed');
-    // TO DO ADD MATCH LOGIC LATER
+    setShowMatchModal(true);
+  };
+
+  const handleCreateMatch = async (matchData: MatchFormData) => {
+    console.log('Match created:', matchData);
+    
+    if (!currentThread || !user) {
+      console.error('Cannot create match: missing thread or user');
+      toast.error('Cannot create match: missing information');
+      return;
+    }
+
+    try {
+      const backendUrl = getBackendBaseURL();
+      
+      // Step 1: Convert 12-hour time to 24-hour format
+      const convertTo24Hour = (time12h: string): string => {
+        const [time, modifier] = time12h.split(' ');
+        let [hours, minutes] = time.split(':');
+        
+        if (hours === '12') {
+          hours = modifier === 'AM' ? '00' : '12';
+        } else {
+          hours = modifier === 'PM' ? String(parseInt(hours, 10) + 12) : hours.padStart(2, '0');
+        }
+        
+        return `${hours}:${minutes}`;
+      };
+
+      const time24 = convertTo24Hour(matchData.time);
+      const matchDateTime = new Date(`${matchData.date}T${time24}:00`);
+      
+      console.log('📅 Match date/time:', {
+        original: `${matchData.date} ${matchData.time}`,
+        converted: `${matchData.date}T${time24}:00`,
+        dateObject: matchDateTime.toISOString()
+      });
+      
+      // Step 2: Create the match using the standard match endpoint
+      const matchResponse = await fetch(`${backendUrl}/api/match/create`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-user-id': user.id,
+        },
+        body: JSON.stringify({
+          divisionId: currentThread.metadata?.divisionId,
+          sport: currentThread.sportType || 'PICKLEBALL',
+          matchType: matchData.numberOfPlayers === '2' ? 'SINGLES' : 'DOUBLES',
+          matchDate: matchDateTime.toISOString(),
+          location: matchData.location || 'TBD',
+          notes: matchData.description,
+          duration: matchData.duration ? Math.round(matchData.duration * 60) : 120, // Convert to minutes
+          courtBooked: matchData.courtBooked || false,
+        }),
+      });
+
+      if (!matchResponse.ok) {
+        const errorData = await matchResponse.json();
+        throw new Error(errorData.error || 'Failed to create match');
+      }
+
+      const matchResult = await matchResponse.json();
+      console.log('✅ Match created:', matchResult);
+
+      // Step 2: Send a message to the thread with match data for UI display
+      const messageContent = `📅 Match scheduled for ${matchData.date} at ${matchData.time}`;
+      const messagePayload = {
+        senderId: user.id,
+        content: messageContent,
+        messageType: 'MATCH', // This tells the backend it's a match message
+        matchId: matchResult.id, // Link to the actual match
+        matchData: {
+          matchId: matchResult.id,
+          date: matchData.date,
+          time: matchData.time,
+          duration: matchData.duration || 2,
+          numberOfPlayers: matchData.numberOfPlayers,
+          location: matchData.location || 'TBD',
+          fee: matchData.fee,
+          description: matchData.description,
+          sportType: currentThread.sportType || 'PICKLEBALL',
+          leagueName: currentThread.name || 'Match',
+          courtBooked: matchData.courtBooked || false,
+          status: 'SCHEDULED',
+        },
+      };
+
+      const messageResponse = await fetch(`${backendUrl}/api/chat/threads/${currentThread.id}/messages`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-user-id': user.id,
+        },
+        body: JSON.stringify(messagePayload),
+      });
+
+      if (!messageResponse.ok) {
+        const errorData = await messageResponse.json();
+        throw new Error(errorData.error || 'Failed to send match message');
+      }
+
+      console.log('✅ Match message sent to thread');
+      
+      setShowMatchModal(false);
+      toast.success('Match created successfully!');
+    } catch (error) {
+      console.error('❌ Error creating match:', error);
+      toast.error(error instanceof Error ? error.message : 'Failed to create match');
+    }
+
+    // MOCK DATA (commented out for reference)
+    // const matchMessage = {
+    //   id: `match-${Date.now()}`,
+    //   threadId: currentThread.id,
+    //   senderId: user.id,
+    //   content: `📅 Match scheduled for ${matchData.date} at ${matchData.time}`,
+    //   timestamp: new Date(),
+    //   isRead: false,
+    //   isDelivered: true,
+    //   type: 'match' as const,
+    //   matchData: {
+    //     ...matchData,
+    //     location: matchData.location || 'Home',
+    //     sportType: currentThread.sportType || 'PICKLEBALL',
+    //     leagueName: currentThread.name || 'League Match',
+    //     courtBooked: true,
+    //   },
+    //   metadata: {
+    //     sender: {
+    //       id: user.id,
+    //       name: user.name || user.username || 'You',
+    //       username: user.username,
+    //     },
+    //   },
+    // };
+    // const currentMessages = messages[currentThread.id] || [];
+    // const updatedMessages = [...currentMessages, matchMessage as any];
+    // useChatStore.setState((state) => ({
+    //   messages: {
+    //     ...state.messages,
+    //     [currentThread.id]: updatedMessages,
+    //   },
+    // }));
   };
 
   const handleReply = (message: any) => {
@@ -578,6 +724,21 @@ export const ChatScreen: React.FC = () => {
             onThreadSelect={handleThreadSelect}
           /> 
         </View>
+      )}
+
+        {/* Create Match Modal */}
+      {currentThread?.type === 'group' && (
+        <CreateMatchModal
+          visible={showMatchModal}
+          onClose={() => setShowMatchModal(false)}
+          leagueInfo={{
+            name: currentThread.name || 'League Chat',
+            season: 'Season 1', // TODO: Get from thread metadata
+            division: 'Division I', // TODO: Get from thread metadata
+            sportType: currentThread.sportType || 'PICKLEBALL',
+          }}
+          onCreateMatch={handleCreateMatch}
+        />
       )}
     </View>
   );

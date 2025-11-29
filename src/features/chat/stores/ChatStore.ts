@@ -12,7 +12,7 @@ interface ChatActions {
   addThread: (thread: Thread) => void;
   loadThreads: (userId: string) => Promise<void>;
   loadMessages: (threadId: string) => Promise<void>;
-  sendMessage: (threadId: string, senderId: string, content: string, replyToId?: string) => Promise<void>;
+  sendMessage: (threadId: string, senderId: string, content: string, replyToId?: string, type?: 'text' | 'match', matchData?: any) => Promise<void>;
   setConnectionStatus: (connected: boolean) => void;
   setError: (error: string | null) => void;
   setLoading: (loading: boolean) => void;
@@ -248,10 +248,10 @@ export const useChatStore = create<ChatState & ChatActions>((set, get) => ({
     }
   },
   
-  sendMessage: async (threadId, senderId, content, replyToId) => {
-    console.log('ChatStore: Sending message:', { threadId, senderId, content, replyToId });
+  sendMessage: async (threadId, senderId, content, replyToId, type, matchData) => {
+    console.log('ChatStore: Sending message:', { threadId, senderId, content, replyToId, type, matchData });
     try {
-      const message = await ChatService.sendMessage(threadId, senderId, content, replyToId);
+      const message = await ChatService.sendMessage(threadId, senderId, content, replyToId, type, matchData);
       // console.log('ChatStore: Message sent via API, waiting for socket confirmation:', message.id);
     } catch (error) {
       console.error('ChatStore: Error sending message:', error);
