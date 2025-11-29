@@ -151,14 +151,23 @@ export const MessageWindow: React.FC<MessageWindowProps> = ({
     const isLastInGroup = !nextMessage || nextMessage.senderId !== message.senderId;
     
     // Debug logging
-    console.log('🔍 Rendering message:', message.id, 'Type:', message.type, 'Has matchData:', !!message.matchData);
+    console.log('🔍 Rendering message:', message.id, 'Type:', (message as any).messageType || message.type, 'Has matchData:', !!(message as any).matchData || !!message.matchData);
+    
+    // Check both messageType (from backend) and type (local)
+    const isMatchMessage = (message as any).messageType === 'MATCH' || message.type === 'match';
+    const matchDataParsed = typeof (message as any).matchData === 'string' 
+      ? JSON.parse((message as any).matchData) 
+      : ((message as any).matchData || message.matchData);
     
     // Render MatchMessageBubble for match type messages
-    if (message.type === 'match') {
-      console.log('✅ Rendering MatchMessageBubble for message:', message.id);
+    if (isMatchMessage && matchDataParsed) {
+      console.log('✅ Rendering MatchMessageBubble for message:', message.id, matchDataParsed);
       return (
         <MatchMessageBubble
-          message={message}
+          message={{
+            ...message,
+            matchData: matchDataParsed
+          }}
           isCurrentUser={isCurrentUser}
           isGroupChat={isGroupChat}
         />

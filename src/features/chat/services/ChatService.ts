@@ -298,6 +298,8 @@ export class ChatService {
       isRead: backendMessage.readBy?.length > 0 || false,
       isDelivered: true,
       replyTo: backendMessage.repliesToId,
+      type: backendMessage.messageType === 'MATCH' ? 'match' : 'text',
+      matchData: backendMessage.matchData,
       metadata: {
         isEdited: backendMessage.isEdited,
         isDeleted: backendMessage.isDeleted,
@@ -342,8 +344,4 @@ export class ChatService {
     return "Chat";
   }
 
-  private static calculateUnreadCount(messages: any[], members: any[]): number {
-    // TO DO  implement proper unread counting based on MessageReadBy
-    return 0; 
-  }
 }

@@ -38,6 +38,8 @@ export const useChatSocketEvents = (threadId: string | null, currentUserId: stri
       isRead: backendMessage.readBy?.length > 0 || false,
       isDelivered: true,
       replyTo: backendMessage.repliesToId,
+      type: backendMessage.messageType === 'MATCH' ? 'match' : 'text',
+      matchData: backendMessage.matchData,
       metadata: {
         isEdited: backendMessage.isEdited,
         isDeleted: backendMessage.isDeleted,
