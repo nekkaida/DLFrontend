@@ -1,8 +1,13 @@
 import { Ionicons } from '@expo/vector-icons';
 import { format } from 'date-fns';
-import React from 'react';
+import React, { useState } from 'react';
 import { Dimensions, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Message } from '../types';
+import { useSession } from '@/lib/auth-client';
+import { JoinMatchModal } from './JoinMatchModal';
+import { MatchInfoModal } from './MatchInfoModal';
+import { getBackendBaseURL } from '@/src/config/network';
+import { toast } from 'sonner-native';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -17,15 +22,142 @@ export const MatchMessageBubble: React.FC<MatchMessageBubbleProps> = ({
   isCurrentUser,
   isGroupChat = false,
 }) => {
+  const { data: session } = useSession();
+  const currentUserId = session?.user?.id;
   const matchData = message.matchData;
   const senderName = message.metadata?.sender?.name || 
                     message.metadata?.sender?.username || 
                     'Unknown';
+  const senderId = message.senderId;
+
+  const [showJoinModal, setShowJoinModal] = useState(false);
+  const [showInfoModal, setShowInfoModal] = useState(false);
+  const [isJoining, setIsJoining] = useState(false);
+  const [hasJoined, setHasJoined] = useState(false); // Track if user just joined
 
   if (!matchData) {
     console.log('❌ No matchData found for match message:', message.id);
     return null;
   }
+
+  console.log('🔍 Match participants for message:', message.id, {
+    participants: matchData.participants,
+    participantCount: matchData.participants?.length || 0,
+    currentUserId,
+    senderId
+  });
+
+  // Check if current user is the one who posted the match
+  const isMatchPoster = currentUserId === senderId;
+  
+  // Check if current user is already in the match
+  const isUserInMatch = React.useMemo(() => {
+    if (!currentUserId) return false;
+    if (isMatchPoster) return true; // Match creator is always in the match
+    if (hasJoined) return true; // User just joined
+    
+    // Check if user is in participants array
+    if (matchData.participants && matchData.participants.length > 0) {
+      return matchData.participants.some(p => p.userId === currentUserId);
+    }
+    
+    return false;
+  }, [currentUserId, isMatchPoster, hasJoined, matchData.participants]);
+  
+  // Display name logic
+  const displayName = isMatchPoster ? 'You' : senderName;
+
+  const handleJoinMatch = async (asPartner: boolean) => {
+    if (!matchData.matchId || !currentUserId) {
+      toast.error('Unable to join match', {
+        description: 'Missing match or user information',
+      });
+      return;
+    }
+
+    try {
+      setIsJoining(true);
+      const backendUrl = getBackendBaseURL();
+      
+      console.log('🎯 Joining match:', {
+        matchId: matchData.matchId,
+        userId: currentUserId,
+        asPartner,
+        matchType: matchData.numberOfPlayers === '2' ? 'SINGLES' : 'DOUBLES',
+        currentParticipants: matchData.participants
+      });
+
+      const response = await fetch(`${backendUrl}/api/match/${matchData.matchId}/join`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-user-id': currentUserId,
+        },
+        body: JSON.stringify({ asPartner }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        
+        // If already a participant, just update local state
+        if (errorData.error?.includes('already a participant')) {
+          console.log('ℹ️ User is already in match, updating UI state');
+          setHasJoined(true);
+          toast.info('You are already in this match');
+          setShowJoinModal(false);
+          return;
+        }
+        
+        throw new Error(errorData.error || 'Failed to join match');
+      }
+
+      const result = await response.json();
+      console.log('✅ Successfully joined match:', result);
+
+      // Update local state immediately to show "Joined" button
+      setHasJoined(true);
+
+      toast.success('Joined match!', {
+        description: asPartner ? 'You joined as a partner' : 'You joined as an opponent',
+      });
+
+      setShowJoinModal(false);
+      
+      // Refetch the match data to get updated participants
+      try {
+        const matchResponse = await fetch(`${backendUrl}/api/match/${matchData.matchId}`, {
+          headers: {
+            'x-user-id': currentUserId,
+          },
+        });
+
+        if (matchResponse.ok) {
+          const updatedMatch = await matchResponse.json();
+          console.log('✅ Refetched match data:', updatedMatch);
+          
+          // Update the message matchData with new participants
+          if (updatedMatch.participants) {
+            // This will trigger a re-render with updated participants
+            message.matchData = {
+              ...matchData,
+              participants: updatedMatch.participants
+            };
+          }
+        }
+      } catch (refetchError) {
+        console.warn('⚠️ Could not refetch match data:', refetchError);
+        // Not critical - hasJoined state will still show "Joined"
+      }
+      
+    } catch (error) {
+      console.error('❌ Error joining match:', error);
+      toast.error('Failed to join match', {
+        description: error instanceof Error ? error.message : 'Please try again',
+      });
+    } finally {
+      setIsJoining(false);
+    }
+  };
 
   const getSportColors = () => {
     switch (matchData.sportType) {
@@ -85,10 +217,10 @@ export const MatchMessageBubble: React.FC<MatchMessageBubbleProps> = ({
         <View style={styles.senderRow}>
           <View style={styles.avatar}>
             <Text style={styles.avatarText}>
-              {senderName.charAt(0).toUpperCase()}
+              {displayName.charAt(0).toUpperCase()}
             </Text>
           </View>
-          <Text style={styles.senderName}>{senderName} posted a league match</Text>
+          <Text style={styles.senderName}>{displayName} posted a league match</Text>
         </View>
         <Text style={styles.timestamp}>
           {format(new Date(message.timestamp), 'HH:mm')}
@@ -164,19 +296,56 @@ export const MatchMessageBubble: React.FC<MatchMessageBubbleProps> = ({
 
             {/* Action Buttons */}
             <View style={styles.actionButtons}>
-              <TouchableOpacity style={styles.infoButton} activeOpacity={0.7}>
+              <TouchableOpacity 
+                style={styles.infoButton} 
+                activeOpacity={0.7}
+                onPress={() => setShowInfoModal(true)}
+              >
                 <Text style={styles.infoButtonText}>Info</Text>
               </TouchableOpacity>
               <TouchableOpacity 
-                style={[styles.joinButton, { backgroundColor: sportColors.buttonColor }]}
-                activeOpacity={0.8}
+                style={[
+                  styles.joinButton, 
+                  { backgroundColor: isUserInMatch ? '#9CA3AF' : sportColors.buttonColor }
+                ]}
+                activeOpacity={isUserInMatch ? 1 : 0.8}
+                disabled={isUserInMatch}
+                onPress={() => setShowJoinModal(true)}
               >
-                <Text style={styles.joinButtonText}>Join match</Text>
+                <Text style={styles.joinButtonText}>
+                  {isUserInMatch ? 'Joined' : 'Join match'}
+                </Text>
               </TouchableOpacity>
             </View>
           </View>
         </View>
       </View>
+
+      {/* Join Match Modal */}
+      <JoinMatchModal
+        visible={showJoinModal}
+        onClose={() => setShowJoinModal(false)}
+        onConfirm={handleJoinMatch}
+        matchType={matchData.numberOfPlayers === '2' ? 'SINGLES' : 'DOUBLES'}
+        loading={isJoining}
+        matchDetails={{
+          date: formatDisplayDate(matchData.date),
+          time: `${formatTime(matchData.time)} – ${calculateEndTime(matchData.time, matchData.duration)}`,
+          location: matchData.location || 'TBD',
+          sportType: sportColors.label,
+        }}
+      />
+
+      {/* Match Info Modal */}
+      <MatchInfoModal
+        visible={showInfoModal}
+        onClose={() => setShowInfoModal(false)}
+        matchData={matchData}
+        creatorName={displayName}
+        formattedDate={formatDisplayDate(matchData.date)}
+        formattedTime={formatTime(matchData.time)}
+        formattedEndTime={calculateEndTime(matchData.time, matchData.duration)}
+      />
     </View>
   );
 };
