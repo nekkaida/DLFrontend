@@ -54,6 +54,7 @@ export interface Thread {
   metadata?: {
     avatarUrl?: string;
     divisionId?: string;
+    seasonId?: string;
     isGroup?: boolean;
     messageCount?: number;
     [key: string]: any;
