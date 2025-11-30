@@ -19,6 +19,7 @@ export interface Message {
   replyTo?: string;
   type?: 'text' | 'match'; // Add message type
   matchData?: { // Add match-specific data
+    matchId?: string; // Match ID for API calls
     date: string;
     time: string;
     duration: number;
@@ -29,6 +30,13 @@ export interface Message {
     sportType: 'PICKLEBALL' | 'TENNIS' | 'PADEL';
     leagueName: string;
     courtBooked?: boolean;
+    notes?: string; // Optional notes
+    participants?: Array<{ // Match participants
+      userId: string;
+      role?: string;
+      team?: string;
+      invitationStatus?: string;
+    }>;
   };
   metadata?: {
     isEdited?: boolean;

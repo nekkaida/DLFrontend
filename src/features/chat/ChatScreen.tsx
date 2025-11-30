@@ -231,8 +231,180 @@ export const ChatScreen: React.FC = () => {
 
     try {
       const backendUrl = getBackendBaseURL();
+      const isDoubles = matchData.numberOfPlayers === '4';
       
-      // Step 1: Convert 12-hour time to 24-hour format
+      // Step 1: If creating doubles match, fetch active partnership to get partner ID
+      let partnerId: string | undefined;
+      
+      if (isDoubles && currentThread.metadata?.divisionId) {
+        console.log('🎾 STEP 1: Starting doubles match partner fetch');
+        console.log('📍 Current thread metadata:', {
+          divisionId: currentThread.metadata.divisionId,
+          seasonId: currentThread.metadata.seasonId,
+          fullMetadata: currentThread.metadata
+        });
+        
+        try {
+          // Get division details to find seasonId
+          console.log('🔍 STEP 2: Fetching division data...');
+          console.log('📤 Request URL:', `${backendUrl}/api/division/${currentThread.metadata.divisionId}`);
+          console.log('📤 Request headers:', { 'x-user-id': user.id });
+          
+          const divisionResponse = await fetch(
+            `${backendUrl}/api/division/${currentThread.metadata.divisionId}`,
+            {
+              method: 'GET',
+              headers: { 'x-user-id': user.id }
+            }
+          );
+          
+          console.log('📥 Division response status:', divisionResponse.status);
+          console.log('📥 Division response ok:', divisionResponse.ok);
+          
+          if (!divisionResponse.ok) {
+            const errorText = await divisionResponse.text();
+            console.error('❌ Division fetch failed:', {
+              status: divisionResponse.status,
+              statusText: divisionResponse.statusText,
+              errorBody: errorText
+            });
+            throw new Error(`Failed to fetch division: ${divisionResponse.status} - ${errorText}`);
+          }
+          
+          const divisionResult = await divisionResponse.json();
+          // Extract the actual division data from nested structure
+          const divisionData = divisionResult.data || divisionResult;
+          
+          console.log('✅ Division data received:', {
+            divisionId: divisionData.id,
+            seasonId: divisionData.seasonId,
+            seasonData: divisionData.season,
+            fullDivisionData: JSON.stringify(divisionData, null, 2),
+            rawResponse: JSON.stringify(divisionResult, null, 2)
+          });
+          
+          const seasonId = divisionData.seasonId || divisionData.season?.id;
+          
+          if (!seasonId) {
+            console.error('❌ No seasonId found in division data:', {
+              divisionData,
+              hasSeasonId: !!divisionData.seasonId,
+              hasSeason: !!divisionData.season,
+              seasonObject: divisionData.season
+            });
+            throw new Error('Division has no season associated');
+          }
+          
+          console.log('✅ STEP 3: Season ID extracted:', seasonId);
+          
+          // Fetch active partnership for this season
+          console.log('🔍 STEP 4: Fetching active partnership...');
+          console.log('📤 Partnership request URL:', `${backendUrl}/api/pairing/partnership/active/${seasonId}`);
+          console.log('📤 Partnership request headers:', { 'x-user-id': user.id });
+          
+          const partnershipResponse = await fetch(
+            `${backendUrl}/api/pairing/partnership/active/${seasonId}`,
+            {
+              method: 'GET',
+              headers: { 'x-user-id': user.id }
+            }
+          );
+          
+          console.log('📥 Partnership response status:', partnershipResponse.status);
+          console.log('📥 Partnership response ok:', partnershipResponse.ok);
+          
+          if (!partnershipResponse.ok) {
+            const errorText = await partnershipResponse.text();
+            console.error('❌ Partnership fetch failed:', {
+              status: partnershipResponse.status,
+              statusText: partnershipResponse.statusText,
+              errorBody: errorText
+            });
+            throw new Error(`Failed to fetch partnership: ${partnershipResponse.status} - ${errorText}`);
+          }
+          
+          const partnershipResult = await partnershipResponse.json();
+          console.log('📥 Partnership API response:', {
+            fullResponse: JSON.stringify(partnershipResult, null, 2)
+          });
+          
+          // Parse the response structure - partnership is directly under 'data', not 'data.data'
+          const partnership = partnershipResult?.data;
+          
+          console.log('🔍 STEP 5: Parsing partnership data:', {
+            hasData: !!partnershipResult.data,
+            partnership: partnership,
+            partnershipId: partnership?.id,
+            captainId: partnership?.captainId,
+            partnerId: partnership?.partnerId,
+            status: partnership?.status,
+            captainName: partnership?.captain?.name,
+            partnerName: partnership?.partner?.name
+          });
+          
+          if (!partnership || !partnership.id) {
+            console.error('❌ No valid partnership found:', {
+              partnershipResult,
+              dataField: partnershipResult?.data,
+              nestedDataField: partnershipResult?.data?.data,
+              isNull: partnership === null,
+              isUndefined: partnership === undefined,
+              hasId: partnership?.id
+            });
+            toast.warning('No partner found', {
+              description: 'You need to pair up with a partner for this season first',
+            });
+            return;
+          }
+          
+          // Determine partner ID based on whether user is captain or partner
+          console.log('🔍 STEP 6: Determining partner ID:', {
+            currentUserId: user.id,
+            captainId: partnership.captainId,
+            partnerId: partnership.partnerId,
+            isCaptain: partnership.captainId === user.id
+          });
+          
+          partnerId = partnership.captainId === user.id 
+            ? partnership.partnerId 
+            : partnership.captainId;
+          
+          console.log('✅ STEP 7: Partner found!', {
+            userId: user.id,
+            partnerId,
+            isCaptain: partnership.captainId === user.id,
+            partnerName: partnership.captainId === user.id 
+              ? partnership.partner?.name 
+              : partnership.captain?.name,
+            partnershipStatus: partnership.status
+          });
+          
+        } catch (error) {
+          console.error('❌ CRITICAL ERROR in partnership fetch:', {
+            error,
+            errorMessage: error instanceof Error ? error.message : 'Unknown error',
+            errorStack: error instanceof Error ? error.stack : undefined
+          });
+          
+          toast.error('Failed to fetch partnership', {
+            description: error instanceof Error ? error.message : 'Unable to verify your doubles partner',
+          });
+          return;
+        }
+        
+        // If we're creating a doubles match and still don't have a partnerId, stop
+        if (!partnerId) {
+          console.error('❌ FINAL CHECK FAILED: No partnerId after all steps');
+          toast.error('Partner required', {
+            description: 'You must have an active partnership to create doubles matches',
+          });
+          return;
+        }
+        
+        console.log('✅ PARTNERSHIP VALIDATION COMPLETE:', { partnerId });
+      }
+      
+      // Step 2: Convert 12-hour time to 24-hour format
       const convertTo24Hour = (time12h: string): string => {
         const [time, modifier] = time12h.split(' ');
         let [hours, minutes] = time.split(':');
@@ -255,32 +427,64 @@ export const ChatScreen: React.FC = () => {
         dateObject: matchDateTime.toISOString()
       });
       
-      // Step 2: Create the match using the standard match endpoint
+      // Step 3: Create the match using the match invitation endpoint
+      const matchPayload: any = {
+        divisionId: currentThread.metadata?.divisionId,
+        matchType: isDoubles ? 'DOUBLES' : 'SINGLES',
+        format: 'STANDARD',
+        proposedTimes: [matchDateTime.toISOString()],
+        location: matchData.location || 'TBD',
+        notes: matchData.description,
+        courtBooked: matchData.courtBooked || false,
+      };
+      
+      // Add partnerId for doubles matches
+      if (isDoubles && partnerId) {
+        matchPayload.partnerId = partnerId;
+        console.log('✅ Added partnerId to payload:', partnerId);
+      } else if (isDoubles && !partnerId) {
+        console.error('❌ CRITICAL: Doubles match but no partnerId!');
+      }
+      
+      console.log('📤 STEP 8: Creating match with payload:', {
+        payload: matchPayload,
+        payloadString: JSON.stringify(matchPayload, null, 2),
+        endpoint: `${backendUrl}/api/match/create`,
+        userId: user.id,
+        isDoubles,
+        hasPartnerId: !!partnerId
+      });
+      
       const matchResponse = await fetch(`${backendUrl}/api/match/create`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'x-user-id': user.id,
         },
-        body: JSON.stringify({
-          divisionId: currentThread.metadata?.divisionId,
-          sport: currentThread.sportType || 'PICKLEBALL',
-          matchType: matchData.numberOfPlayers === '2' ? 'SINGLES' : 'DOUBLES',
-          matchDate: matchDateTime.toISOString(),
-          location: matchData.location || 'TBD',
-          notes: matchData.description,
-          duration: matchData.duration ? Math.round(matchData.duration * 60) : 120, // Convert to minutes
-          courtBooked: matchData.courtBooked || false,
-        }),
+        body: JSON.stringify(matchPayload),
+      });
+
+      console.log('📥 STEP 9: Match creation response:', {
+        status: matchResponse.status,
+        ok: matchResponse.ok,
+        statusText: matchResponse.statusText
       });
 
       if (!matchResponse.ok) {
         const errorData = await matchResponse.json();
+        console.error('❌ Match creation failed:', {
+          status: matchResponse.status,
+          errorData,
+          originalPayload: matchPayload
+        });
         throw new Error(errorData.error || 'Failed to create match');
       }
 
       const matchResult = await matchResponse.json();
-      console.log('✅ Match created:', matchResult);
+      console.log('✅ STEP 10: Match created successfully:', {
+        matchId: matchResult.id,
+        fullResult: matchResult
+      });
 
       // Step 2: Send a message to the thread with match data for UI display
       const messageContent = `📅 Match scheduled for ${matchData.date} at ${matchData.time}`;
@@ -302,6 +506,7 @@ export const ChatScreen: React.FC = () => {
           leagueName: currentThread.name || 'Match',
           courtBooked: matchData.courtBooked || false,
           status: 'SCHEDULED',
+          participants: matchResult.participants || [], // Include participants from match creation
         },
       };
 
