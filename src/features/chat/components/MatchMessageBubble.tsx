@@ -3,6 +3,7 @@ import { format } from 'date-fns';
 import React from 'react';
 import { Dimensions, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Message } from '../types';
+import { useSession } from '@/lib/auth-client';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -17,15 +18,28 @@ export const MatchMessageBubble: React.FC<MatchMessageBubbleProps> = ({
   isCurrentUser,
   isGroupChat = false,
 }) => {
+  const { data: session } = useSession();
+  const currentUserId = session?.user?.id;
   const matchData = message.matchData;
   const senderName = message.metadata?.sender?.name || 
                     message.metadata?.sender?.username || 
                     'Unknown';
+  const senderId = message.senderId;
 
   if (!matchData) {
     console.log('❌ No matchData found for match message:', message.id);
     return null;
   }
+
+  // Check if current user is the one who posted the match
+  const isMatchPoster = currentUserId === senderId;
+  
+  // Check if current user is already in the match
+  // Assuming matchData has a participants array or we can check the senderId
+  const isUserInMatch = isMatchPoster; // User who posts is automatically in the match
+  
+  // Display name logic
+  const displayName = isMatchPoster ? 'You' : senderName;
 
   const getSportColors = () => {
     switch (matchData.sportType) {
@@ -85,10 +99,10 @@ export const MatchMessageBubble: React.FC<MatchMessageBubbleProps> = ({
         <View style={styles.senderRow}>
           <View style={styles.avatar}>
             <Text style={styles.avatarText}>
-              {senderName.charAt(0).toUpperCase()}
+              {displayName.charAt(0).toUpperCase()}
             </Text>
           </View>
-          <Text style={styles.senderName}>{senderName} posted a league match</Text>
+          <Text style={styles.senderName}>{displayName} posted a league match</Text>
         </View>
         <Text style={styles.timestamp}>
           {format(new Date(message.timestamp), 'HH:mm')}
@@ -168,10 +182,16 @@ export const MatchMessageBubble: React.FC<MatchMessageBubbleProps> = ({
                 <Text style={styles.infoButtonText}>Info</Text>
               </TouchableOpacity>
               <TouchableOpacity 
-                style={[styles.joinButton, { backgroundColor: sportColors.buttonColor }]}
-                activeOpacity={0.8}
+                style={[
+                  styles.joinButton, 
+                  { backgroundColor: isUserInMatch ? '#9CA3AF' : sportColors.buttonColor }
+                ]}
+                activeOpacity={isUserInMatch ? 1 : 0.8}
+                disabled={isUserInMatch}
               >
-                <Text style={styles.joinButtonText}>Join match</Text>
+                <Text style={styles.joinButtonText}>
+                  {isUserInMatch ? 'Joined' : 'Join match'}
+                </Text>
               </TouchableOpacity>
             </View>
           </View>
