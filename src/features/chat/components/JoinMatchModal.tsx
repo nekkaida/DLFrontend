@@ -26,6 +26,7 @@ interface JoinMatchModalProps {
     hasPartner: boolean;
     partnerName?: string;
     partnerImage?: string;
+    isCaptain?: boolean;
   };
 }
 
@@ -88,7 +89,7 @@ export const JoinMatchModal: React.FC<JoinMatchModalProps> = ({
           {/* Doubles - Show Partner Info or Error */}
           {matchType === 'DOUBLES' && (
             <>
-              {partnerInfo?.hasPartner ? (
+              {partnerInfo?.hasPartner && partnerInfo?.isCaptain ? (
                 <View style={styles.partnerSection}>
                   <Text style={styles.sectionTitle}>Your Team</Text>
                   <View style={styles.infoSection}>
@@ -98,11 +99,18 @@ export const JoinMatchModal: React.FC<JoinMatchModalProps> = ({
                     </Text>
                   </View>
                 </View>
+              ) : partnerInfo?.isCaptain === false ? (
+                <View style={styles.errorSection}>
+                  <Ionicons name="alert-circle" size={20} color="#EF4444" />
+                  <Text style={styles.errorText}>
+                    Only the team captain can join matches for the partnership. Please ask your captain to join.
+                  </Text>
+                </View>
               ) : (
                 <View style={styles.errorSection}>
                   <Ionicons name="alert-circle" size={20} color="#EF4444" />
                   <Text style={styles.errorText}>
-                    You need an active partner to join doubles matches. Please form a partnership first.
+                    You need an active partnership to join doubles matches. Please form a partnership first.
                   </Text>
                 </View>
               )}
