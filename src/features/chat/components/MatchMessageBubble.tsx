@@ -38,6 +38,7 @@ export const MatchMessageBubble: React.FC<MatchMessageBubbleProps> = ({
     hasPartner: boolean;
     partnerName?: string;
     partnerImage?: string;
+    isCaptain?: boolean;
   }>({ hasPartner: false });
   const [isFetchingPartner, setIsFetchingPartner] = useState(false);
 
@@ -137,11 +138,21 @@ export const MatchMessageBubble: React.FC<MatchMessageBubbleProps> = ({
               isCaptain: isUserCaptain,
             });
             
-            setPartnerInfo({
-              hasPartner: true,
-              partnerName: partner?.name || 'Partner',
-              partnerImage: partner?.image,
-            });
+            // Only captains can join matches for their partnership
+            if (!isUserCaptain) {
+              console.log('⚠️ User is not the captain, cannot join for partnership');
+              setPartnerInfo({ 
+                hasPartner: false,
+                isCaptain: false,
+              });
+            } else {
+              setPartnerInfo({
+                hasPartner: true,
+                partnerName: partner?.name || 'Partner',
+                partnerImage: partner?.image,
+                isCaptain: true,
+              });
+            }
           } else {
             console.log('ℹ️ Partnership exists but no valid data');
             setPartnerInfo({ hasPartner: false });
