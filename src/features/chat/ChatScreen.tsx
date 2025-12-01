@@ -21,6 +21,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { toast } from 'sonner-native';
 import { getSportColors } from '@/constants/sportColors';
+import { NavBar } from '@/shared/components/layout';
 import { MessageInput } from './components/chat-input';
 import { ThreadList } from './components/chat-list';
 import { MessageWindow } from './components/chat-window';
@@ -36,7 +37,19 @@ const { width } = Dimensions.get('window');
 const isSmallScreen = width < 375;
 const isTablet = width > 768;
 
-export const ChatScreen: React.FC = () => {
+interface ChatScreenProps {
+  activeTab?: number;
+  onTabPress?: (tabIndex: number) => void;
+  sport?: 'pickleball' | 'tennis' | 'padel';
+  chatUnreadCount?: number;
+}
+
+export const ChatScreen: React.FC<ChatScreenProps> = ({
+  activeTab = 4,
+  onTabPress,
+  sport = 'pickleball',
+  chatUnreadCount = 0,
+}) => {
   const [searchQuery, setSearchQuery] = useState('');
   const { data: session} = useSession();
   const [filteredThreads, setFilteredThreads] = useState<Thread[]>([]);
@@ -647,10 +660,10 @@ export const ChatScreen: React.FC = () => {
       {/* <SocketDebugPanel /> */}
       
       {currentThread ? (
-        <KeyboardAvoidingView 
+        <KeyboardAvoidingView
           style={styles.chatContainer}
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-          keyboardVerticalOffset={Platform.OS === 'ios' ? STATUS_BAR_HEIGHT : 0}
+          keyboardVerticalOffset={0}
         >
           {/* Message Action Bar */}
           <MessageActionBar
@@ -841,9 +854,17 @@ export const ChatScreen: React.FC = () => {
               )}
             </View>
           </View>
-           <ThreadList 
+           <ThreadList
             onThreadSelect={handleThreadSelect}
-          /> 
+          />
+          {onTabPress && (
+            <NavBar
+              activeTab={activeTab}
+              onTabPress={onTabPress}
+              sport={sport}
+              badgeCounts={{ chat: chatUnreadCount }}
+            />
+          )}
         </View>
       )}
 
