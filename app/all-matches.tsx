@@ -19,7 +19,8 @@ interface Match {
   id: string;
   matchType: 'SINGLES' | 'DOUBLES';
   status: string;
-  scheduledTime: string;
+  scheduledTime?: string;
+  matchDate?: string;
   location?: string;
   venue?: string;
   courtBooked?: boolean;
@@ -62,23 +63,66 @@ export default function AllMatchesScreen() {
   const seasonName = (params.seasonName as string) || 'Season 1 (2025)';
 
   useEffect(() => {
+    console.log('🔍 All-matches useEffect triggered with divisionId:', divisionId);
     if (divisionId) {
+      console.log('✅ divisionId exists, fetching data...');
       fetchDivisionData();
       fetchMatches();
+    } else {
+      console.warn('⚠️ No divisionId provided!');
     }
-  }, [divisionId]);
+  }, [divisionId, activeTab]);
 
   const fetchMatches = async () => {
     try {
       setLoading(true);
-      const response = await axiosInstance.get(`/api/match/available/${divisionId}`);
-      console.log('📥 Matches fetched:', response.data);
+      console.log('📤 Fetching matches for divisionId:', divisionId, 'Tab:', activeTab);
       
-      // Handle different response structures
-      const matchesData = response.data?.data || response.data || [];
-      setMatches(Array.isArray(matchesData) ? matchesData : []);
-    } catch (error) {
+      let endpoint = '';
+      
+      // Determine endpoint based on active tab
+      if (activeTab === 'all') {
+        // Fetch all matches (past and present) using query parameter
+        endpoint = `/api/match?divisionId=${divisionId}`;
+      } else if (activeTab === 'open') {
+        // Fetch available matches (open spots)
+        endpoint = `/api/match/available/${divisionId}`;
+      } else if (activeTab === 'full') {
+        // Fetch all matches and filter for full ones
+        endpoint = `/api/match?divisionId=${divisionId}`;
+      }
+      
+      console.log('📤 Full URL:', endpoint);
+      
+      const response = await axiosInstance.get(endpoint);
+      console.log('📥 Matches API response status:', response.status);
+      console.log('📥 Matches API response data:', JSON.stringify(response.data, null, 2));
+      
+      // Handle paginated response structure
+      const paginatedData = response.data?.data || response.data;
+      const matchesData = paginatedData?.matches || paginatedData || [];
+      
+      console.log('📥 Extracted matches data:', matchesData);
+      console.log('📥 Is array?', Array.isArray(matchesData));
+      console.log('📥 Matches count:', Array.isArray(matchesData) ? matchesData.length : 'Not an array');
+      
+      // Filter matches based on tab if needed
+      let filteredMatches = Array.isArray(matchesData) ? matchesData : [];
+      
+      if (activeTab === 'full') {
+        // Filter for matches with full occupancy
+        filteredMatches = filteredMatches.filter(match => {
+          const requiredParticipants = match.matchType === 'DOUBLES' ? 4 : 2;
+          return match.participants?.length >= requiredParticipants;
+        });
+      }
+      
+      setMatches(filteredMatches);
+    } catch (error: any) {
       console.error('❌ Error fetching matches:', error);
+      console.error('❌ Error response:', error?.response?.data);
+      console.error('❌ Error status:', error?.response?.status);
+      console.error('❌ Error message:', error?.message);
       setMatches([]);
     } finally {
       setLoading(false);
@@ -147,9 +191,14 @@ export default function AllMatchesScreen() {
     }
     
     matches.forEach((match) => {
-      if (!match.scheduledTime) return;
+      // Use scheduledTime if available, otherwise fall back to matchDate
+      const dateString = match.scheduledTime || match.matchDate;
+      if (!dateString) {
+        console.warn('⚠️ Match has no scheduledTime or matchDate:', match.id);
+        return;
+      }
       
-      const date = new Date(match.scheduledTime);
+      const date = new Date(dateString);
       const dateKey = format(date, 'EEEE, d MMMM yyyy');
       
       if (!grouped[dateKey]) {
@@ -178,9 +227,14 @@ export default function AllMatchesScreen() {
     const team1Participants = match.participants.filter(p => p.team === 'team1');
     const team2Participants = match.participants.filter(p => p.team === 'team2');
     
-    // For singles, just split by index
-    const player1 = team1Participants[0] || match.participants[0];
-    const player2 = team2Participants[0] || match.participants[1];
+    const isDoubles = match.matchType === 'DOUBLES';
+
+    // Use scheduledTime or matchDate
+    const dateString = match.scheduledTime || match.matchDate;
+    if (!dateString) {
+      console.warn('⚠️ Match has no date:', match.id);
+      return null;
+    }
 
     const formatTime = (dateString: string) => {
       const date = new Date(dateString);
@@ -193,50 +247,112 @@ export default function AllMatchesScreen() {
       return format(date, 'h:mm a');
     };
 
+    const renderPlayerAvatar = (player: any, style?: any) => {
+      if (player?.user?.image) {
+        return <Image source={{ uri: player.user.image }} style={[styles.avatarImage, style]} />;
+      }
+      return (
+        <View style={[styles.defaultAvatar, style]}>
+          <Text style={[styles.defaultAvatarText, style && { fontSize: 14 }]}>
+            {player?.user?.name?.charAt(0)?.toUpperCase() || '?'}
+          </Text>
+        </View>
+      );
+    };
+
+    const renderEmptySlot = (style?: any) => (
+      <View style={[styles.emptySlot, style]}>
+        <Ionicons name="person-outline" size={style ? 20 : 24} color="#9CA3AF" />
+      </View>
+    );
+
     return (
       <View key={match.id} style={styles.matchCard}>
         {/* Players Row */}
         <View style={styles.playersRow}>
-          {/* Player 1 */}
-          <View style={styles.playerSection}>
-            <View style={styles.playerAvatar}>
-              {player1?.user?.image ? (
-                <Image source={{ uri: player1.user.image }} style={styles.avatarImage} />
-              ) : (
-                <View style={styles.defaultAvatar}>
-                  <Text style={styles.defaultAvatarText}>
-                    {player1?.user?.name?.charAt(0)?.toUpperCase() || '?'}
-                  </Text>
+          {isDoubles ? (
+            <>
+              {/* Team 1 - Left Side */}
+              <View style={styles.teamSection}>
+                <View style={styles.teamPlayers}>
+                  <View style={styles.doublesPlayerContainer}>
+                    <View style={styles.playerAvatar}>
+                      {team1Participants[0] ? renderPlayerAvatar(team1Participants[0]) : renderEmptySlot()}
+                    </View>
+                    <Text style={styles.playerName} numberOfLines={1}>
+                      {team1Participants[0]?.user?.name || 'Open slot'}
+                    </Text>
+                  </View>
+                  <View style={styles.doublesPlayerContainer}>
+                    <View style={styles.playerAvatar}>
+                      {team1Participants[1] ? renderPlayerAvatar(team1Participants[1]) : renderEmptySlot()}
+                    </View>
+                    <Text style={styles.playerName} numberOfLines={1}>
+                      {team1Participants[1]?.user?.name || 'Open slot'}
+                    </Text>
+                  </View>
                 </View>
-              )}
-            </View>
-            <Text style={styles.playerName} numberOfLines={1}>
-              {player1?.user?.name || 'Unknown'}
-            </Text>
-          </View>
+              </View>
 
-          {/* VS Divider */}
-          <View style={styles.vsContainer}>
-            <Text style={styles.vsText}>1 set left</Text>
-          </View>
+              {/* VS Divider */}
+              <View style={styles.vsContainer}>
+                <Text style={styles.vsText}>
+                  {team1Participants.length + team2Participants.length < 4 
+                    ? `${4 - (team1Participants.length + team2Participants.length)} pair slot` 
+                    : 'VS'}
+                </Text>
+              </View>
 
-          {/* Player 2 */}
-          <View style={styles.playerSection}>
-            <View style={styles.playerAvatar}>
-              {player2?.user?.image ? (
-                <Image source={{ uri: player2.user.image }} style={styles.avatarImage} />
-              ) : (
-                <View style={styles.defaultAvatar}>
-                  <Text style={styles.defaultAvatarText}>
-                    {player2?.user?.name?.charAt(0)?.toUpperCase() || '?'}
-                  </Text>
+              {/* Team 2 - Right Side */}
+              <View style={styles.teamSection}>
+                <View style={styles.teamPlayers}>
+                  <View style={styles.doublesPlayerContainer}>
+                    <View style={styles.playerAvatar}>
+                      {team2Participants[0] ? renderPlayerAvatar(team2Participants[0]) : renderEmptySlot()}
+                    </View>
+                    <Text style={styles.playerName} numberOfLines={1}>
+                      {team2Participants[0]?.user?.name || 'Open slot'}
+                    </Text>
+                  </View>
+                  <View style={styles.doublesPlayerContainer}>
+                    <View style={styles.playerAvatar}>
+                      {team2Participants[1] ? renderPlayerAvatar(team2Participants[1]) : renderEmptySlot()}
+                    </View>
+                    <Text style={styles.playerName} numberOfLines={1}>
+                      {team2Participants[1]?.user?.name || 'Open slot'}
+                    </Text>
+                  </View>
                 </View>
-              )}
-            </View>
-            <Text style={styles.playerName} numberOfLines={1}>
-              {player2?.user?.name || 'Unknown'}
-            </Text>
-          </View>
+              </View>
+            </>
+          ) : (
+            <>
+              {/* Singles - Player 1 */}
+              <View style={styles.playerSection}>
+                <View style={styles.playerAvatar}>
+                  {team1Participants[0] ? renderPlayerAvatar(team1Participants[0]) : renderEmptySlot()}
+                </View>
+                <Text style={styles.playerName} numberOfLines={1}>
+                  {team1Participants[0]?.user?.name || 'Open slot'}
+                </Text>
+              </View>
+
+              {/* VS Divider */}
+              <View style={styles.vsContainer}>
+                <Text style={styles.vsText}>VS</Text>
+              </View>
+
+              {/* Singles - Player 2 */}
+              <View style={styles.playerSection}>
+                <View style={styles.playerAvatar}>
+                  {team2Participants[0] ? renderPlayerAvatar(team2Participants[0]) : renderEmptySlot()}
+                </View>
+                <Text style={styles.playerName} numberOfLines={1}>
+                  {team2Participants[0]?.user?.name || 'Open slot'}
+                </Text>
+              </View>
+            </>
+          )}
         </View>
 
         {/* Match Details */}
@@ -245,7 +361,7 @@ export default function AllMatchesScreen() {
             {match.matchType === 'DOUBLES' ? 'Doubles' : 'Singles'} League Match
           </Text>
           <Text style={styles.matchTime}>
-            {formatTime(match.scheduledTime)} - {calculateEndTime(match.scheduledTime)}, {format(new Date(match.scheduledTime), 'd MMMM yyyy')}
+            {formatTime(dateString)} - {calculateEndTime(dateString)}, {format(new Date(dateString), 'd MMMM yyyy')}
           </Text>
           <Text style={styles.matchLocation}>
             {match.location || match.venue || 'Padela Nayan'}
@@ -556,12 +672,35 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     flex: 1,
   },
+  teamSection: {
+    alignItems: 'center',
+    flex: 1,
+  },
+  teamPlayers: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  doublesPlayerContainer: {
+    alignItems: 'center',
+    maxWidth: 60,
+  },
   playerAvatar: {
     width: 48,
     height: 48,
     borderRadius: 24,
-    marginBottom: 8,
+    marginBottom: 6,
     overflow: 'hidden',
+  },
+  emptySlot: {
+    width: '100%',
+    height: '100%',
+    backgroundColor: '#F3F4F6',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: '#E5E7EB',
+    borderStyle: 'dashed',
+    borderRadius: 24,
   },
   avatarImage: {
     width: '100%',
@@ -580,7 +719,7 @@ const styles = StyleSheet.create({
     color: '#6B7280',
   },
   playerName: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '600',
     color: '#111827',
     textAlign: 'center',
