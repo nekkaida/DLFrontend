@@ -123,7 +123,7 @@ export class ChatService {
       );
 
       console.log("ChatService: Create thread response:", response.data);
-      return this.transformBackendThread(response.data.data);
+      return this.transformBackendThread(response.data.data, currentUserId);
     } catch (error) {
       console.error("Error creating thread:", error);
       throw error;

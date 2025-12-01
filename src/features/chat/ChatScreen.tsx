@@ -27,6 +27,7 @@ import { ThreadList } from './components/chat-list';
 import { MessageWindow } from './components/chat-window';
 import { CreateMatchModal, MatchFormData } from './components/CreateMatchModal';
 import { MessageActionBar } from './components/MessageActionBar';
+import { NewMessageBottomSheet } from './components/NewMessageBottomSheet';
 import { useChatSocketEvents } from './hooks/useChatSocketEvents';
 import { ChatService } from './services/ChatService';
 import { useChatStore } from './stores/ChatStore';
@@ -58,6 +59,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
   const [selectedMessage, setSelectedMessage] = useState<any>(null);
   const [showMatchModal, setShowMatchModal] = useState(false);
   const [showActionBar, setShowActionBar] = useState(false);
+  const [showNewMessageSheet, setShowNewMessageSheet] = useState(false);
   const insets = useSafeAreaInsets();
   
   const user = session?.user;
@@ -810,30 +812,18 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
         </KeyboardAvoidingView>
       ) : (
         <View style={styles.threadsContainer}>
-          {/* Header with profile picture */}
-          <View style={[styles.headerContainer, { paddingTop: STATUS_BAR_HEIGHT }]}>
-            <TouchableOpacity 
-              style={styles.headerProfilePicture}
+          {/* Header with Chats title and New Message button */}
+          <View style={[styles.chatsHeaderContainer, { paddingTop: STATUS_BAR_HEIGHT }]}>
+            <Text style={styles.chatsTitle}>Chats</Text>
+            <TouchableOpacity
               onPress={() => {
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                router.push('/profile');
+                setShowNewMessageSheet(true);
               }}
+              activeOpacity={0.7}
             >
-              {(profileData?.image || session?.user?.image) ? (
-                <Image 
-                  source={{ uri: profileData?.image || session?.user?.image }}
-                  style={styles.headerProfileImage}
-                />
-              ) : (
-                <View style={styles.defaultHeaderAvatarContainer}>
-                  <Text style={styles.defaultHeaderAvatarText}>
-                    {(profileData?.name || session?.user?.name)?.charAt(0)?.toUpperCase() || 'U'}
-                  </Text>
-                </View>
-              )}
+              <Text style={styles.newMessageButton}>New Message</Text>
             </TouchableOpacity>
-            
-            <View style={styles.headerRight} />
           </View>
 
           <View style={styles.searchContainer}>
@@ -882,6 +872,47 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
           onCreateMatch={handleCreateMatch}
         />
       )}
+
+      {/* New Message Bottom Sheet */}
+      <NewMessageBottomSheet
+        visible={showNewMessageSheet}
+        onClose={() => setShowNewMessageSheet(false)}
+        onSelectUser={async (userId, userName) => {
+          if (!user?.id) {
+            toast.error('Please log in to start a conversation');
+            return;
+          }
+
+          try {
+            console.log('Creating/finding thread with user:', userId, userName);
+
+            // Create or find existing direct message thread
+            const thread = await ChatService.createThread(
+              user.id,
+              [userId],
+              false // isGroup = false for direct messages
+            );
+
+            console.log('Thread created/found:', thread.id, thread.name);
+
+            // Close the bottom sheet
+            setShowNewMessageSheet(false);
+
+            // Set the thread as current to navigate to the chat
+            setCurrentThread(thread);
+
+            // Load messages for the thread
+            loadMessages(thread.id);
+
+            // Refresh the threads list to include the new thread
+            loadThreads(user.id);
+
+          } catch (error) {
+            console.error('Error creating thread:', error);
+            toast.error('Failed to start conversation. Please try again.');
+          }
+        }}
+      />
     </View>
   );
 };
@@ -1128,6 +1159,25 @@ const styles = StyleSheet.create({
     paddingHorizontal: isSmallScreen ? 16 : isTablet ? 24 : 20,
     paddingVertical: isSmallScreen ? 4 : isTablet ? 8 : 6,
     minHeight: isSmallScreen ? 36 : isTablet ? 44 : 40,
+  },
+  chatsHeaderContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    width: '100%',
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: isSmallScreen ? 16 : isTablet ? 24 : 20,
+    paddingVertical: 12,
+  },
+  chatsTitle: {
+    fontSize: isSmallScreen ? 28 : isTablet ? 36 : 32,
+    fontWeight: '700',
+    color: '#111827',
+  },
+  newMessageButton: {
+    fontSize: isSmallScreen ? 14 : isTablet ? 18 : 16,
+    fontWeight: '600',
+    color: '#FEA04D',
   },
   headerProfilePicture: {
     width: isSmallScreen ? 40 : isTablet ? 56 : 48,
