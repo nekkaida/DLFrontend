@@ -50,6 +50,10 @@ export default function AllMatchesScreen() {
   const [matches, setMatches] = useState<Match[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'all' | 'open' | 'full'>('all');
+  const [divisionData, setDivisionData] = useState<{
+    gameType: 'SINGLES' | 'DOUBLES';
+    genderCategory: 'MALE' | 'FEMALE' | 'MIXED' | null;
+  } | null>(null);
   
   // Get params from navigation
   const divisionId = params.divisionId as string;
@@ -59,6 +63,7 @@ export default function AllMatchesScreen() {
 
   useEffect(() => {
     if (divisionId) {
+      fetchDivisionData();
       fetchMatches();
     }
   }, [divisionId]);
@@ -78,6 +83,59 @@ export default function AllMatchesScreen() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const fetchDivisionData = async () => {
+    try {
+      const response = await axiosInstance.get(`/api/division/${divisionId}`);
+      console.log('📥 Division data fetched:', JSON.stringify(response.data, null, 2));
+      
+      const division = response.data?.data || response.data;
+      console.log('📥 Division extracted:', JSON.stringify(division, null, 2));
+      
+      if (division) {
+        console.log('📥 gameType:', division.gameType);
+        console.log('📥 genderCategory:', division.genderCategory);
+        
+        setDivisionData({
+          gameType: division.gameType,
+          genderCategory: division.genderCategory || null,
+        });
+      }
+    } catch (error) {
+      console.error('❌ Error fetching division data:', error);
+    }
+  };
+
+  const getGameTypeLabel = (): string => {
+    console.log('🏷️ getGameTypeLabel called, divisionData:', divisionData);
+    
+    if (!divisionData) return 'Loading...';
+    
+    const { gameType, genderCategory } = divisionData;
+    console.log('🏷️ gameType:', gameType, 'genderCategory:', genderCategory);
+    
+    const gameTypeUpper = gameType?.toUpperCase();
+    const genderCategoryUpper = genderCategory?.toUpperCase();
+    
+    // Determine gender prefix
+    let genderPrefix = '';
+    if (genderCategoryUpper === 'MALE') {
+      genderPrefix = "Men's ";
+    } else if (genderCategoryUpper === 'FEMALE') {
+      genderPrefix = "Women's ";
+    } else if (genderCategoryUpper === 'MIXED') {
+      genderPrefix = 'Mixed ';
+    }
+    
+    if (gameTypeUpper === 'SINGLES') {
+      return `${genderPrefix}Singles`;
+    } else if (gameTypeUpper === 'DOUBLES') {
+      return `${genderPrefix}Doubles`;
+    }
+    
+    console.warn('⚠️ Unknown game type configuration:', { gameType, genderCategory });
+    return 'Unknown';
   };
 
   const groupMatchesByDate = (matches: Match[]) => {
@@ -226,22 +284,28 @@ export default function AllMatchesScreen() {
     <View style={styles.container}>
       {/* Header */}
       <View style={[styles.header, { paddingTop: insets.top + 8, backgroundColor: sportColors.badgeColor }]}>
-        <View style={styles.headerRow}>
-          <TouchableOpacity
-            style={styles.backButton}
-            onPress={() => router.back()}
-            activeOpacity={0.7}
-          >
-            <Ionicons name="chevron-back" size={24} color="#111827" />
-          </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.backButton, { top: insets.top + 12 }]}
+          onPress={() => router.back()}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="chevron-back" size={24} color="#111827" />
+        </TouchableOpacity>
 
-          <View style={styles.headerContent}>
+        <View style={styles.headerContent}>
+          <View style={styles.headerTopRow}>
             <Text style={styles.seasonTitle}>{seasonName}</Text>
-            <Text style={styles.leagueTitle}>{leagueName}</Text>
-            <View style={styles.dateRange}>
-              <Text style={styles.dateText}>Start date: {seasonStartDate}</Text>
-              <Text style={styles.dateText}>End date: {seasonEndDate}</Text>
-            </View>
+           
+          </View>
+           {divisionData && (
+              <View style={[styles.sportBadge, { backgroundColor: sportColors.background }]}>
+                <Text style={styles.sportBadgeText}>{getGameTypeLabel()}</Text>
+              </View>
+            )}
+          <Text style={styles.leagueTitle}>{leagueName}</Text>
+          <View style={styles.dateRange}>
+            <Text style={styles.dateText}>Start date: {seasonStartDate}</Text>
+            <Text style={styles.dateText}>End date: {seasonEndDate}</Text>
           </View>
         </View>
       </View>
@@ -320,38 +384,58 @@ const styles = StyleSheet.create({
   header: {
     paddingHorizontal: 16,
     paddingBottom: 16,
-  },
-  headerRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
+    alignItems: 'center',
+    position: 'relative',
+    borderBottomLeftRadius: 20,
+    borderBottomRightRadius: 20,
   },
   backButton: {
+    position: 'absolute',
+    left: 16,
     padding: 4,
-    marginRight: 8,
-    marginTop: 4,
+    zIndex: 10,
   },
   headerContent: {
-    flex: 1,
+    alignItems: 'center',
+  },
+  headerTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 4,
+  },
+  sportBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 10,
+  },
+  sportBadgeText: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: '#FFFFFF',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
   seasonTitle: {
-    fontSize: 13,
+    fontSize: 24,
     fontWeight: '600',
     color: '#111827',
-    marginBottom: 2,
   },
   leagueTitle: {
-    fontSize: 14,
+    fontSize: 18,
     fontWeight: '500',
     color: '#111827',
-    marginBottom: 6,
+    marginBottom: 8,
+    textAlign: 'center',
   },
   dateRange: {
     flexDirection: 'row',
     gap: 24,
+    justifyContent: 'center',
   },
   dateText: {
     fontSize: 11,
-    color: '#6B7280',
+    color: '#FFFFFF',
   },
   matchesSection: {
     backgroundColor: '#FFFFFF',

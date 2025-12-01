@@ -827,7 +827,7 @@ export const ChatScreen: React.FC = () => {
                           pathname: '/all-matches',
                           params: {
                             divisionId: currentThread.metadata?.divisionId,
-                            sportType: currentThread.sportType || 'PADEL',
+                            sportType: currentThread.sportType || 'PICKLEBALL',
                             leagueName: currentThread.name || 'League',
                             seasonName: 'Season 1 (2025)', // TODO: Get from thread metadata
                           },
