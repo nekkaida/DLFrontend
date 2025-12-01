@@ -22,6 +22,11 @@ interface JoinMatchModalProps {
     location: string;
     sportType: string;
   };
+  partnerInfo?: {
+    hasPartner: boolean;
+    partnerName?: string;
+    partnerImage?: string;
+  };
 }
 
 export const JoinMatchModal: React.FC<JoinMatchModalProps> = ({
@@ -31,12 +36,12 @@ export const JoinMatchModal: React.FC<JoinMatchModalProps> = ({
   matchType,
   loading = false,
   matchDetails,
+  partnerInfo,
 }) => {
-  const [selectedRole, setSelectedRole] = useState<'opponent' | 'partner'>('opponent');
-
   const handleConfirm = () => {
-    const asPartner = selectedRole === 'partner';
-    onConfirm(asPartner);
+    // For doubles, always false since they join as opponents with their partner
+    // For singles, always false (join as opponent)
+    onConfirm(false);
   };
 
   return (
@@ -80,53 +85,28 @@ export const JoinMatchModal: React.FC<JoinMatchModalProps> = ({
             </View>
           </View>
 
-          {/* Role Selection for Doubles */}
+          {/* Doubles - Show Partner Info or Error */}
           {matchType === 'DOUBLES' && (
-            <View style={styles.roleSection}>
-              <Text style={styles.sectionTitle}>Join as</Text>
-              
-              <TouchableOpacity
-                style={[
-                  styles.roleOption,
-                  selectedRole === 'opponent' && styles.roleOptionSelected,
-                ]}
-                onPress={() => setSelectedRole('opponent')}
-              >
-                <View style={styles.roleContent}>
-                  <View style={[
-                    styles.radioOuter,
-                    selectedRole === 'opponent' && styles.radioOuterSelected,
-                  ]}>
-                    {selectedRole === 'opponent' && <View style={styles.radioInner} />}
-                  </View>
-                  <View style={styles.roleTextContainer}>
-                    <Text style={styles.roleTitle}>Opponent</Text>
-                    <Text style={styles.roleDescription}>Join the opposing team</Text>
+            <>
+              {partnerInfo?.hasPartner ? (
+                <View style={styles.partnerSection}>
+                  <Text style={styles.sectionTitle}>Your Team</Text>
+                  <View style={styles.infoSection}>
+                    <Ionicons name="people" size={20} color="#3B82F6" />
+                    <Text style={styles.infoText}>
+                      You and <Text style={styles.partnerName}>{partnerInfo.partnerName}</Text> will join as opponents
+                    </Text>
                   </View>
                 </View>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[
-                  styles.roleOption,
-                  selectedRole === 'partner' && styles.roleOptionSelected,
-                ]}
-                onPress={() => setSelectedRole('partner')}
-              >
-                <View style={styles.roleContent}>
-                  <View style={[
-                    styles.radioOuter,
-                    selectedRole === 'partner' && styles.radioOuterSelected,
-                  ]}>
-                    {selectedRole === 'partner' && <View style={styles.radioInner} />}
-                  </View>
-                  <View style={styles.roleTextContainer}>
-                    <Text style={styles.roleTitle}>Partner</Text>
-                    <Text style={styles.roleDescription}>Join as the creator's partner</Text>
-                  </View>
+              ) : (
+                <View style={styles.errorSection}>
+                  <Ionicons name="alert-circle" size={20} color="#EF4444" />
+                  <Text style={styles.errorText}>
+                    You need an active partner to join doubles matches. Please form a partnership first.
+                  </Text>
                 </View>
-              </TouchableOpacity>
-            </View>
+              )}
+            </>
           )}
 
           {/* Singles Info */}
@@ -150,9 +130,13 @@ export const JoinMatchModal: React.FC<JoinMatchModalProps> = ({
             </TouchableOpacity>
 
             <TouchableOpacity
-              style={[styles.confirmButton, loading && styles.confirmButtonDisabled]}
+              style={[
+                styles.confirmButton, 
+                loading && styles.confirmButtonDisabled,
+                (matchType === 'DOUBLES' && !partnerInfo?.hasPartner) && styles.confirmButtonDisabled
+              ]}
               onPress={handleConfirm}
-              disabled={loading}
+              disabled={loading || (matchType === 'DOUBLES' && !partnerInfo?.hasPartner)}
             >
               {loading ? (
                 <ActivityIndicator color="#FFFFFF" size="small" />
@@ -214,55 +198,27 @@ const styles = StyleSheet.create({
     color: '#6B7280',
     marginLeft: 8,
   },
-  roleSection: {
+  partnerSection: {
     marginBottom: 20,
   },
-  roleOption: {
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    borderRadius: 10,
-    padding: 12,
-    marginBottom: 10,
-  },
-  roleOptionSelected: {
-    borderColor: '#3B82F6',
-    backgroundColor: '#EFF6FF',
-  },
-  roleContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  radioOuter: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    borderWidth: 2,
-    borderColor: '#D1D5DB',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
-  },
-  radioOuterSelected: {
-    borderColor: '#3B82F6',
-  },
-  radioInner: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    backgroundColor: '#3B82F6',
-  },
-  roleTextContainer: {
-    flex: 1,
-  },
-  roleTitle: {
-    fontSize: 15,
+  partnerName: {
     fontWeight: '600',
-    color: '#111827',
-    marginBottom: 2,
+    color: '#1E40AF',
   },
-  roleDescription: {
+  errorSection: {
+    flexDirection: 'row',
+    backgroundColor: '#FEF2F2',
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 20,
+    alignItems: 'flex-start',
+  },
+  errorText: {
     fontSize: 13,
-    color: '#6B7280',
+    color: '#DC2626',
+    marginLeft: 8,
+    flex: 1,
+    lineHeight: 18,
   },
   infoSection: {
     flexDirection: 'row',

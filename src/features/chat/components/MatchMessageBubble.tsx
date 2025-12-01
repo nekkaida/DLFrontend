@@ -34,6 +34,12 @@ export const MatchMessageBubble: React.FC<MatchMessageBubbleProps> = ({
   const [showInfoModal, setShowInfoModal] = useState(false);
   const [isJoining, setIsJoining] = useState(false);
   const [hasJoined, setHasJoined] = useState(false); // Track if user just joined
+  const [partnerInfo, setPartnerInfo] = useState<{
+    hasPartner: boolean;
+    partnerName?: string;
+    partnerImage?: string;
+  }>({ hasPartner: false });
+  const [isFetchingPartner, setIsFetchingPartner] = useState(false);
 
   if (!matchData) {
     console.log('❌ No matchData found for match message:', message.id);
@@ -67,6 +73,91 @@ export const MatchMessageBubble: React.FC<MatchMessageBubbleProps> = ({
   // Display name logic
   const displayName = isMatchPoster ? 'You' : senderName;
 
+  // Fetch partner info when join modal is about to open for doubles matches
+  const handleOpenJoinModal = async () => {
+    const isDoubles = matchData.numberOfPlayers === '4';
+    
+    if (isDoubles && currentUserId && matchData.matchId) {
+      setIsFetchingPartner(true);
+      try {
+        const backendUrl = getBackendBaseURL();
+        
+        // First, get the match to find divisionId and seasonId
+        const matchResponse = await fetch(`${backendUrl}/api/match/${matchData.matchId}`, {
+          headers: {
+            'x-user-id': currentUserId,
+          },
+        });
+        
+        if (!matchResponse.ok) {
+          throw new Error('Failed to fetch match details');
+        }
+        
+        const matchResult = await matchResponse.json();
+        const match = matchResult.data || matchResult;
+        const seasonId = match.division?.seasonId || match.division?.season?.id;
+        
+        if (!seasonId) {
+          console.warn('⚠️ No seasonId found for match');
+          setPartnerInfo({ hasPartner: false });
+          setShowJoinModal(true);
+          return;
+        }
+        
+        console.log('🔍 Fetching partnership for seasonId:', seasonId);
+        
+        // Fetch active partnership for this season
+        const partnershipResponse = await fetch(
+          `${backendUrl}/api/pairing/partnership/active/${seasonId}`,
+          {
+            method: 'GET',
+            headers: { 'x-user-id': currentUserId }
+          }
+        );
+        
+        if (!partnershipResponse.ok) {
+          console.log('ℹ️ No active partnership found');
+          setPartnerInfo({ hasPartner: false });
+        } else {
+          const partnershipResult = await partnershipResponse.json();
+          const partnership = partnershipResult?.data;
+          
+          if (partnership && partnership.id) {
+            // Determine who the partner is (if user is captain, partner is partnerId, else captainId)
+            const isUserCaptain = partnership.captainId === currentUserId;
+            const partnerId = isUserCaptain ? partnership.partnerId : partnership.captainId;
+            
+            // Get partner details from partnership object
+            const partner = isUserCaptain ? partnership.partner : partnership.captain;
+            
+            console.log('✅ Partner found:', {
+              userId: currentUserId,
+              partnerId,
+              partnerName: partner?.name,
+              isCaptain: isUserCaptain,
+            });
+            
+            setPartnerInfo({
+              hasPartner: true,
+              partnerName: partner?.name || 'Partner',
+              partnerImage: partner?.image,
+            });
+          } else {
+            console.log('ℹ️ Partnership exists but no valid data');
+            setPartnerInfo({ hasPartner: false });
+          }
+        }
+      } catch (error) {
+        console.error('❌ Error fetching partnership:', error);
+        setPartnerInfo({ hasPartner: false });
+      } finally {
+        setIsFetchingPartner(false);
+      }
+    }
+    
+    setShowJoinModal(true);
+  };
+
   const handleJoinMatch = async (asPartner: boolean) => {
     if (!matchData.matchId || !currentUserId) {
       toast.error('Unable to join match', {
@@ -79,12 +170,62 @@ export const MatchMessageBubble: React.FC<MatchMessageBubbleProps> = ({
       setIsJoining(true);
       const backendUrl = getBackendBaseURL();
       
+      const isDoubles = matchData.numberOfPlayers === '4';
+      
+      // Prepare request payload
+      const payload: any = { asPartner };
+      
+      // For doubles matches with a partner, include partnerId
+      if (isDoubles && partnerInfo.hasPartner) {
+        // Get the match to find seasonId, then get partnership to find partnerId
+        try {
+          const matchResponse = await fetch(`${backendUrl}/api/match/${matchData.matchId}`, {
+            headers: {
+              'x-user-id': currentUserId,
+            },
+          });
+          
+          if (matchResponse.ok) {
+            const matchResult = await matchResponse.json();
+            const match = matchResult.data || matchResult;
+            const seasonId = match.division?.seasonId || match.division?.season?.id;
+            
+            if (seasonId) {
+              const partnershipResponse = await fetch(
+                `${backendUrl}/api/pairing/partnership/active/${seasonId}`,
+                {
+                  method: 'GET',
+                  headers: { 'x-user-id': currentUserId }
+                }
+              );
+              
+              if (partnershipResponse.ok) {
+                const partnershipResult = await partnershipResponse.json();
+                const partnership = partnershipResult?.data;
+                
+                if (partnership && partnership.id) {
+                  const isUserCaptain = partnership.captainId === currentUserId;
+                  const partnerId = isUserCaptain ? partnership.partnerId : partnership.captainId;
+                  
+                  payload.partnerId = partnerId;
+                  console.log('✅ Including partnerId in join request:', partnerId);
+                }
+              }
+            }
+          }
+        } catch (error) {
+          console.error('⚠️ Error fetching partner info for join:', error);
+          // Continue without partnerId - backend might handle it
+        }
+      }
+      
       console.log('🎯 Joining match:', {
         matchId: matchData.matchId,
         userId: currentUserId,
         asPartner,
         matchType: matchData.numberOfPlayers === '2' ? 'SINGLES' : 'DOUBLES',
-        currentParticipants: matchData.participants
+        currentParticipants: matchData.participants,
+        payload
       });
 
       const response = await fetch(`${backendUrl}/api/match/${matchData.matchId}/join`, {
@@ -93,7 +234,7 @@ export const MatchMessageBubble: React.FC<MatchMessageBubbleProps> = ({
           'Content-Type': 'application/json',
           'x-user-id': currentUserId,
         },
-        body: JSON.stringify({ asPartner }),
+        body: JSON.stringify(payload),
       });
 
       if (!response.ok) {
@@ -309,11 +450,11 @@ export const MatchMessageBubble: React.FC<MatchMessageBubbleProps> = ({
                   { backgroundColor: isUserInMatch ? '#9CA3AF' : sportColors.buttonColor }
                 ]}
                 activeOpacity={isUserInMatch ? 1 : 0.8}
-                disabled={isUserInMatch}
-                onPress={() => setShowJoinModal(true)}
+                disabled={isUserInMatch || isFetchingPartner}
+                onPress={handleOpenJoinModal}
               >
                 <Text style={styles.joinButtonText}>
-                  {isUserInMatch ? 'Joined' : 'Join match'}
+                  {isFetchingPartner ? 'Loading...' : isUserInMatch ? 'Joined' : 'Join match'}
                 </Text>
               </TouchableOpacity>
             </View>
@@ -334,6 +475,7 @@ export const MatchMessageBubble: React.FC<MatchMessageBubbleProps> = ({
           location: matchData.location || 'TBD',
           sportType: sportColors.label,
         }}
+        partnerInfo={partnerInfo}
       />
 
       {/* Match Info Modal */}
