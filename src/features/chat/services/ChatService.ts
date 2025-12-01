@@ -279,6 +279,7 @@ export class ChatService {
       isActive: true,
       createdAt: new Date(backendThread.createdAt),
       updatedAt: new Date(backendThread.updatedAt),
+      sportType: backendThread.sportType || backendThread.division?.league?.sportType || null,
       metadata: {
         avatarUrl: backendThread.avatarUrl,
         divisionId: backendThread.divisionId,
