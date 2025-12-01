@@ -20,6 +20,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { toast } from 'sonner-native';
+import { getSportColors } from '@/constants/sportColors';
 import { MessageInput } from './components/chat-input';
 import { ThreadList } from './components/chat-list';
 import { MessageWindow } from './components/chat-window';
@@ -646,20 +647,6 @@ export const ChatScreen: React.FC = () => {
     }
   };
 
-  // Get sport colors based on sport type
-  const getSportColors = (sportType: 'PICKLEBALL' | 'TENNIS' | 'PADEL' | null | undefined) => {
-    switch (sportType) {
-      case 'PICKLEBALL':
-        return { background: '#863A73', badgeColor: '#A855F7', label: 'PICKLEBALL' };
-      case 'TENNIS':
-        return { background: '#65B741', badgeColor: '#22C55E', label: 'TENNIS' };
-      case 'PADEL':
-        return { background: '#3B82F6', badgeColor: '#60A5FA', label: 'PADEL' };
-      default:
-        return { background: '#863A73', badgeColor: null, label: null };
-    }
-  };
-
   // Get header content based on chat type
   const getHeaderContent = () => {
     if (!currentThread || !user?.id) return { title: 'Chat', subtitle: null, sportType: null };
@@ -824,12 +811,28 @@ export const ChatScreen: React.FC = () => {
                         { backgroundColor: sportColors.background }
                       ]}
                       activeOpacity={0.8}
+                      onPress={() => {
+                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                        router.push('/standings');
+                      }}
                     >
                       <Text style={styles.primaryActionText}>View Standings</Text>
                     </TouchableOpacity>
                     <TouchableOpacity 
                       style={[styles.actionButton, styles.secondaryActionButton]}
                       activeOpacity={0.8}
+                      onPress={() => {
+                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                        router.push({
+                          pathname: '/all-matches',
+                          params: {
+                            divisionId: currentThread.metadata?.divisionId,
+                            sportType: currentThread.sportType || 'PADEL',
+                            leagueName: currentThread.name || 'League',
+                            seasonName: 'Season 1 (2025)', // TODO: Get from thread metadata
+                          },
+                        });
+                      }}
                     >
                       <Text style={styles.secondaryActionText}>View All Matches</Text>
                     </TouchableOpacity>
