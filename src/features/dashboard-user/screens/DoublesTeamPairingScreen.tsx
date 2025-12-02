@@ -126,7 +126,10 @@ export default function DoublesTeamPairingScreen({
         { method: 'GET' }
       );
 
-      const partnershipData = (partnershipResponse as any)?.data?.data || (partnershipResponse as any)?.data;
+      // Extract partnership data correctly from nested structure
+      const rawData = (partnershipResponse as any)?.data?.data;
+      const partnershipData = rawData !== null && typeof rawData === 'object' && rawData.id ? rawData : null;
+      
       console.log('🔎 Partnership response:', {
         partnershipData,
         hasData: !!partnershipData,
@@ -190,7 +193,10 @@ export default function DoublesTeamPairingScreen({
         { method: 'GET' }
       );
 
-      const invitationData = (invitationResponse as any)?.data?.data || (invitationResponse as any)?.data;
+      // Extract invitation data correctly from nested structure
+      const rawInvData = (invitationResponse as any)?.data?.data;
+      const invitationData = rawInvData !== null && typeof rawInvData === 'object' && rawInvData.id ? rawInvData : null;
+      
       console.log('🔎 Invitation response:', { invitationData, hasData: !!invitationData });
 
       if (invitationData && invitationData.id) {
@@ -412,6 +418,18 @@ export default function DoublesTeamPairingScreen({
 
       console.log('✅ Invitation API response:', response);
       const responseData = (response as any)?.data || response;
+      
+      // Check if response contains an error
+      if ((response as any)?.error) {
+        const errorObj = (response as any).error;
+        const errorMessage = errorObj?.error || errorObj?.message || 'Failed to send invitation';
+        toast.error('Failed to send invitation', {
+          description: errorMessage,
+        });
+        setSelectedPartner(null);
+        return;
+      }
+      
       if (responseData) {
         toast.success('Invitation sent!', {
           description: `Season invitation sent to ${player.name}.`,
@@ -423,7 +441,7 @@ export default function DoublesTeamPairingScreen({
     } catch (error: any) {
       console.error('Error sending season invitation:', error);
       // Extract error message from response if available
-      const errorMessage = error?.data?.message || error?.message || 'Failed to send invitation';
+      const errorMessage = error?.data?.error || error?.data?.message || error?.error?.error || error?.message || 'Failed to send invitation';
       toast.error('Failed to send invitation', {
         description: errorMessage,
       });

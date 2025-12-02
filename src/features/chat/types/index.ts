@@ -17,6 +17,27 @@ export interface Message {
   isRead: boolean;
   isDelivered: boolean;
   replyTo?: string;
+  type?: 'text' | 'match'; // Add message type
+  matchData?: { // Add match-specific data
+    matchId?: string; // Match ID for API calls
+    date: string;
+    time: string;
+    duration: number;
+    numberOfPlayers: string;
+    location: string;
+    fee: 'FREE' | 'SPLIT';
+    description: string;
+    sportType: 'PICKLEBALL' | 'TENNIS' | 'PADEL';
+    leagueName: string;
+    courtBooked?: boolean;
+    notes?: string; // Optional notes
+    participants?: Array<{ // Match participants
+      userId: string;
+      role?: string;
+      team?: string;
+      invitationStatus?: string;
+    }>;
+  };
   metadata?: {
     isEdited?: boolean;
     isDeleted?: boolean;
@@ -41,6 +62,7 @@ export interface Thread {
   metadata?: {
     avatarUrl?: string;
     divisionId?: string;
+    seasonId?: string;
     isGroup?: boolean;
     messageCount?: number;
     [key: string]: any;

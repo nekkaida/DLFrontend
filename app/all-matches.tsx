@@ -1,0 +1,789 @@
+import { Ionicons } from '@expo/vector-icons';
+import { router, useLocalSearchParams } from 'expo-router';
+import React, { useEffect, useState } from 'react';
+import {
+  ActivityIndicator,
+  Image,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import axiosInstance from '@/lib/endpoints';
+import { format } from 'date-fns';
+import { getSportColors, SportType } from '@/constants/sportColors';
+
+interface Match {
+  id: string;
+  matchType: 'SINGLES' | 'DOUBLES';
+  status: string;
+  scheduledTime?: string;
+  matchDate?: string;
+  location?: string;
+  venue?: string;
+  courtBooked?: boolean;
+  participants: Array<{
+    user: {
+      id: string;
+      name: string;
+      image?: string;
+    };
+    role: string;
+    team?: string;
+  }>;
+  division?: {
+    id: string;
+    name: string;
+    season?: {
+      id: string;
+      name: string;
+      startDate?: string;
+      endDate?: string;
+    };
+  };
+}
+
+export default function AllMatchesScreen() {
+  const insets = useSafeAreaInsets();
+  const params = useLocalSearchParams();
+  const [matches, setMatches] = useState<Match[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState<'all' | 'open' | 'full'>('all');
+  const [divisionData, setDivisionData] = useState<{
+    gameType: 'SINGLES' | 'DOUBLES';
+    genderCategory: 'MALE' | 'FEMALE' | 'MIXED' | null;
+  } | null>(null);
+  
+  // Get params from navigation
+  const divisionId = params.divisionId as string;
+  const sportType = (params.sportType as string) as SportType;
+  const leagueName = (params.leagueName as string) || 'League';
+  const seasonName = (params.seasonName as string) || 'Season 1 (2025)';
+
+  useEffect(() => {
+    console.log('🔍 All-matches useEffect triggered with divisionId:', divisionId);
+    if (divisionId) {
+      console.log('✅ divisionId exists, fetching data...');
+      fetchDivisionData();
+      fetchMatches();
+    } else {
+      console.warn('⚠️ No divisionId provided!');
+    }
+  }, [divisionId, activeTab]);
+
+  const fetchMatches = async () => {
+    try {
+      setLoading(true);
+      console.log('📤 Fetching matches for divisionId:', divisionId, 'Tab:', activeTab);
+      
+      let endpoint = '';
+      
+      // Determine endpoint based on active tab
+      if (activeTab === 'all') {
+        // Fetch all matches (past and present) using query parameter
+        endpoint = `/api/match?divisionId=${divisionId}`;
+      } else if (activeTab === 'open') {
+        // Fetch available matches (open spots)
+        endpoint = `/api/match/available/${divisionId}`;
+      } else if (activeTab === 'full') {
+        // Fetch all matches and filter for full ones
+        endpoint = `/api/match?divisionId=${divisionId}`;
+      }
+      
+      console.log('📤 Full URL:', endpoint);
+      
+      const response = await axiosInstance.get(endpoint);
+      console.log('📥 Matches API response status:', response.status);
+      console.log('📥 Matches API response data:', JSON.stringify(response.data, null, 2));
+      
+      // Handle paginated response structure
+      const paginatedData = response.data?.data || response.data;
+      const matchesData = paginatedData?.matches || paginatedData || [];
+      
+      console.log('📥 Extracted matches data:', matchesData);
+      console.log('📥 Is array?', Array.isArray(matchesData));
+      console.log('📥 Matches count:', Array.isArray(matchesData) ? matchesData.length : 'Not an array');
+      
+      // Filter matches based on tab if needed
+      let filteredMatches = Array.isArray(matchesData) ? matchesData : [];
+      
+      if (activeTab === 'full') {
+        // Filter for matches with full occupancy
+        filteredMatches = filteredMatches.filter(match => {
+          const requiredParticipants = match.matchType === 'DOUBLES' ? 4 : 2;
+          return match.participants?.length >= requiredParticipants;
+        });
+      }
+      
+      setMatches(filteredMatches);
+    } catch (error: any) {
+      console.error('❌ Error fetching matches:', error);
+      console.error('❌ Error response:', error?.response?.data);
+      console.error('❌ Error status:', error?.response?.status);
+      console.error('❌ Error message:', error?.message);
+      setMatches([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchDivisionData = async () => {
+    try {
+      const response = await axiosInstance.get(`/api/division/${divisionId}`);
+      console.log('📥 Division data fetched:', JSON.stringify(response.data, null, 2));
+      
+      const division = response.data?.data || response.data;
+      console.log('📥 Division extracted:', JSON.stringify(division, null, 2));
+      
+      if (division) {
+        console.log('📥 gameType:', division.gameType);
+        console.log('📥 genderCategory:', division.genderCategory);
+        
+        setDivisionData({
+          gameType: division.gameType,
+          genderCategory: division.genderCategory || null,
+        });
+      }
+    } catch (error) {
+      console.error('❌ Error fetching division data:', error);
+    }
+  };
+
+  const getGameTypeLabel = (): string => {
+    console.log('🏷️ getGameTypeLabel called, divisionData:', divisionData);
+    
+    if (!divisionData) return 'Loading...';
+    
+    const { gameType, genderCategory } = divisionData;
+    console.log('🏷️ gameType:', gameType, 'genderCategory:', genderCategory);
+    
+    const gameTypeUpper = gameType?.toUpperCase();
+    const genderCategoryUpper = genderCategory?.toUpperCase();
+    
+    // Determine gender prefix
+    let genderPrefix = '';
+    if (genderCategoryUpper === 'MALE') {
+      genderPrefix = "Men's ";
+    } else if (genderCategoryUpper === 'FEMALE') {
+      genderPrefix = "Women's ";
+    } else if (genderCategoryUpper === 'MIXED') {
+      genderPrefix = 'Mixed ';
+    }
+    
+    if (gameTypeUpper === 'SINGLES') {
+      return `${genderPrefix}Singles`;
+    } else if (gameTypeUpper === 'DOUBLES') {
+      return `${genderPrefix}Doubles`;
+    }
+    
+    console.warn('⚠️ Unknown game type configuration:', { gameType, genderCategory });
+    return 'Unknown';
+  };
+
+  const groupMatchesByDate = (matches: Match[]) => {
+    const grouped: { [key: string]: Match[] } = {};
+    
+    if (!Array.isArray(matches)) {
+      console.warn('⚠️ Matches is not an array:', matches);
+      return grouped;
+    }
+    
+    matches.forEach((match) => {
+      // Use scheduledTime if available, otherwise fall back to matchDate
+      const dateString = match.scheduledTime || match.matchDate;
+      if (!dateString) {
+        console.warn('⚠️ Match has no scheduledTime or matchDate:', match.id);
+        return;
+      }
+      
+      const date = new Date(dateString);
+      const dateKey = format(date, 'EEEE, d MMMM yyyy');
+      
+      if (!grouped[dateKey]) {
+        grouped[dateKey] = [];
+      }
+      grouped[dateKey].push(match);
+    });
+    
+    return grouped;
+  };
+
+  const getStatusColor = (status: string) => {
+    switch (status.toLowerCase()) {
+      case 'scheduled':
+        return '#F59E0B';
+      case 'completed':
+        return '#10B981';
+      case 'cancelled':
+        return '#EF4444';
+      default:
+        return '#6B7280';
+    }
+  };
+
+  const renderMatchCard = (match: Match) => {
+    const team1Participants = match.participants.filter(p => p.team === 'team1');
+    const team2Participants = match.participants.filter(p => p.team === 'team2');
+    
+    const isDoubles = match.matchType === 'DOUBLES';
+
+    // Use scheduledTime or matchDate
+    const dateString = match.scheduledTime || match.matchDate;
+    if (!dateString) {
+      console.warn('⚠️ Match has no date:', match.id);
+      return null;
+    }
+
+    const formatTime = (dateString: string) => {
+      const date = new Date(dateString);
+      return format(date, 'h:mm a');
+    };
+
+    const calculateEndTime = (startDate: string) => {
+      const date = new Date(startDate);
+      date.setHours(date.getHours() + 2); // Assuming 2 hour duration
+      return format(date, 'h:mm a');
+    };
+
+    const renderPlayerAvatar = (player: any, style?: any) => {
+      if (player?.user?.image) {
+        return <Image source={{ uri: player.user.image }} style={[styles.avatarImage, style]} />;
+      }
+      return (
+        <View style={[styles.defaultAvatar, style]}>
+          <Text style={[styles.defaultAvatarText, style && { fontSize: 14 }]}>
+            {player?.user?.name?.charAt(0)?.toUpperCase() || '?'}
+          </Text>
+        </View>
+      );
+    };
+
+    const renderEmptySlot = (style?: any) => (
+      <View style={[styles.emptySlot, style]}>
+        <Ionicons name="person-outline" size={style ? 20 : 24} color="#9CA3AF" />
+      </View>
+    );
+
+    return (
+      <View key={match.id} style={styles.matchCard}>
+        {/* Players Row */}
+        <View style={styles.playersRow}>
+          {isDoubles ? (
+            <>
+              {/* Team 1 - Left Side */}
+              <View style={styles.teamSection}>
+                <View style={styles.teamPlayers}>
+                  <View style={styles.doublesPlayerContainer}>
+                    <View style={styles.playerAvatar}>
+                      {team1Participants[0] ? renderPlayerAvatar(team1Participants[0]) : renderEmptySlot()}
+                    </View>
+                    <Text style={styles.playerName} numberOfLines={1}>
+                      {team1Participants[0]?.user?.name || 'Open slot'}
+                    </Text>
+                  </View>
+                  <View style={styles.doublesPlayerContainer}>
+                    <View style={styles.playerAvatar}>
+                      {team1Participants[1] ? renderPlayerAvatar(team1Participants[1]) : renderEmptySlot()}
+                    </View>
+                    <Text style={styles.playerName} numberOfLines={1}>
+                      {team1Participants[1]?.user?.name || 'Open slot'}
+                    </Text>
+                  </View>
+                </View>
+              </View>
+
+              {/* VS Divider */}
+              <View style={styles.vsContainer}>
+                <Text style={styles.vsText}>
+                  {team1Participants.length + team2Participants.length < 4 
+                    ? `${4 - (team1Participants.length + team2Participants.length)} pair slot` 
+                    : 'VS'}
+                </Text>
+              </View>
+
+              {/* Team 2 - Right Side */}
+              <View style={styles.teamSection}>
+                <View style={styles.teamPlayers}>
+                  <View style={styles.doublesPlayerContainer}>
+                    <View style={styles.playerAvatar}>
+                      {team2Participants[0] ? renderPlayerAvatar(team2Participants[0]) : renderEmptySlot()}
+                    </View>
+                    <Text style={styles.playerName} numberOfLines={1}>
+                      {team2Participants[0]?.user?.name || 'Open slot'}
+                    </Text>
+                  </View>
+                  <View style={styles.doublesPlayerContainer}>
+                    <View style={styles.playerAvatar}>
+                      {team2Participants[1] ? renderPlayerAvatar(team2Participants[1]) : renderEmptySlot()}
+                    </View>
+                    <Text style={styles.playerName} numberOfLines={1}>
+                      {team2Participants[1]?.user?.name || 'Open slot'}
+                    </Text>
+                  </View>
+                </View>
+              </View>
+            </>
+          ) : (
+            <>
+              {/* Singles - Player 1 */}
+              <View style={styles.playerSection}>
+                <View style={styles.playerAvatar}>
+                  {team1Participants[0] ? renderPlayerAvatar(team1Participants[0]) : renderEmptySlot()}
+                </View>
+                <Text style={styles.playerName} numberOfLines={1}>
+                  {team1Participants[0]?.user?.name || 'Open slot'}
+                </Text>
+              </View>
+
+              {/* VS Divider */}
+              <View style={styles.vsContainer}>
+                <Text style={styles.vsText}>VS</Text>
+              </View>
+
+              {/* Singles - Player 2 */}
+              <View style={styles.playerSection}>
+                <View style={styles.playerAvatar}>
+                  {team2Participants[0] ? renderPlayerAvatar(team2Participants[0]) : renderEmptySlot()}
+                </View>
+                <Text style={styles.playerName} numberOfLines={1}>
+                  {team2Participants[0]?.user?.name || 'Open slot'}
+                </Text>
+              </View>
+            </>
+          )}
+        </View>
+
+        {/* Match Details */}
+        <View style={styles.matchDetails}>
+          <Text style={styles.matchTitle}>
+            {match.matchType === 'DOUBLES' ? 'Doubles' : 'Singles'} League Match
+          </Text>
+          <Text style={styles.matchTime}>
+            {formatTime(dateString)} - {calculateEndTime(dateString)}, {format(new Date(dateString), 'd MMMM yyyy')}
+          </Text>
+          <Text style={styles.matchLocation}>
+            {match.location || match.venue || 'Padela Nayan'}
+          </Text>
+          <Text style={styles.matchFee}>Split • INR/00 per player</Text>
+        </View>
+
+        {/* Status Badge */}
+        <View style={styles.statusRow}>
+          <View style={[styles.statusBadge, { backgroundColor: getStatusColor(match.status) }]}>
+            <Text style={styles.statusText}>{match.status}</Text>
+          </View>
+          {match.courtBooked && (
+            <View style={styles.courtBookedBadge}>
+              <Ionicons name="checkmark-circle" size={14} color="#10B981" />
+              <Text style={styles.courtBookedText}>Court booked</Text>
+            </View>
+          )}
+        </View>
+      </View>
+    );
+  };
+
+  const groupedMatches = groupMatchesByDate(matches);
+  const sportColors = getSportColors(sportType);
+  
+  // Get season dates from first match if available
+  const seasonStartDate = matches[0]?.division?.season?.startDate 
+    ? format(new Date(matches[0].division.season.startDate), 'd MMMM yyyy')
+    : '1 February 2025';
+  const seasonEndDate = matches[0]?.division?.season?.endDate
+    ? format(new Date(matches[0].division.season.endDate), 'd MMMM yyyy')
+    : '1 April 2025';
+
+  return (
+    <View style={styles.container}>
+      {/* Header */}
+      <View style={[styles.header, { paddingTop: insets.top + 8, backgroundColor: sportColors.badgeColor }]}>
+        <TouchableOpacity
+          style={[styles.backButton, { top: insets.top + 12 }]}
+          onPress={() => router.back()}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="chevron-back" size={24} color="#111827" />
+        </TouchableOpacity>
+
+        <View style={styles.headerContent}>
+          <View style={styles.headerTopRow}>
+            <Text style={styles.seasonTitle}>{seasonName}</Text>
+           
+          </View>
+           {divisionData && (
+              <View style={[styles.sportBadge, { backgroundColor: sportColors.background }]}>
+                <Text style={styles.sportBadgeText}>{getGameTypeLabel()}</Text>
+              </View>
+            )}
+          <Text style={styles.leagueTitle}>{leagueName}</Text>
+          <View style={styles.dateRange}>
+            <Text style={styles.dateText}>Start date: {seasonStartDate}</Text>
+            <Text style={styles.dateText}>End date: {seasonEndDate}</Text>
+          </View>
+        </View>
+      </View>
+
+      {/* Matches Section */}
+      <View style={styles.matchesSection}>
+        <Text style={styles.matchesLabel}>Matches</Text>
+        <View style={styles.matchesControls}>
+          <View style={styles.tabButtons}>
+            <TouchableOpacity
+              style={[styles.tabButton, activeTab === 'all' && styles.tabButtonActive]}
+              onPress={() => setActiveTab('all')}
+            >
+              <Text style={[styles.tabButtonText, activeTab === 'all' && styles.tabButtonTextActive]}>
+                All
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.tabButton, activeTab === 'open' && styles.tabButtonActive]}
+              onPress={() => setActiveTab('open')}
+            >
+              <Text style={[styles.tabButtonText, activeTab === 'open' && styles.tabButtonTextActive]}>
+                Open
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.tabButton, activeTab === 'full' && styles.tabButtonActive]}
+              onPress={() => setActiveTab('full')}
+            >
+              <Text style={[styles.tabButtonText, activeTab === 'full' && styles.tabButtonTextActive]}>
+                Full
+              </Text>
+            </TouchableOpacity>
+          </View>
+          <TouchableOpacity style={styles.filterButton}>
+            <Ionicons name="filter-outline" size={20} color="#F59E0B" />
+          </TouchableOpacity>
+        </View>
+      </View>
+
+      {/* Content */}
+      {loading ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={sportColors.background} />
+          <Text style={styles.loadingText}>Loading matches...</Text>
+        </View>
+      ) : matches.length === 0 ? (
+        <View style={styles.emptyContainer}>
+          <Ionicons name="calendar-outline" size={64} color="#9CA3AF" />
+          <Text style={styles.emptyTitle}>No matches found</Text>
+          <Text style={styles.emptyDescription}>Check back later for upcoming matches</Text>
+        </View>
+      ) : (
+        <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+          {Object.entries(groupedMatches).map(([dateKey, dateMatches]) => (
+            <View key={dateKey} style={styles.dateSection}>
+              <View style={styles.dateDivider}>
+                <View style={styles.dividerLine} />
+                <Text style={styles.dateLabel}>{dateKey}</Text>
+                <View style={styles.dividerLine} />
+              </View>
+              {dateMatches.map(renderMatchCard)}
+            </View>
+          ))}
+        </ScrollView>
+      )}
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#F9FAFB',
+  },
+  header: {
+    paddingHorizontal: 16,
+    paddingBottom: 16,
+    alignItems: 'center',
+    position: 'relative',
+    borderBottomLeftRadius: 20,
+    borderBottomRightRadius: 20,
+  },
+  backButton: {
+    position: 'absolute',
+    left: 16,
+    padding: 4,
+    zIndex: 10,
+  },
+  headerContent: {
+    alignItems: 'center',
+  },
+  headerTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 4,
+  },
+  sportBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 10,
+  },
+  sportBadgeText: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: '#FFFFFF',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  seasonTitle: {
+    fontSize: 24,
+    fontWeight: '600',
+    color: '#111827',
+  },
+  leagueTitle: {
+    fontSize: 18,
+    fontWeight: '500',
+    color: '#111827',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  dateRange: {
+    flexDirection: 'row',
+    gap: 24,
+    justifyContent: 'center',
+  },
+  dateText: {
+    fontSize: 11,
+    color: '#FFFFFF',
+  },
+  matchesSection: {
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E7EB',
+  },
+  matchesLabel: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#111827',
+    marginBottom: 12,
+  },
+  matchesControls: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  tabButtons: {
+    flexDirection: 'row',
+    backgroundColor: '#F3F4F6',
+    borderRadius: 20,
+    padding: 3,
+    gap: 4,
+  },
+  tabButton: {
+    paddingHorizontal: 18,
+    paddingVertical: 6,
+    borderRadius: 18,
+  },
+  tabButtonActive: {
+    backgroundColor: '#FFFFFF',
+  },
+  tabButtonText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#6B7280',
+  },
+  tabButtonTextActive: {
+    color: '#111827',
+  },
+  filterButton: {
+    padding: 6,
+  },
+  scrollView: {
+    flex: 1,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 12,
+  },
+  loadingText: {
+    fontSize: 14,
+    color: '#6B7280',
+  },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 32,
+    gap: 12,
+  },
+  emptyTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#111827',
+  },
+  emptyDescription: {
+    fontSize: 14,
+    color: '#6B7280',
+    textAlign: 'center',
+  },
+  dateSection: {
+    marginBottom: 16,
+  },
+  dateDivider: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    gap: 12,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: '#E5E7EB',
+  },
+  dateLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#6B7280',
+  },
+  matchCard: {
+    backgroundColor: '#FFFFFF',
+    marginHorizontal: 16,
+    marginBottom: 12,
+    borderRadius: 12,
+    padding: 16,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 1,
+    },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  playersRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 16,
+  },
+  playerSection: {
+    alignItems: 'center',
+    flex: 1,
+  },
+  teamSection: {
+    alignItems: 'center',
+    flex: 1,
+  },
+  teamPlayers: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  doublesPlayerContainer: {
+    alignItems: 'center',
+    maxWidth: 60,
+  },
+  playerAvatar: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    marginBottom: 6,
+    overflow: 'hidden',
+  },
+  emptySlot: {
+    width: '100%',
+    height: '100%',
+    backgroundColor: '#F3F4F6',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: '#E5E7EB',
+    borderStyle: 'dashed',
+    borderRadius: 24,
+  },
+  avatarImage: {
+    width: '100%',
+    height: '100%',
+  },
+  defaultAvatar: {
+    width: '100%',
+    height: '100%',
+    backgroundColor: '#E5E7EB',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  defaultAvatarText: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#6B7280',
+  },
+  playerName: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#111827',
+    textAlign: 'center',
+  },
+  vsContainer: {
+    paddingHorizontal: 16,
+  },
+  vsText: {
+    fontSize: 12,
+    color: '#6B7280',
+    fontWeight: '500',
+  },
+  matchDetails: {
+    marginBottom: 12,
+  },
+  matchTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#111827',
+    marginBottom: 4,
+  },
+  matchTime: {
+    fontSize: 13,
+    color: '#6B7280',
+    marginBottom: 2,
+  },
+  matchLocation: {
+    fontSize: 13,
+    color: '#6B7280',
+    marginBottom: 2,
+  },
+  matchFee: {
+    fontSize: 13,
+    color: '#6B7280',
+  },
+  statusRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 8,
+  },
+  statusBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  statusText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#FFFFFF',
+    textTransform: 'uppercase',
+  },
+  courtBookedBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    backgroundColor: '#ECFDF5',
+    borderRadius: 8,
+  },
+  courtBookedText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#10B981',
+  },
+});

@@ -123,7 +123,7 @@ export class ChatService {
       );
 
       console.log("ChatService: Create thread response:", response.data);
-      return this.transformBackendThread(response.data.data);
+      return this.transformBackendThread(response.data.data, currentUserId);
     } catch (error) {
       console.error("Error creating thread:", error);
       throw error;
@@ -268,7 +268,6 @@ export class ChatService {
         backendThread.name ||
         this.generateThreadName(backendThread.members, backendThread.isGroup, currentUserId),
       type: backendThread.isGroup ? "group" : "direct",
-      sportType: backendThread.sportType || null,
       participants:
         backendThread.members?.map((member: any) =>
           this.transformBackendUser(member.user)
@@ -280,6 +279,7 @@ export class ChatService {
       isActive: true,
       createdAt: new Date(backendThread.createdAt),
       updatedAt: new Date(backendThread.updatedAt),
+      sportType: backendThread.sportType || backendThread.division?.league?.sportType || null,
       metadata: {
         avatarUrl: backendThread.avatarUrl,
         divisionId: backendThread.divisionId,
@@ -299,6 +299,8 @@ export class ChatService {
       isRead: backendMessage.readBy?.length > 0 || false,
       isDelivered: true,
       replyTo: backendMessage.repliesToId,
+      type: backendMessage.messageType === 'MATCH' ? 'match' : 'text',
+      matchData: backendMessage.matchData,
       metadata: {
         isEdited: backendMessage.isEdited,
         isDeleted: backendMessage.isDeleted,
@@ -343,8 +345,4 @@ export class ChatService {
     return "Chat";
   }
 
-  private static calculateUnreadCount(messages: any[], members: any[]): number {
-    // TO DO  implement proper unread counting based on MessageReadBy
-    return 0; 
-  }
 }

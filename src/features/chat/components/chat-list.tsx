@@ -4,6 +4,7 @@ import React from "react";
 import {
   ActivityIndicator,
   FlatList,
+  Image,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -55,6 +56,16 @@ export const ThreadList: React.FC<ThreadListProps> = ({ onThreadSelect }) => {
     const sportColors = getSportColors(item.sportType);
     const isGroupChat = item.type === 'group';
 
+    // For direct chats, find the other participant (not the current user)
+    const otherParticipant = !isGroupChat
+      ? item.participants?.find((p) => p.id !== userId)
+      : null;
+    // Check both 'avatar' (from type) and 'image' (from API) properties
+    const avatarImage = otherParticipant?.avatar || (otherParticipant as any)?.image || null;
+    const avatarInitial = isGroupChat
+      ? item.name?.charAt(0) || 'G'
+      : otherParticipant?.name?.charAt(0) || item.name?.charAt(0) || '?';
+
     return (
     <TouchableOpacity
       style={styles.threadItem}
@@ -64,12 +75,16 @@ export const ThreadList: React.FC<ThreadListProps> = ({ onThreadSelect }) => {
       activeOpacity={0.7}
     >
       <View style={styles.avatarContainer}>
-        <View style={[
-          styles.avatarPlaceholder,
-          { backgroundColor: sportColors.background }
-        ]}>
-          <Text style={styles.avatarText}>{item.name?.charAt(0) || "?"}</Text>
-        </View>
+        {avatarImage ? (
+          <Image source={{ uri: avatarImage }} style={styles.avatarImage} />
+        ) : (
+          <View style={[
+            styles.avatarPlaceholder,
+            { backgroundColor: isGroupChat ? sportColors.background : '#6de9a0' }
+          ]}>
+            <Text style={styles.avatarText}>{avatarInitial}</Text>
+          </View>
+        )}
         {item.unreadCount > 0 && (
           <View style={styles.unreadBadge}>
             <Text style={styles.unreadText}>{item.unreadCount}</Text>
@@ -218,12 +233,17 @@ const styles = StyleSheet.create({
     marginRight: 12,
   },
   avatarPlaceholder: {
-    width: 48, 
+    width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: '#863A73', 
+    backgroundColor: '#863A73',
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  avatarImage: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
   },
    emptyIcon: {
     marginBottom: 12,

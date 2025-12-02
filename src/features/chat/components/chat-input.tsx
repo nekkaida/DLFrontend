@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
+  Keyboard,
   Platform,
   StyleSheet,
   Text,
@@ -36,9 +37,28 @@ export const MessageInput: React.FC<MessageInputProps> = ({
 }) => {
   const [message, setMessage] = useState('');
   const [isTyping, setIsTyping] = useState(false);
+  const [keyboardVisible, setKeyboardVisible] = useState(false);
   const inputRef = useRef<TextInput>(null);
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const insets = useSafeAreaInsets();
+
+  // Track keyboard visibility to adjust bottom padding
+  useEffect(() => {
+    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+
+    const keyboardShowListener = Keyboard.addListener(showEvent, () => {
+      setKeyboardVisible(true);
+    });
+    const keyboardHideListener = Keyboard.addListener(hideEvent, () => {
+      setKeyboardVisible(false);
+    });
+
+    return () => {
+      keyboardShowListener.remove();
+      keyboardHideListener.remove();
+    };
+  }, []);
 
   // TO DO create constant for chat colors 
   // Get sport-specific color for send button
@@ -106,13 +126,18 @@ export const MessageInput: React.FC<MessageInputProps> = ({
   };
 
   const handleMatch = () => {
-    onhandleMatch?.();
+    console.log('handleMatch called, onhandleMatch:', onhandleMatch);
+    if (onhandleMatch) {
+      onhandleMatch();
+    }
   };
 
   
+  // When keyboard is visible, use minimal padding (keyboard covers safe area)
+  // When keyboard is hidden, use safe area insets for home indicator
   const bottomPadding = Platform.select({
-    ios: Math.max(insets.bottom + 70, 78), 
-    android: 90, 
+    ios: keyboardVisible ? 8 : Math.max(insets.bottom, 8),
+    android: 8,
   });
 
   return (
@@ -148,7 +173,7 @@ export const MessageInput: React.FC<MessageInputProps> = ({
           onPress={handleMatch}
           activeOpacity={0.7}
         >
-         <Ionicons name="calendar-clear-outline" size={24} color={getCalendarIconColor()} />  
+         <Ionicons name="calendar-clear-outline" size={24} color="#6B7280" />  
         </TouchableOpacity>
         
         <View style={styles.textInputContainer}>

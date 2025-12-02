@@ -346,12 +346,11 @@ export default function DashboardScreen() {
     return (
       <View style={styles.container}>
         <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
-        <ChatScreen />
-        <NavBar 
-          activeTab={activeTab} 
-          onTabPress={handleTabPress} 
+        <ChatScreen
+          activeTab={activeTab}
+          onTabPress={handleTabPress}
           sport={selectedSport}
-          badgeCounts={{ chat: chatUnreadCount }}
+          chatUnreadCount={chatUnreadCount}
         />
       </View>
     );

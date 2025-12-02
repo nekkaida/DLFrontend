@@ -20,27 +20,46 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { toast } from 'sonner-native';
+import { getSportColors } from '@/constants/sportColors';
+import { NavBar } from '@/shared/components/layout';
 import { MessageInput } from './components/chat-input';
 import { ThreadList } from './components/chat-list';
 import { MessageWindow } from './components/chat-window';
+import { CreateMatchModal, MatchFormData } from './components/CreateMatchModal';
 import { MessageActionBar } from './components/MessageActionBar';
+import { NewMessageBottomSheet } from './components/NewMessageBottomSheet';
 import { useChatSocketEvents } from './hooks/useChatSocketEvents';
 import { ChatService } from './services/ChatService';
 import { useChatStore } from './stores/ChatStore';
+
 import { Thread } from './types';
 
 const { width } = Dimensions.get('window');
 const isSmallScreen = width < 375;
 const isTablet = width > 768;
 
-export const ChatScreen: React.FC = () => {
+interface ChatScreenProps {
+  activeTab?: number;
+  onTabPress?: (tabIndex: number) => void;
+  sport?: 'pickleball' | 'tennis' | 'padel';
+  chatUnreadCount?: number;
+}
+
+export const ChatScreen: React.FC<ChatScreenProps> = ({
+  activeTab = 4,
+  onTabPress,
+  sport = 'pickleball',
+  chatUnreadCount = 0,
+}) => {
   const [searchQuery, setSearchQuery] = useState('');
   const { data: session} = useSession();
   const [filteredThreads, setFilteredThreads] = useState<Thread[]>([]);
   const [profileData, setProfileData] = useState<any>(null);
   const [refreshKey, setRefreshKey] = useState(0);
   const [selectedMessage, setSelectedMessage] = useState<any>(null);
+  const [showMatchModal, setShowMatchModal] = useState(false);
   const [showActionBar, setShowActionBar] = useState(false);
+  const [showNewMessageSheet, setShowNewMessageSheet] = useState(false);
   const insets = useSafeAreaInsets();
   
   const user = session?.user;
@@ -212,9 +231,270 @@ export const ChatScreen: React.FC = () => {
     setSearchQuery('');
   };
 
-  const handleMatch = () => {
+ const handleMatch = () => {
     console.log('Create match button pressed');
-    // TO DO ADD MATCH LOGIC LATER
+    setShowMatchModal(true);
+  };
+
+  const handleCreateMatch = async (matchData: MatchFormData) => {
+    console.log('Match created:', matchData);
+    
+    if (!currentThread || !user) {
+      console.error('Cannot create match: missing thread or user');
+      toast.error('Cannot create match: missing information');
+      return;
+    }
+
+    try {
+      const backendUrl = getBackendBaseURL();
+      const isDoubles = matchData.numberOfPlayers === '4';
+      
+      // Step 1: Fetch division to check gameType and seasonId
+      let partnerId: string | undefined;
+      let divisionGameType: string | undefined;
+      let seasonId: string | undefined;
+      
+      if (currentThread.metadata?.divisionId) {
+        console.log('🔍 Fetching division data for match creation...');
+        
+        try {
+          const divisionResponse = await fetch(
+            `${backendUrl}/api/division/${currentThread.metadata.divisionId}`,
+            {
+              method: 'GET',
+              headers: { 'x-user-id': user.id }
+            }
+          );
+          
+          if (!divisionResponse.ok) {
+            throw new Error(`Failed to fetch division: ${divisionResponse.status}`);
+          }
+          
+          const divisionResult = await divisionResponse.json();
+          const divisionData = divisionResult.data || divisionResult;
+          
+          divisionGameType = divisionData.gameType?.toUpperCase();
+          seasonId = divisionData.seasonId || divisionData.season?.id;
+          
+          console.log('✅ Division info:', {
+            divisionId: divisionData.id,
+            gameType: divisionGameType,
+            seasonId: seasonId,
+          });
+        } catch (error) {
+          console.error('❌ Failed to fetch division:', error);
+          toast.error('Failed to fetch division details');
+          return;
+        }
+      }
+      
+      // Step 2: If division is DOUBLES type, fetch partnership
+      if (divisionGameType === 'DOUBLES' && seasonId) {
+        console.log('🎾 Division is DOUBLES type, fetching partnership...');
+        
+        try {
+          const partnershipResponse = await fetch(
+            `${backendUrl}/api/pairing/partnership/active/${seasonId}`,
+            {
+              method: 'GET',
+              headers: { 'x-user-id': user.id }
+            }
+          );
+          
+          if (!partnershipResponse.ok) {
+            throw new Error(`No active partnership found for this season`);
+          }
+          
+          const partnershipResult = await partnershipResponse.json();
+          const partnership = partnershipResult?.data;
+          
+          if (!partnership || !partnership.id) {
+            toast.warning('No partner found', {
+              description: 'You need to pair up with a partner for doubles divisions',
+            });
+            return;
+          }
+          
+          // Determine partner ID based on whether user is captain or partner
+          partnerId = partnership.captainId === user.id 
+            ? partnership.partnerId 
+            : partnership.captainId;
+          
+          console.log('✅ Partner found:', {
+            userId: user.id,
+            partnerId,
+            isCaptain: partnership.captainId === user.id,
+          });
+          
+        } catch (error) {
+          console.error('❌ Failed to fetch partnership:', error);
+          toast.error('Partner required', {
+            description: error instanceof Error ? error.message : 'You must have an active partnership for doubles divisions',
+          });
+          return;
+        }
+      }
+      
+      // Step 3: Convert 12-hour time to 24-hour format
+      const convertTo24Hour = (time12h: string): string => {
+        const [time, modifier] = time12h.split(' ');
+        let [hours, minutes] = time.split(':');
+        
+        if (hours === '12') {
+          hours = modifier === 'AM' ? '00' : '12';
+        } else {
+          hours = modifier === 'PM' ? String(parseInt(hours, 10) + 12) : hours.padStart(2, '0');
+        }
+        
+        return `${hours}:${minutes}`;
+      };
+
+      const time24 = convertTo24Hour(matchData.time);
+      const matchDateTime = new Date(`${matchData.date}T${time24}:00`);
+      
+      console.log('📅 Match date/time:', {
+        original: `${matchData.date} ${matchData.time}`,
+        converted: `${matchData.date}T${time24}:00`,
+        dateObject: matchDateTime.toISOString()
+      });
+      
+      // Step 4: Create the match using the division's gameType
+      const matchPayload: any = {
+        divisionId: currentThread.metadata?.divisionId,
+        matchType: divisionGameType || (isDoubles ? 'DOUBLES' : 'SINGLES'),
+        format: 'STANDARD',
+        proposedTimes: [matchDateTime.toISOString()],
+        location: matchData.location || 'TBD',
+        notes: matchData.description,
+        courtBooked: matchData.courtBooked || false,
+      };
+      
+      // Add partnerId only for DOUBLES divisions
+      if (divisionGameType === 'DOUBLES' && partnerId) {
+        matchPayload.partnerId = partnerId;
+        console.log('✅ Added partnerId to payload:', partnerId);
+      }
+      
+      console.log('📤 Creating match with payload:', {
+        payload: matchPayload,
+        payloadString: JSON.stringify(matchPayload, null, 2),
+        endpoint: `${backendUrl}/api/match/create`,
+        userId: user.id,
+        isDoubles,
+        hasPartnerId: !!partnerId
+      });
+      
+      const matchResponse = await fetch(`${backendUrl}/api/match/create`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-user-id': user.id,
+        },
+        body: JSON.stringify(matchPayload),
+      });
+
+      console.log('📥 STEP 9: Match creation response:', {
+        status: matchResponse.status,
+        ok: matchResponse.ok,
+        statusText: matchResponse.statusText
+      });
+
+      if (!matchResponse.ok) {
+        const errorData = await matchResponse.json();
+        console.error('❌ Match creation failed:', {
+          status: matchResponse.status,
+          errorData,
+          originalPayload: matchPayload
+        });
+        throw new Error(errorData.error || 'Failed to create match');
+      }
+
+      const matchResult = await matchResponse.json();
+      console.log('✅ STEP 10: Match created successfully:', {
+        matchId: matchResult.id,
+        fullResult: matchResult
+      });
+
+      // Step 2: Send a message to the thread with match data for UI display
+      const messageContent = `📅 Match scheduled for ${matchData.date} at ${matchData.time}`;
+      const messagePayload = {
+        senderId: user.id,
+        content: messageContent,
+        messageType: 'MATCH', // This tells the backend it's a match message
+        matchId: matchResult.id, // Link to the actual match
+        matchData: {
+          matchId: matchResult.id,
+          date: matchData.date,
+          time: matchData.time,
+          duration: matchData.duration || 2,
+          numberOfPlayers: matchData.numberOfPlayers,
+          location: matchData.location || 'TBD',
+          fee: matchData.fee,
+          description: matchData.description,
+          sportType: currentThread.sportType || 'PICKLEBALL',
+          leagueName: currentThread.name || 'Match',
+          courtBooked: matchData.courtBooked || false,
+          status: 'SCHEDULED',
+          participants: matchResult.participants || [], // Include participants from match creation
+        },
+      };
+
+      const messageResponse = await fetch(`${backendUrl}/api/chat/threads/${currentThread.id}/messages`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-user-id': user.id,
+        },
+        body: JSON.stringify(messagePayload),
+      });
+
+      if (!messageResponse.ok) {
+        const errorData = await messageResponse.json();
+        throw new Error(errorData.error || 'Failed to send match message');
+      }
+
+      console.log('✅ Match message sent to thread');
+      
+      setShowMatchModal(false);
+      toast.success('Match created successfully!');
+    } catch (error) {
+      console.error('❌ Error creating match:', error);
+      toast.error(error instanceof Error ? error.message : 'Failed to create match');
+    }
+
+    // MOCK DATA (commented out for reference)
+    // const matchMessage = {
+    //   id: `match-${Date.now()}`,
+    //   threadId: currentThread.id,
+    //   senderId: user.id,
+    //   content: `📅 Match scheduled for ${matchData.date} at ${matchData.time}`,
+    //   timestamp: new Date(),
+    //   isRead: false,
+    //   isDelivered: true,
+    //   type: 'match' as const,
+    //   matchData: {
+    //     ...matchData,
+    //     location: matchData.location || 'Home',
+    //     sportType: currentThread.sportType || 'PICKLEBALL',
+    //     leagueName: currentThread.name || 'League Match',
+    //     courtBooked: true,
+    //   },
+    //   metadata: {
+    //     sender: {
+    //       id: user.id,
+    //       name: user.name || user.username || 'You',
+    //       username: user.username,
+    //     },
+    //   },
+    // };
+    // const currentMessages = messages[currentThread.id] || [];
+    // const updatedMessages = [...currentMessages, matchMessage as any];
+    // useChatStore.setState((state) => ({
+    //   messages: {
+    //     ...state.messages,
+    //     [currentThread.id]: updatedMessages,
+    //   },
+    // }));
   };
 
   const handleReply = (message: any) => {
@@ -292,20 +572,6 @@ export const ChatScreen: React.FC = () => {
     } catch (error) {
       console.error('❌ Failed to delete message:', error);
       toast.error('Failed to delete message. Please try again.');
-    }
-  };
-
-  // Get sport colors based on sport type
-  const getSportColors = (sportType: 'PICKLEBALL' | 'TENNIS' | 'PADEL' | null | undefined) => {
-    switch (sportType) {
-      case 'PICKLEBALL':
-        return { background: '#863A73', badgeColor: '#A855F7', label: 'PICKLEBALL' };
-      case 'TENNIS':
-        return { background: '#65B741', badgeColor: '#22C55E', label: 'TENNIS' };
-      case 'PADEL':
-        return { background: '#3B82F6', badgeColor: '#60A5FA', label: 'PADEL' };
-      default:
-        return { background: '#863A73', badgeColor: null, label: null };
     }
   };
 
@@ -396,10 +662,10 @@ export const ChatScreen: React.FC = () => {
       {/* <SocketDebugPanel /> */}
       
       {currentThread ? (
-        <KeyboardAvoidingView 
+        <KeyboardAvoidingView
           style={styles.chatContainer}
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-          keyboardVerticalOffset={Platform.OS === 'ios' ? STATUS_BAR_HEIGHT : 0}
+          keyboardVerticalOffset={0}
         >
           {/* Message Action Bar */}
           <MessageActionBar
@@ -473,12 +739,28 @@ export const ChatScreen: React.FC = () => {
                         { backgroundColor: sportColors.background }
                       ]}
                       activeOpacity={0.8}
+                      onPress={() => {
+                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                        router.push('/standings');
+                      }}
                     >
                       <Text style={styles.primaryActionText}>View Standings</Text>
                     </TouchableOpacity>
                     <TouchableOpacity 
                       style={[styles.actionButton, styles.secondaryActionButton]}
                       activeOpacity={0.8}
+                      onPress={() => {
+                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                        router.push({
+                          pathname: '/all-matches',
+                          params: {
+                            divisionId: currentThread.metadata?.divisionId,
+                            sportType: currentThread.sportType || 'PICKLEBALL',
+                            leagueName: currentThread.name || 'League',
+                            seasonName: 'Season 1 (2025)', // TODO: Get from thread metadata
+                          },
+                        });
+                      }}
                     >
                       <Text style={styles.secondaryActionText}>View All Matches</Text>
                     </TouchableOpacity>
@@ -530,30 +812,18 @@ export const ChatScreen: React.FC = () => {
         </KeyboardAvoidingView>
       ) : (
         <View style={styles.threadsContainer}>
-          {/* Header with profile picture */}
-          <View style={[styles.headerContainer, { paddingTop: STATUS_BAR_HEIGHT }]}>
-            <TouchableOpacity 
-              style={styles.headerProfilePicture}
+          {/* Header with Chats title and New Message button */}
+          <View style={[styles.chatsHeaderContainer, { paddingTop: STATUS_BAR_HEIGHT }]}>
+            <Text style={styles.chatsTitle}>Chats</Text>
+            <TouchableOpacity
               onPress={() => {
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                router.push('/profile');
+                setShowNewMessageSheet(true);
               }}
+              activeOpacity={0.7}
             >
-              {(profileData?.image || session?.user?.image) ? (
-                <Image 
-                  source={{ uri: profileData?.image || session?.user?.image }}
-                  style={styles.headerProfileImage}
-                />
-              ) : (
-                <View style={styles.defaultHeaderAvatarContainer}>
-                  <Text style={styles.defaultHeaderAvatarText}>
-                    {(profileData?.name || session?.user?.name)?.charAt(0)?.toUpperCase() || 'U'}
-                  </Text>
-                </View>
-              )}
+              <Text style={styles.newMessageButton}>New Message</Text>
             </TouchableOpacity>
-            
-            <View style={styles.headerRight} />
           </View>
 
           <View style={styles.searchContainer}>
@@ -574,11 +844,75 @@ export const ChatScreen: React.FC = () => {
               )}
             </View>
           </View>
-           <ThreadList 
+           <ThreadList
             onThreadSelect={handleThreadSelect}
-          /> 
+          />
+          {onTabPress && (
+            <NavBar
+              activeTab={activeTab}
+              onTabPress={onTabPress}
+              sport={sport}
+              badgeCounts={{ chat: chatUnreadCount }}
+            />
+          )}
         </View>
       )}
+
+        {/* Create Match Modal */}
+      {currentThread?.type === 'group' && (
+        <CreateMatchModal
+          visible={showMatchModal}
+          onClose={() => setShowMatchModal(false)}
+          leagueInfo={{
+            name: currentThread.name || 'League Chat',
+            season: 'Season 1', // TODO: Get from thread metadata
+            division: 'Division I', // TODO: Get from thread metadata
+            sportType: currentThread.sportType || 'PICKLEBALL',
+          }}
+          onCreateMatch={handleCreateMatch}
+        />
+      )}
+
+      {/* New Message Bottom Sheet */}
+      <NewMessageBottomSheet
+        visible={showNewMessageSheet}
+        onClose={() => setShowNewMessageSheet(false)}
+        onSelectUser={async (userId, userName) => {
+          if (!user?.id) {
+            toast.error('Please log in to start a conversation');
+            return;
+          }
+
+          try {
+            console.log('Creating/finding thread with user:', userId, userName);
+
+            // Create or find existing direct message thread
+            const thread = await ChatService.createThread(
+              user.id,
+              [userId],
+              false // isGroup = false for direct messages
+            );
+
+            console.log('Thread created/found:', thread.id, thread.name);
+
+            // Close the bottom sheet
+            setShowNewMessageSheet(false);
+
+            // Set the thread as current to navigate to the chat
+            setCurrentThread(thread);
+
+            // Load messages for the thread
+            loadMessages(thread.id);
+
+            // Refresh the threads list to include the new thread
+            loadThreads(user.id);
+
+          } catch (error) {
+            console.error('Error creating thread:', error);
+            toast.error('Failed to start conversation. Please try again.');
+          }
+        }}
+      />
     </View>
   );
 };
@@ -825,6 +1159,25 @@ const styles = StyleSheet.create({
     paddingHorizontal: isSmallScreen ? 16 : isTablet ? 24 : 20,
     paddingVertical: isSmallScreen ? 4 : isTablet ? 8 : 6,
     minHeight: isSmallScreen ? 36 : isTablet ? 44 : 40,
+  },
+  chatsHeaderContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    width: '100%',
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: isSmallScreen ? 16 : isTablet ? 24 : 20,
+    paddingVertical: 12,
+  },
+  chatsTitle: {
+    fontSize: isSmallScreen ? 28 : isTablet ? 36 : 32,
+    fontWeight: '700',
+    color: '#111827',
+  },
+  newMessageButton: {
+    fontSize: isSmallScreen ? 14 : isTablet ? 18 : 16,
+    fontWeight: '600',
+    color: '#FEA04D',
   },
   headerProfilePicture: {
     width: isSmallScreen ? 40 : isTablet ? 56 : 48,
