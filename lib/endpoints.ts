@@ -198,11 +198,15 @@ export const endpoints = {
     unreadCount: "/api/notifications/unread-count",
     markRead: (id: string) => `/api/notifications/${id}/read`,
     markAllRead: "/api/notifications/mark-all-read",
-    delete: (id: string) => `/api/notifications/${id}`, 
+    delete: (id: string) => `/api/notifications/${id}`,
     stats: "/api/notifications/stats",
     byCategory: (category: string) => `/api/notifications/category/${category}`,
     testNotification: "/api/notifications/test",
     cleanup: "/api/notifications/cleanup",
+    // Push token management
+    registerPushToken: "/api/notifications/push-token",
+    unregisterPushToken: "/api/notifications/push-token",
+    getPushTokens: "/api/notifications/push-tokens",
   },
 
   chat: {
