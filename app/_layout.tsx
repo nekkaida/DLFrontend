@@ -11,6 +11,7 @@ import { useEffect } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import 'react-native-reanimated';
 import { Toaster } from 'sonner-native';
+import { usePushNotifications } from '@/src/hooks/usePushNotifications';
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
@@ -18,6 +19,9 @@ export default function RootLayout() {
   const [loaded] = useFonts({
     SpaceMono: require('../assets/fonts/SpaceMono-Regular.ttf'),
   });
+
+  // Initialize push notifications (auto-registers when user is authenticated)
+  usePushNotifications();
 
   // Initialize socket connection when user is authenticated
   useEffect(() => {
