@@ -36,7 +36,6 @@ export default function JoinMatchScreen() {
     partnerName?: string;
     partnerImage?: string;
     partnerId?: string;
-    isCaptain?: boolean;
   }>({ hasPartner: false });
 
   // Parse params
@@ -162,7 +161,7 @@ export default function JoinMatchScreen() {
           console.log('Is user captain?', isUserCaptain);
           console.log('Is user partner?', isUserPartner);
 
-          // Both captain and partner should be able to join
+          // Any partner can join - invitation will be sent to the other
           if (isUserCaptain || isUserPartner) {
             const otherUser = isUserCaptain ? partnership.partner : partnership.captain;
             setPartnerInfo({
@@ -170,13 +169,11 @@ export default function JoinMatchScreen() {
               partnerName: otherUser?.name || 'Partner',
               partnerImage: otherUser?.image,
               partnerId: otherUser?.id,
-              isCaptain: isUserCaptain,
             });
           } else {
             console.log('User is neither captain nor partner');
             setPartnerInfo({
               hasPartner: false,
-              isCaptain: false,
             });
           }
         } else {
@@ -241,7 +238,7 @@ export default function JoinMatchScreen() {
     }
   };
 
-  const canJoin = matchType === 'SINGLES' || (matchType === 'DOUBLES' && partnerInfo.hasPartner && partnerInfo.isCaptain);
+  const canJoin = matchType === 'SINGLES' || (matchType === 'DOUBLES' && partnerInfo.hasPartner);
 
   return (
     <View style={styles.container}>
@@ -510,25 +507,18 @@ export default function JoinMatchScreen() {
         {/* Partnership Status for Doubles */}
         {matchType === 'DOUBLES' && (
           <View style={styles.partnershipStatus}>
-            {partnerInfo.hasPartner && partnerInfo.isCaptain ? (
+            {partnerInfo.hasPartner ? (
               <View style={styles.successBanner}>
                 <Ionicons name="checkmark-circle" size={20} color="#22C55E" />
                 <Text style={styles.successBannerText}>
-                  You and {partnerInfo.partnerName} will join together
-                </Text>
-              </View>
-            ) : partnerInfo.isCaptain === false ? (
-              <View style={styles.errorBanner}>
-                <Ionicons name="alert-circle" size={20} color="#EF4444" />
-                <Text style={styles.errorBannerText}>
-                  Only the team captain can join matches
+                  An invitation will be sent to {partnerInfo.partnerName} to join this match
                 </Text>
               </View>
             ) : (
               <View style={styles.errorBanner}>
                 <Ionicons name="alert-circle" size={20} color="#EF4444" />
                 <Text style={styles.errorBannerText}>
-                  You need an active partnership to join
+                  You need an active partnership to join doubles matches
                 </Text>
               </View>
             )}
