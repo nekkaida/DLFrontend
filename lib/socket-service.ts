@@ -179,6 +179,17 @@ export class SocketService {
         this.emit('team_registration_completed', data);
       });
 
+      // Match events
+      this._socket.on('match:participant:joined', (data) => {
+        console.log('SocketService: Match participant joined:', data);
+        this.emit('match_participant_joined', data);
+      });
+
+      this._socket.on('match:updated', (data) => {
+        console.log('SocketService: Match updated:', data);
+        this.emit('match_updated', data);
+      });
+
       // Join user to their personal room for notifications
       if (session.data.user?.id) {
         this._socket.emit('join_user_room', { userId: session.data.user.id });

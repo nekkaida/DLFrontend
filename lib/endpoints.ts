@@ -227,4 +227,10 @@ export const endpoints = {
     getContacts: (userId: string) => `/api/users/${userId}/contacts`,
     getAllUsers: "/api/users",
   },
+
+  standings: {
+    getDivisionStandings: (divisionId: string) => `/api/standings/division/${divisionId}`,
+    getMyStanding: "/api/standings/me",
+    getPlayerStanding: (userId: string, divisionId: string) => `/api/standings/${userId}/division/${divisionId}`,
+  },
 };
