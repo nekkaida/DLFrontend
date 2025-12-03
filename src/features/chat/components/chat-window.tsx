@@ -3,14 +3,14 @@ import { Ionicons } from '@expo/vector-icons';
 import { format, isToday, isYesterday } from 'date-fns';
 import React, { useEffect, useRef, useState } from 'react';
 import {
-  ActivityIndicator,
-  Dimensions,
-  FlatList,
-  Platform,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View
+    ActivityIndicator,
+    Dimensions,
+    FlatList,
+    Platform,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View
 } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { Message } from '../types';
@@ -23,6 +23,7 @@ interface MessageWindowProps {
   onLoadMore?: () => void;
   loading?: boolean;
   isGroupChat?: boolean;
+  sportType?: string | null;
   onReply?: (message: Message) => void;
   onDeleteMessage?: (messageId: string) => void;
   onLongPress?: (message: Message) => void;
@@ -45,6 +46,7 @@ export const MessageWindow: React.FC<MessageWindowProps> = ({
   onLoadMore,
   loading = false,
   isGroupChat = false,
+  sportType,
   onReply,
   onDeleteMessage,
   onLongPress,
@@ -182,6 +184,7 @@ export const MessageWindow: React.FC<MessageWindowProps> = ({
         showAvatar={showAvatar}
         isLastInGroup={isLastInGroup}
         isGroupChat={isGroupChat}
+        sportType={sportType as any}
         onReply={onReply || (() => {})}
         onDelete={onDeleteMessage || (() => {})}
         onLongPress={onLongPress}

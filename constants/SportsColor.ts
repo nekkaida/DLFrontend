@@ -6,6 +6,7 @@ export interface SportColors {
   label: string;
   buttonColor: string;
   icon: string;
+  messageColor: string;
 }
 
 export const SPORT_COLORS: Record<SportType, SportColors> = {
@@ -15,6 +16,7 @@ export const SPORT_COLORS: Record<SportType, SportColors> = {
     label: 'PICKLEBALL',
     buttonColor: '#602E98',
     icon: 'disc',
+    messageColor: '#DCC6FD',
   },
   TENNIS: {
     background: '#65B741',
@@ -22,6 +24,7 @@ export const SPORT_COLORS: Record<SportType, SportColors> = {
     label: 'TENNIS',
     buttonColor: '#587A27',
     icon: 'tennisball',
+    messageColor: '#D4F0B4',
   },
   PADEL: {
     background: '#3B82F6',
@@ -29,6 +32,7 @@ export const SPORT_COLORS: Record<SportType, SportColors> = {
     label: 'PADEL',
     buttonColor: '#2E6698',
     icon: 'tennisball',
+    messageColor: '#B9DEFD',
   },
 };
 

@@ -68,13 +68,17 @@ export class ChatService {
     threadId: string,
     senderId: string,
     content: string,
-    repliesToId?: string
+    repliesToId?: string,
+    messageType?: 'TEXT' | 'MATCH',
+    matchData?: any
   ): Promise<Message> {
     console.log("ChatService: sendMessage called:", {
       threadId,
       senderId,
       content,
       repliesToId,
+      messageType,
+      matchData,
     });
     try {
       const response: AxiosResponse = await axiosInstance.post(
@@ -83,6 +87,8 @@ export class ChatService {
           senderId,
           content,
           ...(repliesToId && { repliesToId }),
+          ...(messageType && { messageType }),
+          ...(matchData && { matchData }),
         }
       );
 
