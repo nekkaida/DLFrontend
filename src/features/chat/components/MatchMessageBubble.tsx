@@ -1,13 +1,14 @@
+import { getSportColors, type SportType } from '@/constants/SportsColor';
+import { useSession } from '@/lib/auth-client';
+import { getBackendBaseURL } from '@/src/config/network';
 import { Ionicons } from '@expo/vector-icons';
 import { format } from 'date-fns';
+import { router } from 'expo-router';
 import React, { useState } from 'react';
 import { Dimensions, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { Message } from '../types';
-import { useSession } from '@/lib/auth-client';
-import { JoinMatchModal } from './JoinMatchModal';
-import { MatchInfoModal } from './MatchInfoModal';
-import { getBackendBaseURL } from '@/src/config/network';
 import { toast } from 'sonner-native';
+import { Message } from '../types';
+import { MatchInfoModal } from './MatchInfoModal';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -30,16 +31,8 @@ export const MatchMessageBubble: React.FC<MatchMessageBubbleProps> = ({
                     'Unknown';
   const senderId = message.senderId;
 
-  const [showJoinModal, setShowJoinModal] = useState(false);
   const [showInfoModal, setShowInfoModal] = useState(false);
-  const [isJoining, setIsJoining] = useState(false);
   const [hasJoined, setHasJoined] = useState(false); // Track if user just joined
-  const [partnerInfo, setPartnerInfo] = useState<{
-    hasPartner: boolean;
-    partnerName?: string;
-    partnerImage?: string;
-    isCaptain?: boolean;
-  }>({ hasPartner: false });
   const [isFetchingPartner, setIsFetchingPartner] = useState(false);
 
   if (!matchData) {
@@ -75,256 +68,66 @@ export const MatchMessageBubble: React.FC<MatchMessageBubbleProps> = ({
   const displayName = isMatchPoster ? 'You' : senderName;
 
   // Fetch partner info when join modal is about to open for doubles matches
-  const handleOpenJoinModal = async () => {
-    const isDoubles = matchData.numberOfPlayers === '4';
-    
-    if (isDoubles && currentUserId && matchData.matchId) {
-      setIsFetchingPartner(true);
-      try {
-        const backendUrl = getBackendBaseURL();
-        
-        // First, get the match to find divisionId and seasonId
-        const matchResponse = await fetch(`${backendUrl}/api/match/${matchData.matchId}`, {
-          headers: {
-            'x-user-id': currentUserId,
-          },
-        });
-        
-        if (!matchResponse.ok) {
-          throw new Error('Failed to fetch match details');
-        }
-        
-        const matchResult = await matchResponse.json();
-        const match = matchResult.data || matchResult;
-        const seasonId = match.division?.seasonId || match.division?.season?.id;
-        
-        if (!seasonId) {
-          console.warn('⚠️ No seasonId found for match');
-          setPartnerInfo({ hasPartner: false });
-          setShowJoinModal(true);
-          return;
-        }
-        
-        console.log('🔍 Fetching partnership for seasonId:', seasonId);
-        
-        // Fetch active partnership for this season
-        const partnershipResponse = await fetch(
-          `${backendUrl}/api/pairing/partnership/active/${seasonId}`,
-          {
-            method: 'GET',
-            headers: { 'x-user-id': currentUserId }
-          }
-        );
-        
-        if (!partnershipResponse.ok) {
-          console.log('ℹ️ No active partnership found');
-          setPartnerInfo({ hasPartner: false });
-        } else {
-          const partnershipResult = await partnershipResponse.json();
-          const partnership = partnershipResult?.data;
-          
-          if (partnership && partnership.id) {
-            // Determine who the partner is (if user is captain, partner is partnerId, else captainId)
-            const isUserCaptain = partnership.captainId === currentUserId;
-            const partnerId = isUserCaptain ? partnership.partnerId : partnership.captainId;
-            
-            // Get partner details from partnership object
-            const partner = isUserCaptain ? partnership.partner : partnership.captain;
-            
-            console.log('✅ Partner found:', {
-              userId: currentUserId,
-              partnerId,
-              partnerName: partner?.name,
-              isCaptain: isUserCaptain,
-            });
-            
-            // Only captains can join matches for their partnership
-            if (!isUserCaptain) {
-              console.log('⚠️ User is not the captain, cannot join for partnership');
-              setPartnerInfo({ 
-                hasPartner: false,
-                isCaptain: false,
-              });
-            } else {
-              setPartnerInfo({
-                hasPartner: true,
-                partnerName: partner?.name || 'Partner',
-                partnerImage: partner?.image,
-                isCaptain: true,
-              });
-            }
-          } else {
-            console.log('ℹ️ Partnership exists but no valid data');
-            setPartnerInfo({ hasPartner: false });
-          }
-        }
-      } catch (error) {
-        console.error('❌ Error fetching partnership:', error);
-        setPartnerInfo({ hasPartner: false });
-      } finally {
-        setIsFetchingPartner(false);
-      }
-    }
-    
-    setShowJoinModal(true);
-  };
-
-  const handleJoinMatch = async (asPartner: boolean) => {
+  // Navigate to join match page
+  const handleOpenJoinMatch = async () => {
     if (!matchData.matchId || !currentUserId) {
-      toast.error('Unable to join match', {
-        description: 'Missing match or user information',
-      });
+      toast.error('Unable to join match');
       return;
     }
 
+    setIsFetchingPartner(true);
+    
     try {
-      setIsJoining(true);
       const backendUrl = getBackendBaseURL();
       
-      const isDoubles = matchData.numberOfPlayers === '4';
-      
-      // Prepare request payload
-      const payload: any = { asPartner };
-      
-      // For doubles matches with a partner, include partnerId
-      if (isDoubles && partnerInfo.hasPartner) {
-        // Get the match to find seasonId, then get partnership to find partnerId
-        try {
-          const matchResponse = await fetch(`${backendUrl}/api/match/${matchData.matchId}`, {
-            headers: {
-              'x-user-id': currentUserId,
-            },
-          });
-          
-          if (matchResponse.ok) {
-            const matchResult = await matchResponse.json();
-            const match = matchResult.data || matchResult;
-            const seasonId = match.division?.seasonId || match.division?.season?.id;
-            
-            if (seasonId) {
-              const partnershipResponse = await fetch(
-                `${backendUrl}/api/pairing/partnership/active/${seasonId}`,
-                {
-                  method: 'GET',
-                  headers: { 'x-user-id': currentUserId }
-                }
-              );
-              
-              if (partnershipResponse.ok) {
-                const partnershipResult = await partnershipResponse.json();
-                const partnership = partnershipResult?.data;
-                
-                if (partnership && partnership.id) {
-                  const isUserCaptain = partnership.captainId === currentUserId;
-                  const partnerId = isUserCaptain ? partnership.partnerId : partnership.captainId;
-                  
-                  payload.partnerId = partnerId;
-                  console.log('✅ Including partnerId in join request:', partnerId);
-                }
-              }
-            }
-          }
-        } catch (error) {
-          console.error('⚠️ Error fetching partner info for join:', error);
-          // Continue without partnerId - backend might handle it
-        }
-      }
-      
-      console.log('🎯 Joining match:', {
-        matchId: matchData.matchId,
-        userId: currentUserId,
-        asPartner,
-        matchType: matchData.numberOfPlayers === '2' ? 'SINGLES' : 'DOUBLES',
-        currentParticipants: matchData.participants,
-        payload
-      });
-
-      const response = await fetch(`${backendUrl}/api/match/${matchData.matchId}/join`, {
-        method: 'POST',
+      // Fetch match details to get divisionId and seasonId
+      const matchResponse = await fetch(`${backendUrl}/api/match/${matchData.matchId}`, {
         headers: {
-          'Content-Type': 'application/json',
           'x-user-id': currentUserId,
         },
-        body: JSON.stringify(payload),
       });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        
-        // If already a participant, just update local state
-        if (errorData.error?.includes('already a participant')) {
-          console.log('ℹ️ User is already in match, updating UI state');
-          setHasJoined(true);
-          toast.info('You are already in this match');
-          setShowJoinModal(false);
-          return;
-        }
-        
-        throw new Error(errorData.error || 'Failed to join match');
-      }
-
-      const result = await response.json();
-      console.log('✅ Successfully joined match:', result);
-
-      // Update local state immediately to show "Joined" button
-      setHasJoined(true);
-
-      toast.success('Joined match!', {
-        description: asPartner ? 'You joined as a partner' : 'You joined as an opponent',
-      });
-
-      setShowJoinModal(false);
       
-      // Refetch the match data to get updated participants
-      try {
-        const matchResponse = await fetch(`${backendUrl}/api/match/${matchData.matchId}`, {
-          headers: {
-            'x-user-id': currentUserId,
-          },
-        });
-
-        if (matchResponse.ok) {
-          const updatedMatch = await matchResponse.json();
-          console.log('✅ Refetched match data:', updatedMatch);
-          
-          // Update the message matchData with new participants
-          if (updatedMatch.participants) {
-            // This will trigger a re-render with updated participants
-            message.matchData = {
-              ...matchData,
-              participants: updatedMatch.participants
-            };
-          }
-        }
-      } catch (refetchError) {
-        console.warn('⚠️ Could not refetch match data:', refetchError);
-        // Not critical - hasJoined state will still show "Joined"
+      let divisionId = '';
+      let seasonId = '';
+      
+      if (matchResponse.ok) {
+        const matchResult = await matchResponse.json();
+        const match = matchResult.data || matchResult;
+        divisionId = match.divisionId || match.division?.id || '';
+        seasonId = match.division?.seasonId || match.division?.season?.id || '';
       }
       
+      // Navigate to join match page with all the match data
+      router.push({
+        pathname: '/match/match-details',
+        params: {
+          matchId: matchData.matchId,
+          matchType: matchData.numberOfPlayers === '4' ? 'DOUBLES' : 'SINGLES',
+          date: formatDisplayDate(matchData.date),
+          time: `${formatTime(matchData.time)} – ${calculateEndTime(matchData.time, matchData.duration)}`,
+          location: matchData.location || 'TBD',
+          sportType: matchData.sportType || 'PICKLEBALL',
+          leagueName: matchData.leagueName || 'League Match',
+          season: 'Season 1',
+          division: 'Division 1',
+          courtBooked: matchData.courtBooked ? 'true' : 'false',
+          fee: matchData.fee || '',
+          description: matchData.description || '',
+          duration: String(matchData.duration || 2),
+          divisionId,
+          seasonId,
+          participants: JSON.stringify(matchData.participants || []),
+        },
+      });
     } catch (error) {
-      console.error('❌ Error joining match:', error);
-      toast.error('Failed to join match', {
-        description: error instanceof Error ? error.message : 'Please try again',
-      });
+      console.error('Error navigating to join match:', error);
+      toast.error('Failed to open match details');
     } finally {
-      setIsJoining(false);
+      setIsFetchingPartner(false);
     }
   };
 
-  const getSportColors = () => {
-    switch (matchData.sportType) {
-      case 'PICKLEBALL':
-        return { background: '#863A73', badge: '#A855F7', label: 'Pickleball', buttonColor: '#602E98' };
-      case 'TENNIS':
-        return { background: '#65B741', badge: '#22C55E', label: 'Tennis', buttonColor: '#587A27' };
-      case 'PADEL':
-        return { background: '#3B82F6', badge: '#60A5FA', label: 'Padel', buttonColor: '#2E6698' };
-      default:
-        return { background: '#863A73', badge: '#A855F7', label: 'League', buttonColor: '#602E98' };
-    }
-  };
-
-  const sportColors = getSportColors();
+  const sportColors = getSportColors(matchData.sportType as SportType);
 
   const formatDisplayDate = (dateString: string) => {
     const date = new Date(dateString);
@@ -385,8 +188,8 @@ export const MatchMessageBubble: React.FC<MatchMessageBubbleProps> = ({
           <Text style={styles.matchTitle}>
             {matchData.numberOfPlayers === '2' ? 'Singles' : 'Doubles'} League Match
           </Text>
-          <View style={[styles.sportBadge, { borderColor: sportColors.badge }]}>
-            <Text style={[styles.sportBadgeText, { color: sportColors.badge }]}>
+          <View style={[styles.sportBadge, { borderColor: sportColors.badgeColor }]}>
+            <Text style={[styles.sportBadgeText, { color: sportColors.badgeColor }]}>
               {sportColors.label}
             </Text>
           </View>
@@ -462,7 +265,7 @@ export const MatchMessageBubble: React.FC<MatchMessageBubbleProps> = ({
                 ]}
                 activeOpacity={isUserInMatch ? 1 : 0.8}
                 disabled={isUserInMatch || isFetchingPartner}
-                onPress={handleOpenJoinModal}
+                onPress={handleOpenJoinMatch}
               >
                 <Text style={styles.joinButtonText}>
                   {isFetchingPartner ? 'Loading...' : isUserInMatch ? 'Joined' : 'Join match'}
@@ -472,22 +275,6 @@ export const MatchMessageBubble: React.FC<MatchMessageBubbleProps> = ({
           </View>
         </View>
       </View>
-
-      {/* Join Match Modal */}
-      <JoinMatchModal
-        visible={showJoinModal}
-        onClose={() => setShowJoinModal(false)}
-        onConfirm={handleJoinMatch}
-        matchType={matchData.numberOfPlayers === '2' ? 'SINGLES' : 'DOUBLES'}
-        loading={isJoining}
-        matchDetails={{
-          date: formatDisplayDate(matchData.date),
-          time: `${formatTime(matchData.time)} – ${calculateEndTime(matchData.time, matchData.duration)}`,
-          location: matchData.location || 'TBD',
-          sportType: sportColors.label,
-        }}
-        partnerInfo={partnerInfo}
-      />
 
       {/* Match Info Modal */}
       <MatchInfoModal

@@ -223,7 +223,7 @@ export const useChatStore = create<ChatState & ChatActions>((set, get) => ({
       set({ 
         error: 'Failed to load threads', 
         isLoading: false,
-        threads: [] // Clear threads on error
+        threads: []
       });
     }
   },
