@@ -349,12 +349,14 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
       };
 
       const time24 = convertTo24Hour(matchData.time);
-      const matchDateTime = new Date(`${matchData.date}T${time24}:00`);
+      
+      // Send date and time as-is - backend will parse as Malaysia time
+      const dateTimeString = `${matchData.date}T${time24}:00`;
       
       console.log('📅 Match date/time:', {
-        original: `${matchData.date} ${matchData.time}`,
-        converted: `${matchData.date}T${time24}:00`,
-        dateObject: matchDateTime.toISOString()
+        userInput: `${matchData.date} ${matchData.time}`,
+        dateTimeString: dateTimeString,
+        note: 'Backend will parse this as Malaysia Time (UTC+8)'
       });
       
       // Step 4: Create the match using the division's gameType
@@ -362,9 +364,10 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
         divisionId: currentThread.metadata?.divisionId,
         matchType: divisionGameType || (isDoubles ? 'DOUBLES' : 'SINGLES'),
         format: 'STANDARD',
-        proposedTimes: [matchDateTime.toISOString()],
+        proposedTimes: [dateTimeString],
         location: matchData.location || 'TBD',
         notes: matchData.description,
+        duration: matchData.duration || 2,
         courtBooked: matchData.courtBooked || false,
       };
       
@@ -414,6 +417,17 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
         fullResult: matchResult
       });
 
+      // Filter participants to only include ACCEPTED (not PENDING invitations)
+      const acceptedParticipants = matchResult.participants?.filter(
+        (p: any) => p.invitationStatus === 'ACCEPTED'
+      ) || [];
+
+      console.log('✅ Filtered participants:', {
+        total: matchResult.participants?.length,
+        accepted: acceptedParticipants.length,
+        participants: acceptedParticipants
+      });
+
       // Step 2: Send a message to the thread with match data for UI display
       const messageContent = `📅 Match scheduled for ${matchData.date} at ${matchData.time}`;
       const messagePayload = {
@@ -434,7 +448,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
           leagueName: currentThread.name || 'Match',
           courtBooked: matchData.courtBooked || false,
           status: 'SCHEDULED',
-          participants: matchResult.participants || [], // Include participants from match creation
+          participants: acceptedParticipants, // Only include accepted participants
         },
       };
 
