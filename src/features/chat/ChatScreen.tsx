@@ -1,5 +1,7 @@
 import { getBackendBaseURL } from '@/config/network';
+import { getSportColors } from '@/constants/SportsColor';
 import { authClient, useSession } from '@/lib/auth-client';
+import { NavBar } from '@/shared/components/layout';
 import { Ionicons } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
 import * as Haptics from 'expo-haptics';
@@ -8,7 +10,6 @@ import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Dimensions,
-  Image,
   KeyboardAvoidingView,
   Platform,
   StatusBar,
@@ -20,8 +21,6 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { toast } from 'sonner-native';
-import { getSportColors } from '@/constants/sportColors';
-import { NavBar } from '@/shared/components/layout';
 import { MessageInput } from './components/chat-input';
 import { ThreadList } from './components/chat-list';
 import { MessageWindow } from './components/chat-window';
@@ -350,12 +349,14 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
       };
 
       const time24 = convertTo24Hour(matchData.time);
-      const matchDateTime = new Date(`${matchData.date}T${time24}:00`);
+      
+      // Send date and time as-is - backend will parse as Malaysia time
+      const dateTimeString = `${matchData.date}T${time24}:00`;
       
       console.log('📅 Match date/time:', {
-        original: `${matchData.date} ${matchData.time}`,
-        converted: `${matchData.date}T${time24}:00`,
-        dateObject: matchDateTime.toISOString()
+        userInput: `${matchData.date} ${matchData.time}`,
+        dateTimeString: dateTimeString,
+        note: 'Backend will parse this as Malaysia Time (UTC+8)'
       });
       
       // Step 4: Create the match using the division's gameType
@@ -363,9 +364,10 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
         divisionId: currentThread.metadata?.divisionId,
         matchType: divisionGameType || (isDoubles ? 'DOUBLES' : 'SINGLES'),
         format: 'STANDARD',
-        proposedTimes: [matchDateTime.toISOString()],
+        proposedTimes: [dateTimeString],
         location: matchData.location || 'TBD',
         notes: matchData.description,
+        duration: matchData.duration || 2,
         courtBooked: matchData.courtBooked || false,
       };
       
@@ -415,13 +417,24 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
         fullResult: matchResult
       });
 
+      // Filter participants to only include ACCEPTED (not PENDING invitations)
+      const acceptedParticipants = matchResult.participants?.filter(
+        (p: any) => p.invitationStatus === 'ACCEPTED'
+      ) || [];
+
+      console.log('✅ Filtered participants:', {
+        total: matchResult.participants?.length,
+        accepted: acceptedParticipants.length,
+        participants: acceptedParticipants
+      });
+
       // Step 2: Send a message to the thread with match data for UI display
       const messageContent = `📅 Match scheduled for ${matchData.date} at ${matchData.time}`;
       const messagePayload = {
         senderId: user.id,
         content: messageContent,
-        messageType: 'MATCH', // This tells the backend it's a match message
-        matchId: matchResult.id, // Link to the actual match
+        messageType: 'MATCH',
+        matchId: matchResult.id,
         matchData: {
           matchId: matchResult.id,
           date: matchData.date,
@@ -435,7 +448,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
           leagueName: currentThread.name || 'Match',
           courtBooked: matchData.courtBooked || false,
           status: 'SCHEDULED',
-          participants: matchResult.participants || [], // Include participants from match creation
+          participants: acceptedParticipants, // Only include accepted participants
         },
       };
 
@@ -577,13 +590,18 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
 
   // Get header content based on chat type
   const getHeaderContent = () => {
-    if (!currentThread || !user?.id) return { title: 'Chat', subtitle: null, sportType: null };
+    if (!currentThread || !user?.id) return { title: 'Chat', subtitle: null, sportType: null, season: null };
 
     if (currentThread.type === 'group') {
       // Group chat: show group name and participant count
+      // Get season name from thread metadata
+      const seasonName = currentThread.metadata?.seasonName || 
+                        currentThread.division?.season?.name || 
+                        null;
+      
       return {
         title: currentThread.name || 'Group Chat',
-        subtitle: null, //TO DO update this to show the season name 
+        subtitle: seasonName,
         sportType: currentThread.sportType
       };
     } else {
@@ -741,7 +759,29 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
                       activeOpacity={0.8}
                       onPress={() => {
                         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                        router.push('/standings');
+                        
+                        // Debug: Log the current thread data
+                        console.log('🔍 Current Thread Data:', {
+                          name: currentThread.name,
+                          sportType: currentThread.sportType,
+                          metadata: currentThread.metadata,
+                          division: currentThread.division,
+                        });
+                        
+                        router.push({
+                          pathname: '/match/divisionstandings',
+                          params: {
+                            divisionId: currentThread.metadata?.divisionId || currentThread.division?.id,
+                            divisionName: currentThread.metadata?.divisionName || currentThread.division?.name || 'Division 1',
+                            sportType: currentThread.sportType || 'PICKLEBALL',
+                            leagueName: currentThread.metadata?.leagueName || currentThread.division?.league?.name || 'League',
+                            seasonName: currentThread.metadata?.seasonName || currentThread.division?.season?.name || 'Season 1',
+                            gameType: currentThread.metadata?.gameType || currentThread.division?.gameType || 'Singles',
+                            genderCategory: currentThread.metadata?.genderCategory || currentThread.division?.genderCategory || '',
+                            seasonStartDate: currentThread.division?.season?.startDate,
+                            seasonEndDate: currentThread.division?.season?.endDate,
+                          },
+                        });
                       }}
                     >
                       <Text style={styles.primaryActionText}>View Standings</Text>
@@ -752,12 +792,12 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
                       onPress={() => {
                         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                         router.push({
-                          pathname: '/all-matches',
+                          pathname: '/match/all-matches',
                           params: {
-                            divisionId: currentThread.metadata?.divisionId,
+                            divisionId: currentThread.metadata?.divisionId || currentThread.division?.id,
                             sportType: currentThread.sportType || 'PICKLEBALL',
-                            leagueName: currentThread.name || 'League',
-                            seasonName: 'Season 1 (2025)', // TODO: Get from thread metadata
+                            leagueName: currentThread.metadata?.leagueName || currentThread.division?.league?.name || 'League',
+                            seasonName: currentThread.metadata?.seasonName || currentThread.division?.season?.name || 'Season 1',
                           },
                         });
                       }}

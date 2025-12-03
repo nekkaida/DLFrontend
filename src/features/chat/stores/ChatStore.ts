@@ -223,7 +223,7 @@ export const useChatStore = create<ChatState & ChatActions>((set, get) => ({
       set({ 
         error: 'Failed to load threads', 
         isLoading: false,
-        threads: [] // Clear threads on error
+        threads: []
       });
     }
   },
@@ -251,7 +251,15 @@ export const useChatStore = create<ChatState & ChatActions>((set, get) => ({
   sendMessage: async (threadId, senderId, content, replyToId, type, matchData) => {
     console.log('ChatStore: Sending message:', { threadId, senderId, content, replyToId, type, matchData });
     try {
-      const message = await ChatService.sendMessage(threadId, senderId, content, replyToId, type, matchData);
+      const messageType = type === 'match' ? 'MATCH' : 'TEXT';
+      const message = await ChatService.sendMessage(
+        threadId, 
+        senderId, 
+        content, 
+        replyToId, 
+        messageType, 
+        matchData
+      );
       // console.log('ChatStore: Message sent via API, waiting for socket confirmation:', message.id);
     } catch (error) {
       console.error('ChatStore: Error sending message:', error);

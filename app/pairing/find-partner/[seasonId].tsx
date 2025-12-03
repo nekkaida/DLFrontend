@@ -1,25 +1,26 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import {
-  ScrollView,
-  Text,
-  View,
-  StyleSheet,
-  Dimensions,
-  Platform,
-  Image,
-  TouchableOpacity,
-  TextInput,
-  ActivityIndicator,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { LinearGradient } from 'expo-linear-gradient';
-import { router, useLocalSearchParams } from 'expo-router';
+import { getSportColors, type SportType } from '@/constants/SportsColor';
+import { useSession } from '@/lib/auth-client';
+import axiosInstance from '@/lib/endpoints';
+import { PairRequestModal, PlayerActionModal } from '@/src/features/pairing/components';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
-import { useSession, authClient } from '@/lib/auth-client';
-import { getBackendBaseURL } from '@/config/network';
+import { LinearGradient } from 'expo-linear-gradient';
+import { router, useLocalSearchParams } from 'expo-router';
+import React, { useCallback, useEffect, useState } from 'react';
+import {
+  ActivityIndicator,
+  Dimensions,
+  Image,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { toast } from 'sonner-native';
-import { PairRequestModal, PlayerActionModal } from '@/src/features/pairing/components';
 
 const { width } = Dimensions.get('window');
 const isSmallScreen = width < 375;
@@ -69,15 +70,6 @@ interface SeasonData {
   }>;
 }
 
-const SPORT_COLORS: { [key: string]: string } = {
-  Tennis: '#A2E047',
-  tennis: '#A2E047',
-  Pickleball: '#A04DFE',
-  pickleball: '#A04DFE',
-  Padel: '#4DABFE',
-  padel: '#4DABFE',
-};
-
 export default function FindPartnerScreen() {
   const { seasonId } = useLocalSearchParams();
   const { data: session } = useSession();
@@ -86,7 +78,7 @@ export default function FindPartnerScreen() {
   const [players, setPlayers] = useState<Player[]>([]);
   const [favorites, setFavorites] = useState<Favorite[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [searchTimeout, setSearchTimeout] = useState<NodeJS.Timeout | null>(null);
+  const [searchTimeout, setSearchTimeout] = useState<ReturnType<typeof setTimeout> | null>(null);
   const [seasonData, setSeasonData] = useState<SeasonData | null>(null);
   const [pairRequestModalVisible, setPairRequestModalVisible] = useState(false);
   const [playerActionModalVisible, setPlayerActionModalVisible] = useState(false);
@@ -96,15 +88,12 @@ export default function FindPartnerScreen() {
     try {
       if (!seasonId) return;
 
-      const backendUrl = getBackendBaseURL();
-      const response = await authClient.$fetch(`${backendUrl}/api/season/${seasonId}`, {
-        method: 'GET',
-      });
+      const response = await axiosInstance.get(`/api/season/${seasonId}`);
 
       console.log('FindPartner: Season data response:', response);
 
-      if (response && (response as any).data) {
-        const seasonData = (response as any).data;
+      if (response && response.data) {
+        const seasonData = response.data.data || response.data;
         console.log('FindPartner: Season categories:', seasonData.categories);
         setSeasonData(seasonData);
       }
@@ -121,18 +110,15 @@ export default function FindPartnerScreen() {
       if (!session?.user?.id || !seasonId) return;
 
       setIsLoading(true);
-      const backendUrl = getBackendBaseURL();
 
       console.log('FindPartner: Fetching available players for season:', seasonId);
 
-      const response = await authClient.$fetch(`${backendUrl}/api/player/discover/${seasonId}`, {
-        method: 'GET',
-      });
+      const response = await axiosInstance.get(`/api/player/discover/${seasonId}`);
 
       console.log('FindPartner: Available players response:', response);
 
-      if (response && (response as any).data) {
-        const playersData = (response as any).data.data || (response as any).data;
+      if (response && response.data) {
+        const playersData = response.data.data || response.data;
         setPlayers(playersData);
       }
     } catch (error) {
@@ -149,13 +135,10 @@ export default function FindPartnerScreen() {
     try {
       if (!session?.user?.id) return;
 
-      const backendUrl = getBackendBaseURL();
-      const response = await authClient.$fetch(`${backendUrl}/api/player/favorites`, {
-        method: 'GET',
-      });
+      const response = await axiosInstance.get('/api/player/favorites');
 
-      if (response && (response as any).data) {
-        const favoritesData = (response as any).data.data || (response as any).data;
+      if (response && response.data) {
+        const favoritesData = response.data.data || response.data;
         setFavorites(favoritesData);
       }
     } catch (error) {
@@ -171,15 +154,13 @@ export default function FindPartnerScreen() {
       }
 
       setIsLoading(true);
-      const backendUrl = getBackendBaseURL();
 
-      const response = await authClient.$fetch(
-        `${backendUrl}/api/player/search?q=${encodeURIComponent(query)}`,
-        { method: 'GET' }
+      const response = await axiosInstance.get(
+        `/api/player/search?q=${encodeURIComponent(query)}`
       );
 
-      if (response && (response as any).data) {
-        const playersData = (response as any).data.data || (response as any).data;
+      if (response && response.data) {
+        const playersData = response.data.data || response.data;
         setPlayers(playersData);
       }
     } catch (error) {
@@ -239,21 +220,14 @@ export default function FindPartnerScreen() {
     try {
       if (!selectedPlayer || !seasonId) return;
 
-      const backendUrl = getBackendBaseURL();
-      const response = await authClient.$fetch(`${backendUrl}/api/pairing/request`, {
-        method: 'POST',
-        body: JSON.stringify({
-          recipientId: selectedPlayer.id,
-          seasonId,
-          message: message || undefined,
-        }),
-        headers: {
-          'Content-Type': 'application/json',
-        },
+      const response = await axiosInstance.post('/api/pairing/request', {
+        recipientId: selectedPlayer.id,
+        seasonId,
+        message: message || undefined,
       });
 
       // Check both direct response and wrapped response
-      const responseData = (response as any).data || response;
+      const responseData = response.data.data || response.data;
       if (responseData && responseData.success) {
         toast.success('Success', {
           description: responseData.message || 'Pair request sent successfully!',
@@ -427,17 +401,20 @@ export default function FindPartnerScreen() {
                   )}
                   {player.sports && player.sports.length > 0 && (
                     <View style={styles.sportPills}>
-                      {player.sports.slice(0, 2).map((sport, idx) => (
-                        <View
-                          key={idx}
-                          style={[
-                            styles.sportPill,
-                            { backgroundColor: SPORT_COLORS[sport] || '#A2E047' }
-                          ]}
-                        >
-                          <Text style={styles.sportPillText}>{sport}</Text>
-                        </View>
-                      ))}
+                      {player.sports.slice(0, 2).map((sport, idx) => {
+                        const sportColors = getSportColors(sport.toUpperCase() as SportType);
+                        return (
+                          <View
+                            key={idx}
+                            style={[
+                              styles.sportPill,
+                              { backgroundColor: sportColors.badgeColor }
+                            ]}
+                          >
+                            <Text style={styles.sportPillText}>{sport}</Text>
+                          </View>
+                        );
+                      })}
                     </View>
                   )}
                 </View>

@@ -1,3 +1,4 @@
+import { getSportColors, SportType } from '@/constants/SportsColor';
 import { Ionicons } from '@expo/vector-icons';
 import React, { useCallback } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
@@ -17,7 +18,7 @@ interface SwipeableMessageBubbleProps {
   showAvatar: boolean;
   isLastInGroup?: boolean;
   isGroupChat?: boolean;
-  sportType?: 'PICKLEBALL' | 'TENNIS' | 'PADEL' | null;
+  sportType?: SportType | null;
   onReply: (message: Message) => void;
   onDelete: (messageId: string) => void;
   onLongPress?: (message: Message) => void;
@@ -39,20 +40,12 @@ export const SwipeableMessageBubble: React.FC<SwipeableMessageBubbleProps> = ({
   onLongPress,
   messageMap,
 }) => {
-  // Get sport-specific color for current user messages
+  // Get sport-specific color for current user messages in group chats
   const getSportColor = () => {
-    if (!isCurrentUser) return '#863A73'; // Default for received messages
+    if (!isCurrentUser || !isGroupChat) return '#DCC6FD'; 
     
-    switch (sportType) {
-      case 'PICKLEBALL':
-        return '#DCC6FD'; // Purple
-      case 'TENNIS':
-        return '#D4F0B4'; // Green
-      case 'PADEL':
-        return '#B9DEFD'; // Blue
-      default:
-        return '#DCC6FD'; // Default purple
-    }
+    const colors = getSportColors(sportType);
+    return colors.messageColor;
   };
   
   const bubbleColor = getSportColor();

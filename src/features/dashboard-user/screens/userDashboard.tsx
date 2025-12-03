@@ -13,6 +13,7 @@ import { LeagueCard, useLeagues } from "@/src/features/leagues";
 import { useNotifications } from "@/src/hooks/useNotifications";
 import NotificationBell from "@/src/shared/components/NotificationBell";
 import NotificationDrawer from "@/src/shared/components/NotificationDrawer";
+import MyGamesScreen from "./MyGamesScreen";
 import * as Haptics from "expo-haptics";
 import { router, useLocalSearchParams } from "expo-router";
 import { default as React, useEffect } from "react";
@@ -247,14 +248,7 @@ export default function DashboardScreen() {
   }, [session?.user?.id]);
 
   const handleTabPress = (tabIndex: number) => {
-    // console.log(`DashboardScreen: Setting activeTab to ${tabIndex}`);
     setActiveTab(tabIndex);
-    // console.log(
-    //   `Tab ${tabIndex} pressed - ${
-    //     ["Connect", "Friendly", "Leagues", "My Games", "Chat"][tabIndex]
-    //   }`
-    // );
-
     // Absolute in-app view switching per tab
     if (tabIndex === 0) {
       setCurrentView("connect");
@@ -359,6 +353,67 @@ export default function DashboardScreen() {
   // later delete this
   if (currentView === "friendly" || currentView === "myGames") {
     const title = currentView === "friendly" ? "Friendly" : "My Games";
+    
+    if (currentView === "myGames") {
+      return (
+        <View style={styles.container}>
+          <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
+         <View
+            style={[styles.headerContainer, { paddingTop: STATUS_BAR_HEIGHT }]}
+          >
+{/* 
+            <TouchableOpacity
+              style={styles.profilePicture}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                router.push("/profile");
+              }}
+            >
+              {profileData?.image || session?.user?.image ? (
+                <Image
+                  source={{ uri: profileData?.image || session?.user?.image }}
+                  style={styles.profileImage}
+                  onError={() => {
+                    console.log(
+                      "Profile image failed to load:",
+                      profileData?.image || session?.user?.image
+                    );
+                  }}
+                />
+              ) : (
+                <View style={styles.defaultAvatarContainer}>
+                  <Text style={styles.defaultAvatarText}>
+                    {(profileData?.name || session?.user?.name)
+                      ?.charAt(0)
+                      ?.toUpperCase() || "U"}
+                  </Text>
+                </View>
+              )}
+            </TouchableOpacity>
+
+            <SportSwitcher
+              currentSport={selectedSport}
+              availableSports={getUserSelectedSports()}
+              onSportChange={setSelectedSport}
+            />
+
+          
+            <View style={styles.headerRight} /> */}
+          </View> 
+
+          <View style={styles.contentContainer}>
+            <MyGamesScreen sport={selectedSport} />
+          </View>
+          <NavBar 
+            activeTab={activeTab} 
+            onTabPress={handleTabPress} 
+            sport={selectedSport}
+            badgeCounts={{ chat: chatUnreadCount }}
+          />
+        </View>
+      );
+    }
+    
     return (
       <View style={styles.container}>
         <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />

@@ -68,13 +68,17 @@ export class ChatService {
     threadId: string,
     senderId: string,
     content: string,
-    repliesToId?: string
+    repliesToId?: string,
+    messageType?: 'TEXT' | 'MATCH',
+    matchData?: any
   ): Promise<Message> {
     console.log("ChatService: sendMessage called:", {
       threadId,
       senderId,
       content,
       repliesToId,
+      messageType,
+      matchData,
     });
     try {
       const response: AxiosResponse = await axiosInstance.post(
@@ -83,6 +87,8 @@ export class ChatService {
           senderId,
           content,
           ...(repliesToId && { repliesToId }),
+          ...(messageType && { messageType }),
+          ...(matchData && { matchData }),
         }
       );
 
@@ -280,9 +286,34 @@ export class ChatService {
       createdAt: new Date(backendThread.createdAt),
       updatedAt: new Date(backendThread.updatedAt),
       sportType: backendThread.sportType || backendThread.division?.league?.sportType || null,
+      division: backendThread.division ? {
+        id: backendThread.division.id,
+        name: backendThread.division.name,
+        gameType: backendThread.division.gameType,
+        genderCategory: backendThread.division.genderCategory,
+        league: backendThread.division.league ? {
+          id: backendThread.division.league.id,
+          name: backendThread.division.league.name,
+          sportType: backendThread.division.league.sportType,
+        } : undefined,
+        season: backendThread.division.season ? {
+          id: backendThread.division.season.id,
+          name: backendThread.division.season.name,
+          startDate: backendThread.division.season.startDate,
+          endDate: backendThread.division.season.endDate,
+          status: backendThread.division.season.status,
+        } : undefined,
+      } : undefined,
       metadata: {
         avatarUrl: backendThread.avatarUrl,
-        divisionId: backendThread.divisionId,
+        divisionId: backendThread.divisionId || backendThread.division?.id,
+        seasonId: backendThread.division?.season?.id,
+        leagueId: backendThread.division?.league?.id,
+        leagueName: backendThread.division?.league?.name,
+        seasonName: backendThread.division?.season?.name,
+        divisionName: backendThread.division?.name,
+        gameType: backendThread.division?.gameType,
+        genderCategory: backendThread.division?.genderCategory,
         isGroup: backendThread.isGroup,
         messageCount: backendThread._count?.messages || 0,
       },

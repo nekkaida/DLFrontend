@@ -1,3 +1,4 @@
+import { getSportColors, SportType } from '@/constants/SportsColor';
 import { format } from 'date-fns';
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
@@ -9,6 +10,7 @@ interface MessageBubbleProps {
   showAvatar: boolean;
   isLastInGroup?: boolean;
   isGroupChat?: boolean;
+  sportType?: SportType | null;
 }
 
 export const MessageBubble: React.FC<MessageBubbleProps> = ({
@@ -17,10 +19,21 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
   showAvatar,
   isLastInGroup = true,
   isGroupChat = false,
+  sportType,
 }) => {
   const senderName = message.metadata?.sender?.name || 
                     message.metadata?.sender?.username || 
                     'Unknown';
+  
+  // Get sport-specific color for current user messages in group chats
+  const getSportColor = () => {
+    if (!isCurrentUser || !isGroupChat) return '#863A73'; // Default purple for DMs or received messages
+    
+    const colors = getSportColors(sportType);
+    return colors.messageColor;
+  };
+  
+  const bubbleColor = getSportColor();
   
   return (
     <View style={[
@@ -49,6 +62,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
         <View style={[
           styles.bubble,
           isCurrentUser ? styles.currentUserBubble : styles.otherUserBubble,
+          isCurrentUser && { backgroundColor: bubbleColor },
           isCurrentUser ? {
             borderBottomRightRadius: isLastInGroup ? 6 : 18,
             borderTopRightRadius: showAvatar ? 18 : 6,

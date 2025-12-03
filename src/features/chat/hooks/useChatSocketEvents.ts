@@ -170,6 +170,36 @@ export const useChatSocketEvents = (threadId: string | null, currentUserId: stri
       }
     };
 
+    // 🔄 Handle match participant joined
+    const handleMatchParticipantJoined = (data: any) => {
+      console.log('🔄 Match participant joined:', data);
+      
+      // Update the match message in the current thread if it exists
+      if (data.matchId && data.threadId === currentThreadIdRef.current) {
+        const messages = useChatStore.getState().messages;
+        const matchMessage = messages.find(
+          m => m.matchData && (m.matchData as any).matchId === data.matchId
+        );
+        
+        if (matchMessage) {
+          console.log('🔄 Updating match message with new participant');
+          // Force a re-fetch of messages to get updated match data
+          // The backend will send updated match data in the response
+        }
+      }
+    };
+
+    // 🔄 Handle match updated
+    const handleMatchUpdated = (data: any) => {
+      console.log('🔄 Match updated:', data);
+      
+      // Similar to participant joined, trigger a refresh if needed
+      if (data.matchId && data.threadId === currentThreadIdRef.current) {
+        console.log('🔄 Match in current thread was updated');
+        // The match details will be refreshed when navigating to match-details
+      }
+    };
+
     // Register all listeners on socketService (NOT raw socket!)
     // The socket-service already listens to Socket.IO and re-emits events
     console.log('🎧 Registering socketService event listeners...');
@@ -181,6 +211,8 @@ export const useChatSocketEvents = (threadId: string | null, currentUserId: stri
     socketService.on('thread_marked_read', handleThreadMarkedRead);
     socketService.on('thread_created', handleThreadCreated);
     socketService.on('new_thread', handleThreadCreated); // Backend sends this too
+    socketService.on('match_participant_joined', handleMatchParticipantJoined);
+    socketService.on('match_updated', handleMatchUpdated);
     console.log('✅ All socketService event listeners registered!');
 
     // Join thread room if we have a current thread
@@ -211,6 +243,8 @@ export const useChatSocketEvents = (threadId: string | null, currentUserId: stri
       socketService.off('thread_marked_read', handleThreadMarkedRead);
       socketService.off('thread_created', handleThreadCreated);
       socketService.off('new_thread', handleThreadCreated);
+      socketService.off('match_participant_joined', handleMatchParticipantJoined);
+      socketService.off('match_updated', handleMatchUpdated);
       
       // Leave thread room
       if (threadId) {

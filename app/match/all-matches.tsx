@@ -1,4 +1,7 @@
+import { getSportColors, SportType } from '@/constants/SportsColor';
+import axiosInstance from '@/lib/endpoints';
 import { Ionicons } from '@expo/vector-icons';
+import { format } from 'date-fns';
 import { router, useLocalSearchParams } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
@@ -11,9 +14,6 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import axiosInstance from '@/lib/endpoints';
-import { format } from 'date-fns';
-import { getSportColors, SportType } from '@/constants/sportColors';
 
 interface Match {
   id: string;
