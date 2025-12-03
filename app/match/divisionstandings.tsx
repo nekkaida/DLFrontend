@@ -1,8 +1,10 @@
 import { getSportColors, SportType } from '@/constants/SportsColor';
+import { endpoints } from '@/lib/endpoints';
+import axiosInstance from '@/lib/endpoints';
 import { Ionicons } from '@expo/vector-icons';
 import { format } from 'date-fns';
 import { router, useLocalSearchParams } from 'expo-router';
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Image,
   ScrollView,
@@ -10,6 +12,7 @@ import {
   Text,
   TouchableOpacity,
   View,
+  ActivityIndicator,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -28,6 +31,8 @@ export default function DivisionStandingsScreen() {
   const insets = useSafeAreaInsets();
   const params = useLocalSearchParams();
   const [showResults, setShowResults] = useState(false);
+  const [standings, setStandings] = useState<StandingsPlayer[]>([]);
+  const [loading, setLoading] = useState(true);
 
   // Get params from parent
   const divisionId = params.divisionId as string;
@@ -66,69 +71,46 @@ export default function DivisionStandingsScreen() {
     ? `${formatGenderCategory(genderCategory)} ${gameType}`
     : gameType;
 
-  // Mock standings data
-  const mockStandings: StandingsPlayer[] = [
-    {
-      rank: 1,
-      playerId: '1',
-      name: 'Bryan Leclerc',
-      image: 'https://i.pravatar.cc/150?img=1',
-      played: 5,
-      wins: 4,
-      losses: 1,
-      points: 20,
-    },
-    {
-      rank: 2,
-      playerId: '2',
-      name: 'Janice Fu',
-      image: 'https://i.pravatar.cc/150?img=2',
-      played: 5,
-      wins: 4,
-      losses: 1,
-      points: 20,
-    },
-    {
-      rank: 3,
-      playerId: '3',
-      name: 'Lucas Tan',
-      image: 'https://i.pravatar.cc/150?img=3',
-      played: 5,
-      wins: 3,
-      losses: 2,
-      points: 16,
-    },
-    {
-      rank: 4,
-      playerId: '4',
-      name: 'Jess Chong',
-      image: 'https://i.pravatar.cc/150?img=4',
-      played: 5,
-      wins: 3,
-      losses: 2,
-      points: 15,
-    },
-    {
-      rank: 5,
-      playerId: '5',
-      name: 'Kamran R.',
-      image: 'https://i.pravatar.cc/150?img=5',
-      played: 6,
-      wins: 2,
-      losses: 5,
-      points: 13,
-    },
-    {
-      rank: 6,
-      playerId: '6',
-      name: 'Annabelle F.',
-      image: 'https://i.pravatar.cc/150?img=6',
-      played: 4,
-      wins: 2,
-      losses: 2,
-      points: 11,
-    },
-  ];
+  // Fetch standings data
+  useEffect(() => {
+    if (divisionId) {
+      fetchStandings();
+    }
+  }, [divisionId]);
+
+  const fetchStandings = async () => {
+    try {
+      setLoading(true);
+      const response = await axiosInstance.get(
+        endpoints.standings.getDivisionStandings(divisionId)
+      );
+
+      console.log('📊 Standings response:', response.data);
+
+      // Handle response structure: {data: [], success: true}
+      const standingsData = response.data.data || response.data || [];
+      
+      // Transform backend data to match our interface
+      const transformedStandings: StandingsPlayer[] = standingsData.map((standing: any, index: number) => ({
+        rank: index + 1,
+        playerId: standing.userId || standing.playerId,
+        name: standing.user?.name || standing.userName || 'Unknown Player',
+        image: standing.user?.image || standing.userImage,
+        played: standing.matchesPlayed || 0,
+        wins: standing.wins || 0,
+        losses: standing.losses || 0,
+        points: standing.totalPoints || 0,
+      }));
+
+      setStandings(transformedStandings);
+    } catch (error) {
+      console.error('Error fetching standings:', error);
+      // Keep empty array on error
+      setStandings([]);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const sportColors = getSportColors(sportType);
 
@@ -145,7 +127,7 @@ export default function DivisionStandingsScreen() {
   };
 
   const renderPlayerRow = (player: StandingsPlayer, index: number) => {
-    const isLastItem = index === mockStandings.length - 1;
+    const isLastItem = index === standings.length - 1;
     
     return (
       <View
@@ -258,7 +240,22 @@ export default function DivisionStandingsScreen() {
 
             {/* Table Body */}
             <View style={styles.tableBody}>
-              {mockStandings.map((player, index) => renderPlayerRow(player, index))}
+              {loading ? (
+                <View style={styles.loadingContainer}>
+                  <ActivityIndicator size="large" color={sportColors.badgeColor} />
+                  <Text style={styles.loadingText}>Loading standings...</Text>
+                </View>
+              ) : standings.length === 0 ? (
+                <View style={styles.emptyContainer}>
+                  <Ionicons name="trophy-outline" size={48} color="#D1D5DB" />
+                  <Text style={styles.emptyTitle}>No Standings Yet</Text>
+                  <Text style={styles.emptyText}>
+                    Standings will appear once matches are completed
+                  </Text>
+                </View>
+              ) : (
+                standings.map((player, index) => renderPlayerRow(player, index))
+              )}
             </View>
 
             {/* View Results Toggle */}
@@ -500,5 +497,30 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
     color: '#F59E0B',
+  },
+  loadingContainer: {
+    paddingVertical: 60,
+    alignItems: 'center',
+    gap: 12,
+  },
+  loadingText: {
+    fontSize: 14,
+    color: '#6B7280',
+  },
+  emptyContainer: {
+    paddingVertical: 60,
+    alignItems: 'center',
+    gap: 12,
+  },
+  emptyTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#111827',
+  },
+  emptyText: {
+    fontSize: 14,
+    color: '#6B7280',
+    textAlign: 'center',
+    paddingHorizontal: 32,
   },
 });
