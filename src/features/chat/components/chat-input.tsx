@@ -1,3 +1,6 @@
+import PadelMatchIcon from '@/assets/icons/chats/padel-match.svg';
+import PickleballMatchIcon from '@/assets/icons/chats/pickleball-match.svg';
+import TennisMatchIcon from '@/assets/icons/chats/tennis-match.svg';
 import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect, useRef, useState } from 'react';
 import {
@@ -77,21 +80,26 @@ export const MessageInput: React.FC<MessageInputProps> = ({
     }
   };
 
-  // Get sport-specific color for calendar icon
-  const getCalendarIconColor = () => {
-    if (!isGroupChat) return '#6B7280'; // Gray for individual chats
+  // Get sport-specific match icon component
+  const getMatchIcon = () => {
+    if (!isGroupChat) {
+      // For individual chats, return null to use default Ionicons
+      return null;
+    }
     
     switch (sportType) {
       case 'PICKLEBALL':
-        return '#863A73'; // Purple
+        return PickleballMatchIcon;
       case 'TENNIS':
-        return '#65B741'; // Green
+        return TennisMatchIcon;
       case 'PADEL':
-        return '#3B82F6'; // Blue
+        return PadelMatchIcon;
       default:
-        return '#6B7280'; // Default gray
+        return null;
     }
   };
+
+  const MatchIcon = getMatchIcon();
 
   const handleTextChange = (text: string) => {
     setMessage(text);
@@ -173,7 +181,11 @@ export const MessageInput: React.FC<MessageInputProps> = ({
           onPress={handleMatch}
           activeOpacity={0.7}
         >
-         <Ionicons name="calendar-clear-outline" size={24} color="#6B7280" />  
+          {MatchIcon ? (
+            <MatchIcon width={24} height={24} />
+          ) : (
+            <Ionicons name="calendar-clear-outline" size={24} color="#6B7280" />
+          )}
         </TouchableOpacity>
         
         <View style={styles.textInputContainer}>
