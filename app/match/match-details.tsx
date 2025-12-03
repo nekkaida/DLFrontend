@@ -1,3 +1,6 @@
+import PickleballIcon from '@/assets/images/045-PICKLEBALL.svg';
+import PadelIcon from '@/assets/images/padel-icon.svg';
+import TennisIcon from '@/assets/images/tennis-icon.svg';
 import { getBackendBaseURL } from '@/config/network';
 import { getSportColors, SportType } from '@/constants/SportsColor';
 import { useSession } from '@/lib/auth-client';
@@ -62,13 +65,13 @@ export default function JoinMatchScreen() {
   // Get sport-specific icon
   const getSportIcon = () => {
     const sport = sportType?.toUpperCase();
-    if (sport?.includes('TENNIS')) return 'tennisball-outline';
-    if (sport?.includes('PADEL')) return 'tennisball-outline'; 
-    if (sport?.includes('PICKLEBALL')) return 'basketball-outline';
-    return 'tennisball-outline';
+    if (sport?.includes('TENNIS')) return TennisIcon;
+    if (sport?.includes('PADEL')) return PadelIcon; 
+    if (sport?.includes('PICKLEBALL')) return PickleballIcon;
+    return TennisIcon;
   };
 
-  const sportIcon = getSportIcon();
+  const SportIcon = getSportIcon();
 
   // Fetch participant details
   useEffect(() => {
@@ -261,7 +264,7 @@ export default function JoinMatchScreen() {
         </View>
 
         <View style={styles.headerIcon}>
-          <Ionicons name={sportIcon as any} size={80} color="#FFFFFF" />
+          <SportIcon width={80} height={80} fill="#FFFFFF" />
         </View>
       </View>
 
