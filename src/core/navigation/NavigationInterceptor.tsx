@@ -3,6 +3,7 @@ import { useRouter, useSegments } from 'expo-router';
 import { BackHandler } from 'react-native';
 import { useSession } from '@/lib/auth-client';
 import { getBackendBaseURL } from '@/src/config/network';
+import { LandingStorage } from '@/src/core/storage';
 
 // Only block these specific auth pages after login - NOT the home page
 const BLOCKED_AUTH_PAGES = ['/login', '/register', '/resetPassword', '/verifyEmail'];
@@ -33,8 +34,10 @@ export const NavigationInterceptor: React.FC<NavigationInterceptorProps> = ({ ch
     completedOnboarding: boolean;
     hasCompletedAssessment: boolean;
     timestamp?: number;
+    backendError?: boolean; // True when backend is unavailable (not 404)
   } | null>(null);
   const [isCheckingOnboarding, setIsCheckingOnboarding] = useState(false);
+  const [hasSeenLanding, setHasSeenLanding] = useState<boolean | null>(null); // null = checking, true/false = result
 
   // Check onboarding completion status from backend (using existing APIs)
   const checkOnboardingStatus = async (userId: string, forceRefresh: boolean = false) => {
@@ -61,11 +64,20 @@ export const NavigationInterceptor: React.FC<NavigationInterceptorProps> = ({ ch
 
       if (!onboardingResponse.ok) {
         if (onboardingResponse.status === 404) {
+          // User genuinely not found - they need to complete onboarding
           console.log('User not found in onboarding system, needs to complete onboarding');
+          setOnboardingStatus({ completedOnboarding: false, hasCompletedAssessment: false, timestamp: Date.now() });
         } else {
-          console.warn(`Onboarding API error (${onboardingResponse.status}), assuming user needs onboarding`);
+          // Backend error (5xx, etc.) - don't assume user needs onboarding
+          // Keep user on landing page instead of redirecting to onboarding
+          console.warn(`Onboarding API error (${onboardingResponse.status}), backend unavailable`);
+          setOnboardingStatus({
+            completedOnboarding: false,
+            hasCompletedAssessment: false,
+            timestamp: Date.now(),
+            backendError: true
+          });
         }
-        setOnboardingStatus({ completedOnboarding: false, hasCompletedAssessment: false });
         return;
       }
 
@@ -128,12 +140,14 @@ export const NavigationInterceptor: React.FC<NavigationInterceptorProps> = ({ ch
         setOnboardingStatus(finalStatus);
       }
     } catch (error) {
-      console.warn('Onboarding check failed, defaulting to incomplete for safety:', error);
-      // Default to incomplete on error to be safe - this ensures onboarding flow works
-      setOnboardingStatus({ 
-        completedOnboarding: false, 
+      // Network error or backend unavailable - don't redirect to onboarding
+      // Keep user on landing page so they can retry when backend is available
+      console.warn('Onboarding check failed (network/backend error), staying on landing page:', error);
+      setOnboardingStatus({
+        completedOnboarding: false,
         hasCompletedAssessment: false,
-        timestamp: Date.now()
+        timestamp: Date.now(),
+        backendError: true
       });
     } finally {
       setIsCheckingOnboarding(false);
@@ -148,6 +162,16 @@ export const NavigationInterceptor: React.FC<NavigationInterceptorProps> = ({ ch
     }
   };
 
+  // Check if user has seen the landing page on app start
+  useEffect(() => {
+    const checkLandingSeen = async () => {
+      const seen = await LandingStorage.hasSeenLanding();
+      console.log('NavigationInterceptor: Has seen landing:', seen);
+      setHasSeenLanding(seen);
+    };
+    checkLandingSeen();
+  }, []);
+
   // Check onboarding status when user session changes
   useEffect(() => {
     if (session?.user?.id && !onboardingStatus) {
@@ -160,9 +184,14 @@ export const NavigationInterceptor: React.FC<NavigationInterceptorProps> = ({ ch
 
   // Track navigation stack and block auth pages for authenticated users
   useEffect(() => {
-    // Don't do anything while auth is loading
+    // Don't do anything while auth is loading or checking landing status
     if (isPending) {
       console.log('NavigationInterceptor: Auth pending, waiting...');
+      return;
+    }
+
+    if (hasSeenLanding === null) {
+      console.log('NavigationInterceptor: Checking if user has seen landing...');
       return;
     }
 
@@ -177,7 +206,14 @@ export const NavigationInterceptor: React.FC<NavigationInterceptorProps> = ({ ch
         return;
       }
 
-      // Authenticated users - check onboarding status
+      // IMPORTANT: If user hasn't seen the landing page yet, let them see it first
+      // This ensures first-time TestFlight users see "Ready? Start Now" before any redirects
+      if (!hasSeenLanding) {
+        console.log('NavigationInterceptor: User has not seen landing page yet, staying here');
+        return;
+      }
+
+      // Authenticated users who have seen landing - check onboarding status
       if (isCheckingOnboarding || !onboardingStatus) {
         // Still checking onboarding status, don't redirect yet
         console.log('NavigationInterceptor: Checking onboarding status...');
@@ -185,6 +221,11 @@ export const NavigationInterceptor: React.FC<NavigationInterceptorProps> = ({ ch
       }
 
       if (!onboardingStatus.completedOnboarding) {
+        // Don't redirect to onboarding if backend is unavailable - stay on landing page
+        if (onboardingStatus.backendError) {
+          console.log('NavigationInterceptor: Backend unavailable, keeping user on landing page');
+          return;
+        }
         console.log('NavigationInterceptor: User needs onboarding, redirecting to personal-info');
         setTimeout(() => router.replace('/onboarding/personal-info'), 100);
         return;
@@ -231,6 +272,12 @@ export const NavigationInterceptor: React.FC<NavigationInterceptorProps> = ({ ch
       }
       
       if (!onboardingStatus.completedOnboarding) {
+        // Don't redirect to onboarding if backend is unavailable - redirect to landing page instead
+        if (onboardingStatus.backendError) {
+          console.warn('Access to protected route blocked - backend unavailable, redirecting to landing page');
+          setTimeout(() => router.replace('/'), 100);
+          return;
+        }
         console.warn('Access to protected route blocked - onboarding incomplete:', currentRoute);
         console.warn('NavigationInterceptor: Redirecting to personal-info');
         setTimeout(() => router.replace('/onboarding/personal-info'), 100);
@@ -248,7 +295,14 @@ export const NavigationInterceptor: React.FC<NavigationInterceptorProps> = ({ ch
     }
 
     // Block authenticated users from auth pages and redirect based on onboarding status
+    // BUT allow access to auth pages when backend is unavailable (so they can re-login)
     if (session?.user && isBlockedAuthPage(currentRoute)) {
+      // If backend is unavailable, allow access to auth pages - user may need to re-authenticate
+      if (onboardingStatus?.backendError) {
+        console.log('NavigationInterceptor: Backend unavailable, allowing access to auth page:', currentRoute);
+        return;
+      }
+
       console.warn('Navigation to auth page blocked for authenticated user:', currentRoute);
 
       if (!onboardingStatus) {
@@ -261,6 +315,9 @@ export const NavigationInterceptor: React.FC<NavigationInterceptorProps> = ({ ch
         setTimeout(() => router.replace('/user-dashboard'), 100);
       } else if (onboardingStatus.completedOnboarding) {
         setTimeout(() => router.replace('/onboarding/game-select'), 100);
+      } else if (onboardingStatus.backendError) {
+        // Backend unavailable - redirect to landing page instead of onboarding
+        setTimeout(() => router.replace('/'), 100);
       } else {
         setTimeout(() => router.replace('/onboarding/personal-info'), 100);
       }
@@ -286,7 +343,7 @@ export const NavigationInterceptor: React.FC<NavigationInterceptorProps> = ({ ch
         refreshOnboardingStatus();
       }
     }
-  }, [segments, router, session, onboardingStatus, isCheckingOnboarding, isPending]);
+  }, [segments, router, session, onboardingStatus, isCheckingOnboarding, isPending, hasSeenLanding]);
 
   // Handle Android back button
   useEffect(() => {
