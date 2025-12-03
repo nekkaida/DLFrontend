@@ -4,9 +4,14 @@ import TennisIcon from '@/assets/images/tennis-icon.svg';
 import { getBackendBaseURL } from '@/config/network';
 import { getSportColors, SportType } from '@/constants/SportsColor';
 import { useSession } from '@/lib/auth-client';
+import { socketService } from '@/lib/socket-service';
+import { endpoints } from '@/lib/endpoints';
+import axiosInstance from '@/lib/endpoints';
+import { MatchResultSheet } from '@/src/features/match/components/MatchResultSheet';
 import { Ionicons } from '@expo/vector-icons';
+import { BottomSheetModal, BottomSheetView, BottomSheetBackdrop } from '@gorhom/bottom-sheet';
 import { router, useLocalSearchParams } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import {
   ActivityIndicator,
   Image,
@@ -26,6 +31,7 @@ interface ParticipantWithDetails {
   image?: string;
   role?: string;
   team?: string;
+  invitationStatus?: string;
 }
 
 export default function JoinMatchScreen() {
@@ -40,6 +46,8 @@ export default function JoinMatchScreen() {
     partnerImage?: string;
     partnerId?: string;
   }>({ hasPartner: false });
+  const bottomSheetModalRef = useRef<BottomSheetModal>(null);
+  const snapPoints = useMemo(() => ['75%', '90%'], []);
 
   // Parse params
   const matchId = params.matchId as string;
@@ -58,9 +66,23 @@ export default function JoinMatchScreen() {
   const divisionId = params.divisionId as string;
   const seasonId = params.seasonId as string;
   const participants = params.participants ? JSON.parse(params.participants as string) : [];
+  const matchStatus = (params.status as string) || 'SCHEDULED';
 
   const sportColors = getSportColors(sportType as SportType);
   const themeColor = sportColors.background;
+
+  // Backdrop component for bottom sheet
+  const renderBackdrop = useCallback(
+    (props: any) => (
+      <BottomSheetBackdrop
+        {...props}
+        disappearsOnIndex={-1}
+        appearsOnIndex={0}
+        opacity={0.5}
+      />
+    ),
+    []
+  );
 
   // Get sport-specific icon
   const getSportIcon = () => {
@@ -87,6 +109,32 @@ export default function JoinMatchScreen() {
     }
   }, [matchType, session?.user?.id, seasonId]);
 
+  // Listen for real-time match updates
+  useEffect(() => {
+    const handleMatchUpdate = (data: any) => {
+      console.log('🔄 Match updated in real-time:', data);
+      
+      // If this is our match, refresh participant details
+      if (data.matchId === matchId) {
+        if (data.participants) {
+          // Update participants with new data
+          fetchParticipantDetails();
+          toast.success('Match updated - new player joined!');
+        }
+      }
+    };
+
+    // Subscribe to match update events
+    socketService.on('match_participant_joined', handleMatchUpdate);
+    socketService.on('match_updated', handleMatchUpdate);
+
+    // Cleanup on unmount
+    return () => {
+      socketService.off('match_participant_joined', handleMatchUpdate);
+      socketService.off('match_updated', handleMatchUpdate);
+    };
+  }, [matchId]);
+
   const fetchParticipantDetails = async () => {
     try {
       const backendUrl = getBackendBaseURL();
@@ -109,6 +157,7 @@ export default function JoinMatchScreen() {
               image: player.image,
               role: p.role,
               team: p.team,
+              invitationStatus: p.invitationStatus,
             };
           }
         } catch (error) {
@@ -120,6 +169,7 @@ export default function JoinMatchScreen() {
           image: null,
           role: p.role,
           team: p.team,
+          invitationStatus: p.invitationStatus,
         };
       });
       
@@ -157,12 +207,6 @@ export default function JoinMatchScreen() {
           const isUserCaptain = captainId === currentUserId;
           const isUserPartner = partnerId === currentUserId;
 
-          console.log('Current user ID:', currentUserId);
-          console.log('Captain ID:', captainId);
-          console.log('Partner ID:', partnerId);
-          console.log('Is user captain?', isUserCaptain);
-          console.log('Is user partner?', isUserPartner);
-
           // Any partner can join - invitation will be sent to the other
           if (isUserCaptain || isUserPartner) {
             const otherUser = isUserCaptain ? partnership.partner : partnership.captain;
@@ -195,6 +239,75 @@ export default function JoinMatchScreen() {
   };
 
   const pairSlots = matchType === 'DOUBLES' ? 2 - Math.ceil(participants.length / 2) : 0;
+
+  // Check if all slots are filled
+  const requiredParticipants = matchType === 'DOUBLES' ? 4 : 2;
+  const allSlotsFilled = participants.length >= requiredParticipants;
+
+  // Check if match time has been reached
+  const isMatchTimeReached = () => {
+    if (!date || !time) return false;
+    
+    try {
+      // Parse the date and time
+      const matchDateTime = new Date(`${date} ${time}`);
+      const now = new Date();
+      
+      return now >= matchDateTime;
+    } catch (error) {
+      console.error('Error parsing match date/time:', error);
+      return false;
+    }
+  };
+
+  const canStartMatch = allSlotsFilled && isMatchTimeReached();
+
+  // Get match status badge
+  const getStatusBadge = () => {
+    const status = matchStatus.toUpperCase();
+    
+    let badgeColor = '#E5E7EB';
+    let textColor = '#6B7280';
+    let statusText = 'Open';
+    
+    switch (status) {
+      case 'OPEN':
+        badgeColor = '#DBEAFE';
+        textColor = '#1E40AF';
+        statusText = 'Open';
+        break;
+      case 'SCHEDULED':
+        badgeColor = '#FEF3C7';
+        textColor = '#92400E';
+        statusText = 'Scheduled';
+        break;
+      case 'ONGOING':
+      case 'IN_PROGRESS':
+        badgeColor = '#D1FAE5';
+        textColor = '#065F46';
+        statusText = 'Ongoing';
+        break;
+      case 'COMPLETED':
+      case 'FINISHED':
+        badgeColor = '#E5E7EB';
+        textColor = '#374151';
+        statusText = 'Finished';
+        break;
+      case 'CANCELLED':
+        badgeColor = '#FEE2E2';
+        textColor = '#991B1B';
+        statusText = 'Cancelled';
+        break;
+      default:
+        statusText = allSlotsFilled ? 'Scheduled' : 'Open';
+        badgeColor = allSlotsFilled ? '#FEF3C7' : '#DBEAFE';
+        textColor = allSlotsFilled ? '#92400E' : '#1E40AF';
+    }
+    
+    return { badgeColor, textColor, statusText };
+  };
+
+  const statusBadge = getStatusBadge();
 
   const handleJoinMatch = async () => {
     if (!session?.user?.id || !matchId) {
@@ -242,6 +355,27 @@ export default function JoinMatchScreen() {
 
   const canJoin = matchType === 'SINGLES' || (matchType === 'DOUBLES' && partnerInfo.hasPartner);
 
+  // Check if current user is a participant
+  const isUserParticipant = participants.some((p: any) => p.userId === session?.user?.id);
+
+  // Handler for submitting match result
+  const handleSubmitResult = async (data: { setScores: any[] }) => {
+    try {
+      const response = await axiosInstance.post(
+        endpoints.match.submitResult(matchId),
+        data
+      );
+      
+      toast.success('Match result submitted successfully!');
+      bottomSheetModalRef.current?.dismiss();
+      router.back();
+    } catch (error: any) {
+      console.error('Error submitting result:', error);
+      toast.error(error.response?.data?.error || 'Failed to submit result');
+      throw error;
+    }
+  };
+
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor={themeColor} />
@@ -282,20 +416,27 @@ export default function JoinMatchScreen() {
                 <View style={styles.teamSection}>
                   <View style={styles.teamPlayers}>
                     <View style={styles.doublesPlayerContainer}>
-                      <View style={styles.playerAvatar}>
-                        {participantsWithDetails[0] ? (
-                          participantsWithDetails[0].image ? (
-                            <Image source={{ uri: participantsWithDetails[0].image }} style={styles.avatarImage} />
+                      <View style={styles.playerAvatarWrapper}>
+                        <View style={styles.playerAvatar}>
+                          {participantsWithDetails[0] ? (
+                            participantsWithDetails[0].image ? (
+                              <Image source={{ uri: participantsWithDetails[0].image }} style={styles.avatarImage} />
+                            ) : (
+                              <View style={styles.defaultAvatar}>
+                                <Text style={styles.defaultAvatarText}>
+                                  {participantsWithDetails[0].name?.charAt(0)?.toUpperCase() || '?'}
+                                </Text>
+                              </View>
+                            )
                           ) : (
-                            <View style={styles.defaultAvatar}>
-                              <Text style={styles.defaultAvatarText}>
-                                {participantsWithDetails[0].name?.charAt(0)?.toUpperCase() || '?'}
-                              </Text>
+                            <View style={styles.emptySlot}>
+                              <Ionicons name="person-outline" size={24} color="#9CA3AF" />
                             </View>
-                          )
-                        ) : (
-                          <View style={styles.emptySlot}>
-                            <Ionicons name="person-outline" size={24} color="#9CA3AF" />
+                          )}
+                        </View>
+                        {participantsWithDetails[0]?.invitationStatus === 'PENDING' && (
+                          <View style={styles.pendingBadge}>
+                            <Ionicons name="time-outline" size={14} color="#F59E0B" />
                           </View>
                         )}
                       </View>
@@ -304,20 +445,27 @@ export default function JoinMatchScreen() {
                       </Text>
                     </View>
                     <View style={styles.doublesPlayerContainer}>
-                      <View style={styles.playerAvatar}>
-                        {participantsWithDetails[1] ? (
-                          participantsWithDetails[1].image ? (
-                            <Image source={{ uri: participantsWithDetails[1].image }} style={styles.avatarImage} />
+                      <View style={styles.playerAvatarWrapper}>
+                        <View style={styles.playerAvatar}>
+                          {participantsWithDetails[1] ? (
+                            participantsWithDetails[1].image ? (
+                              <Image source={{ uri: participantsWithDetails[1].image }} style={styles.avatarImage} />
+                            ) : (
+                              <View style={styles.defaultAvatar}>
+                                <Text style={styles.defaultAvatarText}>
+                                  {participantsWithDetails[1].name?.charAt(0)?.toUpperCase() || '?'}
+                                </Text>
+                              </View>
+                            )
                           ) : (
-                            <View style={styles.defaultAvatar}>
-                              <Text style={styles.defaultAvatarText}>
-                                {participantsWithDetails[1].name?.charAt(0)?.toUpperCase() || '?'}
-                              </Text>
+                            <View style={styles.emptySlot}>
+                              <Ionicons name="person-outline" size={24} color="#9CA3AF" />
                             </View>
-                          )
-                        ) : (
-                          <View style={styles.emptySlot}>
-                            <Ionicons name="person-outline" size={24} color="#9CA3AF" />
+                          )}
+                        </View>
+                        {participantsWithDetails[1]?.invitationStatus === 'PENDING' && (
+                          <View style={styles.pendingBadge}>
+                            <Ionicons name="time-outline" size={14} color="#F59E0B" />
                           </View>
                         )}
                       </View>
@@ -335,20 +483,27 @@ export default function JoinMatchScreen() {
                 <View style={styles.teamSection}>
                   <View style={styles.teamPlayers}>
                     <View style={styles.doublesPlayerContainer}>
-                      <View style={styles.playerAvatar}>
-                        {participantsWithDetails[2] ? (
-                          participantsWithDetails[2].image ? (
-                            <Image source={{ uri: participantsWithDetails[2].image }} style={styles.avatarImage} />
+                      <View style={styles.playerAvatarWrapper}>
+                        <View style={styles.playerAvatar}>
+                          {participantsWithDetails[2] ? (
+                            participantsWithDetails[2].image ? (
+                              <Image source={{ uri: participantsWithDetails[2].image }} style={styles.avatarImage} />
+                            ) : (
+                              <View style={styles.defaultAvatar}>
+                                <Text style={styles.defaultAvatarText}>
+                                  {participantsWithDetails[2].name?.charAt(0)?.toUpperCase() || '?'}
+                                </Text>
+                              </View>
+                            )
                           ) : (
-                            <View style={styles.defaultAvatar}>
-                              <Text style={styles.defaultAvatarText}>
-                                {participantsWithDetails[2].name?.charAt(0)?.toUpperCase() || '?'}
-                              </Text>
+                            <View style={styles.emptySlot}>
+                              <Ionicons name="person-outline" size={24} color="#9CA3AF" />
                             </View>
-                          )
-                        ) : (
-                          <View style={styles.emptySlot}>
-                            <Ionicons name="person-outline" size={24} color="#9CA3AF" />
+                          )}
+                        </View>
+                        {participantsWithDetails[2]?.invitationStatus === 'PENDING' && (
+                          <View style={styles.pendingBadge}>
+                            <Ionicons name="time-outline" size={14} color="#F59E0B" />
                           </View>
                         )}
                       </View>
@@ -357,20 +512,27 @@ export default function JoinMatchScreen() {
                       </Text>
                     </View>
                     <View style={styles.doublesPlayerContainer}>
-                      <View style={styles.playerAvatar}>
-                        {participantsWithDetails[3] ? (
-                          participantsWithDetails[3].image ? (
-                            <Image source={{ uri: participantsWithDetails[3].image }} style={styles.avatarImage} />
+                      <View style={styles.playerAvatarWrapper}>
+                        <View style={styles.playerAvatar}>
+                          {participantsWithDetails[3] ? (
+                            participantsWithDetails[3].image ? (
+                              <Image source={{ uri: participantsWithDetails[3].image }} style={styles.avatarImage} />
+                            ) : (
+                              <View style={styles.defaultAvatar}>
+                                <Text style={styles.defaultAvatarText}>
+                                  {participantsWithDetails[3].name?.charAt(0)?.toUpperCase() || '?'}
+                                </Text>
+                              </View>
+                            )
                           ) : (
-                            <View style={styles.defaultAvatar}>
-                              <Text style={styles.defaultAvatarText}>
-                                {participantsWithDetails[3].name?.charAt(0)?.toUpperCase() || '?'}
-                              </Text>
+                            <View style={styles.emptySlot}>
+                              <Ionicons name="person-outline" size={24} color="#9CA3AF" />
                             </View>
-                          )
-                        ) : (
-                          <View style={styles.emptySlot}>
-                            <Ionicons name="person-outline" size={24} color="#9CA3AF" />
+                          )}
+                        </View>
+                        {participantsWithDetails[3]?.invitationStatus === 'PENDING' && (
+                          <View style={styles.pendingBadge}>
+                            <Ionicons name="time-outline" size={14} color="#F59E0B" />
                           </View>
                         )}
                       </View>
@@ -385,20 +547,27 @@ export default function JoinMatchScreen() {
               <>
                 {/* Singles - Player 1 */}
                 <View style={styles.playerSection}>
-                  <View style={styles.playerAvatar}>
-                    {participantsWithDetails[0] ? (
-                      participantsWithDetails[0].image ? (
-                        <Image source={{ uri: participantsWithDetails[0].image }} style={styles.avatarImage} />
+                  <View style={styles.playerAvatarWrapper}>
+                    <View style={styles.playerAvatar}>
+                      {participantsWithDetails[0] ? (
+                        participantsWithDetails[0].image ? (
+                          <Image source={{ uri: participantsWithDetails[0].image }} style={styles.avatarImage} />
+                        ) : (
+                          <View style={styles.defaultAvatar}>
+                            <Text style={styles.defaultAvatarText}>
+                              {participantsWithDetails[0].name?.charAt(0)?.toUpperCase() || '?'}
+                            </Text>
+                          </View>
+                        )
                       ) : (
-                        <View style={styles.defaultAvatar}>
-                          <Text style={styles.defaultAvatarText}>
-                            {participantsWithDetails[0].name?.charAt(0)?.toUpperCase() || '?'}
-                          </Text>
+                        <View style={styles.emptySlot}>
+                          <Ionicons name="person-outline" size={24} color="#9CA3AF" />
                         </View>
-                      )
-                    ) : (
-                      <View style={styles.emptySlot}>
-                        <Ionicons name="person-outline" size={24} color="#9CA3AF" />
+                      )}
+                    </View>
+                    {participantsWithDetails[0]?.invitationStatus === 'PENDING' && (
+                      <View style={styles.pendingBadge}>
+                        <Ionicons name="time-outline" size={14} color="#F59E0B" />
                       </View>
                     )}
                   </View>
@@ -414,20 +583,27 @@ export default function JoinMatchScreen() {
 
                 {/* Singles - Player 2 */}
                 <View style={styles.playerSection}>
-                  <View style={styles.playerAvatar}>
-                    {participantsWithDetails[1] ? (
-                      participantsWithDetails[1].image ? (
-                        <Image source={{ uri: participantsWithDetails[1].image }} style={styles.avatarImage} />
+                  <View style={styles.playerAvatarWrapper}>
+                    <View style={styles.playerAvatar}>
+                      {participantsWithDetails[1] ? (
+                        participantsWithDetails[1].image ? (
+                          <Image source={{ uri: participantsWithDetails[1].image }} style={styles.avatarImage} />
+                        ) : (
+                          <View style={styles.defaultAvatar}>
+                            <Text style={styles.defaultAvatarText}>
+                              {participantsWithDetails[1].name?.charAt(0)?.toUpperCase() || '?'}
+                            </Text>
+                          </View>
+                        )
                       ) : (
-                        <View style={styles.defaultAvatar}>
-                          <Text style={styles.defaultAvatarText}>
-                            {participantsWithDetails[1].name?.charAt(0)?.toUpperCase() || '?'}
-                          </Text>
+                        <View style={styles.emptySlot}>
+                          <Ionicons name="person-outline" size={24} color="#9CA3AF" />
                         </View>
-                      )
-                    ) : (
-                      <View style={styles.emptySlot}>
-                        <Ionicons name="person-outline" size={24} color="#9CA3AF" />
+                      )}
+                    </View>
+                    {participantsWithDetails[1]?.invitationStatus === 'PENDING' && (
+                      <View style={styles.pendingBadge}>
+                        <Ionicons name="time-outline" size={14} color="#F59E0B" />
                       </View>
                     )}
                   </View>
@@ -448,7 +624,14 @@ export default function JoinMatchScreen() {
             <Ionicons name="calendar-outline" size={24} color={themeColor} />
           </View>
           <View style={styles.detailContent}>
-            <Text style={styles.detailTitle}>{date} at {time}</Text>
+            <View style={styles.dateTimeHeader}>
+              <Text style={styles.detailTitle}>{date} at {time}</Text>
+              <View style={[styles.statusBadge, { backgroundColor: statusBadge.badgeColor }]}>
+                <Text style={[styles.statusBadgeText, { color: statusBadge.textColor }]}>
+                  {statusBadge.statusText}
+                </Text>
+              </View>
+            </View>
             <Text style={styles.detailSubtitle}>{duration || 2} hour(s)</Text>
           </View>
         </View>
@@ -531,24 +714,83 @@ export default function JoinMatchScreen() {
         </TouchableOpacity>
       </ScrollView>
 
-      {/* Footer with Join Button */}
+      {/* Footer with Action Buttons */}
       <View style={[styles.footer, { paddingBottom: insets.bottom + 16 }]}>
-        <TouchableOpacity
-          style={[
-            styles.joinButton,
-            { backgroundColor:"#FEA04D" },
-            (loading || !canJoin) && styles.joinButtonDisabled
-          ]}
-          onPress={handleJoinMatch}
-          disabled={loading || !canJoin}
-        >
-          {loading ? (
-            <ActivityIndicator color="#FFFFFF" size="small" />
-          ) : (
-            <Text style={styles.joinButtonText}>Join Match</Text>
-          )}
-        </TouchableOpacity>
+        {isUserParticipant && allSlotsFilled ? (
+          // Show buttons for participants when match is full
+          <View style={styles.buttonGroup}>
+            {/* Test Button - Always visible for participants */}
+            <TouchableOpacity
+              style={[styles.testButton, { backgroundColor: "#8B5CF6" }]}
+              onPress={() => bottomSheetModalRef.current?.present()}
+            >
+              <Text style={styles.testButtonText}>Test Result Sheet</Text>
+            </TouchableOpacity>
+            
+            {/* Add Result button - only when match time reached */}
+            {canStartMatch ? (
+              <TouchableOpacity
+                style={[styles.joinButton, { backgroundColor: "#F59E0B" }]}
+                onPress={() => bottomSheetModalRef.current?.present()}
+              >
+                <Text style={styles.joinButtonText}>Add Result</Text>
+              </TouchableOpacity>
+            ) : (
+              <TouchableOpacity
+                style={[styles.joinButton, { backgroundColor: "#FEA04D" }, styles.joinButtonDisabled]}
+                disabled
+              >
+                <Text style={styles.joinButtonText}>
+                  Waiting for match time...
+                </Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        ) : (
+          // Join Match Button (shown to non-participants)
+          <TouchableOpacity
+            style={[
+              styles.joinButton,
+              { backgroundColor:"#FEA04D" },
+              (loading || !canJoin || allSlotsFilled) && styles.joinButtonDisabled
+            ]}
+            onPress={handleJoinMatch}
+            disabled={loading || !canJoin || allSlotsFilled}
+          >
+            {loading ? (
+              <ActivityIndicator color="#FFFFFF" size="small" />
+            ) : (
+              <Text style={styles.joinButtonText}>
+                {allSlotsFilled ? 'Match Full' : 'Join Match'}
+              </Text>
+            )}
+          </TouchableOpacity>
+        )}
       </View>
+
+      {/* Match Result Sheet Modal */}
+      <BottomSheetModal
+        ref={bottomSheetModalRef}
+        snapPoints={snapPoints}
+        backdropComponent={renderBackdrop}
+        enablePanDownToClose={true}
+        backgroundStyle={styles.bottomSheetBackground}
+      >
+        <BottomSheetView style={styles.bottomSheetContent}>
+          <MatchResultSheet
+            matchId={matchId}
+            matchType={matchType as 'SINGLES' | 'DOUBLES'}
+            players={participantsWithDetails.map(p => ({
+              id: p.userId,
+              name: p.name || 'Unknown',
+              image: p.image,
+              team: p.team as 'TEAM_A' | 'TEAM_B',
+            }))}
+            onClose={() => bottomSheetModalRef.current?.dismiss()}
+            onSubmit={handleSubmitResult}
+          />
+        </BottomSheetView>
+      </BottomSheetModal>
     </View>
   );
 }
@@ -645,12 +887,28 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     maxWidth: 60,
   },
+  playerAvatarWrapper: {
+    position: 'relative',
+    marginBottom: 6,
+  },
   playerAvatar: {
     width: 48,
     height: 48,
     borderRadius: 24,
-    marginBottom: 6,
     overflow: 'hidden',
+  },
+  pendingBadge: {
+    position: 'absolute',
+    bottom: -2,
+    right: -2,
+    backgroundColor: '#FEF3C7',
+    borderRadius: 10,
+    width: 20,
+    height: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
   },
   avatarImage: {
     width: '100%',
@@ -722,6 +980,23 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#111827',
     marginBottom: 4,
+  },
+  dateTimeHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 4,
+  },
+  statusBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 12,
+  },
+  statusBadgeText: {
+    fontSize: 11,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 0.3,
   },
   detailSubtitle: {
     fontSize: 13,
@@ -817,6 +1092,22 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: '#F3F4F6',
   },
+  buttonGroup: {
+    gap: 12,
+  },
+  testButton: {
+    paddingVertical: 12,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: '#8B5CF6',
+  },
+  testButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#FFFFFF',
+  },
   joinButton: {
     paddingVertical: 16,
     borderRadius: 16,
@@ -835,5 +1126,14 @@ const styles = StyleSheet.create({
     fontSize: 17,
     fontWeight: '700',
     color: '#FFFFFF',
+  },
+  bottomSheetBackground: {
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+  },
+  bottomSheetContent: {
+    flex: 1,
+    paddingHorizontal: 0,
   },
 });
