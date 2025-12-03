@@ -3,6 +3,7 @@ import { useRouter } from 'expo-router';
 import { useSession } from '@/lib/auth-client';
 import { LoadingScreen, SplashScreen } from '@/src/features/auth';
 import { Animated } from 'react-native';
+import { LandingStorage } from '@/src/core/storage';
 
 export default function HomeRoute() {
   const router = useRouter();
@@ -10,11 +11,15 @@ export default function HomeRoute() {
   const [showSplash, setShowSplash] = useState(true);
   const fadeAnim = useRef(new Animated.Value(0)).current;
 
-  const handleGetStarted = () => {
+  const handleGetStarted = async () => {
+    // Mark that user has seen the landing page before navigating
+    await LandingStorage.markLandingSeen();
     router.push('/register');
   };
 
-  const handleLogin = () => {
+  const handleLogin = async () => {
+    // Mark that user has seen the landing page before navigating
+    await LandingStorage.markLandingSeen();
     router.push('/login');
   };
 

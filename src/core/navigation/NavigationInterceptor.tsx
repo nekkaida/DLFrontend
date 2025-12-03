@@ -3,6 +3,7 @@ import { useRouter, useSegments } from 'expo-router';
 import { BackHandler } from 'react-native';
 import { useSession } from '@/lib/auth-client';
 import { getBackendBaseURL } from '@/src/config/network';
+import { LandingStorage } from '@/src/core/storage';
 
 // Only block these specific auth pages after login - NOT the home page
 const BLOCKED_AUTH_PAGES = ['/login', '/register', '/resetPassword', '/verifyEmail'];
@@ -36,6 +37,7 @@ export const NavigationInterceptor: React.FC<NavigationInterceptorProps> = ({ ch
     backendError?: boolean; // True when backend is unavailable (not 404)
   } | null>(null);
   const [isCheckingOnboarding, setIsCheckingOnboarding] = useState(false);
+  const [hasSeenLanding, setHasSeenLanding] = useState<boolean | null>(null); // null = checking, true/false = result
 
   // Check onboarding completion status from backend (using existing APIs)
   const checkOnboardingStatus = async (userId: string, forceRefresh: boolean = false) => {
@@ -160,6 +162,16 @@ export const NavigationInterceptor: React.FC<NavigationInterceptorProps> = ({ ch
     }
   };
 
+  // Check if user has seen the landing page on app start
+  useEffect(() => {
+    const checkLandingSeen = async () => {
+      const seen = await LandingStorage.hasSeenLanding();
+      console.log('NavigationInterceptor: Has seen landing:', seen);
+      setHasSeenLanding(seen);
+    };
+    checkLandingSeen();
+  }, []);
+
   // Check onboarding status when user session changes
   useEffect(() => {
     if (session?.user?.id && !onboardingStatus) {
@@ -172,9 +184,14 @@ export const NavigationInterceptor: React.FC<NavigationInterceptorProps> = ({ ch
 
   // Track navigation stack and block auth pages for authenticated users
   useEffect(() => {
-    // Don't do anything while auth is loading
+    // Don't do anything while auth is loading or checking landing status
     if (isPending) {
       console.log('NavigationInterceptor: Auth pending, waiting...');
+      return;
+    }
+
+    if (hasSeenLanding === null) {
+      console.log('NavigationInterceptor: Checking if user has seen landing...');
       return;
     }
 
@@ -189,7 +206,14 @@ export const NavigationInterceptor: React.FC<NavigationInterceptorProps> = ({ ch
         return;
       }
 
-      // Authenticated users - check onboarding status
+      // IMPORTANT: If user hasn't seen the landing page yet, let them see it first
+      // This ensures first-time TestFlight users see "Ready? Start Now" before any redirects
+      if (!hasSeenLanding) {
+        console.log('NavigationInterceptor: User has not seen landing page yet, staying here');
+        return;
+      }
+
+      // Authenticated users who have seen landing - check onboarding status
       if (isCheckingOnboarding || !onboardingStatus) {
         // Still checking onboarding status, don't redirect yet
         console.log('NavigationInterceptor: Checking onboarding status...');
@@ -319,7 +343,7 @@ export const NavigationInterceptor: React.FC<NavigationInterceptorProps> = ({ ch
         refreshOnboardingStatus();
       }
     }
-  }, [segments, router, session, onboardingStatus, isCheckingOnboarding, isPending]);
+  }, [segments, router, session, onboardingStatus, isCheckingOnboarding, isPending, hasSeenLanding]);
 
   // Handle Android back button
   useEffect(() => {
