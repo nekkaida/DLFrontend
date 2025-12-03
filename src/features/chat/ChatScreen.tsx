@@ -1,5 +1,7 @@
 import { getBackendBaseURL } from '@/config/network';
+import { getSportColors } from '@/constants/SportsColor';
 import { authClient, useSession } from '@/lib/auth-client';
+import { NavBar } from '@/shared/components/layout';
 import { Ionicons } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
 import * as Haptics from 'expo-haptics';
@@ -8,7 +10,6 @@ import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Dimensions,
-  Image,
   KeyboardAvoidingView,
   Platform,
   StatusBar,
@@ -20,8 +21,6 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { toast } from 'sonner-native';
-import { getSportColors } from '@/constants/sportColors';
-import { NavBar } from '@/shared/components/layout';
 import { MessageInput } from './components/chat-input';
 import { ThreadList } from './components/chat-list';
 import { MessageWindow } from './components/chat-window';
@@ -420,8 +419,8 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
       const messagePayload = {
         senderId: user.id,
         content: messageContent,
-        messageType: 'MATCH', // This tells the backend it's a match message
-        matchId: matchResult.id, // Link to the actual match
+        messageType: 'MATCH',
+        matchId: matchResult.id,
         matchData: {
           matchId: matchResult.id,
           date: matchData.date,
@@ -752,7 +751,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
                       onPress={() => {
                         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                         router.push({
-                          pathname: '/all-matches',
+                          pathname: '/match/all-matches',
                           params: {
                             divisionId: currentThread.metadata?.divisionId,
                             sportType: currentThread.sportType || 'PICKLEBALL',
