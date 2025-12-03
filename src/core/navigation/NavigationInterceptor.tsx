@@ -33,6 +33,7 @@ export const NavigationInterceptor: React.FC<NavigationInterceptorProps> = ({ ch
     completedOnboarding: boolean;
     hasCompletedAssessment: boolean;
     timestamp?: number;
+    backendError?: boolean; // True when backend is unavailable (not 404)
   } | null>(null);
   const [isCheckingOnboarding, setIsCheckingOnboarding] = useState(false);
 
@@ -61,11 +62,20 @@ export const NavigationInterceptor: React.FC<NavigationInterceptorProps> = ({ ch
 
       if (!onboardingResponse.ok) {
         if (onboardingResponse.status === 404) {
+          // User genuinely not found - they need to complete onboarding
           console.log('User not found in onboarding system, needs to complete onboarding');
+          setOnboardingStatus({ completedOnboarding: false, hasCompletedAssessment: false, timestamp: Date.now() });
         } else {
-          console.warn(`Onboarding API error (${onboardingResponse.status}), assuming user needs onboarding`);
+          // Backend error (5xx, etc.) - don't assume user needs onboarding
+          // Keep user on landing page instead of redirecting to onboarding
+          console.warn(`Onboarding API error (${onboardingResponse.status}), backend unavailable`);
+          setOnboardingStatus({
+            completedOnboarding: false,
+            hasCompletedAssessment: false,
+            timestamp: Date.now(),
+            backendError: true
+          });
         }
-        setOnboardingStatus({ completedOnboarding: false, hasCompletedAssessment: false });
         return;
       }
 
@@ -128,12 +138,14 @@ export const NavigationInterceptor: React.FC<NavigationInterceptorProps> = ({ ch
         setOnboardingStatus(finalStatus);
       }
     } catch (error) {
-      console.warn('Onboarding check failed, defaulting to incomplete for safety:', error);
-      // Default to incomplete on error to be safe - this ensures onboarding flow works
-      setOnboardingStatus({ 
-        completedOnboarding: false, 
+      // Network error or backend unavailable - don't redirect to onboarding
+      // Keep user on landing page so they can retry when backend is available
+      console.warn('Onboarding check failed (network/backend error), staying on landing page:', error);
+      setOnboardingStatus({
+        completedOnboarding: false,
         hasCompletedAssessment: false,
-        timestamp: Date.now()
+        timestamp: Date.now(),
+        backendError: true
       });
     } finally {
       setIsCheckingOnboarding(false);
@@ -185,6 +197,11 @@ export const NavigationInterceptor: React.FC<NavigationInterceptorProps> = ({ ch
       }
 
       if (!onboardingStatus.completedOnboarding) {
+        // Don't redirect to onboarding if backend is unavailable - stay on landing page
+        if (onboardingStatus.backendError) {
+          console.log('NavigationInterceptor: Backend unavailable, keeping user on landing page');
+          return;
+        }
         console.log('NavigationInterceptor: User needs onboarding, redirecting to personal-info');
         setTimeout(() => router.replace('/onboarding/personal-info'), 100);
         return;
@@ -231,6 +248,12 @@ export const NavigationInterceptor: React.FC<NavigationInterceptorProps> = ({ ch
       }
       
       if (!onboardingStatus.completedOnboarding) {
+        // Don't redirect to onboarding if backend is unavailable - redirect to landing page instead
+        if (onboardingStatus.backendError) {
+          console.warn('Access to protected route blocked - backend unavailable, redirecting to landing page');
+          setTimeout(() => router.replace('/'), 100);
+          return;
+        }
         console.warn('Access to protected route blocked - onboarding incomplete:', currentRoute);
         console.warn('NavigationInterceptor: Redirecting to personal-info');
         setTimeout(() => router.replace('/onboarding/personal-info'), 100);
@@ -248,7 +271,14 @@ export const NavigationInterceptor: React.FC<NavigationInterceptorProps> = ({ ch
     }
 
     // Block authenticated users from auth pages and redirect based on onboarding status
+    // BUT allow access to auth pages when backend is unavailable (so they can re-login)
     if (session?.user && isBlockedAuthPage(currentRoute)) {
+      // If backend is unavailable, allow access to auth pages - user may need to re-authenticate
+      if (onboardingStatus?.backendError) {
+        console.log('NavigationInterceptor: Backend unavailable, allowing access to auth page:', currentRoute);
+        return;
+      }
+
       console.warn('Navigation to auth page blocked for authenticated user:', currentRoute);
 
       if (!onboardingStatus) {
@@ -261,6 +291,9 @@ export const NavigationInterceptor: React.FC<NavigationInterceptorProps> = ({ ch
         setTimeout(() => router.replace('/user-dashboard'), 100);
       } else if (onboardingStatus.completedOnboarding) {
         setTimeout(() => router.replace('/onboarding/game-select'), 100);
+      } else if (onboardingStatus.backendError) {
+        // Backend unavailable - redirect to landing page instead of onboarding
+        setTimeout(() => router.replace('/'), 100);
       } else {
         setTimeout(() => router.replace('/onboarding/personal-info'), 100);
       }
