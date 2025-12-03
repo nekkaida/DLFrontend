@@ -576,13 +576,18 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
 
   // Get header content based on chat type
   const getHeaderContent = () => {
-    if (!currentThread || !user?.id) return { title: 'Chat', subtitle: null, sportType: null };
+    if (!currentThread || !user?.id) return { title: 'Chat', subtitle: null, sportType: null, season: null };
 
     if (currentThread.type === 'group') {
       // Group chat: show group name and participant count
+      // Get season name from thread metadata
+      const seasonName = currentThread.metadata?.seasonName || 
+                        currentThread.division?.season?.name || 
+                        null;
+      
       return {
         title: currentThread.name || 'Group Chat',
-        subtitle: null, //TO DO update this to show the season name 
+        subtitle: seasonName,
         sportType: currentThread.sportType
       };
     } else {
@@ -740,7 +745,29 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
                       activeOpacity={0.8}
                       onPress={() => {
                         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                        router.push('/standings');
+                        
+                        // Debug: Log the current thread data
+                        console.log('🔍 Current Thread Data:', {
+                          name: currentThread.name,
+                          sportType: currentThread.sportType,
+                          metadata: currentThread.metadata,
+                          division: currentThread.division,
+                        });
+                        
+                        router.push({
+                          pathname: '/match/divisionstandings',
+                          params: {
+                            divisionId: currentThread.metadata?.divisionId || currentThread.division?.id,
+                            divisionName: currentThread.metadata?.divisionName || currentThread.division?.name || 'Division 1',
+                            sportType: currentThread.sportType || 'PICKLEBALL',
+                            leagueName: currentThread.metadata?.leagueName || currentThread.division?.league?.name || 'League',
+                            seasonName: currentThread.metadata?.seasonName || currentThread.division?.season?.name || 'Season 1',
+                            gameType: currentThread.metadata?.gameType || currentThread.division?.gameType || 'Singles',
+                            genderCategory: currentThread.metadata?.genderCategory || currentThread.division?.genderCategory || '',
+                            seasonStartDate: currentThread.division?.season?.startDate,
+                            seasonEndDate: currentThread.division?.season?.endDate,
+                          },
+                        });
                       }}
                     >
                       <Text style={styles.primaryActionText}>View Standings</Text>
@@ -753,10 +780,10 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
                         router.push({
                           pathname: '/match/all-matches',
                           params: {
-                            divisionId: currentThread.metadata?.divisionId,
+                            divisionId: currentThread.metadata?.divisionId || currentThread.division?.id,
                             sportType: currentThread.sportType || 'PICKLEBALL',
-                            leagueName: currentThread.name || 'League',
-                            seasonName: 'Season 1 (2025)', // TODO: Get from thread metadata
+                            leagueName: currentThread.metadata?.leagueName || currentThread.division?.league?.name || 'League',
+                            seasonName: currentThread.metadata?.seasonName || currentThread.division?.season?.name || 'Season 1',
                           },
                         });
                       }}

@@ -59,10 +59,34 @@ export interface Thread {
   isActive: boolean;
   createdAt: Date;
   updatedAt: Date;
+  division?: {
+    id: string;
+    name: string;
+    gameType?: string;
+    genderCategory?: string;
+    league?: {
+      id: string;
+      name: string;
+      sportType: string;
+    };
+    season?: {
+      id: string;
+      name: string;
+      startDate?: string;
+      endDate?: string;
+      status?: string;
+    };
+  };
   metadata?: {
     avatarUrl?: string;
     divisionId?: string;
     seasonId?: string;
+    leagueId?: string;
+    leagueName?: string;
+    seasonName?: string;
+    divisionName?: string;
+    gameType?: string;
+    genderCategory?: string;
     isGroup?: boolean;
     messageCount?: number;
     [key: string]: any;
