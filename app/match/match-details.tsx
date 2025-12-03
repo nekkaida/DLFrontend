@@ -58,7 +58,6 @@ export default function JoinMatchScreen() {
 
   const sportColors = getSportColors(sportType as SportType);
   const themeColor = sportColors.background;
-  const joinButtonColor = '#C0803E';
 
   // Get sport-specific icon
   const getSportIcon = () => {
@@ -326,12 +325,8 @@ export default function JoinMatchScreen() {
                   </View>
                 </View>
 
-                {/* VS Divider */}
-                <View style={styles.vsContainer}>
-                  <Text style={styles.vsText}>
-                    {participantsWithDetails.length < 4 ? `${4 - participantsWithDetails.length} slots` : 'VS'}
-                  </Text>
-                </View>
+                {/* Vertical Divider */}
+                <View style={styles.verticalDivider} />
 
                 {/* Team 2 - Right Side */}
                 <View style={styles.teamSection}>
@@ -408,11 +403,11 @@ export default function JoinMatchScreen() {
                     {participantsWithDetails[0]?.name || 'Open slot'}
                   </Text>
                 </View>
+                
+                {/* Vertical Divider */}
+                
+                <View style={styles.verticalDivider} />
 
-                {/* VS Divider */}
-                <View style={styles.vsContainer}>
-                  <Text style={styles.vsText}>VS</Text>
-                </View>
 
                 {/* Singles - Player 2 */}
                 <View style={styles.playerSection}>
@@ -462,9 +457,9 @@ export default function JoinMatchScreen() {
           </View>
           <View style={styles.detailContent}>
             <Text style={styles.detailTitle}>{location || 'TBD'}</Text>
-            <Text style={styles.detailAddress}>
+            {/* <Text style={styles.detailAddress}>
               Lot 15, Carpark behind BP Healthcare, Lot 3470, Jalan SS 23/15, Taman Sea, 47300 Petaling Jaya, Selangor
-            </Text>
+            </Text> */}
             <View style={styles.courtStatusContainer}>
               {courtBooked ? (
                 <View style={styles.courtBadge}>
@@ -498,11 +493,13 @@ export default function JoinMatchScreen() {
 
         {/* Description */}
         <View style={styles.descriptionSection}>
-          <Text style={styles.descriptionTitle}>Any additional details...</Text>
+          <Text style={styles.descriptionTitle}>Description</Text>
           <Text style={styles.descriptionText}>
-            {description || 'Hi! League match and play on for fun if we still have time after the match is finished. Bring new balls.'}
+            {description || ''}
           </Text>
         </View>
+
+        <View style={styles.divider} />
 
         {/* Partnership Status for Doubles */}
         {matchType === 'DOUBLES' && (
@@ -536,7 +533,7 @@ export default function JoinMatchScreen() {
         <TouchableOpacity
           style={[
             styles.joinButton,
-            { backgroundColor: joinButtonColor },
+            { backgroundColor:"#FEA04D" },
             (loading || !canJoin) && styles.joinButtonDisabled
           ]}
           onPress={handleJoinMatch}
@@ -576,7 +573,7 @@ const styles = StyleSheet.create({
     padding: 4,
   },
   leagueBadge: {
-    backgroundColor: '#F97316',
+    backgroundColor: '#FEA04D',
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 4,
@@ -693,9 +690,15 @@ const styles = StyleSheet.create({
     color: '#6B7280',
     fontWeight: '500',
   },
+  verticalDivider: {
+    width: 1,
+    height: 80,
+    backgroundColor: '#E2E2E2',
+    marginHorizontal: 16,
+  },
   divider: {
     height: 1,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: '#E2E2E2',
     marginHorizontal: 24,
   },
   detailRow: {
@@ -748,7 +751,7 @@ const styles = StyleSheet.create({
   descriptionSection: {
     paddingHorizontal: 24,
     paddingVertical: 20,
-    backgroundColor: '#F9FAFB',
+    backgroundColor: '#FFFFFF',
     marginHorizontal: 24,
     borderRadius: 12,
     marginTop: 20,
