@@ -33,7 +33,6 @@ import {
 } from '../components';
 import { getBackendBaseURL } from '@/config/network';
 import { authClient, useSession } from '@/lib/auth-client';
-import * as SecureStore from 'expo-secure-store';
 import { toast } from 'sonner-native';
 import { useProfileHandlers } from '../hooks/useProfileHandlers';
 import { useProfileState } from '../hooks/useProfileState';
@@ -174,30 +173,70 @@ export default function ProfileScreen() {
       };
       formData.append('image', imageFile);
 
-      const response = await fetch(`${backendUrl}/api/player/profile/picture`, {
+      // Get session token for authentication
+      const sessionData = await authClient.getSession();
+      const token = sessionData?.data?.session?.token;
+      const userId = session?.user?.id || sessionData?.data?.user?.id;
+
+      if (!token && !userId) {
+        throw new Error('No authentication token available. Please sign in again.');
+      }
+
+      // Use correct endpoint and proper headers
+      const headers: Record<string, string> = {};
+      
+      // Add authorization token if available
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+      
+      // Add user ID header for mobile compatibility
+      if (userId) {
+        headers['x-user-id'] = userId;
+      }
+
+      const response = await fetch(`${backendUrl}/api/player/profile/upload-image`, {
         method: 'POST',
         body: formData,
-        headers: {
-          'Content-Type': 'multipart/form-data',
-          Authorization: `Bearer ${await SecureStore.getItemAsync('better-auth.session_token')}`,
-        },
+        headers,
       });
+
+      if (!response.ok) {
+        let errorMessage = `Upload failed with status ${response.status}`;
+        try {
+          const errorText = await response.text();
+          const errorJson = errorText ? JSON.parse(errorText) : null;
+          errorMessage = errorJson?.message || errorJson?.error || errorText || errorMessage;
+        } catch {
+          // If response is not JSON, use status text
+          errorMessage = `Upload failed: ${response.status} ${response.statusText}`;
+        }
+        console.error('Upload failed:', response.status, errorMessage);
+        throw new Error(errorMessage);
+      }
 
       const result = await response.json();
 
-      if (response.ok && result.data?.url) {
-        setProfileData((prev: any) => ({
-          ...prev,
-          image: result.data.url,
-        }));
-        toast.success('Success', {
-          description: 'Profile picture updated successfully!',
-        });
-      } else {
-        toast.error('Error', {
-          description: 'Upload successful but no image URL received.',
-        });
+      // Backend returns: { success: true, data: { user: {...}, imageUrl: "url" }, message: "..." }
+      let imageUrl: string | null = null;
+
+      if (result?.success && result?.data) {
+        // Backend structure: result.data.imageUrl
+        imageUrl = result.data.imageUrl || null;
       }
+
+      if (!imageUrl) {
+        throw new Error('Upload successful but no image URL received from server');
+      }
+
+      setProfileData((prev: any) => ({
+        ...prev,
+        image: imageUrl,
+      }));
+      
+      toast.success('Success', {
+        description: 'Profile picture updated successfully!',
+      });
     } catch (error) {
       console.error('Error uploading profile image:', error);
       toast.error('Error', {

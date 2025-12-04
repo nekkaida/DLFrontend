@@ -94,55 +94,96 @@ const ProfilePictureScreen = () => {
       const mimeType = mimeTypes[fileExtension] || 'image/jpeg';
 
       // Create file object for upload with correct extension
+      // React Native FormData expects: { uri, type, name }
+      // iOS requires file:// prefix removal, Android doesn't
+      const normalizedUri = Platform.OS === 'ios' && imageUri.startsWith('file://') 
+        ? imageUri.replace('file://', '') 
+        : imageUri;
+
       const file = {
-        uri: imageUri,
+        uri: normalizedUri,
         type: mimeType,
         name: `profile-${Date.now()}.${fileExtension}`,
-      } as any;
+      };
 
-      formData.append('image', file);
+      // TypeScript doesn't know about React Native's FormData format
+      // In RN, FormData.append accepts { uri, type, name } objects
+      formData.append('image', file as any);
 
       console.log('Uploading profile image:', imageUri);
       console.log('Backend URL:', backendUrl);
       console.log('Attempt:', retryCount + 1);
 
-      const response = await authClient.$fetch(`${backendUrl}/api/player/profile/upload-image`, {
+      // Get session token for authentication
+      const sessionData = await authClient.getSession();
+      const token = sessionData?.data?.session?.token;
+      const userId = session?.user?.id || sessionData?.data?.user?.id;
+
+      if (!token && !userId) {
+        throw new Error('No authentication token available. Please sign in again.');
+      }
+
+      // Use fetch directly for FormData (authClient.$fetch may not handle multipart correctly)
+      const headers: Record<string, string> = {};
+      
+      // Add authorization token if available
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+      
+      // Add user ID header for mobile compatibility
+      if (userId) {
+        headers['x-user-id'] = userId;
+      }
+
+      const response = await fetch(`${backendUrl}/api/player/profile/upload-image`, {
         method: 'POST',
         body: formData,
-        // Don't set Content-Type header - let the browser set it with proper boundary
+        headers,
       });
 
-      console.log('Upload response:', response);
-
-      // Handle different possible response structures
-      let imageUrl = null;
-
-      if (response && (response as any).data) {
-        const responseData = (response as any).data;
-        // Try different possible paths for the image URL
-        // Check nested data.data.imageUrl first (current backend structure)
-        imageUrl = responseData.data?.imageUrl || responseData.imageUrl || responseData.image || responseData.url || responseData.data?.image;
+      if (!response.ok) {
+        let errorMessage = `Upload failed with status ${response.status}`;
+        try {
+          const errorText = await response.text();
+          const errorJson = errorText ? JSON.parse(errorText) : null;
+          errorMessage = errorJson?.message || errorJson?.error || errorText || errorMessage;
+        } catch {
+          // If response is not JSON, use status text
+          errorMessage = `Upload failed: ${response.status} ${response.statusText}`;
+        }
+        console.error('Upload failed:', response.status, errorMessage);
+        throw new Error(errorMessage);
       }
 
-      if (imageUrl) {
-        console.log('Image URL received:', imageUrl);
-        console.log('Setting profileImage state to:', imageUrl);
+      const result = await response.json();
+      console.log('Upload response:', result);
 
-        // Update local state with new image URL
-        setProfileImage(imageUrl);
-        setHadUploadedImage(true); // Mark that user has uploaded an image
+      // Backend returns: { success: true, data: { user: {...}, imageUrl: "url" }, message: "..." }
+      let imageUrl: string | null = null;
 
-        console.log('profileImage state updated, hadUploadedImage set to true');
-
-        toast.success('Success', {
-          description: 'Profile picture updated successfully!',
-        });
-      } else {
-        console.error('No image URL found in response:', response);
-        toast.error('Error', {
-          description: 'Upload successful but no image URL received.',
-        });
+      if (result?.success && result?.data) {
+        // Backend structure: result.data.imageUrl
+        imageUrl = result.data.imageUrl || null;
       }
+
+      if (!imageUrl) {
+        console.error('No image URL found in response:', result);
+        throw new Error('Upload successful but no image URL received from server');
+      }
+
+      console.log('Image URL received:', imageUrl);
+      console.log('Setting profileImage state to:', imageUrl);
+
+      // Update local state with new image URL
+      setProfileImage(imageUrl);
+      setHadUploadedImage(true); // Mark that user has uploaded an image
+
+      console.log('profileImage state updated, hadUploadedImage set to true');
+
+      toast.success('Success', {
+        description: 'Profile picture updated successfully!',
+      });
     } catch (error) {
       console.error('Error uploading profile image:', error);
 
