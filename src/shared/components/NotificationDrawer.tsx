@@ -85,7 +85,9 @@ const NotificationItem = React.memo(({
           </Text>
           
           <Text style={styles.notificationTime}>
-            {formatDistanceToNow(new Date(notification.createdAt), { addSuffix: true })}
+            {notification.createdAt && !isNaN(new Date(notification.createdAt).getTime())
+              ? formatDistanceToNow(new Date(notification.createdAt), { addSuffix: true })
+              : 'Recently'}
           </Text>
         </View>
 
@@ -199,13 +201,13 @@ export default function NotificationDrawer({ visible, onClose }: NotificationDra
     markAllAsRead().catch(err => console.error('Failed to mark all as read:', err));
   }, [markAllAsRead]);
 
-  const renderNotificationItem = ({ item }: { item: Notification }) => (
+  const renderNotificationItem = useCallback(({ item }: { item: Notification }) => (
     <NotificationItem
       notification={item}
       onMarkAsRead={handleMarkAsRead}
       onDelete={handleDelete}
     />
-  );
+  ), [handleMarkAsRead, handleDelete]);
 
   const renderEmpty = () => (
     <View style={styles.emptyContainer}>
@@ -375,7 +377,7 @@ export default function NotificationDrawer({ visible, onClose }: NotificationDra
           <FlatList
             data={filteredNotifications}
             renderItem={renderNotificationItem}
-            keyExtractor={(item) => item.id}
+            keyExtractor={(item, index) => item.id || `notification-${index}`}
             contentContainerStyle={styles.listContent}
             ListEmptyComponent={loading ? null : renderEmpty}
             refreshControl={
