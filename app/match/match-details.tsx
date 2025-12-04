@@ -270,16 +270,31 @@ export default function JoinMatchScreen() {
     let textColor = '#6B7280';
     let statusText = 'Open';
     
+    // Check if time has passed
+    const hasTimePassed = isMatchTimeReached();
+    
     switch (status) {
       case 'OPEN':
-        badgeColor = '#DBEAFE';
-        textColor = '#1E40AF';
-        statusText = 'Open';
+        if (hasTimePassed && !allSlotsFilled) {
+          badgeColor = '#FEE2E2';
+          textColor = '#991B1B';
+          statusText = 'Time Passed';
+        } else {
+          badgeColor = '#DBEAFE';
+          textColor = '#1E40AF';
+          statusText = 'Open';
+        }
         break;
       case 'SCHEDULED':
-        badgeColor = '#FEF3C7';
-        textColor = '#92400E';
-        statusText = 'Scheduled';
+        if (hasTimePassed) {
+          badgeColor = '#FEE2E2';
+          textColor = '#991B1B';
+          statusText = 'Time Passed';
+        } else {
+          badgeColor = '#FEF3C7';
+          textColor = '#92400E';
+          statusText = 'Scheduled';
+        }
         break;
       case 'ONGOING':
       case 'IN_PROGRESS':
@@ -299,9 +314,15 @@ export default function JoinMatchScreen() {
         statusText = 'Cancelled';
         break;
       default:
-        statusText = allSlotsFilled ? 'Scheduled' : 'Open';
-        badgeColor = allSlotsFilled ? '#FEF3C7' : '#DBEAFE';
-        textColor = allSlotsFilled ? '#92400E' : '#1E40AF';
+        if (hasTimePassed) {
+          badgeColor = '#FEE2E2';
+          textColor = '#991B1B';
+          statusText = 'Time Passed';
+        } else {
+          statusText = allSlotsFilled ? 'Scheduled' : 'Open';
+          badgeColor = allSlotsFilled ? '#FEF3C7' : '#DBEAFE';
+          textColor = allSlotsFilled ? '#92400E' : '#1E40AF';
+        }
     }
     
     return { badgeColor, textColor, statusText };
@@ -439,6 +460,11 @@ export default function JoinMatchScreen() {
                             <Ionicons name="time-outline" size={14} color="#F59E0B" />
                           </View>
                         )}
+                        {participantsWithDetails[0]?.invitationStatus === 'ACCEPTED' && (
+                          <View style={styles.acceptedBadge}>
+                            <Ionicons name="checkmark-circle" size={16} color="#22C55E" />
+                          </View>
+                        )}
                       </View>
                       <Text style={styles.playerName} numberOfLines={1}>
                         {participantsWithDetails[0]?.name || 'Open slot'}
@@ -466,6 +492,11 @@ export default function JoinMatchScreen() {
                         {participantsWithDetails[1]?.invitationStatus === 'PENDING' && (
                           <View style={styles.pendingBadge}>
                             <Ionicons name="time-outline" size={14} color="#F59E0B" />
+                          </View>
+                        )}
+                        {participantsWithDetails[1]?.invitationStatus === 'ACCEPTED' && (
+                          <View style={styles.acceptedBadge}>
+                            <Ionicons name="checkmark-circle" size={16} color="#22C55E" />
                           </View>
                         )}
                       </View>
@@ -506,6 +537,11 @@ export default function JoinMatchScreen() {
                             <Ionicons name="time-outline" size={14} color="#F59E0B" />
                           </View>
                         )}
+                        {participantsWithDetails[2]?.invitationStatus === 'ACCEPTED' && (
+                          <View style={styles.acceptedBadge}>
+                            <Ionicons name="checkmark-circle" size={16} color="#22C55E" />
+                          </View>
+                        )}
                       </View>
                       <Text style={styles.playerName} numberOfLines={1}>
                         {participantsWithDetails[2]?.name || 'Open slot'}
@@ -533,6 +569,11 @@ export default function JoinMatchScreen() {
                         {participantsWithDetails[3]?.invitationStatus === 'PENDING' && (
                           <View style={styles.pendingBadge}>
                             <Ionicons name="time-outline" size={14} color="#F59E0B" />
+                          </View>
+                        )}
+                        {participantsWithDetails[3]?.invitationStatus === 'ACCEPTED' && (
+                          <View style={styles.acceptedBadge}>
+                            <Ionicons name="checkmark-circle" size={16} color="#22C55E" />
                           </View>
                         )}
                       </View>
@@ -570,6 +611,11 @@ export default function JoinMatchScreen() {
                         <Ionicons name="time-outline" size={14} color="#F59E0B" />
                       </View>
                     )}
+                    {participantsWithDetails[0]?.invitationStatus === 'ACCEPTED' && (
+                      <View style={styles.acceptedBadge}>
+                        <Ionicons name="checkmark-circle" size={16} color="#22C55E" />
+                      </View>
+                    )}
                   </View>
                   <Text style={styles.playerName} numberOfLines={1}>
                     {participantsWithDetails[0]?.name || 'Open slot'}
@@ -604,6 +650,11 @@ export default function JoinMatchScreen() {
                     {participantsWithDetails[1]?.invitationStatus === 'PENDING' && (
                       <View style={styles.pendingBadge}>
                         <Ionicons name="time-outline" size={14} color="#F59E0B" />
+                      </View>
+                    )}
+                    {participantsWithDetails[1]?.invitationStatus === 'ACCEPTED' && (
+                      <View style={styles.acceptedBadge}>
+                        <Ionicons name="checkmark-circle" size={16} color="#22C55E" />
                       </View>
                     )}
                   </View>
@@ -687,8 +738,8 @@ export default function JoinMatchScreen() {
 
         <View style={styles.divider} />
 
-        {/* Partnership Status for Doubles */}
-        {matchType === 'DOUBLES' && (
+        {/* Partnership Status for Doubles - Only show if match not full */}
+        {matchType === 'DOUBLES' && !allSlotsFilled && (
           <View style={styles.partnershipStatus}>
             {partnerInfo.hasPartner ? (
               <View style={styles.successBanner}>
@@ -752,16 +803,16 @@ export default function JoinMatchScreen() {
             style={[
               styles.joinButton,
               { backgroundColor:"#FEA04D" },
-              (loading || !canJoin || allSlotsFilled) && styles.joinButtonDisabled
+              (loading || !canJoin || allSlotsFilled || isMatchTimeReached()) && styles.joinButtonDisabled
             ]}
             onPress={handleJoinMatch}
-            disabled={loading || !canJoin || allSlotsFilled}
+            disabled={loading || !canJoin || allSlotsFilled || isMatchTimeReached()}
           >
             {loading ? (
               <ActivityIndicator color="#FFFFFF" size="small" />
             ) : (
               <Text style={styles.joinButtonText}>
-                {allSlotsFilled ? 'Match Full' : 'Join Match'}
+                {isMatchTimeReached() && !allSlotsFilled ? 'Time Passed' : allSlotsFilled ? 'Match Full' : 'Join Match'}
               </Text>
             )}
           </TouchableOpacity>
@@ -902,6 +953,19 @@ const styles = StyleSheet.create({
     bottom: -2,
     right: -2,
     backgroundColor: '#FEF3C7',
+    borderRadius: 10,
+    width: 20,
+    height: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
+  },
+  acceptedBadge: {
+    position: 'absolute',
+    bottom: -2,
+    right: -2,
+    backgroundColor: '#FFFFFF',
     borderRadius: 10,
     width: 20,
     height: 20,

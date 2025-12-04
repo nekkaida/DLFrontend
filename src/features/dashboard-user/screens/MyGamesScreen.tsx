@@ -37,6 +37,7 @@ interface Match {
     id: string;
     name: string;
     season?: {
+      id: string;
       name: string;
     };
     league?: {
@@ -367,7 +368,7 @@ export default function MyGamesScreen({ sport = 'pickleball' }: MyGamesScreenPro
         status: match.status,
         participants: JSON.stringify(match.participants || []),
         divisionId: match.division?.id || '',
-        seasonId: match.division?.season?.name || '',
+        seasonId: match.division?.season?.id || '',
       },
     });
   };

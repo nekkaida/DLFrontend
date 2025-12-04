@@ -156,7 +156,7 @@ export const MatchMessageBubble: React.FC<MatchMessageBubbleProps> = ({
         pathname: '/match/match-details',
         params: {
           matchId: matchData.matchId,
-          matchType: matchData.numberOfPlayers === '4' ? 'DOUBLES' : 'SINGLES',
+          matchType: matchData.matchType || (matchData.numberOfPlayers === '4' ? 'DOUBLES' : 'SINGLES'),
           date: formatDisplayDate(matchData.date),
           time: `${formattedStartTime} – ${formattedEndTime}`,
           location: matchData.location || 'TBD',
@@ -212,7 +212,7 @@ export const MatchMessageBubble: React.FC<MatchMessageBubbleProps> = ({
         {/* Match Title Row with Sport Badge */}
         <View style={styles.titleRow}>
           <Text style={styles.matchTitle}>
-            {matchData.numberOfPlayers === '2' ? 'Singles' : 'Doubles'} League Match
+            {matchData.matchType === 'SINGLES' ? 'Singles' : matchData.matchType === 'DOUBLES' ? 'Doubles' : matchData.numberOfPlayers === '2' ? 'Singles' : 'Doubles'} League Match
           </Text>
           <View style={[styles.sportBadge, { borderColor: sportColors.badgeColor }]}>
             <Text style={[styles.sportBadgeText, { color: sportColors.badgeColor }]}>

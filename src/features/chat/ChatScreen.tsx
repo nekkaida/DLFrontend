@@ -391,12 +391,12 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
       const startTime = extractStartTime(matchData.time);
       const time24 = convertTo24Hour(startTime);
       
-      // Send date and time as-is - backend will parse as Malaysia time
+      // SIMPLIFIED: Send single matchDate - backend will parse as Malaysia time
       const dateTimeString = `${matchData.date}T${time24}:00`;
       
-      console.log('📅 Match date/time:', {
+      console.log('\u{1F4C5} Match date/time:', {
         userInput: `${matchData.date} ${matchData.time}`,
-        dateTimeString: dateTimeString,
+        matchDate: dateTimeString,
         note: 'Backend will parse this as Malaysia Time (UTC+8)'
       });
       
@@ -405,7 +405,8 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
         divisionId: currentThread.metadata?.divisionId,
         matchType: divisionGameType || (isDoubles ? 'DOUBLES' : 'SINGLES'),
         format: 'STANDARD',
-        proposedTimes: [dateTimeString],
+        matchDate: dateTimeString,      // Using single matchDate
+        // proposedTimes: [dateTimeString],  // COMMENTED OUT
         location: matchData.location || 'TBD',
         notes: matchData.description,
         duration: matchData.duration || 2,
@@ -480,6 +481,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
         matchId: matchResult.id,
         matchData: {
           matchId: matchResult.id,
+          matchType: matchResult.matchType || divisionGameType || (String(matchData.numberOfPlayers) === '4' ? 'DOUBLES' : 'SINGLES'),
           date: matchData.date,
           time: matchData.time,
           duration: matchData.duration || 2,
