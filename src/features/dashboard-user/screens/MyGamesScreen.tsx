@@ -12,6 +12,7 @@ import {
   TextInput,
   Modal,
   ScrollView,
+  Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
@@ -19,6 +20,7 @@ import { useSession } from '@/lib/auth-client';
 import { getBackendBaseURL } from '@/src/config/network';
 import { getSportColors, SportType } from '@/constants/SportsColor';
 import { format } from 'date-fns';
+import axiosInstance, { endpoints } from '@/lib/endpoints';
 
 const { width } = Dimensions.get('window');
 const isSmallScreen = width < 375;
@@ -54,15 +56,81 @@ interface Match {
   }>;
 }
 
+interface MatchInvitation {
+  id: string;
+  matchId: string;
+  inviteeId: string;
+  role: string;
+  team?: string;
+  status: string;
+  sentAt: string;
+  expiresAt: string;
+  message?: string;
+  match: {
+    id: string;
+    matchType: string;
+    format: string;
+    sport: string;
+    location?: string;
+    venue?: string;
+    notes?: string;
+    division?: {
+      id: string;
+      name: string;
+    };
+    participants: Array<{
+      userId: string;
+      role: string;
+      team?: string;
+      invitationStatus: string;
+      user: {
+        id: string;
+        name: string;
+        username?: string;
+        image?: string;
+      };
+    }>;
+    timeSlots?: Array<{
+      id: string;
+      proposedTime: string;
+      location?: string;
+      voteCount: number;
+    }>;
+  };
+  inviter: {
+    id: string;
+    name: string;
+    username?: string;
+    image?: string;
+  };
+  partnerStatus?: {
+    team1: Array<{
+      userId: string;
+      name: string;
+      role: string;
+      confirmed: boolean;
+      status: string;
+    }>;
+    team2: Array<{
+      userId: string;
+      name: string;
+      role: string;
+      confirmed: boolean;
+      status: string;
+    }>;
+  };
+}
+
 interface MyGamesScreenProps {
   sport?: 'pickleball' | 'tennis' | 'padel';
 }
 
-type FilterTab = 'ALL' | 'UPCOMING' | 'PAST';
+type FilterTab = 'ALL' | 'UPCOMING' | 'PAST' | 'INVITES';
 
 export default function MyGamesScreen({ sport = 'pickleball' }: MyGamesScreenProps) {
   const { data: session } = useSession();
   const [matches, setMatches] = useState<Match[]>([]);
+  const [invitations, setInvitations] = useState<MatchInvitation[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   
@@ -102,13 +170,27 @@ export default function MyGamesScreen({ sport = 'pickleball' }: MyGamesScreenPro
     }
   }, [session?.user?.id]);
 
+  const fetchPendingInvitations = useCallback(async () => {
+    if (!session?.user?.id) return;
+
+    try {
+      const response = await axiosInstance.get(endpoints.match.getPendingInvitations);
+      setInvitations(Array.isArray(response.data) ? response.data : []);
+    } catch (error: any) {
+      console.error('Error fetching invitations:', error?.response?.status, error?.message);
+      setInvitations([]);
+    }
+  }, [session?.user?.id]);
+
   useEffect(() => {
     fetchMyMatches();
-  }, [fetchMyMatches]);
+    fetchPendingInvitations();
+  }, [fetchMyMatches, fetchPendingInvitations]);
 
   const onRefresh = () => {
     setRefreshing(true);
     fetchMyMatches();
+    fetchPendingInvitations();
   };
 
   // Extract unique values for filters
@@ -220,6 +302,47 @@ export default function MyGamesScreen({ sport = 'pickleball' }: MyGamesScreenPro
     } catch {
       return '';
     }
+  };
+
+  const handleAcceptInvitation = async (invitationId: string) => {
+    try {
+      await axiosInstance.post(endpoints.match.respondToInvitation(invitationId), {
+        accept: true,
+      });
+      Alert.alert('Success', 'Invitation accepted!');
+      fetchPendingInvitations();
+      fetchMyMatches();
+    } catch (error) {
+      console.error('Error accepting invitation:', error);
+      Alert.alert('Error', 'Failed to accept invitation');
+    }
+  };
+
+  const handleDeclineInvitation = async (invitationId: string) => {
+    Alert.alert(
+      'Decline Invitation',
+      'Are you sure you want to decline this invitation?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Decline',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await axiosInstance.post(endpoints.match.respondToInvitation(invitationId), {
+                accept: false,
+                declineReason: 'Not available',
+              });
+              Alert.alert('Success', 'Invitation declined');
+              fetchPendingInvitations();
+            } catch (error) {
+              console.error('Error declining invitation:', error);
+              Alert.alert('Error', 'Failed to decline invitation');
+            }
+          },
+        },
+      ]
+    );
   };
 
   const handleMatchPress = (match: Match) => {
@@ -349,6 +472,100 @@ export default function MyGamesScreen({ sport = 'pickleball' }: MyGamesScreenPro
     );
   };
 
+  const renderInvitationCard = ({ item }: { item: MatchInvitation }) => {
+    const sportColors = getSportColors((item.match.sport || sport) as SportType);
+    const expiresAt = new Date(item.expiresAt);
+    const isExpiringSoon = expiresAt.getTime() - Date.now() < 24 * 60 * 60 * 1000; // Less than 24 hours
+
+    return (
+      <View style={styles.invitationCard}>
+        {/* Header with inviter and sport badge */}
+        <View style={styles.invitationHeader}>
+          <View style={styles.inviterRow}>
+            {item.inviter.image ? (
+              <Image source={{ uri: item.inviter.image }} style={styles.inviterAvatarSmall} />
+            ) : (
+              <View style={[styles.inviterAvatarSmall, styles.defaultInviterAvatar]}>
+                <Text style={styles.inviterInitial}>
+                  {item.inviter.name?.charAt(0)?.toUpperCase() || '?'}
+                </Text>
+              </View>
+            )}
+            <View style={styles.inviterTextContainer}>
+              <Text style={styles.inviterNameSmall}>{item.inviter.name}</Text>
+              <Text style={styles.invitationSubtext}>invited you to play</Text>
+            </View>
+          </View>
+          <View style={[styles.sportBadgeSmall, { backgroundColor: sportColors.background }]}>
+            <Text style={styles.sportBadgeTextSmall}>{sportColors.label}</Text>
+          </View>
+        </View>
+
+        {/* Match info */}
+        <View style={styles.invitationBody}>
+          <Text style={styles.matchTypeSmall}>
+            {item.match.matchType === 'DOUBLES' ? 'Doubles' : 'Singles'} Match
+          </Text>
+          
+          {/* Division/League info */}
+          {item.match.division && (
+            <Text style={styles.divisionInfo} numberOfLines={1}>
+              {item.match.division.name}
+            </Text>
+          )}
+
+          {/* Time and location */}
+          <View style={styles.invitationDetails}>
+            {item.match.timeSlots && item.match.timeSlots.length > 0 && (
+              <View style={styles.infoRowSmall}>
+                <Ionicons name="calendar-outline" size={14} color="#6B7280" />
+                <Text style={styles.infoTextSmall}>
+                  {formatMatchDate(item.match.timeSlots[0].proposedTime)} • {formatMatchTime(item.match.timeSlots[0].proposedTime)}
+                </Text>
+              </View>
+            )}
+            {(item.match.location || item.match.venue) && (
+              <View style={styles.infoRowSmall}>
+                <Ionicons name="location-outline" size={14} color="#6B7280" />
+                <Text style={styles.infoTextSmall} numberOfLines={1}>
+                  {item.match.venue || item.match.location}
+                </Text>
+              </View>
+            )}
+          </View>
+
+          {/* Expiry warning */}
+          {isExpiringSoon && (
+            <View style={styles.expiryWarning}>
+              <Ionicons name="time-outline" size={12} color="#D97706" />
+              <Text style={styles.expiryWarningText}>
+                Expires {format(expiresAt, 'MMM dd, h:mm a')}
+              </Text>
+            </View>
+          )}
+        </View>
+
+        {/* Action Buttons */}
+        <View style={styles.invitationActionsCompact}>
+          <TouchableOpacity
+            style={styles.declineButtonCompact}
+            onPress={() => handleDeclineInvitation(item.id)}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.declineButtonTextCompact}>Decline</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.acceptButtonCompact}
+            onPress={() => handleAcceptInvitation(item.id)}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.acceptButtonTextCompact}>Accept</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  };
+
   const renderEmptyState = () => (
     <View style={styles.emptyContainer}>
       <Ionicons name="calendar-outline" size={64} color="#D1D5DB" />
@@ -362,7 +579,7 @@ export default function MyGamesScreen({ sport = 'pickleball' }: MyGamesScreenPro
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#863A73" />
+        <ActivityIndicator size="large" color="#FEA04D" />
         <Text style={styles.loadingText}>Loading your matches...</Text>
       </View>
     );
@@ -424,19 +641,48 @@ export default function MyGamesScreen({ sport = 'pickleball' }: MyGamesScreenPro
             Past
           </Text>
         </TouchableOpacity>
+        <TouchableOpacity 
+          style={[styles.tab, activeTab === 'INVITES' && styles.tabActive]}
+          onPress={() => setActiveTab('INVITES')}
+        >
+          <Text style={[styles.tabText, activeTab === 'INVITES' && styles.tabTextActive]}>
+            Invites {invitations.length > 0 && `(${invitations.length})`}
+          </Text>
+        </TouchableOpacity>
       </View>
 
-      {/* Matches List */}
-      <FlatList
-        data={filteredMatches}
-        renderItem={renderMatchCard}
-        keyExtractor={(item) => item.id}
-        contentContainerStyle={styles.listContent}
-        ListEmptyComponent={renderEmptyState}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-        }
-      />
+      {/* Matches/Invitations List */}
+      {activeTab === 'INVITES' ? (
+        <FlatList
+          data={invitations}
+          keyExtractor={(item) => item.id}
+          renderItem={renderInvitationCard}
+          contentContainerStyle={styles.listContent}
+          ListEmptyComponent={
+            <View style={styles.emptyContainer}>
+              <Ionicons name="mail-outline" size={64} color="#D1D5DB" />
+              <Text style={styles.emptyTitle}>No Pending Invitations</Text>
+              <Text style={styles.emptyText}>
+                You don't have any pending match invitations at the moment.
+              </Text>
+            </View>
+          }
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+          }
+        />
+      ) : (
+        <FlatList
+          data={filteredMatches}
+          renderItem={renderMatchCard}
+          keyExtractor={(item) => item.id}
+          contentContainerStyle={styles.listContent}
+          ListEmptyComponent={renderEmptyState}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+          }
+        />
+      )}
 
       {/* Filter Modal */}
       <Modal
@@ -466,7 +712,7 @@ export default function MyGamesScreen({ sport = 'pickleball' }: MyGamesScreenPro
                         styles.filterOption,
                         selectedSport === sportName && styles.filterOptionActive
                       ]}
-                      onPress={() => setSelectedSport(selectedSport === sportName ? null : sportName)}
+                      onPress={() => setSelectedSport(selectedSport === sportName ? null : sportName as string)}
                     >
                       <Text style={[
                         styles.filterOptionText,
@@ -493,7 +739,7 @@ export default function MyGamesScreen({ sport = 'pickleball' }: MyGamesScreenPro
                         styles.filterOption,
                         selectedDivision === division && styles.filterOptionActive
                       ]}
-                      onPress={() => setSelectedDivision(selectedDivision === division ? null : division)}
+                      onPress={() => setSelectedDivision(selectedDivision === division ? null : division as string)}
                     >
                       <Text style={[
                         styles.filterOptionText,
@@ -520,7 +766,7 @@ export default function MyGamesScreen({ sport = 'pickleball' }: MyGamesScreenPro
                         styles.filterOption,
                         selectedSeason === season && styles.filterOptionActive
                       ]}
-                      onPress={() => setSelectedSeason(selectedSeason === season ? null : season)}
+                      onPress={() => setSelectedSeason(selectedSeason === season ? null : season as string)}
                     >
                       <Text style={[
                         styles.filterOptionText,
@@ -627,7 +873,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   tabActive: {
-    backgroundColor: '#863A73',
+    backgroundColor: '#FEA04D',
   },
   tabText: {
     fontSize: 14,
@@ -882,6 +1128,227 @@ const styles = StyleSheet.create({
   },
   applyButtonText: {
     fontSize: 16,
+    fontWeight: '600',
+    color: '#FFFFFF',
+  },
+  // Invitation card styles
+  inviterSection: {
+    marginBottom: 16,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E7EB',
+  },
+  inviterInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  inviterAvatar: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    overflow: 'hidden',
+    borderWidth: 2,
+    borderColor: '#863A73',
+  },
+  inviterDetails: {
+    flex: 1,
+  },
+  inviterName: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#1A1C1E',
+    marginBottom: 2,
+  },
+  inviterRole: {
+    fontSize: 13,
+    color: '#6B7280',
+  },
+  expiryInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 12,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#E5E7EB',
+  },
+  expiryText: {
+    fontSize: 12,
+    color: '#6B7280',
+  },
+  invitationActions: {
+    flexDirection: 'row',
+    gap: 12,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#E5E7EB',
+  },
+  declineButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 12,
+    borderRadius: 12,
+    backgroundColor: '#FEF2F2',
+    borderWidth: 1,
+    borderColor: '#FEE2E2',
+  },
+  declineButtonText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#DC2626',
+  },
+  acceptButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 12,
+    borderRadius: 12,
+    backgroundColor: '#FEA04D',
+  },
+  acceptButtonText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#FFFFFF',
+  },
+  // Compact invitation card styles
+  invitationCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  invitationHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  inviterRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    flex: 1,
+  },
+  inviterAvatarSmall: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    overflow: 'hidden',
+  },
+  defaultInviterAvatar: {
+    backgroundColor: '#FEA04D',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  inviterInitial: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  inviterTextContainer: {
+    flex: 1,
+  },
+  inviterNameSmall: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#1A1C1E',
+  },
+  invitationSubtext: {
+    fontSize: 12,
+    color: '#6B7280',
+    marginTop: 1,
+  },
+  sportBadgeSmall: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+  },
+  sportBadgeTextSmall: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: '#FFFFFF',
+  },
+  invitationBody: {
+    gap: 6,
+  },
+  matchTypeSmall: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#1A1C1E',
+    marginBottom: 2,
+  },
+  divisionInfo: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#FEA04D',
+    marginBottom: 6,
+  },
+  invitationDetails: {
+    gap: 4,
+  },
+  infoRowSmall: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  infoTextSmall: {
+    fontSize: 12,
+    color: '#4B5563',
+    flex: 1,
+  },
+  expiryWarning: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 6,
+    paddingTop: 6,
+    borderTopWidth: 1,
+    borderTopColor: '#FEF3C7',
+  },
+  expiryWarningText: {
+    fontSize: 11,
+    color: '#D97706',
+    fontWeight: '500',
+  },
+  invitationActionsCompact: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 12,
+  },
+  declineButtonCompact: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: 10,
+    borderRadius: 8,
+    backgroundColor: '#F3F4F6',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  declineButtonTextCompact: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#6B7280',
+  },
+  acceptButtonCompact: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: 10,
+    borderRadius: 8,
+    backgroundColor: '#FEA04D',
+  },
+  acceptButtonTextCompact: {
+    fontSize: 14,
     fontWeight: '600',
     color: '#FFFFFF',
   },

@@ -173,6 +173,8 @@ export const endpoints = {
     confirmTimeSlot: (id: string) => `/api/match/timeslots/${id}/confirm`,
     
     // Invitations
+    getPendingInvitations: "/api/match/invitations/pending",
+    getInvitationById: (id: string) => `/api/match/invitations/${id}`,
     respondToInvitation: (id: string) => `/api/match/invitations/${id}/respond`,
     
     // Results
