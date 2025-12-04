@@ -1,14 +1,18 @@
-import React from 'react';
+import React, { useCallback, useEffect, useMemo, useRef } from 'react';
 import {
-  Modal,
   View,
   Text,
-  TouchableOpacity,
   StyleSheet,
-  Pressable,
-  ScrollView,
+  Image,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import {
+  BottomSheetModal,
+  BottomSheetBackdrop,
+  BottomSheetHandle,
+  BottomSheetScrollView,
+} from '@gorhom/bottom-sheet';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 interface MatchInfoModalProps {
   visible: boolean;
@@ -20,11 +24,13 @@ interface MatchInfoModalProps {
     date: string;
     time: string;
     duration: number;
-    fee: string;
+    fee: 'FREE' | 'SPLIT' | 'FIXED';
+    feeAmount?: string;
     courtBooked?: boolean;
     notes?: string;
   };
   creatorName: string;
+  creatorImage?: string | null;
   formattedDate: string;
   formattedTime: string;
   formattedEndTime: string;
@@ -35,10 +41,43 @@ export const MatchInfoModal: React.FC<MatchInfoModalProps> = ({
   onClose,
   matchData,
   creatorName,
+  creatorImage,
   formattedDate,
   formattedTime,
   formattedEndTime,
 }) => {
+  const bottomSheetModalRef = useRef<BottomSheetModal>(null);
+  const insets = useSafeAreaInsets();
+
+  const snapPoints = useMemo(() => ['75%', '90%'], []);
+
+  useEffect(() => {
+    if (visible) {
+      bottomSheetModalRef.current?.present();
+    } else {
+      bottomSheetModalRef.current?.dismiss();
+    }
+  }, [visible]);
+
+  const handleSheetChanges = useCallback((index: number) => {
+    if (index === -1) {
+      onClose();
+    }
+  }, [onClose]);
+
+  const renderBackdrop = useCallback(
+    (props: any) => (
+      <BottomSheetBackdrop
+        {...props}
+        disappearsOnIndex={-1}
+        appearsOnIndex={0}
+        opacity={0.5}
+        onPress={onClose}
+      />
+    ),
+    [onClose]
+  );
+
   const getSportColors = () => {
     switch (matchData.sportType) {
       case 'PICKLEBALL':
@@ -55,154 +94,185 @@ export const MatchInfoModal: React.FC<MatchInfoModalProps> = ({
   const sportColors = getSportColors();
 
   return (
-    <Modal
-      visible={visible}
-      transparent
-      animationType="slide"
-      onRequestClose={onClose}
+    <BottomSheetModal
+      ref={bottomSheetModalRef}
+      snapPoints={snapPoints}
+      index={0}
+      onChange={handleSheetChanges}
+      backdropComponent={renderBackdrop}
+      handleComponent={(props) => (
+        <View style={styles.handleContainer}>
+          <BottomSheetHandle {...props} />
+        </View>
+      )}
+      backgroundStyle={styles.bottomSheetBackground}
+      style={styles.bottomSheetContainer}
+      enablePanDownToClose={true}
+      enableDismissOnClose={true}
+      android_keyboardInputMode="adjustResize"
     >
-      <Pressable style={styles.overlay} onPress={onClose}>
-        <Pressable style={styles.modalContainer} onPress={(e) => e.stopPropagation()}>
-          <View style={styles.header}>
-            <Text style={styles.title}>Match Information</Text>
-            <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-              <Ionicons name="close" size={24} color="#6B7280" />
-            </TouchableOpacity>
+      <BottomSheetScrollView
+        style={styles.content}
+        contentContainerStyle={[styles.contentContainer, { paddingBottom: insets.bottom + 20 }]}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Header */}
+        <View style={styles.header}>
+          <Text style={styles.title}>Match Information</Text>
+        </View>
+
+        {/* Match Type Badge */}
+        <View style={styles.badgeContainer}>
+          <View style={[styles.typeBadge, { backgroundColor: '#F3F4F6' }]}>
+            <Text style={styles.typeBadgeText}>
+              {matchData.numberOfPlayers === '2' ? 'Singles' : 'Doubles'} Match
+            </Text>
           </View>
+          <View style={[styles.sportBadge, { borderColor: sportColors.badge }]}>
+            <Text style={[styles.sportBadgeText, { color: sportColors.badge }]}>
+              {sportColors.label}
+            </Text>
+          </View>
+        </View>
 
-          <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-            {/* Match Type Badge */}
-            <View style={styles.badgeContainer}>
-              <View style={[styles.typeBadge, { backgroundColor: '#F3F4F6' }]}>
-                <Text style={styles.typeBadgeText}>
-                  {matchData.numberOfPlayers === '2' ? 'Singles' : 'Doubles'} Match
+        {/* Creator */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Created By</Text>
+          <View style={styles.creatorRow}>
+            {creatorImage ? (
+              <Image source={{ uri: creatorImage }} style={styles.creatorAvatar} />
+            ) : (
+              <View style={styles.creatorAvatarPlaceholder}>
+                <Text style={styles.creatorAvatarText}>
+                  {creatorName.charAt(0).toUpperCase()}
                 </Text>
-              </View>
-              <View style={[styles.sportBadge, { borderColor: sportColors.badge }]}>
-                <Text style={[styles.sportBadgeText, { color: sportColors.badge }]}>
-                  {sportColors.label}
-                </Text>
-              </View>
-            </View>
-
-            {/* Creator */}
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Created By</Text>
-              <View style={styles.infoRow}>
-                <Ionicons name="person-outline" size={20} color="#6B7280" />
-                <Text style={styles.infoText}>{creatorName}</Text>
-              </View>
-            </View>
-
-            {/* Date & Time */}
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Date & Time</Text>
-              <View style={styles.infoRow}>
-                <Ionicons name="calendar-outline" size={20} color="#6B7280" />
-                <Text style={styles.infoText}>{formattedDate}</Text>
-              </View>
-              <View style={styles.infoRow}>
-                <Ionicons name="time-outline" size={20} color="#6B7280" />
-                <Text style={styles.infoText}>
-                  {formattedTime} – {formattedEndTime}
-                </Text>
-              </View>
-              <View style={styles.infoRow}>
-                <Ionicons name="hourglass-outline" size={20} color="#6B7280" />
-                <Text style={styles.infoText}>{matchData.duration} hour{matchData.duration > 1 ? 's' : ''}</Text>
-              </View>
-            </View>
-
-            {/* Location */}
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Location</Text>
-              <View style={styles.infoRow}>
-                <Ionicons name="location-outline" size={20} color="#6B7280" />
-                <Text style={styles.infoText}>{matchData.location || 'TBD'}</Text>
-              </View>
-            </View>
-
-            {/* Court Status */}
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Court Status</Text>
-              <View style={[
-                styles.statusBadge,
-                matchData.courtBooked ? styles.statusBadgeBooked : styles.statusBadgeNotBooked
-              ]}>
-                <Ionicons 
-                  name={matchData.courtBooked ? "checkmark-circle" : "close-circle"} 
-                  size={18} 
-                  color={matchData.courtBooked ? "#16A34A" : "#DC2626"} 
-                />
-                <Text style={[
-                  styles.statusText,
-                  matchData.courtBooked ? styles.statusTextBooked : styles.statusTextNotBooked
-                ]}>
-                  Court {matchData.courtBooked ? 'booked' : 'not booked'}
-                </Text>
-              </View>
-            </View>
-
-            {/* Cost */}
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Cost</Text>
-              <View style={styles.infoRow}>
-                <Text style={styles.costIcon}>$</Text>
-                <Text style={styles.infoText}>
-                  {matchData.fee === 'FREE' ? 'Free' : 'Cost Split Between Players'}
-                </Text>
-              </View>
-            </View>
-
-            {/* Notes */}
-            {matchData.notes && (
-              <View style={styles.section}>
-                <Text style={styles.sectionTitle}>Notes</Text>
-                <Text style={styles.notesText}>{matchData.notes}</Text>
               </View>
             )}
-          </ScrollView>
+            <Text style={styles.creatorName}>{creatorName}</Text>
+          </View>
+        </View>
 
-          <TouchableOpacity style={styles.closeFooterButton} onPress={onClose}>
-            <Text style={styles.closeFooterButtonText}>Close</Text>
-          </TouchableOpacity>
-        </Pressable>
-      </Pressable>
-    </Modal>
+        {/* Date & Time */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Date & Time</Text>
+          <View style={styles.infoRow}>
+            <Ionicons name="calendar-outline" size={20} color="#86868B" />
+            <Text style={styles.infoText}>{formattedDate}</Text>
+          </View>
+          <View style={styles.infoRow}>
+            <Ionicons name="time-outline" size={20} color="#86868B" />
+            <Text style={styles.infoText}>
+              {formattedTime} – {formattedEndTime}
+            </Text>
+          </View>
+          <View style={styles.infoRow}>
+            <Ionicons name="hourglass-outline" size={20} color="#86868B" />
+            <Text style={styles.infoText}>{matchData.duration} hour{matchData.duration > 1 ? 's' : ''}</Text>
+          </View>
+        </View>
+
+        {/* Location */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Location</Text>
+          <View style={styles.infoRow}>
+            <Ionicons name="location-outline" size={20} color="#86868B" />
+            <Text style={styles.infoText}>{matchData.location || 'TBD'}</Text>
+          </View>
+        </View>
+
+        {/* Court Status */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Court Status</Text>
+          <View style={[
+            styles.statusBadge,
+            matchData.courtBooked ? styles.statusBadgeBooked : styles.statusBadgeNotBooked
+          ]}>
+            <Ionicons 
+              name={matchData.courtBooked ? "checkmark-circle" : "close-circle"} 
+              size={18} 
+              color={matchData.courtBooked ? "#16A34A" : "#DC2626"} 
+            />
+            <Text style={[
+              styles.statusText,
+              matchData.courtBooked ? styles.statusTextBooked : styles.statusTextNotBooked
+            ]}>
+              Court {matchData.courtBooked ? 'booked' : 'not booked'}
+            </Text>
+          </View>
+        </View>
+
+        {/* Court Fee */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Court Fee</Text>
+          <View style={styles.infoRow}>
+            <Text style={styles.costIcon}>$</Text>
+            <Text style={styles.infoText}>
+              {(() => {
+                const fee = matchData.fee as 'FREE' | 'SPLIT' | 'FIXED' | undefined;
+                const feeAmount = matchData.feeAmount as string | undefined;
+                
+                if (fee === 'FREE' || !fee) {
+                  return 'Free';
+                } else if (fee === 'SPLIT' && feeAmount) {
+                  const totalAmount = parseFloat(feeAmount);
+                  const numPlayers = parseInt(matchData.numberOfPlayers || '2', 10);
+                  const perPlayer = numPlayers > 0 ? (totalAmount / numPlayers).toFixed(2) : '0.00';
+                  return `Split · Est. RM${perPlayer} per player`;
+                } else if (fee === 'FIXED' && feeAmount) {
+                  return `Fixed · RM${parseFloat(feeAmount).toFixed(2)} per player`;
+                }
+                return 'Free';
+              })()}
+            </Text>
+          </View>
+        </View>
+
+        {/* Notes */}
+        {matchData.notes && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Notes</Text>
+            <Text style={styles.notesText}>{matchData.notes}</Text>
+          </View>
+        )}
+      </BottomSheetScrollView>
+    </BottomSheetModal>
   );
 };
 
 const styles = StyleSheet.create({
-  overlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'flex-end',
+  handleContainer: {
+    paddingTop: 8,
   },
-  modalContainer: {
+  bottomSheetBackground: {
     backgroundColor: '#FFFFFF',
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
-    maxHeight: '80%',
-    paddingTop: 20,
   },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    marginBottom: 20,
-  },
-  title: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#111827',
-  },
-  closeButton: {
-    padding: 4,
+  bottomSheetContainer: {
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: -2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 8,
   },
   content: {
+    flex: 1,
+  },
+  contentContainer: {
     paddingHorizontal: 20,
-    marginBottom: 20,
+    paddingTop: 8,
+  },
+  header: {
+    alignItems: 'center',
+    marginBottom: 24,
+  },
+  title: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: '#111827',
   },
   badgeContainer: {
     flexDirection: 'row',
@@ -241,6 +311,36 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
     marginBottom: 8,
   },
+  creatorRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  creatorAvatar: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    marginRight: 10,
+  },
+  creatorAvatarPlaceholder: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#E5E7EB',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 10,
+  },
+  creatorAvatarText: {
+    color: '#6B7280',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  creatorName: {
+    fontSize: 15,
+    fontWeight: '500',
+    color: '#111827',
+  },
   infoRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -248,13 +348,13 @@ const styles = StyleSheet.create({
   },
   infoText: {
     fontSize: 15,
-    color: '#374151',
+    color: '#86868B',
     marginLeft: 10,
   },
   costIcon: {
     fontSize: 15,
     fontWeight: '500',
-    color: '#6B7280',
+    color: '#86868B',
     width: 20,
   },
   statusBadge: {
@@ -284,20 +384,7 @@ const styles = StyleSheet.create({
   },
   notesText: {
     fontSize: 14,
-    color: '#6B7280',
+    color: '#86868B',
     lineHeight: 20,
-  },
-  closeFooterButton: {
-    marginHorizontal: 20,
-    marginBottom: 20,
-    paddingVertical: 14,
-    borderRadius: 8,
-    backgroundColor: '#F3F4F6',
-    alignItems: 'center',
-  },
-  closeFooterButtonText: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#374151',
   },
 });

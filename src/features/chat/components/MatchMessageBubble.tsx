@@ -5,12 +5,10 @@ import { Ionicons } from '@expo/vector-icons';
 import { format } from 'date-fns';
 import { router } from 'expo-router';
 import React, { useState } from 'react';
-import { Dimensions, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { toast } from 'sonner-native';
 import { Message } from '../types';
 import { MatchInfoModal } from './MatchInfoModal';
-
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 interface MatchMessageBubbleProps {
   message: Message;
@@ -26,10 +24,14 @@ export const MatchMessageBubble: React.FC<MatchMessageBubbleProps> = ({
   const { data: session } = useSession();
   const currentUserId = session?.user?.id;
   const matchData = message.matchData;
-  const senderName = message.metadata?.sender?.name || 
-                    message.metadata?.sender?.username || 
+  const senderName = message.metadata?.sender?.name ||
+                    message.metadata?.sender?.username ||
                     'Unknown';
+  const senderImage = message.metadata?.sender?.image || null;
   const senderId = message.senderId;
+
+  // Get first name only for display
+  const firstName = senderName.split(' ')[0];
 
   const [showInfoModal, setShowInfoModal] = useState(false);
   const [hasJoined, setHasJoined] = useState(false); // Track if user just joined
@@ -39,6 +41,53 @@ export const MatchMessageBubble: React.FC<MatchMessageBubbleProps> = ({
     console.log('❌ No matchData found for match message:', message.id);
     return null;
   }
+
+  // Helper functions for time formatting
+  const formatDisplayDate = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-US', { 
+      day: 'numeric',
+      month: 'short', 
+      year: 'numeric' 
+    });
+  };
+
+  // Extract start time from range (e.g., "2:00 PM - 4:00 PM" -> "2:00 PM")
+  const extractStartTime = (timeRange: string): string => {
+    if (timeRange.includes(' - ')) {
+      return timeRange.split(' - ')[0].trim();
+    }
+    return timeRange.trim();
+  };
+
+  // Format time to remove seconds if present
+  const formatTime = (timeString: string) => {
+    // Handle both "8:00 PM" and "20:00:00" formats
+    if (timeString.includes('M')) return timeString;
+    const [hours, minutes] = timeString.split(':');
+    const hour = parseInt(hours);
+    const ampm = hour >= 12 ? 'PM' : 'AM';
+    const displayHour = hour % 12 || 12;
+    return `${displayHour}:${minutes} ${ampm}`;
+  };
+
+  // Calculate end time based on start time and duration
+  const calculateEndTime = (startTime: string, durationHours: number) => {
+    // Extract just the start time if it's a range
+    const actualStartTime = extractStartTime(startTime);
+    const [time, modifier] = actualStartTime.split(' ');
+    const [hours, minutes] = time.split(':').map(Number);
+    let startHour = modifier === 'PM' && hours !== 12 ? hours + 12 : hours;
+    if (modifier === 'AM' && hours === 12) startHour = 0;
+    
+    const totalMinutes = startHour * 60 + minutes + (durationHours * 60);
+    const endHour = Math.floor(totalMinutes / 60) % 24;
+    const endMinutes = totalMinutes % 60;
+    
+    const displayEndHour = endHour % 12 || 12;
+    const endModifier = endHour >= 12 ? 'PM' : 'AM';
+    return `${displayEndHour}:${String(endMinutes).padStart(2, '0')} ${endModifier}`;
+  };
 
   console.log('🔍 Match participants for message:', message.id, {
     participants: matchData.participants,
@@ -64,8 +113,13 @@ export const MatchMessageBubble: React.FC<MatchMessageBubbleProps> = ({
     return false;
   }, [currentUserId, isMatchPoster, hasJoined, matchData.participants]);
   
-  // Display name logic
-  const displayName = isMatchPoster ? 'You' : senderName;
+  // Display name logic - always show first name
+  const displayName = firstName;
+
+  // Calculate formatted start and end times
+  const startTime = extractStartTime(matchData.time);
+  const formattedStartTime = formatTime(startTime);
+  const formattedEndTime = calculateEndTime(startTime, matchData.duration);
 
   // Fetch partner info when join modal is about to open for doubles matches
   // Navigate to join match page
@@ -104,14 +158,15 @@ export const MatchMessageBubble: React.FC<MatchMessageBubbleProps> = ({
           matchId: matchData.matchId,
           matchType: matchData.numberOfPlayers === '4' ? 'DOUBLES' : 'SINGLES',
           date: formatDisplayDate(matchData.date),
-          time: `${formatTime(matchData.time)} – ${calculateEndTime(matchData.time, matchData.duration)}`,
+          time: `${formattedStartTime} – ${formattedEndTime}`,
           location: matchData.location || 'TBD',
           sportType: matchData.sportType || 'PICKLEBALL',
           leagueName: matchData.leagueName || 'League Match',
           season: 'Season 1',
           division: 'Division 1',
           courtBooked: matchData.courtBooked ? 'true' : 'false',
-          fee: matchData.fee || '',
+          fee: matchData.fee || 'FREE',
+          feeAmount: (matchData as any).feeAmount || '0.00',
           description: matchData.description || '',
           duration: String(matchData.duration || 2),
           divisionId,
@@ -129,53 +184,24 @@ export const MatchMessageBubble: React.FC<MatchMessageBubbleProps> = ({
 
   const sportColors = getSportColors(matchData.sportType as SportType);
 
-  const formatDisplayDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', { 
-      day: 'numeric',
-      month: 'short', 
-      year: 'numeric' 
-    });
-  };
-
-  // Format time to remove seconds if present
-  const formatTime = (timeString: string) => {
-    // Handle both "8:00 PM" and "20:00:00" formats
-    if (timeString.includes('M')) return timeString;
-    const [hours, minutes] = timeString.split(':');
-    const hour = parseInt(hours);
-    const ampm = hour >= 12 ? 'PM' : 'AM';
-    const displayHour = hour % 12 || 12;
-    return `${displayHour}:${minutes} ${ampm}`;
-  };
-
-  // Calculate end time based on duration
-  const calculateEndTime = (startTime: string, durationHours: number) => {
-    const [time, modifier] = startTime.split(' ');
-    const [hours, minutes] = time.split(':').map(Number);
-    let startHour = modifier === 'PM' && hours !== 12 ? hours + 12 : hours;
-    if (modifier === 'AM' && hours === 12) startHour = 0;
-    
-    const totalMinutes = startHour * 60 + minutes + (durationHours * 60);
-    const endHour = Math.floor(totalMinutes / 60) % 24;
-    const endMinutes = totalMinutes % 60;
-    
-    const displayEndHour = endHour % 12 || 12;
-    const endModifier = endHour >= 12 ? 'PM' : 'AM';
-    return `${displayEndHour}:${String(endMinutes).padStart(2, '0')} ${endModifier}`;
-  };
-
   return (
     <View style={styles.container}>
       {/* Header with sender name and timestamp - outside card */}
       <View style={styles.headerRow}>
         <View style={styles.senderRow}>
-          <View style={styles.avatar}>
-            <Text style={styles.avatarText}>
-              {displayName.charAt(0).toUpperCase()}
-            </Text>
-          </View>
-          <Text style={styles.senderName}>{displayName} posted a league match</Text>
+          {senderImage ? (
+            <Image source={{ uri: senderImage }} style={styles.avatarImage} />
+          ) : (
+            <View style={styles.avatar}>
+              <Text style={styles.avatarText}>
+                {displayName.charAt(0).toUpperCase()}
+              </Text>
+            </View>
+          )}
+          <Text style={styles.senderName}>
+            <Text style={styles.senderNameBold}>{displayName}</Text>
+            {' posted a league match'}
+          </Text>
         </View>
         <Text style={styles.timestamp}>
           {format(new Date(message.timestamp), 'HH:mm')}
@@ -201,21 +227,21 @@ export const MatchMessageBubble: React.FC<MatchMessageBubbleProps> = ({
           <View style={styles.leftColumn}>
             {/* Location */}
             <View style={styles.infoRow}>
-              <Ionicons name="location-outline" size={16} color="#6B7280" />
+              <Ionicons name="location-outline" size={16} color="#86868B" />
               <Text style={styles.infoText}>{matchData.location || 'TBD'}</Text>
             </View>
 
             {/* Date */}
             <View style={styles.infoRow}>
-              <Ionicons name="calendar-outline" size={16} color="#6B7280" />
+              <Ionicons name="calendar-outline" size={16} color="#86868B" />
               <Text style={styles.infoText}>{formatDisplayDate(matchData.date)}</Text>
             </View>
 
             {/* Time Range */}
             <View style={styles.infoRow}>
-              <Ionicons name="time-outline" size={16} color="#6B7280" />
+              <Ionicons name="time-outline" size={16} color="#86868B" />
               <Text style={styles.infoText}>
-                {formatTime(matchData.time)} – {calculateEndTime(matchData.time, matchData.duration)}
+                {formattedStartTime} – {formattedEndTime}
               </Text>
             </View>
 
@@ -223,14 +249,28 @@ export const MatchMessageBubble: React.FC<MatchMessageBubbleProps> = ({
             <View style={styles.infoRow}>
               <Text style={styles.costIcon}>$</Text>
               <Text style={styles.infoText}>
-                {matchData.fee === 'FREE' ? 'Free •' : 'Split •'}
+                {(() => {
+                  const fee = matchData.fee as 'FREE' | 'SPLIT' | 'FIXED' | undefined;
+                  const feeAmount = (matchData as any).feeAmount as string | undefined;
+                  
+                  if (fee === 'FREE' || !fee) {
+                    return 'Free';
+                  } else if (fee === 'SPLIT' && feeAmount) {
+                    const totalAmount = parseFloat(feeAmount);
+                    const numPlayers = parseInt(matchData.numberOfPlayers || '2', 10);
+                    const perPlayer = numPlayers > 0 ? (totalAmount / numPlayers).toFixed(2) : '0.00';
+                    return `Split · Est. RM${perPlayer} per player`;
+                  } else if (fee === 'FIXED' && feeAmount) {
+                    return `Fixed · RM${parseFloat(feeAmount).toFixed(2)} per player`;
+                  }
+                  return 'Free';
+                })()}
               </Text>
             </View>
           </View>
 
-          {/* Right Column - Court Badge and Buttons */}
+          {/* Right Column - Court Badge and Action Buttons */}
           <View style={styles.rightColumn}>
-
             {/* Court Booked Badge */}
             <View style={[
               styles.courtBadge,
@@ -242,25 +282,24 @@ export const MatchMessageBubble: React.FC<MatchMessageBubbleProps> = ({
               ]}>
                 Court {matchData.courtBooked ? 'booked' : 'not booked'}
               </Text>
-              <Ionicons 
-                name={matchData.courtBooked ? "checkmark-circle" : "close-circle"} 
-                size={14} 
-                color={matchData.courtBooked ? "#16A34A" : "#DC2626"} 
+              <Ionicons
+                name={matchData.courtBooked ? "checkmark-circle" : "close-circle"}
+                size={14}
+                color={matchData.courtBooked ? "#16A34A" : "#DC2626"}
               />
             </View>
-
             {/* Action Buttons */}
-            <View style={styles.actionButtons}>
-              <TouchableOpacity 
-                style={styles.infoButton} 
+            <View style={styles.actionButtonsRow}>
+              <TouchableOpacity
+                style={styles.infoButton}
                 activeOpacity={0.7}
                 onPress={() => setShowInfoModal(true)}
               >
                 <Text style={styles.infoButtonText}>Info</Text>
               </TouchableOpacity>
-              <TouchableOpacity 
+              <TouchableOpacity
                 style={[
-                  styles.joinButton, 
+                  styles.joinButton,
                   { backgroundColor: isUserInMatch ? '#9CA3AF' : sportColors.buttonColor }
                 ]}
                 activeOpacity={isUserInMatch ? 1 : 0.8}
@@ -281,10 +320,11 @@ export const MatchMessageBubble: React.FC<MatchMessageBubbleProps> = ({
         visible={showInfoModal}
         onClose={() => setShowInfoModal(false)}
         matchData={matchData}
-        creatorName={displayName}
+        creatorName={senderName}
+        creatorImage={senderImage}
         formattedDate={formatDisplayDate(matchData.date)}
-        formattedTime={formatTime(matchData.time)}
-        formattedEndTime={calculateEndTime(matchData.time, matchData.duration)}
+        formattedTime={formattedStartTime}
+        formattedEndTime={formattedEndTime}
       />
     </View>
   );
@@ -292,8 +332,8 @@ export const MatchMessageBubble: React.FC<MatchMessageBubbleProps> = ({
 
 const styles = StyleSheet.create({
   container: {
-    marginVertical: 4,
-    paddingHorizontal: 16,
+    marginVertical: 8,
+    paddingHorizontal: 4,
   },
   headerRow: {
     flexDirection: 'row',
@@ -307,12 +347,18 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   avatar: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
     backgroundColor: '#E5E7EB',
     justifyContent: 'center',
     alignItems: 'center',
+    marginRight: 8,
+  },
+  avatarImage: {
+    width: 24,
+    height: 24,
+    borderRadius: 14,
     marginRight: 8,
   },
   avatarText: {
@@ -321,10 +367,14 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   senderName: {
-    fontSize: 12,
+    fontSize: 13,
     color: '#6B7280',
     fontWeight: '400',
     flex: 1,
+  },
+  senderNameBold: {
+    fontWeight: '600',
+    color: '#374151',
   },
   timestamp: {
     fontSize: 12,
@@ -333,11 +383,11 @@ const styles = StyleSheet.create({
   },
   matchCard: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 12,
+    borderRadius: 16,
     borderWidth: 1,
     borderColor: '#E5E7EB',
-    padding: 16,
-    maxWidth: SCREEN_WIDTH * 0.95,
+    padding: 20,
+    width: '100%',
   },
   titleRow: {
     flexDirection: 'row',
@@ -360,43 +410,43 @@ const styles = StyleSheet.create({
   },
   rightColumn: {
     alignItems: 'flex-end',
-    justifyContent: 'space-between',
+    justifyContent: 'flex-start',
     marginLeft: 16,
-    gap: 8,
+    gap: 12,
   },
   sportBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
     borderWidth: 1.5,
     backgroundColor: 'transparent',
   },
   sportBadgeText: {
-    fontSize: 10,
+    fontSize: 12,
     fontWeight: '600',
   },
   infoRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 6,
+    marginBottom: 8,
   },
   infoText: {
-    fontSize: 13,
-    color: '#374151',
-    marginLeft: 6,
+    fontSize: 14,
+    color: '#86868B',
+    marginLeft: 8,
   },
   costIcon: {
     fontSize: 13,
     fontWeight: '500',
-    color: '#6B7280',
+    color: '#86868B',
     width: 16,
   },
   courtBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
     alignSelf: 'flex-end',
   },
   courtBadgeBooked: {
@@ -406,9 +456,9 @@ const styles = StyleSheet.create({
     backgroundColor: '#FEF2F2',
   },
   courtBadgeText: {
-    fontSize: 10,
-    fontWeight: '600',
-    marginRight: 3,
+    fontSize: 12,
+    fontWeight: '500',
+    marginRight: 4,
   },
   courtBadgeTextBooked: {
     color: '#16A34A',
@@ -416,30 +466,33 @@ const styles = StyleSheet.create({
   courtBadgeTextNotBooked: {
     color: '#DC2626',
   },
-  actionButtons: {
-    flexDirection: 'column',
-    gap: 6,
-    width: 110,
+  actionButtonsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 22,
   },
   infoButton: {
     paddingVertical: 8,
-    paddingHorizontal: 20,
-    borderRadius: 8,
+    paddingHorizontal: 16,
+    borderRadius: 16,
     borderWidth: 1,
     borderColor: '#E5E7EB',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#F2F2F2',
+    minWidth: 70,
   },
   infoButtonText: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#374151',
+    color: '#602E98',
   },
   joinButton: {
     paddingVertical: 8,
-    paddingHorizontal: 20,
-    borderRadius: 8,
+    paddingHorizontal: 16,
+    borderRadius: 16,
     alignItems: 'center',
+    minWidth: 70,
   },
   joinButtonText: {
     fontSize: 13,

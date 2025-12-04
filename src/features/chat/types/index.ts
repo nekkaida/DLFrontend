@@ -25,7 +25,8 @@ export interface Message {
     duration: number;
     numberOfPlayers: string;
     location: string;
-    fee: 'FREE' | 'SPLIT';
+    fee: 'FREE' | 'SPLIT' | 'FIXED';
+    feeAmount?: string; // Fee amount as string (e.g., "40.00")
     description: string;
     sportType: 'PICKLEBALL' | 'TENNIS' | 'PADEL';
     leagueName: string;

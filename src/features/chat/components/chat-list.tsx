@@ -5,11 +5,12 @@ import {
   ActivityIndicator,
   FlatList,
   Image,
+  Platform,
   StyleSheet,
   Text,
-  TouchableOpacity,
   View,
 } from "react-native";
+import { TouchableOpacity } from "react-native-gesture-handler";
 import { useChatStore } from "../stores/ChatStore";
 import { Thread } from "../types";
 
@@ -73,6 +74,7 @@ export const ThreadList: React.FC<ThreadListProps> = ({ onThreadSelect }) => {
         onThreadSelect(item);
       }}
       activeOpacity={0.7}
+      delayPressIn={Platform.OS === 'android' ? 50 : 0}
     >
       <View style={styles.avatarContainer}>
         {avatarImage ? (

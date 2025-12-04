@@ -24,12 +24,13 @@ import { toast } from 'sonner-native';
 import { MessageInput } from './components/chat-input';
 import { ThreadList } from './components/chat-list';
 import { MessageWindow } from './components/chat-window';
-import { CreateMatchModal, MatchFormData } from './components/CreateMatchModal';
+import { MatchFormData } from './components/CreateMatchScreen';
 import { MessageActionBar } from './components/MessageActionBar';
 import { NewMessageBottomSheet } from './components/NewMessageBottomSheet';
 import { useChatSocketEvents } from './hooks/useChatSocketEvents';
 import { ChatService } from './services/ChatService';
 import { useChatStore } from './stores/ChatStore';
+import { useCreateMatchStore } from './stores/CreateMatchStore';
 
 import { Thread } from './types';
 
@@ -56,10 +57,10 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
   const [profileData, setProfileData] = useState<any>(null);
   const [refreshKey, setRefreshKey] = useState(0);
   const [selectedMessage, setSelectedMessage] = useState<any>(null);
-  const [showMatchModal, setShowMatchModal] = useState(false);
   const [showActionBar, setShowActionBar] = useState(false);
   const [showNewMessageSheet, setShowNewMessageSheet] = useState(false);
   const insets = useSafeAreaInsets();
+  const { setThreadMetadata, pendingMatchData, clearPendingMatch } = useCreateMatchStore();
   
   const user = session?.user;
   const STATUS_BAR_HEIGHT = insets.top;
@@ -95,6 +96,15 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
       setRefreshKey(prev => prev + 1);
     }
   }, [messages, currentThread?.id]);
+
+  // Handle pending match data when returning from create-match page
+  useEffect(() => {
+    if (pendingMatchData && currentThread) {
+      console.log('📋 Processing pending match data:', pendingMatchData);
+      handleCreateMatch(pendingMatchData);
+      clearPendingMatch();
+    }
+  }, [pendingMatchData, currentThread]);
 
   // Fetch profile data when component mounts
   useEffect(() => {
@@ -232,7 +242,28 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
 
  const handleMatch = () => {
     console.log('Create match button pressed');
-    setShowMatchModal(true);
+    if (!currentThread) return;
+    
+    // Store thread metadata for the create match screen
+    setThreadMetadata({
+      threadId: currentThread.id,
+      threadName: currentThread.name || 'League Chat',
+      divisionId: currentThread.metadata?.divisionId,
+      sportType: currentThread.sportType || 'PICKLEBALL',
+    });
+    
+    // Navigate to the create match page
+    router.push({
+      pathname: '/match/create-match',
+      params: {
+        leagueName: currentThread.name || 'League Chat',
+        season: currentThread.metadata?.seasonName || 'Season 1',
+        division: currentThread.metadata?.divisionName || 'Division I',
+        sportType: currentThread.sportType || 'PICKLEBALL',
+        divisionId: currentThread.metadata?.divisionId || '',
+        threadId: currentThread.id,
+      },
+    });
   };
 
   const handleCreateMatch = async (matchData: MatchFormData) => {
@@ -246,7 +277,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
 
     try {
       const backendUrl = getBackendBaseURL();
-      const isDoubles = matchData.numberOfPlayers === '4';
+      const isDoubles = matchData.numberOfPlayers === 4;
       
       // Step 1: Fetch division to check gameType and seasonId
       let partnerId: string | undefined;
@@ -335,6 +366,15 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
       }
       
       // Step 3: Convert 12-hour time to 24-hour format
+      // Extract start time from range (e.g., "2:00 PM - 4:00 PM" -> "2:00 PM")
+      const extractStartTime = (timeRange: string): string => {
+        // If it contains " - ", it's a range, extract the first part
+        if (timeRange.includes(' - ')) {
+          return timeRange.split(' - ')[0].trim();
+        }
+        return timeRange.trim();
+      };
+
       const convertTo24Hour = (time12h: string): string => {
         const [time, modifier] = time12h.split(' ');
         let [hours, minutes] = time.split(':');
@@ -348,7 +388,8 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
         return `${hours}:${minutes}`;
       };
 
-      const time24 = convertTo24Hour(matchData.time);
+      const startTime = extractStartTime(matchData.time);
+      const time24 = convertTo24Hour(startTime);
       
       // Send date and time as-is - backend will parse as Malaysia time
       const dateTimeString = `${matchData.date}T${time24}:00`;
@@ -369,6 +410,8 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
         notes: matchData.description,
         duration: matchData.duration || 2,
         courtBooked: matchData.courtBooked || false,
+        fee: matchData.fee || 'FREE',
+        feeAmount: matchData.fee !== 'FREE' ? parseFloat(matchData.feeAmount || '0') : undefined,
       };
       
       // Add partnerId only for DOUBLES divisions
@@ -442,7 +485,8 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
           duration: matchData.duration || 2,
           numberOfPlayers: matchData.numberOfPlayers,
           location: matchData.location || 'TBD',
-          fee: matchData.fee,
+          fee: matchData.fee || 'FREE',
+          feeAmount: matchData.feeAmount || '0.00',
           description: matchData.description,
           sportType: currentThread.sportType || 'PICKLEBALL',
           leagueName: currentThread.name || 'Match',
@@ -467,8 +511,6 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
       }
 
       console.log('✅ Match message sent to thread');
-      
-      setShowMatchModal(false);
       toast.success('Match created successfully!');
     } catch (error) {
       console.error('❌ Error creating match:', error);
@@ -898,20 +940,6 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
         </View>
       )}
 
-        {/* Create Match Modal */}
-      {currentThread?.type === 'group' && (
-        <CreateMatchModal
-          visible={showMatchModal}
-          onClose={() => setShowMatchModal(false)}
-          leagueInfo={{
-            name: currentThread.name || 'League Chat',
-            season: 'Season 1', // TODO: Get from thread metadata
-            division: 'Division I', // TODO: Get from thread metadata
-            sportType: currentThread.sportType || 'PICKLEBALL',
-          }}
-          onCreateMatch={handleCreateMatch}
-        />
-      )}
 
       {/* New Message Bottom Sheet */}
       <NewMessageBottomSheet
