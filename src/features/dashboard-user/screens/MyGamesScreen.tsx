@@ -157,6 +157,15 @@ export default function MyGamesScreen({ sport = 'pickleball' }: MyGamesScreenPro
       if (response.ok) {
         const data = await response.json();
         const matchesData = data.matches || data.data || data;
+        console.log('📦 RAW MATCHES FROM API:', JSON.stringify(matchesData, null, 2));
+        if (Array.isArray(matchesData) && matchesData.length > 0) {
+          console.log('🔍 FIRST MATCH FIELDS:', Object.keys(matchesData[0]));
+          console.log('🔍 FIRST MATCH DATE FIELDS:', {
+            matchDate: matchesData[0].matchDate,
+            scheduledTime: matchesData[0].scheduledTime,
+            scheduledStartTime: matchesData[0].scheduledStartTime,
+          });
+        }
         setMatches(Array.isArray(matchesData) ? matchesData : []);
       } else {
         console.error('Failed to fetch matches:', response.status);
@@ -284,23 +293,37 @@ export default function MyGamesScreen({ sport = 'pickleball' }: MyGamesScreenPro
   };
 
   const formatMatchDate = (dateString?: string) => {
-    if (!dateString) return 'TBD';
+    console.log('📅 formatMatchDate input:', dateString);
+    if (!dateString) {
+      console.log('⚠️ No dateString provided to formatMatchDate');
+      return 'TBD';
+    }
     try {
       // Parse the date from backend (already in Malaysia time)
       const date = new Date(dateString);
-      return format(date, 'MMM dd, yyyy');
-    } catch {
+      const formatted = format(date, 'MMM dd, yyyy');
+      console.log('✅ Formatted date:', { input: dateString, output: formatted, dateObj: date.toISOString() });
+      return formatted;
+    } catch (error) {
+      console.error('❌ Error formatting date:', error, { dateString });
       return 'TBD';
     }
   };
 
   const formatMatchTime = (dateString?: string) => {
-    if (!dateString) return '';
+    console.log('⏰ formatMatchTime input:', dateString);
+    if (!dateString) {
+      console.log('⚠️ No dateString provided to formatMatchTime');
+      return '';
+    }
     try {
       // Parse the time from backend (already in Malaysia time)
       const date = new Date(dateString);
-      return format(date, 'h:mm a');
-    } catch {
+      const formatted = format(date, 'h:mm a');
+      console.log('✅ Formatted time:', { input: dateString, output: formatted, dateObj: date.toISOString() });
+      return formatted;
+    } catch (error) {
+      console.error('❌ Error formatting time:', error, { dateString });
       return '';
     }
   };
@@ -349,8 +372,19 @@ export default function MyGamesScreen({ sport = 'pickleball' }: MyGamesScreenPro
   const handleMatchPress = (match: Match) => {
     const sportColors = getSportColors((match.sport || sport) as SportType);
     
-    // Use scheduledStartTime if available, fallback to scheduledTime
-    const matchTime = match.scheduledStartTime || match.scheduledTime;
+    // Use matchDate first, then fallback to scheduledStartTime or scheduledTime
+    const matchTime = (match as any).matchDate || match.scheduledStartTime || match.scheduledTime;
+    
+    console.log('📤 NAVIGATING TO MATCH DETAILS:', {
+      matchId: match.id,
+      matchDate: (match as any).matchDate,
+      scheduledStartTime: match.scheduledStartTime,
+      scheduledTime: match.scheduledTime,
+      matchTime,
+      formattedDate: formatMatchDate(matchTime),
+      formattedTime: formatMatchTime(matchTime),
+      rawMatch: match,
+    });
     
     // Navigate to match details
     router.push({
@@ -414,6 +448,9 @@ export default function MyGamesScreen({ sport = 'pickleball' }: MyGamesScreenPro
   const renderMatchCard = ({ item }: { item: Match }) => {
     const statusInfo = getStatusColor(item.status);
     const sportColors = getSportColors((item.sport || sport) as SportType);
+    
+    // Use matchDate first, then fallback to scheduledStartTime or scheduledTime
+    const matchTime = (item as any).matchDate || item.scheduledStartTime || item.scheduledTime;
 
     return (
       <TouchableOpacity
@@ -444,8 +481,8 @@ export default function MyGamesScreen({ sport = 'pickleball' }: MyGamesScreenPro
             <View style={styles.infoRow}>
               <Ionicons name="calendar-outline" size={16} color="#6B7280" />
               <Text style={styles.infoText}>
-                {formatMatchDate(item.scheduledStartTime || item.scheduledTime)}
-                {(item.scheduledStartTime || item.scheduledTime) && ` • ${formatMatchTime(item.scheduledStartTime || item.scheduledTime)}`}
+                {formatMatchDate(matchTime)}
+                {matchTime && ` • ${formatMatchTime(matchTime)}`}
               </Text>
             </View>
             <View style={styles.infoRow}>

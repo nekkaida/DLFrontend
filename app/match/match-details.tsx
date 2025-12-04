@@ -68,6 +68,18 @@ export default function JoinMatchScreen() {
   const participants = params.participants ? JSON.parse(params.participants as string) : [];
   const matchStatus = (params.status as string) || 'SCHEDULED';
 
+  console.log('🔍 MATCH DETAILS DEBUG:', {
+    matchId,
+    date,
+    time,
+    matchStatus,
+    allParams: params,
+    dateType: typeof date,
+    timeType: typeof time,
+    dateValue: date,
+    timeValue: time,
+  });
+
   const sportColors = getSportColors(sportType as SportType);
   const themeColor = sportColors.background;
 
@@ -244,25 +256,100 @@ export default function JoinMatchScreen() {
   const requiredParticipants = matchType === 'DOUBLES' ? 4 : 2;
   const allSlotsFilled = participants.length >= requiredParticipants;
 
-  // Check if match time has been reached
+  // Check if result submission is allowed (match time until duration + 1 hour)
   const isMatchTimeReached = () => {
-    if (!date || !time) return false;
+    if (!date || !time) {
+      console.log('⚠️ Missing date or time:', { date, time });
+      return false;
+    }
     
     try {
-      // Parse the date and time
-      const matchDateTime = new Date(`${date} ${time}`);
+      // Parse date using manual parsing for "Dec 04, 2025" format
+      const datePartsMatch = date.match(/(\w+)\s+(\d+),\s+(\d+)/);
+      if (!datePartsMatch) {
+        console.error('❌ Invalid date format:', date);
+        return false;
+      }
+
+      const [, monthStr, day, year] = datePartsMatch;
+      const monthMap: { [key: string]: number } = {
+        'Jan': 0, 'Feb': 1, 'Mar': 2, 'Apr': 3, 'May': 4, 'Jun': 5,
+        'Jul': 6, 'Aug': 7, 'Sep': 8, 'Oct': 9, 'Nov': 10, 'Dec': 11
+      };
+      const month = monthMap[monthStr];
+      if (month === undefined) {
+        console.error('❌ Invalid month:', monthStr);
+        return false;
+      }
+
+      // Parse time using manual parsing for "1:30 PM" format
+      const timeMatch = time.match(/(\d+):(\d+)\s*(AM|PM)/i);
+      if (!timeMatch) {
+        console.error('❌ Invalid time format:', time);
+        return false;
+      }
+
+      const [, hourStr, minuteStr, period] = timeMatch;
+      let hours = parseInt(hourStr);
+      const minutes = parseInt(minuteStr);
+      
+      // Convert to 24-hour format
+      if (period.toUpperCase() === 'PM' && hours !== 12) {
+        hours += 12;
+      } else if (period.toUpperCase() === 'AM' && hours === 12) {
+        hours = 0;
+      }
+
+      // Create match start time
+      const matchStartTime = new Date(parseInt(year), month, parseInt(day), hours, minutes);
+      
+      // Validate the date
+      if (isNaN(matchStartTime.getTime())) {
+        console.error('❌ Invalid date created:', { date, time, matchStartTime });
+        return false;
+      }
+
+      // Calculate match end time (duration + 1 hour grace period)
+      const matchDuration = parseInt(duration || '2'); // Default 2 hours
+      const graceHours = 1;
+      const totalHours = matchDuration + graceHours;
+      const matchEndTime = new Date(matchStartTime.getTime() + totalHours * 60 * 60 * 1000);
+      
       const now = new Date();
       
-      return now >= matchDateTime;
+      // Check if current time is between match start and end (+ grace period)
+      const hasStarted = now >= matchStartTime;
+      const isBeforeEnd = now <= matchEndTime;
+      const canSubmit = hasStarted && isBeforeEnd;
+      
+      console.log('⏰ TIME COMPARISON:', {
+        dateString: date,
+        timeString: time,
+        matchStartTime: matchStartTime.toISOString(),
+        matchStartTimeLocal: matchStartTime.toLocaleString(),
+        matchDuration: `${matchDuration} hours`,
+        graceHours: `${graceHours} hour`,
+        matchEndTime: matchEndTime.toISOString(),
+        matchEndTimeLocal: matchEndTime.toLocaleString(),
+        now: now.toISOString(),
+        nowLocal: now.toLocaleString(),
+        hasStarted,
+        isBeforeEnd,
+        canSubmitResult: canSubmit,
+        timeUntilStart: ((matchStartTime.getTime() - now.getTime()) / 60000).toFixed(0) + ' minutes',
+        timeUntilEnd: ((matchEndTime.getTime() - now.getTime()) / 60000).toFixed(0) + ' minutes',
+      });
+      
+      return canSubmit;
     } catch (error) {
-      console.error('Error parsing match date/time:', error);
+      console.error('❌ Error parsing match date/time:', error, { date, time });
       return false;
     }
   };
 
   const canStartMatch = allSlotsFilled && isMatchTimeReached();
 
-  // Get match status badge
+  // Get match status badge with real-time progression
   const getStatusBadge = () => {
     const status = matchStatus.toUpperCase();
     
@@ -270,38 +357,69 @@ export default function JoinMatchScreen() {
     let textColor = '#6B7280';
     let statusText = 'Open';
     
-    // Check if time has passed
-    const hasTimePassed = isMatchTimeReached();
+    // Calculate time-based status
+    const getTimeBasedStatus = () => {
+      if (!date || !time) return null;
+      
+      try {
+        const datePartsMatch = date.match(/(\w+)\s+(\d+),\s+(\d+)/);
+        if (!datePartsMatch) return null;
+
+        const [, monthStr, day, year] = datePartsMatch;
+        const monthMap: { [key: string]: number } = {
+          'Jan': 0, 'Feb': 1, 'Mar': 2, 'Apr': 3, 'May': 4, 'Jun': 5,
+          'Jul': 6, 'Aug': 7, 'Sep': 8, 'Oct': 9, 'Nov': 10, 'Dec': 11
+        };
+        const month = monthMap[monthStr];
+        if (month === undefined) return null;
+
+        const timeMatch = time.match(/(\d+):(\d+)\s*(AM|PM)/i);
+        if (!timeMatch) return null;
+
+        const [, hourStr, minuteStr, period] = timeMatch;
+        let hours = parseInt(hourStr);
+        const minutes = parseInt(minuteStr);
+        
+        if (period.toUpperCase() === 'PM' && hours !== 12) {
+          hours += 12;
+        } else if (period.toUpperCase() === 'AM' && hours === 12) {
+          hours = 0;
+        }
+
+        const matchStartTime = new Date(parseInt(year), month, parseInt(day), hours, minutes);
+        if (isNaN(matchStartTime.getTime())) return null;
+
+        const matchDuration = parseInt(duration || '2');
+        const graceHours = 1;
+        const matchEndTime = new Date(matchStartTime.getTime() + (matchDuration + graceHours) * 60 * 60 * 1000);
+        
+        const now = new Date();
+        
+        // Before match starts
+        if (now < matchStartTime) {
+          return 'scheduled';
+        }
+        // Match is ongoing (between start and end of duration)
+        else if (now >= matchStartTime && now <= new Date(matchStartTime.getTime() + matchDuration * 60 * 60 * 1000)) {
+          return 'in_progress';
+        }
+        // Grace period (duration ended but within grace time)
+        else if (now > new Date(matchStartTime.getTime() + matchDuration * 60 * 60 * 1000) && now <= matchEndTime) {
+          return 'time_passed';
+        }
+        // After grace period
+        else {
+          return 'time_passed';
+        }
+      } catch (error) {
+        return null;
+      }
+    };
     
+    const timeBasedStatus = getTimeBasedStatus();
+    
+    // Status priority: DB status > time-based status
     switch (status) {
-      case 'OPEN':
-        if (hasTimePassed && !allSlotsFilled) {
-          badgeColor = '#FEE2E2';
-          textColor = '#991B1B';
-          statusText = 'Time Passed';
-        } else {
-          badgeColor = '#DBEAFE';
-          textColor = '#1E40AF';
-          statusText = 'Open';
-        }
-        break;
-      case 'SCHEDULED':
-        if (hasTimePassed) {
-          badgeColor = '#FEE2E2';
-          textColor = '#991B1B';
-          statusText = 'Time Passed';
-        } else {
-          badgeColor = '#FEF3C7';
-          textColor = '#92400E';
-          statusText = 'Scheduled';
-        }
-        break;
-      case 'ONGOING':
-      case 'IN_PROGRESS':
-        badgeColor = '#D1FAE5';
-        textColor = '#065F46';
-        statusText = 'Ongoing';
-        break;
       case 'COMPLETED':
       case 'FINISHED':
         badgeColor = '#E5E7EB';
@@ -313,15 +431,32 @@ export default function JoinMatchScreen() {
         textColor = '#991B1B';
         statusText = 'Cancelled';
         break;
+      case 'ONGOING':
+      case 'IN_PROGRESS':
+        badgeColor = '#D1FAE5';
+        textColor = '#065F46';
+        statusText = 'In Progress';
+        break;
+      case 'OPEN':
+      case 'SCHEDULED':
       default:
-        if (hasTimePassed) {
+        // Use time-based status for open/scheduled matches
+        if (timeBasedStatus === 'in_progress') {
+          badgeColor = '#D1FAE5';
+          textColor = '#065F46';
+          statusText = 'In Progress';
+        } else if (timeBasedStatus === 'time_passed') {
           badgeColor = '#FEE2E2';
           textColor = '#991B1B';
           statusText = 'Time Passed';
+        } else if (allSlotsFilled) {
+          badgeColor = '#FEF3C7';
+          textColor = '#92400E';
+          statusText = 'Scheduled';
         } else {
-          statusText = allSlotsFilled ? 'Scheduled' : 'Open';
-          badgeColor = allSlotsFilled ? '#FEF3C7' : '#DBEAFE';
-          textColor = allSlotsFilled ? '#92400E' : '#1E40AF';
+          badgeColor = '#DBEAFE';
+          textColor = '#1E40AF';
+          statusText = 'Open';
         }
     }
     
@@ -380,8 +515,14 @@ export default function JoinMatchScreen() {
   const isUserParticipant = participants.some((p: any) => p.userId === session?.user?.id);
 
   // Handler for submitting match result
-  const handleSubmitResult = async (data: { setScores: any[] }) => {
+  const handleSubmitResult = async (data: { setScores?: any[]; gameScores?: any[]; comment?: string }) => {
     try {
+      console.log('📤 Submitting to backend:', JSON.stringify(data, null, 2));
+      console.log('👥 Participants with teams:', participantsWithDetails.map(p => ({
+        name: p.name,
+        team: p.team,
+        mappedTeam: p.team === 'team1' ? 'TEAM_A' : p.team === 'team2' ? 'TEAM_B' : 'TEAM_A'
+      })));
       const response = await axiosInstance.post(
         endpoints.match.submitResult(matchId),
         data
@@ -391,8 +532,16 @@ export default function JoinMatchScreen() {
       bottomSheetModalRef.current?.dismiss();
       router.back();
     } catch (error: any) {
-      console.error('Error submitting result:', error);
-      toast.error(error.response?.data?.error || 'Failed to submit result');
+      console.error('❌ Error submitting result:', error);
+      console.error('❌ Error response:', error.response?.data);
+      console.error('❌ Error message:', error.message);
+      
+      const errorMessage = error.response?.data?.error || 
+                          error.response?.data?.message || 
+                          error.message || 
+                          'Failed to submit result';
+      
+      toast.error(errorMessage);
       throw error;
     }
   };
@@ -792,7 +941,7 @@ export default function JoinMatchScreen() {
                 disabled
               >
                 <Text style={styles.joinButtonText}>
-                  Waiting for match time...
+                  Scheduled
                 </Text>
               </TouchableOpacity>
             )}
@@ -835,8 +984,10 @@ export default function JoinMatchScreen() {
               id: p.userId,
               name: p.name || 'Unknown',
               image: p.image,
-              team: p.team as 'TEAM_A' | 'TEAM_B',
+              team: (p.team === 'team1' ? 'TEAM_A' : p.team === 'team2' ? 'TEAM_B' : 'TEAM_A') as 'TEAM_A' | 'TEAM_B',
             }))}
+            sportType={sportType}
+            seasonId={seasonId}
             onClose={() => bottomSheetModalRef.current?.dismiss()}
             onSubmit={handleSubmitResult}
           />
