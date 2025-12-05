@@ -4,14 +4,13 @@ import TennisIcon from '@/assets/images/tennis-icon.svg';
 import { getBackendBaseURL } from '@/config/network';
 import { getSportColors, SportType } from '@/constants/SportsColor';
 import { useSession } from '@/lib/auth-client';
+import axiosInstance, { endpoints } from '@/lib/endpoints';
 import { socketService } from '@/lib/socket-service';
-import { endpoints } from '@/lib/endpoints';
-import axiosInstance from '@/lib/endpoints';
 import { MatchResultSheet } from '@/src/features/match/components/MatchResultSheet';
 import { Ionicons } from '@expo/vector-icons';
-import { BottomSheetModal, BottomSheetView, BottomSheetBackdrop } from '@gorhom/bottom-sheet';
+import { BottomSheetBackdrop, BottomSheetModal, BottomSheetView } from '@gorhom/bottom-sheet';
 import { router, useLocalSearchParams } from 'expo-router';
-import React, { useEffect, useState, useRef, useCallback, useMemo } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Image,
@@ -446,8 +445,8 @@ export default function JoinMatchScreen() {
     switch (status) {
       case 'COMPLETED':
       case 'FINISHED':
-        badgeColor = '#E5E7EB';
-        textColor = '#374151';
+        badgeColor = '#D1FAE5';
+        textColor = '#000000ff';
         statusText = 'Finished';
         break;
       case 'CANCELLED':
@@ -1028,25 +1027,16 @@ export default function JoinMatchScreen() {
           </View>
         )}
 
-        {/* Report Section */}
+        {/* Report Section  - Waiting on updates from clients */} 
         <TouchableOpacity style={styles.reportButton}>
-          <Text style={styles.reportButtonText}>Report a problem</Text>
+          <Text style={styles.reportButtonText}>Report a problem</Text>  
         </TouchableOpacity>
       </ScrollView>
 
       {/* Footer with Action Buttons */}
       <View style={[styles.footer, { paddingBottom: insets.bottom + 16 }]}>
         {isUserParticipant && allSlotsFilled ? (
-          // Show buttons for participants when match is full
-          <View style={styles.buttonGroup}>
-            {/* Test Button - Always visible for dev testing */}
-            <TouchableOpacity
-              style={[styles.testButton, { backgroundColor: "#8B5CF6" }]}
-              onPress={() => bottomSheetModalRef.current?.present()}
-            >
-              <Text style={styles.testButtonText}>🧪 Test Sheet</Text>
-            </TouchableOpacity>
-            
+          <View style={styles.buttonGroup}>            
             {/* Dynamic button based on user role and match status */}
             {(() => {
               const status = matchData.status?.toUpperCase() || matchStatus.toUpperCase();
@@ -1055,7 +1045,7 @@ export default function JoinMatchScreen() {
               if (status === 'COMPLETED' || status === 'FINISHED') {
                 return (
                   <TouchableOpacity
-                    style={[styles.joinButton, { backgroundColor: "#6B7280" }]}
+                    style={[styles.joinButton, { backgroundColor: "#F59E0B" }]}
                     onPress={() => bottomSheetModalRef.current?.present()}
                   >
                     <Text style={styles.joinButtonText}>View Scores</Text>
@@ -1067,7 +1057,7 @@ export default function JoinMatchScreen() {
               if (status === 'ONGOING' && isOpponentCaptain) {
                 return (
                   <TouchableOpacity
-                    style={[styles.joinButton, { backgroundColor: "#3B82F6" }]}
+                    style={[styles.joinButton, { backgroundColor: "#F59E0B" }]}
                     onPress={() => bottomSheetModalRef.current?.present()}
                   >
                     <Ionicons name="eye" size={18} color="#FFFFFF" style={{ marginRight: 6 }} />
@@ -1124,7 +1114,7 @@ export default function JoinMatchScreen() {
             })()}
           </View>
         ) : (
-          // Join Match Button (shown to non-participants)
+          // Join Match Button (shown to non-participants) 
           <View style={styles.buttonGroup}>
             {/* TEST BUTTON - No time check - Remove later */}
             <TouchableOpacity
@@ -1136,7 +1126,7 @@ export default function JoinMatchScreen() {
                 <ActivityIndicator color="#FFFFFF" size="small" />
               ) : (
                 <Text style={styles.joinButtonText}>
-                  🧪 TEST Join (No Time Check)
+                  🧪 Join (No Time Check Comment OUT After testing)
                 </Text>
               )}
             </TouchableOpacity>

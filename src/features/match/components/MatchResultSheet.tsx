@@ -1,18 +1,18 @@
-import React, { useState, useEffect } from 'react';
+import { getBackendBaseURL } from '@/config/network';
+import { useSession } from '@/lib/auth-client';
+import { Ionicons } from '@expo/vector-icons';
+import React, { useEffect, useState } from 'react';
 import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  Image,
-  TextInput,
-  ScrollView,
   ActivityIndicator,
   Alert,
+  Image,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import { useSession } from '@/lib/auth-client';
-import { getBackendBaseURL } from '@/config/network';
 
 interface Player {
   id: string;
@@ -292,8 +292,6 @@ export const MatchResultSheet: React.FC<MatchResultSheetProps> = ({
         // Tennis/Padel uses setScores with setNumber, team1Games, team2Games, tiebreaks
         submitData.setScores = playedSets;
       }
-
-      console.log('📤 Submitting match result:', JSON.stringify(submitData, null, 2));
       await onSubmit(submitData);
       onClose();
     } catch (error) {
@@ -333,7 +331,7 @@ export const MatchResultSheet: React.FC<MatchResultSheetProps> = ({
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-          <Ionicons name="close" size={24} color="#6B7280" />
+          <Ionicons name="close" size={24} color="#FEA04D" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>
           {mode === 'view' ? 'Submitted Scores' : mode === 'review' ? 'Review Match Result' : 'How did the match go?'}

@@ -1,26 +1,26 @@
-import React, { useEffect, useState, useCallback, useMemo } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  FlatList,
-  TouchableOpacity,
-  RefreshControl,
-  ActivityIndicator,
-  Image,
-  Dimensions,
-  TextInput,
-  Modal,
-  ScrollView,
-  Alert,
-} from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import { router } from 'expo-router';
-import { useSession } from '@/lib/auth-client';
-import { getBackendBaseURL } from '@/src/config/network';
 import { getSportColors, SportType } from '@/constants/SportsColor';
-import { format } from 'date-fns';
+import { useSession } from '@/lib/auth-client';
 import axiosInstance, { endpoints } from '@/lib/endpoints';
+import { getBackendBaseURL } from '@/src/config/network';
+import { Ionicons } from '@expo/vector-icons';
+import { format } from 'date-fns';
+import { router } from 'expo-router';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import {
+  ActivityIndicator,
+  Alert,
+  Dimensions,
+  FlatList,
+  Image,
+  Modal,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 
 const { width } = Dimensions.get('window');
 const isSmallScreen = width < 375;
@@ -33,6 +33,12 @@ interface Match {
   scheduledStartTime?: string;
   location?: string;
   sport: string;
+  resultSubmittedById?: string;
+  resultSubmittedAt?: string;
+  createdById?: string;
+  team1Score?: number;
+  team2Score?: number;
+  outcome?: string;
   division?: {
     id: string;
     name: string;
@@ -275,18 +281,65 @@ export default function MyGamesScreen({ sport = 'pickleball' }: MyGamesScreenPro
   // Check if any advanced filter is active
   const hasActiveFilters = selectedSport || selectedDivision || selectedSeason;
 
-  const getStatusColor = (status: string) => {
-    switch (status.toUpperCase()) {
-      case 'SCHEDULED':
-        return { bg: '#FEF3C7', text: '#92400E', label: 'Scheduled' };
-      case 'ONGOING':
+  const getStatusColor = (status: string, matchTime?: string) => {
+    // For completed or cancelled matches, use DB status
+    const upperStatus = status.toUpperCase();
+    if (['COMPLETED', 'FINISHED', 'CANCELLED'].includes(upperStatus)) {
+      switch (upperStatus) {
+        case 'COMPLETED':
+        case 'FINISHED':
+          return { bg: '#E5E7EB', text: '#374151', label: 'Completed' };
+        case 'CANCELLED':
+          return { bg: '#FEE2E2', text: '#991B1B', label: 'Cancelled' };
+      }
+    }
+
+    // ONGOING means result submitted, awaiting confirmation
+    if (upperStatus === 'ONGOING') {
+      return { bg: '#FEF3C7', text: '#92400E', label: 'Pending Confirmation' };
+    }
+
+    // For scheduled/open matches, calculate time-based status
+    if (matchTime) {
+      try {
+        const matchDate = new Date(matchTime);
+        if (!isNaN(matchDate.getTime())) {
+          const now = new Date();
+          const diffMs = matchDate.getTime() - now.getTime();
+          const diffHours = diffMs / (1000 * 60 * 60);
+
+          // Match is in the past or currently happening
+          if (diffMs <= 0) {
+            // Assume match duration is 2 hours (could be passed as param if needed)
+            const matchEndTime = new Date(matchDate.getTime() + 2 * 60 * 60 * 1000);
+            if (now < matchEndTime) {
+              // Currently in progress
+              return { bg: '#D1FAE5', text: '#065F46', label: 'In Progress' };
+            } else {
+              // Match ended but not marked completed
+              return { bg: '#FEF3C7', text: '#92400E', label: 'Awaiting Result' };
+            }
+          }
+          // Match starts within 1 hour
+          else if (diffHours <= 1) {
+            return { bg: '#FEF3C7', text: '#D97706', label: 'Starting Soon' };
+          }
+          // Match is scheduled for future
+          else {
+            return { bg: '#E0E7FF', text: '#4338CA', label: 'Scheduled' };
+          }
+        }
+      } catch (error) {
+        console.error('Error calculating status:', error);
+      }
+    }
+
+    // Fallback based on DB status
+    switch (upperStatus) {
       case 'IN_PROGRESS':
-        return { bg: '#D1FAE5', text: '#065F46', label: 'Ongoing' };
-      case 'COMPLETED':
-      case 'FINISHED':
-        return { bg: '#E5E7EB', text: '#374151', label: 'Completed' };
-      case 'CANCELLED':
-        return { bg: '#FEE2E2', text: '#991B1B', label: 'Cancelled' };
+        return { bg: '#D1FAE5', text: '#065F46', label: 'In Progress' };
+      case 'SCHEDULED':
+        return { bg: '#E0E7FF', text: '#4338CA', label: 'Scheduled' };
       default:
         return { bg: '#DBEAFE', text: '#1E40AF', label: 'Open' };
     }
@@ -375,17 +428,7 @@ export default function MyGamesScreen({ sport = 'pickleball' }: MyGamesScreenPro
     // Use matchDate first, then fallback to scheduledStartTime or scheduledTime
     const matchTime = (match as any).matchDate || match.scheduledStartTime || match.scheduledTime;
     
-    console.log('📤 NAVIGATING TO MATCH DETAILS:', {
-      matchId: match.id,
-      matchDate: (match as any).matchDate,
-      scheduledStartTime: match.scheduledStartTime,
-      scheduledTime: match.scheduledTime,
-      matchTime,
-      formattedDate: formatMatchDate(matchTime),
-      formattedTime: formatMatchTime(matchTime),
-      rawMatch: match,
-    });
-    
+  
     // Navigate to match details
     router.push({
       pathname: '/match/match-details' as any,
@@ -446,11 +489,22 @@ export default function MyGamesScreen({ sport = 'pickleball' }: MyGamesScreenPro
   };
 
   const renderMatchCard = ({ item }: { item: Match }) => {
-    const statusInfo = getStatusColor(item.status);
-    const sportColors = getSportColors((item.sport || sport) as SportType);
-    
     // Use matchDate first, then fallback to scheduledStartTime or scheduledTime
     const matchTime = (item as any).matchDate || item.scheduledStartTime || item.scheduledTime;
+    const statusInfo = getStatusColor(item.status, matchTime);
+    const sportColors = getSportColors((item.sport || sport) as SportType);
+
+    // Check if current user needs to confirm result
+    const isAwaitingMyConfirmation = 
+      item.status === 'ONGOING' && 
+      item.resultSubmittedById && 
+      item.resultSubmittedById !== session?.user?.id &&
+      item.participants.some(p => p.userId === session?.user?.id);
+
+    // Check if current user submitted the result
+    const isMySubmission = 
+      item.status === 'ONGOING' && 
+      item.resultSubmittedById === session?.user?.id;
 
     return (
       <TouchableOpacity
@@ -500,12 +554,27 @@ export default function MyGamesScreen({ sport = 'pickleball' }: MyGamesScreenPro
           </View>
 
           {renderParticipants(item.participants)}
+
+          {/* Show score if result submitted */}
+          {item.status === 'ONGOING' && item.team1Score !== undefined && item.team2Score !== undefined && (
+            <View style={styles.scoreSection}>
+              <Text style={styles.scoreText}>
+                Score: {item.team1Score} - {item.team2Score}
+              </Text>
+              {isMySubmission && (
+                <Text style={styles.scoreSubtext}>Awaiting opponent confirmation</Text>
+              )}
+              {isAwaitingMyConfirmation && (
+                <Text style={styles.scoreSubtext}>Please review and approve or dispute</Text>
+              )}
+            </View>
+          )}
         </View>
 
-        <View style={styles.matchCardFooter}>
-          <Text style={styles.viewDetailsText}>View Details</Text>
-          <Ionicons name="chevron-forward" size={16} color="#6B7280" />
-        </View>
+          <View style={styles.matchCardFooter}>
+            <Text style={styles.viewDetailsText}>View Details</Text>
+            <Ionicons name="chevron-forward" size={16} color="#6B7280" />
+          </View>
       </TouchableOpacity>
     );
   };
@@ -1389,5 +1458,64 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     color: '#FFFFFF',
+  },
+  // Match card actions for approve/dispute
+  matchCardActions: {
+    flexDirection: 'row',
+    gap: 12,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#E5E7EB',
+  },
+  disputeButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 12,
+    borderRadius: 12,
+    backgroundColor: '#FEF2F2',
+    borderWidth: 1,
+    borderColor: '#FEE2E2',
+  },
+  disputeButtonText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#DC2626',
+  },
+  approveButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 12,
+    borderRadius: 12,
+    backgroundColor: '#10B981',
+  },
+  approveButtonText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#FFFFFF',
+  },
+  scoreSection: {
+    marginTop: 12,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#E5E7EB',
+  },
+  scoreText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#1A1C1E',
+    textAlign: 'center',
+  },
+  scoreSubtext: {
+    fontSize: 12,
+    color: '#6B7280',
+    textAlign: 'center',
+    marginTop: 4,
+    fontStyle: 'italic',
   },
 });
