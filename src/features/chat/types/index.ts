@@ -20,6 +20,7 @@ export interface Message {
   type?: 'text' | 'match'; // Add message type
   matchData?: { // Add match-specific data
     matchId?: string; // Match ID for API calls
+    matchType?: 'SINGLES' | 'DOUBLES'; // Match type from backend
     date: string;
     time: string;
     duration: number;

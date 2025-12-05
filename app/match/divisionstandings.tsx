@@ -91,11 +91,12 @@ export default function DivisionStandingsScreen() {
       const standingsData = response.data.data || response.data || [];
       
       // Transform backend data to match our interface
+      // Backend returns: odlayerName, odlayerImage OR user.name, user.image
       const transformedStandings: StandingsPlayer[] = standingsData.map((standing: any, index: number) => ({
-        rank: index + 1,
-        playerId: standing.userId || standing.playerId,
-        name: standing.user?.name || standing.userName || 'Unknown Player',
-        image: standing.user?.image || standing.userImage,
+        rank: standing.rank || index + 1,
+        playerId: standing.odlayerId || standing.userId || standing.playerId,
+        name: standing.odlayerName || standing.user?.name || standing.userName || 'Unknown Player',
+        image: standing.odlayerImage || standing.user?.image || standing.userImage || null,
         played: standing.matchesPlayed || 0,
         wins: standing.wins || 0,
         losses: standing.losses || 0,
@@ -204,8 +205,8 @@ export default function DivisionStandingsScreen() {
 
           {/* Division Card */}
           <View style={styles.divisionCard}>
-            {/* Division Header */}
-            <View style={styles.divisionHeader}>
+            {/* Division Header - Sport themed */}
+            <View style={[styles.divisionHeader, { backgroundColor: sportColors.background }]}>
               <Text style={styles.divisionName}>{divisionName}</Text>
               <TouchableOpacity
                 style={styles.viewMatchesButton}
@@ -242,7 +243,7 @@ export default function DivisionStandingsScreen() {
             <View style={styles.tableBody}>
               {loading ? (
                 <View style={styles.loadingContainer}>
-                  <ActivityIndicator size="large" color={sportColors.badgeColor} />
+                  <ActivityIndicator size="large" color={sportColors.background} />
                   <Text style={styles.loadingText}>Loading standings...</Text>
                 </View>
               ) : standings.length === 0 ? (
@@ -258,17 +259,17 @@ export default function DivisionStandingsScreen() {
               )}
             </View>
 
-            {/* View Results Toggle */}
+            {/* View Results Toggle - Sport themed */}
             <TouchableOpacity
               style={styles.viewResultsButton}
               onPress={() => setShowResults(!showResults)}
               activeOpacity={0.7}
             >
-              <Text style={styles.viewResultsText}>View Results</Text>
+              <Text style={[styles.viewResultsText, { color: sportColors.background }]}>View Results</Text>
               <Ionicons
                 name={showResults ? 'chevron-up' : 'chevron-down'}
                 size={18}
-                color="#F59E0B"
+                color={sportColors.background}
               />
             </TouchableOpacity>
           </View>
