@@ -948,23 +948,41 @@ export default function JoinMatchScreen() {
           </View>
         ) : (
           // Join Match Button (shown to non-participants)
-          <TouchableOpacity
-            style={[
-              styles.joinButton,
-              { backgroundColor:"#FEA04D" },
-              (loading || !canJoin || allSlotsFilled || isMatchTimeReached()) && styles.joinButtonDisabled
-            ]}
-            onPress={handleJoinMatch}
-            disabled={loading || !canJoin || allSlotsFilled || isMatchTimeReached()}
-          >
-            {loading ? (
-              <ActivityIndicator color="#FFFFFF" size="small" />
-            ) : (
-              <Text style={styles.joinButtonText}>
-                {isMatchTimeReached() && !allSlotsFilled ? 'Time Passed' : allSlotsFilled ? 'Match Full' : 'Join Match'}
-              </Text>
-            )}
-          </TouchableOpacity>
+          <View style={styles.buttonGroup}>
+            {/* TEST BUTTON - No time check - Remove later */}
+            <TouchableOpacity
+              style={[styles.joinButton, { backgroundColor: "#10B981" }]}
+              onPress={handleJoinMatch}
+              disabled={loading || !canJoin || allSlotsFilled}
+            >
+              {loading ? (
+                <ActivityIndicator color="#FFFFFF" size="small" />
+              ) : (
+                <Text style={styles.joinButtonText}>
+                  🧪 TEST Join (No Time Check)
+                </Text>
+              )}
+            </TouchableOpacity>
+            
+            {/* Normal Join Button */}
+            <TouchableOpacity
+              style={[
+                styles.joinButton,
+                { backgroundColor:"#FEA04D" },
+                (loading || !canJoin || allSlotsFilled || isMatchTimeReached()) && styles.joinButtonDisabled
+              ]}
+              onPress={handleJoinMatch}
+              disabled={loading || !canJoin || allSlotsFilled || isMatchTimeReached()}
+            >
+              {loading ? (
+                <ActivityIndicator color="#FFFFFF" size="small" />
+              ) : (
+                <Text style={styles.joinButtonText}>
+                  {isMatchTimeReached() && !allSlotsFilled ? 'Time Passed' : allSlotsFilled ? 'Match Full' : 'Join Match'}
+                </Text>
+              )}
+            </TouchableOpacity>
+          </View>
         )}
       </View>
 
