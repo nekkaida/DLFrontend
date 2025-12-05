@@ -279,7 +279,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
       const backendUrl = getBackendBaseURL();
       const isDoubles = matchData.numberOfPlayers === 4;
       
-      // Step 1: Fetch division to check gameType and seasonId
+      // Fetch division to check gameType and seasonId
       let partnerId: string | undefined;
       let divisionGameType: string | undefined;
       let seasonId: string | undefined;
@@ -318,7 +318,6 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
         }
       }
       
-      // Step 2: If division is DOUBLES type, fetch partnership
       if (divisionGameType === 'DOUBLES' && seasonId) {
         console.log('🎾 Division is DOUBLES type, fetching partnership...');
         
@@ -364,11 +363,9 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
           return;
         }
       }
-      
-      // Step 3: Convert 12-hour time to 24-hour format
+    
       // Extract start time from range (e.g., "2:00 PM - 4:00 PM" -> "2:00 PM")
       const extractStartTime = (timeRange: string): string => {
-        // If it contains " - ", it's a range, extract the first part
         if (timeRange.includes(' - ')) {
           return timeRange.split(' - ')[0].trim();
         }
@@ -391,22 +388,20 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
       const startTime = extractStartTime(matchData.time);
       const time24 = convertTo24Hour(startTime);
       
-      // SIMPLIFIED: Send single matchDate - backend will parse as Malaysia time
+      // TIMEZONE HANDLING:
+      // User selects time in their local timezone using device picker
+      // We send the time + device timezone to backend
+      // Backend converts from device timezone → Malaysia timezone → UTC for storage
       const dateTimeString = `${matchData.date}T${time24}:00`;
-      
-      console.log('\u{1F4C5} Match date/time:', {
-        userInput: `${matchData.date} ${matchData.time}`,
-        matchDate: dateTimeString,
-        note: 'Backend will parse this as Malaysia Time (UTC+8)'
-      });
-      
-      // Step 4: Create the match using the division's gameType
+      const deviceTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    
+  
       const matchPayload: any = {
         divisionId: currentThread.metadata?.divisionId,
         matchType: divisionGameType || (isDoubles ? 'DOUBLES' : 'SINGLES'),
         format: 'STANDARD',
-        matchDate: dateTimeString,      // Using single matchDate
-        // proposedTimes: [dateTimeString],  // COMMENTED OUT
+        matchDate: dateTimeString,  
+        deviceTimezone,
         location: matchData.location || 'TBD',
         notes: matchData.description,
         duration: matchData.duration || 2,
@@ -421,14 +416,14 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
         console.log('✅ Added partnerId to payload:', partnerId);
       }
       
-      console.log('📤 Creating match with payload:', {
-        payload: matchPayload,
-        payloadString: JSON.stringify(matchPayload, null, 2),
-        endpoint: `${backendUrl}/api/match/create`,
-        userId: user.id,
-        isDoubles,
-        hasPartnerId: !!partnerId
-      });
+      // console.log('📤 Creating match with payload:', {
+      //   payload: matchPayload,
+      //   payloadString: JSON.stringify(matchPayload, null, 2),
+      //   endpoint: `${backendUrl}/api/match/create`,
+      //   userId: user.id,
+      //   isDoubles,
+      //   hasPartnerId: !!partnerId
+      // });
       
       const matchResponse = await fetch(`${backendUrl}/api/match/create`, {
         method: 'POST',
@@ -437,12 +432,6 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
           'x-user-id': user.id,
         },
         body: JSON.stringify(matchPayload),
-      });
-
-      console.log('📥 STEP 9: Match creation response:', {
-        status: matchResponse.status,
-        ok: matchResponse.ok,
-        statusText: matchResponse.statusText
       });
 
       if (!matchResponse.ok) {
@@ -456,7 +445,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
       }
 
       const matchResult = await matchResponse.json();
-      console.log('✅ STEP 10: Match created successfully:', {
+      console.log('✅ Match created successfully:', {
         matchId: matchResult.id,
         fullResult: matchResult
       });
@@ -472,7 +461,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
         participants: acceptedParticipants
       });
 
-      // Step 2: Send a message to the thread with match data for UI display
+      // Send a message to the thread with match data for UI display
       const messageContent = `📅 Match scheduled for ${matchData.date} at ${matchData.time}`;
       const messagePayload = {
         senderId: user.id,
@@ -494,7 +483,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
           leagueName: currentThread.name || 'Match',
           courtBooked: matchData.courtBooked || false,
           status: 'SCHEDULED',
-          participants: acceptedParticipants, // Only include accepted participants
+          participants: acceptedParticipants,
         },
       };
 
@@ -518,40 +507,6 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
       console.error('❌ Error creating match:', error);
       toast.error(error instanceof Error ? error.message : 'Failed to create match');
     }
-
-    // MOCK DATA (commented out for reference)
-    // const matchMessage = {
-    //   id: `match-${Date.now()}`,
-    //   threadId: currentThread.id,
-    //   senderId: user.id,
-    //   content: `📅 Match scheduled for ${matchData.date} at ${matchData.time}`,
-    //   timestamp: new Date(),
-    //   isRead: false,
-    //   isDelivered: true,
-    //   type: 'match' as const,
-    //   matchData: {
-    //     ...matchData,
-    //     location: matchData.location || 'Home',
-    //     sportType: currentThread.sportType || 'PICKLEBALL',
-    //     leagueName: currentThread.name || 'League Match',
-    //     courtBooked: true,
-    //   },
-    //   metadata: {
-    //     sender: {
-    //       id: user.id,
-    //       name: user.name || user.username || 'You',
-    //       username: user.username,
-    //     },
-    //   },
-    // };
-    // const currentMessages = messages[currentThread.id] || [];
-    // const updatedMessages = [...currentMessages, matchMessage as any];
-    // useChatStore.setState((state) => ({
-    //   messages: {
-    //     ...state.messages,
-    //     [currentThread.id]: updatedMessages,
-    //   },
-    // }));
   };
 
   const handleReply = (message: any) => {
