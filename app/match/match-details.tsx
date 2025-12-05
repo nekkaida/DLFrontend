@@ -46,6 +46,20 @@ export default function JoinMatchScreen() {
     partnerImage?: string;
     partnerId?: string;
   }>({ hasPartner: false });
+  
+  // Match data for result submission logic
+  const [matchData, setMatchData] = useState<{
+    createdById: string | null;
+    resultSubmittedById: string | null;
+    status: string;
+  }>({ createdById: null, resultSubmittedById: null, status: 'SCHEDULED' });
+  
+  // Partnership data with captain info
+  const [partnershipData, setPartnershipData] = useState<{
+    captainId: string | null;
+    partnerId: string | null;
+  }>({ captainId: null, partnerId: null });
+  
   const bottomSheetModalRef = useRef<BottomSheetModal>(null);
   const snapPoints = useMemo(() => ['75%', '90%'], []);
 
@@ -68,17 +82,8 @@ export default function JoinMatchScreen() {
   const participants = params.participants ? JSON.parse(params.participants as string) : [];
   const matchStatus = (params.status as string) || 'SCHEDULED';
 
-  console.log('🔍 MATCH DETAILS DEBUG:', {
-    matchId,
-    date,
-    time,
-    matchStatus,
-    allParams: params,
-    dateType: typeof date,
-    timeType: typeof time,
-    dateValue: date,
-    timeValue: time,
-  });
+  // Debug log only once - remove later
+  // console.log('🔍 MATCH DETAILS DEBUG:', { matchId, matchStatus });
 
   const sportColors = getSportColors(sportType as SportType);
   const themeColor = sportColors.background;
@@ -113,6 +118,36 @@ export default function JoinMatchScreen() {
       fetchParticipantDetails();
     }
   }, []);
+
+  // Fetch match data (createdById, resultSubmittedById, status)
+  useEffect(() => {
+    const fetchMatchData = async () => {
+      if (!matchId || !session?.user?.id) return;
+      
+      try {
+        const backendUrl = getBackendBaseURL();
+        const response = await fetch(`${backendUrl}/api/match/${matchId}`, {
+          headers: {
+            'x-user-id': session.user.id,
+          },
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          const match = data.match || data;
+          setMatchData({
+            createdById: match.createdById || null,
+            resultSubmittedById: match.resultSubmittedById || null,
+            status: match.status || 'SCHEDULED',
+          });
+        }
+      } catch (error) {
+        console.error('Error fetching match data:', error);
+      }
+    };
+    
+    fetchMatchData();
+  }, [matchId, session?.user?.id]);
 
   // Fetch partnership info for doubles
   useEffect(() => {
@@ -219,6 +254,12 @@ export default function JoinMatchScreen() {
           const isUserCaptain = captainId === currentUserId;
           const isUserPartner = partnerId === currentUserId;
 
+          // Save partnership data for result submission logic
+          setPartnershipData({
+            captainId: captainId || null,
+            partnerId: partnerId || null,
+          });
+
           // Any partner can join - invitation will be sent to the other
           if (isUserCaptain || isUserPartner) {
             const otherUser = isUserCaptain ? partnership.partner : partnership.captain;
@@ -259,7 +300,6 @@ export default function JoinMatchScreen() {
   // Check if result submission is allowed (match time until duration + 1 hour)
   const isMatchTimeReached = () => {
     if (!date || !time) {
-      console.log('⚠️ Missing date or time:', { date, time });
       return false;
     }
     
@@ -322,23 +362,7 @@ export default function JoinMatchScreen() {
       const isBeforeEnd = now <= matchEndTime;
       const canSubmit = hasStarted && isBeforeEnd;
       
-      console.log('⏰ TIME COMPARISON:', {
-        dateString: date,
-        timeString: time,
-        matchStartTime: matchStartTime.toISOString(),
-        matchStartTimeLocal: matchStartTime.toLocaleString(),
-        matchDuration: `${matchDuration} hours`,
-        graceHours: `${graceHours} hour`,
-        matchEndTime: matchEndTime.toISOString(),
-        matchEndTimeLocal: matchEndTime.toLocaleString(),
-        now: now.toISOString(),
-        nowLocal: now.toLocaleString(),
-        hasStarted,
-        isBeforeEnd,
-        canSubmitResult: canSubmit,
-        timeUntilStart: ((matchStartTime.getTime() - now.getTime()) / 60000).toFixed(0) + ' minutes',
-        timeUntilEnd: ((matchEndTime.getTime() - now.getTime()) / 60000).toFixed(0) + ' minutes',
-      });
+      // Debug log removed to prevent spam
       
       return canSubmit;
     } catch (error) {
@@ -545,6 +569,102 @@ export default function JoinMatchScreen() {
       throw error;
     }
   };
+
+  // Handler for confirming/approving match result (opponent captain)
+  const handleConfirmResult = async () => {
+    try {
+      const response = await axiosInstance.post(
+        endpoints.match.confirmResult(matchId),
+        { confirmed: true }
+      );
+      
+      toast.success('Match result confirmed!');
+      bottomSheetModalRef.current?.dismiss();
+      router.back();
+    } catch (error: any) {
+      console.error('❌ Error confirming result:', error);
+      const errorMessage = error.response?.data?.error || 
+                          error.response?.data?.message || 
+                          error.message || 
+                          'Failed to confirm result';
+      toast.error(errorMessage);
+      throw error;
+    }
+  };
+
+  // Handler for disputing match result (opponent captain)
+  const handleDisputeResult = async () => {
+    try {
+      // Use the same confirm endpoint with confirmed: false
+      const response = await axiosInstance.post(
+        endpoints.match.confirmResult(matchId),
+        { 
+          confirmed: false,
+          disputeReason: 'Score disagreement - opponent disputed the submitted scores'
+        }
+      );
+      
+      toast.success('Match result disputed. An admin will review.');
+      bottomSheetModalRef.current?.dismiss();
+      router.back();
+    } catch (error: any) {
+      console.error('❌ Error disputing result:', error);
+      const errorMessage = error.response?.data?.error || 
+                          error.response?.data?.message || 
+                          error.message || 
+                          'Failed to dispute result';
+      toast.error(errorMessage);
+      throw error;
+    }
+  };
+
+  // Determine if user is the captain of the team that CREATED the match (can submit result)
+  const isCreatorTeamCaptain = (() => {
+    if (matchType === 'SINGLES') {
+      // For singles, the creator can submit
+      return matchData.createdById === session?.user?.id;
+    }
+    // For doubles, check if user's partnership captain is the match creator
+    return partnershipData.captainId === matchData.createdById;
+  })();
+
+  // Determine if user is the OPPONENT captain (can review/approve result)
+  const isOpponentCaptain = (() => {
+    if (!isUserParticipant) return false;
+    if (matchType === 'SINGLES') {
+      // For singles, opponent is anyone who is a participant but not the creator
+      return matchData.createdById !== session?.user?.id;
+    }
+    // For doubles, user is opponent captain if they are a captain but NOT the creator's team captain
+    const isCaptain = partnershipData.captainId === session?.user?.id;
+    const isOnCreatorTeam = partnershipData.captainId === matchData.createdById;
+    return isCaptain && !isOnCreatorTeam;
+  })();
+
+  // Determine result sheet mode based on match status and user role
+  const getResultSheetMode = (): 'submit' | 'view' | 'review' => {
+    const status = matchData.status?.toUpperCase() || matchStatus.toUpperCase();
+    
+    // If match is ONGOING (result submitted), opponent captain can review
+    if (status === 'ONGOING' && isOpponentCaptain) {
+      return 'review';
+    }
+    
+    // If match is COMPLETED, everyone sees view mode
+    if (status === 'COMPLETED' || status === 'FINISHED') {
+      return 'view';
+    }
+    
+    // If creator team captain can still submit
+    if (isCreatorTeamCaptain && status === 'SCHEDULED') {
+      return 'submit';
+    }
+    
+    // Default to view for everyone else
+    return 'view';
+  };
+
+  const resultSheetMode = getResultSheetMode();
 
   return (
     <View style={styles.container}>
@@ -919,32 +1039,89 @@ export default function JoinMatchScreen() {
         {isUserParticipant && allSlotsFilled ? (
           // Show buttons for participants when match is full
           <View style={styles.buttonGroup}>
-            {/* Test Button - Always visible for participants */}
+            {/* Test Button - Always visible for dev testing */}
             <TouchableOpacity
               style={[styles.testButton, { backgroundColor: "#8B5CF6" }]}
               onPress={() => bottomSheetModalRef.current?.present()}
             >
-              <Text style={styles.testButtonText}>Test Result Sheet</Text>
+              <Text style={styles.testButtonText}>🧪 Test Sheet</Text>
             </TouchableOpacity>
             
-            {/* Add Result button - only when match time reached */}
-            {canStartMatch ? (
-              <TouchableOpacity
-                style={[styles.joinButton, { backgroundColor: "#F59E0B" }]}
-                onPress={() => bottomSheetModalRef.current?.present()}
-              >
-                <Text style={styles.joinButtonText}>Add Result</Text>
-              </TouchableOpacity>
-            ) : (
-              <TouchableOpacity
-                style={[styles.joinButton, { backgroundColor: "#FEA04D" }, styles.joinButtonDisabled]}
-                disabled
-              >
-                <Text style={styles.joinButtonText}>
-                  Scheduled
-                </Text>
-              </TouchableOpacity>
-            )}
+            {/* Dynamic button based on user role and match status */}
+            {(() => {
+              const status = matchData.status?.toUpperCase() || matchStatus.toUpperCase();
+              
+              // Match COMPLETED - Show "View Scores" to everyone
+              if (status === 'COMPLETED' || status === 'FINISHED') {
+                return (
+                  <TouchableOpacity
+                    style={[styles.joinButton, { backgroundColor: "#6B7280" }]}
+                    onPress={() => bottomSheetModalRef.current?.present()}
+                  >
+                    <Text style={styles.joinButtonText}>View Scores</Text>
+                  </TouchableOpacity>
+                );
+              }
+              
+              // Match ONGOING (result submitted) - Opponent captain sees "View Scores" to approve/deny
+              if (status === 'ONGOING' && isOpponentCaptain) {
+                return (
+                  <TouchableOpacity
+                    style={[styles.joinButton, { backgroundColor: "#3B82F6" }]}
+                    onPress={() => bottomSheetModalRef.current?.present()}
+                  >
+                    <Ionicons name="eye" size={18} color="#FFFFFF" style={{ marginRight: 6 }} />
+                    <Text style={styles.joinButtonText}>View Scores</Text>
+                  </TouchableOpacity>
+                );
+              }
+              
+              // Match ONGOING but user is creator team - show waiting message
+              if (status === 'ONGOING' && isCreatorTeamCaptain) {
+                return (
+                  <TouchableOpacity
+                    style={[styles.joinButton, { backgroundColor: "#9CA3AF" }, styles.joinButtonDisabled]}
+                    disabled
+                  >
+                    <Text style={styles.joinButtonText}>Awaiting Approval</Text>
+                  </TouchableOpacity>
+                );
+              }
+              
+              // Match SCHEDULED - Creator team captain can submit
+              if (isCreatorTeamCaptain && canStartMatch) {
+                return (
+                  <TouchableOpacity
+                    style={[styles.joinButton, { backgroundColor: "#F59E0B" }]}
+                    onPress={() => bottomSheetModalRef.current?.present()}
+                  >
+                    <Text style={styles.joinButtonText}>Add Result</Text>
+                  </TouchableOpacity>
+                );
+              }
+              
+              // Match not started yet
+              if (!canStartMatch) {
+                return (
+                  <TouchableOpacity
+                    style={[styles.joinButton, { backgroundColor: "#FEA04D" }, styles.joinButtonDisabled]}
+                    disabled
+                  >
+                    <Text style={styles.joinButtonText}>Scheduled</Text>
+                  </TouchableOpacity>
+                );
+              }
+              
+              // Default: Non-captain participant - can only view once submitted
+              return (
+                <TouchableOpacity
+                  style={[styles.joinButton, { backgroundColor: "#9CA3AF" }, styles.joinButtonDisabled]}
+                  disabled
+                >
+                  <Text style={styles.joinButtonText}>Captain Submits</Text>
+                </TouchableOpacity>
+              );
+            })()}
           </View>
         ) : (
           // Join Match Button (shown to non-participants)
@@ -1006,8 +1183,11 @@ export default function JoinMatchScreen() {
             }))}
             sportType={sportType}
             seasonId={seasonId}
+            mode={resultSheetMode}
             onClose={() => bottomSheetModalRef.current?.dismiss()}
             onSubmit={handleSubmitResult}
+            onConfirm={handleConfirmResult}
+            onDispute={handleDisputeResult}
           />
         </BottomSheetView>
       </BottomSheetModal>
