@@ -43,8 +43,11 @@ interface MatchResultSheetProps {
   players: Player[];
   sportType: string; // 'TENNIS', 'PADEL', 'PICKLEBALL'
   seasonId?: string;
+  mode?: 'submit' | 'view' | 'review'; // submit: add result, view: read-only, review: approve/dispute
   onClose: () => void;
   onSubmit: (data: { setScores: SetScore[]; comment?: string }) => Promise<void>;
+  onConfirm?: () => Promise<void>;
+  onDispute?: () => Promise<void>;
 }
 
 export const MatchResultSheet: React.FC<MatchResultSheetProps> = ({
@@ -53,8 +56,11 @@ export const MatchResultSheet: React.FC<MatchResultSheetProps> = ({
   players,
   sportType,
   seasonId,
+  mode = 'submit',
   onClose,
   onSubmit,
+  onConfirm,
+  onDispute,
 }) => {
   const { data: session } = useSession();
   const [loading, setLoading] = useState(false);
@@ -62,6 +68,7 @@ export const MatchResultSheet: React.FC<MatchResultSheetProps> = ({
   const [partnership, setPartnership] = useState<Partnership | null>(null);
   const [isCaptain, setIsCaptain] = useState(false);
   const [comment, setComment] = useState('');
+  const [matchDetails, setMatchDetails] = useState<any>(null);
   
   const [setScores, setSetScores] = useState<SetScore[]>([
     { setNumber: 1, team1Games: 0, team2Games: 0 },
@@ -73,24 +80,64 @@ export const MatchResultSheet: React.FC<MatchResultSheetProps> = ({
   const teamAPlayers = players.filter(p => p.team === 'TEAM_A');
   const teamBPlayers = players.filter(p => p.team === 'TEAM_B');
 
-  console.log('👥 Match Result Sheet - Players:', {
-    totalPlayers: players.length,
-    teamACount: teamAPlayers.length,
-    teamBCount: teamBPlayers.length,
-    teamAPlayers: teamAPlayers.map(p => ({ id: p.id, name: p.name })),
-    teamBPlayers: teamBPlayers.map(p => ({ id: p.id, name: p.name })),
-    matchType,
-    sportType,
-  });
+  // Debug log removed to prevent spam
 
   const isTennisOrPadel = sportType === 'TENNIS' || sportType === 'PADEL';
 
-  // Fetch partnership info for doubles
+  // Fetch match details if in view/review mode
+  useEffect(() => {
+    const fetchMatchDetails = async () => {
+      if (mode === 'view' || mode === 'review') {
+        try {
+          const backendUrl = getBackendBaseURL();
+          const response = await fetch(`${backendUrl}/api/match/${matchId}`, {
+            headers: {
+              'x-user-id': session?.user?.id || '',
+            },
+          });
+
+          if (response.ok) {
+            const data = await response.json();
+            const match = data.match || data;
+            setMatchDetails(match);
+
+            // Parse existing scores
+            if (match.setScores) {
+              try {
+                const parsedScores = JSON.parse(match.setScores);
+                if (Array.isArray(parsedScores)) {
+                  setSetScores([
+                    parsedScores[0] || { setNumber: 1, team1Games: 0, team2Games: 0 },
+                    parsedScores[1] || { setNumber: 2, team1Games: 0, team2Games: 0 },
+                    parsedScores[2] || { setNumber: 3, team1Games: 0, team2Games: 0 },
+                  ]);
+                }
+              } catch (e) {
+                console.error('Error parsing set scores:', e);
+              }
+            }
+
+            // Set comment if exists
+            if (match.resultComment) {
+              setComment(match.resultComment);
+            }
+          }
+        } catch (error) {
+          console.error('Error fetching match details:', error);
+        }
+      }
+    };
+
+    fetchMatchDetails();
+  }, [matchId, mode, session?.user?.id]);
+
+  // Fetch partnership info for doubles (still fetch for display purposes)
   useEffect(() => {
     const fetchPartnership = async () => {
       if (matchType !== 'DOUBLES' || !session?.user?.id || !seasonId) {
         setPartnershipLoading(false);
-        setIsCaptain(true); // For singles, everyone can submit
+        // For singles or no partnership, use mode to determine submit capability
+        setIsCaptain(mode === 'submit');
         return;
       }
 
@@ -111,8 +158,9 @@ export const MatchResultSheet: React.FC<MatchResultSheetProps> = ({
           
           if (partnershipData) {
             setPartnership(partnershipData);
-            // Check if current user is the captain
-            setIsCaptain(partnershipData.captainId === session.user.id);
+            // The mode prop from parent already determines if user can submit
+            // If mode is 'submit', user is the creator team captain
+            setIsCaptain(mode === 'submit');
           }
         }
       } catch (error) {
@@ -123,7 +171,7 @@ export const MatchResultSheet: React.FC<MatchResultSheetProps> = ({
     };
 
     fetchPartnership();
-  }, [matchType, session?.user?.id, seasonId]);
+  }, [matchType, session?.user?.id, seasonId, mode]);
 
   const updateScore = (setIndex: number, team: 'A' | 'B', field: 'games' | 'tiebreak', value: string) => {
     const numValue = parseInt(value) || 0;
@@ -287,7 +335,9 @@ export const MatchResultSheet: React.FC<MatchResultSheetProps> = ({
         <TouchableOpacity onPress={onClose} style={styles.closeButton}>
           <Ionicons name="close" size={24} color="#6B7280" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>How did the match go?</Text>
+        <Text style={styles.headerTitle}>
+          {mode === 'view' ? 'Submitted Scores' : mode === 'review' ? 'Review Match Result' : 'How did the match go?'}
+        </Text>
         <View style={{ width: 24 }} />
       </View>
 
@@ -375,12 +425,12 @@ export const MatchResultSheet: React.FC<MatchResultSheetProps> = ({
               <View key={`A-${setIdx}`} style={styles.scoreSetContainer}>
                 <View style={styles.scoreInputWrapper}>
                   <TextInput
-                    style={[styles.scoreInput, !isCaptain && styles.scoreInputDisabled]}
+                    style={[styles.scoreInput, (!isCaptain || mode !== 'submit') && styles.scoreInputDisabled]}
                     keyboardType="number-pad"
                     maxLength={isTennisOrPadel ? 1 : 2}
                     value={setScores[setIdx].team1Games ? String(setScores[setIdx].team1Games) : ''}
                     onChangeText={(value) => updateScore(setIdx, 'A', 'games', value)}
-                    editable={isCaptain}
+                    editable={isCaptain && mode === 'submit'}
                     placeholder={isTennisOrPadel ? '' : '15'}
                     placeholderTextColor="#D1D5DB"
                   />
@@ -393,14 +443,14 @@ export const MatchResultSheet: React.FC<MatchResultSheetProps> = ({
                 {needsTiebreak(setIdx) && (
                   <View style={styles.tiebreakInputWrapper}>
                     <TextInput
-                      style={[styles.tiebreakInput, !isCaptain && styles.scoreInputDisabled]}
+                      style={[styles.tiebreakInput, (!isCaptain || mode !== 'submit') && styles.scoreInputDisabled]}
                       keyboardType="number-pad"
                       maxLength={2}
                       value={setScores[setIdx].team1Tiebreak ? String(setScores[setIdx].team1Tiebreak) : ''}
                       onChangeText={(value) => updateScore(setIdx, 'A', 'tiebreak', value)}
                       placeholder="TB"
                       placeholderTextColor="#9CA3AF"
-                      editable={isCaptain}
+                      editable={isCaptain && mode === 'submit'}
                     />
                   </View>
                 )}
@@ -421,12 +471,12 @@ export const MatchResultSheet: React.FC<MatchResultSheetProps> = ({
               <View key={`B-${setIdx}`} style={styles.scoreSetContainer}>
                 <View style={styles.scoreInputWrapper}>
                   <TextInput
-                    style={[styles.scoreInput, !isCaptain && styles.scoreInputDisabled]}
+                    style={[styles.scoreInput, (!isCaptain || mode !== 'submit') && styles.scoreInputDisabled]}
                     keyboardType="number-pad"
                     maxLength={isTennisOrPadel ? 1 : 2}
                     value={setScores[setIdx].team2Games ? String(setScores[setIdx].team2Games) : ''}
                     onChangeText={(value) => updateScore(setIdx, 'B', 'games', value)}
-                    editable={isCaptain}
+                    editable={isCaptain && mode === 'submit'}
                     placeholder={isTennisOrPadel ? '' : '15'}
                     placeholderTextColor="#D1D5DB"
                   />
@@ -439,14 +489,14 @@ export const MatchResultSheet: React.FC<MatchResultSheetProps> = ({
                 {needsTiebreak(setIdx) && (
                   <View style={styles.tiebreakInputWrapper}>
                     <TextInput
-                      style={[styles.tiebreakInput, !isCaptain && styles.scoreInputDisabled]}
+                      style={[styles.tiebreakInput, (!isCaptain || mode !== 'submit') && styles.scoreInputDisabled]}
                       keyboardType="number-pad"
                       maxLength={2}
                       value={setScores[setIdx].team2Tiebreak ? String(setScores[setIdx].team2Tiebreak) : ''}
                       onChangeText={(value) => updateScore(setIdx, 'B', 'tiebreak', value)}
                       placeholder="TB"
                       placeholderTextColor="#9CA3AF"
-                      editable={isCaptain}
+                      editable={isCaptain && mode === 'submit'}
                     />
                   </View>
                 )}
@@ -459,14 +509,14 @@ export const MatchResultSheet: React.FC<MatchResultSheetProps> = ({
         <View style={styles.summarySection}>
           <Text style={styles.summaryTitle}>Game Summary (Optional)</Text>
           <TextInput
-            style={[styles.summaryInput, !isCaptain && styles.scoreInputDisabled]}
+            style={[styles.summaryInput, (!isCaptain || mode !== 'submit') && styles.scoreInputDisabled]}
             multiline
             numberOfLines={3}
             placeholder="e.g. Great match with close rallies in the final set..."
             placeholderTextColor="#9CA3AF"
             value={comment}
             onChangeText={setComment}
-            editable={isCaptain}
+            editable={isCaptain && mode === 'submit'}
           />
         </View>
 
@@ -474,26 +524,84 @@ export const MatchResultSheet: React.FC<MatchResultSheetProps> = ({
         <View style={styles.infoContainer}>
           <Ionicons name="information-circle" size={16} color="#3B82F6" />
           <Text style={styles.infoText}>
-            {matchType === 'DOUBLES' 
-              ? 'Both team captains will submit scores. If they match, the result is confirmed. If not, a dispute will be created for admin review.'
+            {mode === 'view' 
+              ? 'These scores have been submitted and are awaiting opponent confirmation.'
+              : mode === 'review'
+              ? 'Please review the submitted scores carefully before approving or disputing.'
+              : matchType === 'DOUBLES' 
+              ? 'Only the team captain can submit scores. Your opponent will review and confirm.'
               : 'Your opponent will verify the score. If they confirm, the result is final. If not, a dispute will be created.'}
           </Text>
         </View>
 
-        {/* Submit Button */}
-        <TouchableOpacity
-          style={[styles.submitButton, (loading || !isCaptain) && styles.submitButtonDisabled]}
-          onPress={handleSubmit}
-          disabled={loading || !isCaptain}
-        >
-          {loading ? (
-            <ActivityIndicator color="#FFFFFF" />
-          ) : (
-            <Text style={styles.submitButtonText}>
-              {isCaptain ? 'Submit Result' : 'Only Captain Can Submit'}
-            </Text>
-          )}
-        </TouchableOpacity>
+        {/* Action Buttons */}
+        {mode === 'submit' ? (
+          <TouchableOpacity
+            style={[styles.submitButton, (loading || !isCaptain) && styles.submitButtonDisabled]}
+            onPress={handleSubmit}
+            disabled={loading || !isCaptain}
+          >
+            {loading ? (
+              <ActivityIndicator color="#FFFFFF" />
+            ) : (
+              <Text style={styles.submitButtonText}>
+                {isCaptain ? 'Submit Result' : 'Only Captain Can Submit'}
+              </Text>
+            )}
+          </TouchableOpacity>
+        ) : mode === 'view' ? (
+          <TouchableOpacity
+            style={[styles.submitButton, { backgroundColor: '#6B7280' }]}
+            onPress={onClose}
+          >
+            <Text style={styles.submitButtonText}>Close</Text>
+          </TouchableOpacity>
+        ) : mode === 'review' ? (
+          <View style={styles.reviewActions}>
+            <TouchableOpacity
+              style={[styles.disputeButtonLarge]}
+              onPress={async () => {
+                setLoading(true);
+                try {
+                  await onDispute?.();
+                } finally {
+                  setLoading(false);
+                }
+              }}
+              disabled={loading}
+            >
+              {loading ? (
+                <ActivityIndicator color="#DC2626" />
+              ) : (
+                <>
+                  <Ionicons name="close-circle" size={20} color="#DC2626" />
+                  <Text style={styles.disputeButtonLargeText}>Dispute Score</Text>
+                </>
+              )}
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.approveButtonLarge]}
+              onPress={async () => {
+                setLoading(true);
+                try {
+                  await onConfirm?.();
+                } finally {
+                  setLoading(false);
+                }
+              }}
+              disabled={loading}
+            >
+              {loading ? (
+                <ActivityIndicator color="#FFFFFF" />
+              ) : (
+                <>
+                  <Ionicons name="checkmark-circle" size={20} color="#FFFFFF" />
+                  <Text style={styles.approveButtonLargeText}>Approve & Confirm</Text>
+                </>
+              )}
+            </TouchableOpacity>
+          </View>
+        ) : null}
       </ScrollView>
     </View>
   );
@@ -870,6 +978,52 @@ const styles = StyleSheet.create({
     opacity: 0.5,
   },
   submitButtonText: {
+    fontSize: 17,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  reviewActions: {
+    flexDirection: 'row',
+    gap: 12,
+    marginHorizontal: 20,
+    marginBottom: 32,
+  },
+  disputeButtonLarge: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 16,
+    borderRadius: 16,
+    backgroundColor: '#FEF2F2',
+    borderWidth: 2,
+    borderColor: '#FEE2E2',
+  },
+  disputeButtonLargeText: {
+    fontSize: 17,
+    fontWeight: '700',
+    color: '#DC2626',
+  },
+  approveButtonLarge: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 16,
+    borderRadius: 16,
+    backgroundColor: '#10B981',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  approveButtonLargeText: {
     fontSize: 17,
     fontWeight: '700',
     color: '#FFFFFF',
