@@ -8,6 +8,7 @@ import {
   Image,
   ScrollView,
   StyleSheet,
+  Switch,
   Text,
   TextInput,
   TouchableOpacity,
@@ -75,10 +76,25 @@ export const MatchResultSheet: React.FC<MatchResultSheetProps> = ({
     { setNumber: 2, team1Games: 0, team2Games: 0 },
     { setNumber: 3, team1Games: 0, team2Games: 0 },
   ]);
+  const [didntPlay, setDidntPlay] = useState(false); // TODO for zawad
+  const [matchIncomplete, setMatchIncomplete] = useState(false); // TODO for zawad
 
   // Separate players by team
-  const teamAPlayers = players.filter(p => p.team === 'TEAM_A');
-  const teamBPlayers = players.filter(p => p.team === 'TEAM_B');
+  // First try to filter by team property, then fallback to splitting the array
+  const teamAPlayersFiltered = players.filter(p => p.team === 'TEAM_A');
+  const teamBPlayersFiltered = players.filter(p => p.team === 'TEAM_B');
+
+  // Fallback: if no team property set, split players array (first half = team A, second half = team B)
+  const teamAPlayers = teamAPlayersFiltered.length > 0
+    ? teamAPlayersFiltered
+    : matchType === 'SINGLES'
+      ? players.slice(0, 1)
+      : players.slice(0, 2);
+  const teamBPlayers = teamBPlayersFiltered.length > 0
+    ? teamBPlayersFiltered
+    : matchType === 'SINGLES'
+      ? players.slice(1, 2)
+      : players.slice(2, 4);
 
   // Debug log removed to prevent spam
 
@@ -101,19 +117,30 @@ export const MatchResultSheet: React.FC<MatchResultSheetProps> = ({
             const match = data.match || data;
             setMatchDetails(match);
 
-            // Parse existing scores
-            if (match.setScores) {
+            // Parse existing scores - handle both setScores (tennis/padel) and gameScores (pickleball)
+            const scoresData = match.setScores || match.gameScores;
+            if (scoresData) {
               try {
-                const parsedScores = JSON.parse(match.setScores);
+                const parsedScores = typeof scoresData === 'string' ? JSON.parse(scoresData) : scoresData;
                 if (Array.isArray(parsedScores)) {
+                  // Map to internal format - handle both naming conventions
+                  // Database may store: { gameNumber, team1Points, team2Points } or { setNumber, team1Games, team2Games }
+                  const mappedScores = parsedScores.map((score: any, index: number) => ({
+                    setNumber: score.setNumber || score.gameNumber || (index + 1),
+                    team1Games: score.team1Games ?? score.team1Points ?? 0,
+                    team2Games: score.team2Games ?? score.team2Points ?? 0,
+                    team1Tiebreak: score.team1Tiebreak,
+                    team2Tiebreak: score.team2Tiebreak,
+                  }));
+
                   setSetScores([
-                    parsedScores[0] || { setNumber: 1, team1Games: 0, team2Games: 0 },
-                    parsedScores[1] || { setNumber: 2, team1Games: 0, team2Games: 0 },
-                    parsedScores[2] || { setNumber: 3, team1Games: 0, team2Games: 0 },
+                    mappedScores[0] || { setNumber: 1, team1Games: 0, team2Games: 0 },
+                    mappedScores[1] || { setNumber: 2, team1Games: 0, team2Games: 0 },
+                    mappedScores[2] || { setNumber: 3, team1Games: 0, team2Games: 0 },
                   ]);
                 }
               } catch (e) {
-                console.error('Error parsing set scores:', e);
+                console.error('Error parsing scores:', e);
               }
             }
 
@@ -197,18 +224,42 @@ export const MatchResultSheet: React.FC<MatchResultSheetProps> = ({
     setSetScores(newScores);
   };
 
-  // Check if a set needs tiebreak input (6-6 or 7-6 scenarios)
+  // Check if a set/game needs tiebreak input
   const needsTiebreak = (setIndex: number): boolean => {
-    if (!isTennisOrPadel) return false;
-    
     const set = setScores[setIndex];
     const team1 = set.team1Games;
     const team2 = set.team2Games;
-    
-    // Need tiebreak if 6-6 or if one team has 7 and other has 6
-    return (team1 === 6 && team2 === 6) || 
-           (team1 === 7 && team2 === 6) || 
-           (team1 === 6 && team2 === 7);
+
+    if (isTennisOrPadel) {
+      // Tennis/Padel: Need tiebreak if either team has 7 (meaning 7-6 scenario)
+      return team1 === 7 || team2 === 7;
+    } else {
+      // Pickleball: Need "tiebreak" (extended score) when both scores >= 14
+      // This indicates a close game where win-by-2 is needed
+      return (team1 >= 14 && team2 >= 14) ||
+             (team1 >= 15 && team2 >= 14) ||
+             (team1 >= 14 && team2 >= 15);
+    }
+  };
+
+  // Check if a specific set should be disabled
+  const isSetDisabled = (setIndex: number): boolean => {
+    if (setIndex < 2) return false; // First two sets are always enabled
+
+    // 3rd set is only enabled when the score is 1-1 (each player won one set)
+    // Otherwise it stays disabled (either 2-0 win or sets not yet completed)
+    let teamAWins = 0;
+    let teamBWins = 0;
+
+    for (let i = 0; i < 2; i++) {
+      const winner = getSetWinner(i);
+      if (winner === 'A') teamAWins++;
+      if (winner === 'B') teamBWins++;
+    }
+
+    // Only enable 3rd set if it's 1-1
+    const isOneOne = teamAWins === 1 && teamBWins === 1;
+    return !isOneOne;
   };
 
   // Get the winner of a set based on games and tiebreak
@@ -216,25 +267,63 @@ export const MatchResultSheet: React.FC<MatchResultSheetProps> = ({
     const set = setScores[setIndex];
     const team1 = set.team1Games;
     const team2 = set.team2Games;
-    
+
     if (team1 === 0 && team2 === 0) return null;
-    
-    // If games are equal at 6-6, check tiebreak
-    if (team1 === 6 && team2 === 6) {
-      if ((set.team1Tiebreak || 0) > (set.team2Tiebreak || 0)) return 'A';
-      if ((set.team2Tiebreak || 0) > (set.team1Tiebreak || 0)) return 'B';
+
+    if (isTennisOrPadel) {
+      // Tennis/Padel scoring
+
+      // If games are equal at 6-6, check tiebreak
+      if (team1 === 6 && team2 === 6) {
+        if ((set.team1Tiebreak || 0) > (set.team2Tiebreak || 0)) return 'A';
+        if ((set.team2Tiebreak || 0) > (set.team1Tiebreak || 0)) return 'B';
+        return null;
+      }
+
+      // For 7-6 or 6-7 scenarios, must have tiebreak scores to determine winner
+      if (team1 === 7 && team2 === 6) {
+        // Need tiebreak score to confirm winner
+        const tb1 = set.team1Tiebreak || 0;
+        const tb2 = set.team2Tiebreak || 0;
+        if (tb1 > tb2 && tb1 >= 7 && tb1 - tb2 >= 2) return 'A';
+        if (tb1 === 0 && tb2 === 0) return null; // Tiebreak not filled in yet
+        return tb1 > tb2 ? 'A' : null;
+      }
+      if (team2 === 7 && team1 === 6) {
+        // Need tiebreak score to confirm winner
+        const tb1 = set.team1Tiebreak || 0;
+        const tb2 = set.team2Tiebreak || 0;
+        if (tb2 > tb1 && tb2 >= 7 && tb2 - tb1 >= 2) return 'B';
+        if (tb1 === 0 && tb2 === 0) return null; // Tiebreak not filled in yet
+        return tb2 > tb1 ? 'B' : null;
+      }
+
+      // Normal win (6-4, 6-3, etc.)
+      if (team1 >= 6 && team1 - team2 >= 2) return 'A';
+      if (team2 >= 6 && team2 - team1 >= 2) return 'B';
+
+      return null;
+    } else {
+      // Pickleball scoring (first to 15, win by 2)
+
+      // Check if either team has won (15+ points with 2+ lead)
+      if (team1 >= 15 && team1 - team2 >= 2) return 'A';
+      if (team2 >= 15 && team2 - team1 >= 2) return 'B';
+
+      // For close games (both at 14+), check tiebreak/extended scores
+      if (team1 >= 14 && team2 >= 14) {
+        const tb1 = set.team1Tiebreak || 0;
+        const tb2 = set.team2Tiebreak || 0;
+
+        // If tiebreak scores exist, use them to determine winner
+        if (tb1 > 0 || tb2 > 0) {
+          if (tb1 > tb2 && tb1 - tb2 >= 2) return 'A';
+          if (tb2 > tb1 && tb2 - tb1 >= 2) return 'B';
+        }
+      }
+
       return null;
     }
-    
-    // For 7-6 or 6-7 scenarios
-    if (team1 === 7 && team2 === 6) return 'A';
-    if (team2 === 7 && team1 === 6) return 'B';
-    
-    // Normal win (6-4, 6-3, etc.)
-    if (team1 >= 6 && team1 - team2 >= 2) return 'A';
-    if (team2 >= 6 && team2 - team1 >= 2) return 'B';
-    
-    return null;
   };
 
   const handleSubmit = async () => {
@@ -247,9 +336,9 @@ export const MatchResultSheet: React.FC<MatchResultSheetProps> = ({
       return;
     }
 
-    // Validate scores
+    // Validate scores - filter out disabled sets (e.g., 3rd set when match won 2-0)
     const playedSets = setScores.filter(
-      (set) => set.team1Games > 0 || set.team2Games > 0
+      (set, index) => (set.team1Games > 0 || set.team2Games > 0) && !isSetDisabled(index)
     );
 
     if (playedSets.length === 0) {
@@ -257,7 +346,7 @@ export const MatchResultSheet: React.FC<MatchResultSheetProps> = ({
       return;
     }
 
-    // For Tennis/Padel: Validate tiebreaks for sets that need them
+    // Validate tiebreaks for sets/games that need them
     if (sportType === 'TENNIS' || sportType === 'PADEL') {
       for (let i = 0; i < playedSets.length; i++) {
         if (needsTiebreak(i)) {
@@ -266,6 +355,39 @@ export const MatchResultSheet: React.FC<MatchResultSheetProps> = ({
             Alert.alert(
               'Missing Tiebreak',
               `Set ${i + 1} requires a tiebreak score. Please enter the tiebreak points.`
+            );
+            return;
+          }
+        }
+      }
+    } else if (sportType === 'PICKLEBALL') {
+      // For Pickleball: If close game (14+ each), require final scores in tiebreak boxes
+      for (let i = 0; i < playedSets.length; i++) {
+        if (needsTiebreak(i)) {
+          const set = setScores[i];
+          if (!set.team1Tiebreak && !set.team2Tiebreak) {
+            Alert.alert(
+              'Missing Final Score',
+              `Game ${i + 1} is a close game. Please enter the final winning scores.`
+            );
+            return;
+          }
+          // Validate win by 2
+          const tb1 = set.team1Tiebreak || 0;
+          const tb2 = set.team2Tiebreak || 0;
+          const winner = Math.max(tb1, tb2);
+          const loser = Math.min(tb1, tb2);
+          if (winner < 15) {
+            Alert.alert(
+              'Invalid Score',
+              `Game ${i + 1}: Winner must have at least 15 points.`
+            );
+            return;
+          }
+          if (winner - loser < 2) {
+            Alert.alert(
+              'Invalid Score',
+              `Game ${i + 1}: Must win by 2 points. Current: ${tb1}-${tb2}`
             );
             return;
           }
@@ -283,11 +405,18 @@ export const MatchResultSheet: React.FC<MatchResultSheetProps> = ({
       // Format data based on sport type
       if (sportType === 'PICKLEBALL') {
         // Pickleball uses gameScores with gameNumber, team1Points, team2Points
-        submitData.gameScores = playedSets.map((set) => ({
-          gameNumber: set.setNumber,
-          team1Points: set.team1Games,
-          team2Points: set.team2Games
-        }));
+        // For close games (14-14 or higher), use tiebreak scores as final scores
+        submitData.gameScores = playedSets.map((set) => {
+          // If tiebreak scores exist (close game), use them as final scores
+          const hasTiebreak = set.team1Tiebreak !== undefined && set.team2Tiebreak !== undefined &&
+                              (set.team1Tiebreak > 0 || set.team2Tiebreak > 0);
+
+          return {
+            gameNumber: set.setNumber,
+            team1Points: hasTiebreak ? set.team1Tiebreak! : set.team1Games,
+            team2Points: hasTiebreak ? set.team2Tiebreak! : set.team2Games
+          };
+        });
       } else {
         // Tennis/Padel uses setScores with setNumber, team1Games, team2Games, tiebreaks
         submitData.setScores = playedSets;
@@ -330,73 +459,44 @@ export const MatchResultSheet: React.FC<MatchResultSheetProps> = ({
     <View style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-          <Ionicons name="close" size={24} color="#FEA04D" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>
-          {mode === 'view' ? 'Submitted Scores' : mode === 'review' ? 'Review Match Result' : 'How did the match go?'}
-        </Text>
-        <View style={{ width: 24 }} />
-      </View>
-
-      <ScrollView showsVerticalScrollIndicator={false}>
-        {/* Team Names Section - Show all players */}
-        <View style={styles.teamsHeaderSection}>
-          <View style={styles.teamHeaderRow}>
-            {/* Team A Players */}
-            <View style={styles.teamHeaderPlayers}>
-              {teamAPlayers.map(player => (
-                <View key={player.id} style={styles.teamHeaderPlayerItem}>
-                  {player.image ? (
-                    <Image source={{ uri: player.image }} style={styles.teamHeaderAvatar} />
-                  ) : (
-                    <View style={[styles.defaultAvatar, styles.teamHeaderAvatar]}>
-                      <Text style={styles.defaultAvatarText}>
-                        {player.name.charAt(0).toUpperCase()}
-                      </Text>
-                    </View>
-                  )}
-                  <Text style={styles.teamHeaderPlayerName} numberOfLines={1}>
-                    {player.name}
-                  </Text>
-                </View>
-              ))}
-            </View>
-            {/* VS Divider */}
-            <View style={styles.vsDividerContainer}>
-              <Text style={styles.vsText}>VS</Text>
-            </View>
-            {/* Team B Players */}
-            <View style={styles.teamHeaderPlayers}>
-              {teamBPlayers.map(player => (
-                <View key={player.id} style={styles.teamHeaderPlayerItem}>
-                  {player.image ? (
-                    <Image source={{ uri: player.image }} style={styles.teamHeaderAvatar} />
-                  ) : (
-                    <View style={[styles.defaultAvatar, styles.teamHeaderAvatar]}>
-                      <Text style={styles.defaultAvatarText}>
-                        {player.name.charAt(0).toUpperCase()}
-                      </Text>
-                    </View>
-                  )}
-                  <Text style={styles.teamHeaderPlayerName} numberOfLines={1}>
-                    {player.name}
-                  </Text>
-                </View>
-              ))}
-            </View>
-          </View>
-          {/* Captain warning for doubles */}
-          {matchType === 'DOUBLES' && partnership && !isCaptain && (
-            <View style={styles.warningBanner}>
-              <Ionicons name="alert-circle" size={16} color="#D97706" />
-              <Text style={styles.warningBannerText}>
-                Only the captain can submit scores
-              </Text>
-            </View>
+        <View style={styles.headerTitleContainer}>
+          <Text style={styles.headerTitle}>
+            {mode === 'view' ? 'Submitted Scores' : mode === 'review' ? 'Review Match Result' : 'How did the match go?'}
+          </Text>
+          {mode === 'submit' && (
+            <Text style={styles.headerSubtitle}>Submit the scores below.</Text>
           )}
         </View>
+        <TouchableOpacity onPress={onClose} style={styles.closeButton}>
+          <Ionicons name="close" size={24} color="#9CA3AF" />
+        </TouchableOpacity>
+      </View>
 
+      {/* Toggle Switches */}
+      {mode === 'submit' && (
+        <View style={styles.togglesSection}>
+          <View style={styles.toggleItem}>
+            <Text style={styles.toggleLabel}>Didn't play</Text>
+            <Switch
+              value={didntPlay}
+              onValueChange={setDidntPlay}
+              trackColor={{ false: '#E5E7EB', true: '#FEA04D' }}
+              thumbColor="#FFFFFF"
+            />
+          </View>
+          <View style={styles.toggleItem}>
+            <Text style={styles.toggleLabel}>Match incomplete</Text>
+            <Switch
+              value={matchIncomplete}
+              onValueChange={setMatchIncomplete}
+              trackColor={{ false: '#E5E7EB', true: '#FEA04D' }}
+              thumbColor="#FFFFFF"
+            />
+          </View>
+        </View>
+      )}
+
+      <ScrollView showsVerticalScrollIndicator={false}>
         {/* Sets/Games Header */}
         <View style={styles.setsHeaderRow}>
           <View style={styles.setsHeaderLabel}>
@@ -404,113 +504,209 @@ export const MatchResultSheet: React.FC<MatchResultSheetProps> = ({
           </View>
           <View style={styles.setsHeaderNumbers}>
             {[1,2,3].map(n => (
-              <View key={n} style={styles.setNumberHeaderBox}>
-                <Text style={styles.setNumberHeaderText}>{n}</Text>
-              </View>
+              <Text key={n} style={styles.setNumberHeaderText}>{n}</Text>
             ))}
           </View>
         </View>
 
         {/* Team A Row */}
         <View style={styles.teamRow}>
-          <View style={styles.teamNameColumn}>
-            <Text style={styles.teamNameText} numberOfLines={2}>
-              {teamAPlayers.map(p => p.name.split(' ')[0]).join(' / ')}
-            </Text>
+          {/* Avatar(s) - Overlapping for doubles, single for singles */}
+          {matchType === 'DOUBLES' ? (
+            <View style={styles.overlappingAvatars}>
+              {teamAPlayers.map((player, index) => (
+                <View
+                  key={player.id}
+                  style={[
+                    styles.overlappingAvatarContainer,
+                    index > 0 && { marginLeft: -16 }
+                  ]}
+                >
+                  {player.image ? (
+                    <Image source={{ uri: player.image }} style={styles.overlappingAvatarImage} />
+                  ) : (
+                    <View style={styles.overlappingAvatarDefault}>
+                      <Text style={styles.overlappingAvatarText}>
+                        {player.name.charAt(0).toUpperCase()}
+                      </Text>
+                    </View>
+                  )}
+                </View>
+              ))}
+            </View>
+          ) : (
+            <View style={styles.singleAvatarContainer}>
+              {teamAPlayers[0]?.image ? (
+                <Image source={{ uri: teamAPlayers[0].image }} style={styles.singleAvatarImage} />
+              ) : (
+                <View style={styles.singleAvatarDefault}>
+                  <Text style={styles.singleAvatarText}>
+                    {teamAPlayers[0]?.name.charAt(0).toUpperCase()}
+                  </Text>
+                </View>
+              )}
+            </View>
+          )}
+          {/* Names - Stacked for doubles, single for singles */}
+          <View style={styles.stackedNames}>
+            {matchType === 'DOUBLES' ? (
+              teamAPlayers.map(player => (
+                <Text key={player.id} style={styles.stackedNameText}>
+                  {player.name.split(' ')[0]}
+                </Text>
+              ))
+            ) : (
+              <Text style={styles.stackedNameText}>
+                {teamAPlayers[0]?.name.split(' ')[0]}
+              </Text>
+            )}
           </View>
+          {/* Score Inputs */}
           <View style={styles.scoresColumn}>
-            {[0,1,2].map((setIdx) => (
-              <View key={`A-${setIdx}`} style={styles.scoreSetContainer}>
-                <View style={styles.scoreInputWrapper}>
+            {[0,1,2].map((setIdx) => {
+              const setDisabled = isSetDisabled(setIdx);
+              const showTiebreak = needsTiebreak(setIdx);
+              return (
+                <View key={`A-${setIdx}`} style={styles.scoreInputWrapper}>
                   <TextInput
-                    style={[styles.scoreInput, (!isCaptain || mode !== 'submit') && styles.scoreInputDisabled]}
+                    style={[
+                      styles.scoreInput,
+                      (!isCaptain || mode !== 'submit' || setDisabled) && styles.scoreInputDisabled
+                    ]}
                     keyboardType="number-pad"
                     maxLength={isTennisOrPadel ? 1 : 2}
                     value={setScores[setIdx].team1Games ? String(setScores[setIdx].team1Games) : ''}
                     onChangeText={(value) => updateScore(setIdx, 'A', 'games', value)}
-                    editable={isCaptain && mode === 'submit'}
-                    placeholder={isTennisOrPadel ? '' : '15'}
+                    editable={isCaptain && mode === 'submit' && !setDisabled}
+                    placeholder=""
                     placeholderTextColor="#D1D5DB"
                   />
-                  {needsTiebreak(setIdx) && getSetWinner(setIdx) === 'A' && (
-                    <View style={styles.winIndicator}>
-                      <Text style={styles.winIndicatorText}>+1</Text>
+                  {showTiebreak && (
+                    <View style={styles.tiebreakOverlay}>
+                      <TextInput
+                        style={[
+                          styles.tiebreakOverlayInput,
+                          (!isCaptain || mode !== 'submit' || setDisabled) && styles.tiebreakInputDisabled
+                        ]}
+                        keyboardType="number-pad"
+                        maxLength={2}
+                        value={setScores[setIdx].team1Tiebreak ? String(setScores[setIdx].team1Tiebreak) : ''}
+                        onChangeText={(value) => updateScore(setIdx, 'A', 'tiebreak', value)}
+                        editable={isCaptain && mode === 'submit' && !setDisabled}
+                        placeholder=""
+                        placeholderTextColor="#9CA3AF"
+                      />
                     </View>
                   )}
                 </View>
-                {needsTiebreak(setIdx) && (
-                  <View style={styles.tiebreakInputWrapper}>
-                    <TextInput
-                      style={[styles.tiebreakInput, (!isCaptain || mode !== 'submit') && styles.scoreInputDisabled]}
-                      keyboardType="number-pad"
-                      maxLength={2}
-                      value={setScores[setIdx].team1Tiebreak ? String(setScores[setIdx].team1Tiebreak) : ''}
-                      onChangeText={(value) => updateScore(setIdx, 'A', 'tiebreak', value)}
-                      placeholder="TB"
-                      placeholderTextColor="#9CA3AF"
-                      editable={isCaptain && mode === 'submit'}
-                    />
-                  </View>
-                )}
-              </View>
-            ))}
+              );
+            })}
           </View>
         </View>
 
         {/* Team B Row */}
         <View style={styles.teamRow}>
-          <View style={styles.teamNameColumn}>
-            <Text style={styles.teamNameText} numberOfLines={2}>
-              {teamBPlayers.map(p => p.name.split(' ')[0]).join(' / ')}
-            </Text>
+          {/* Avatar(s) - Overlapping for doubles, single for singles */}
+          {matchType === 'DOUBLES' ? (
+            <View style={styles.overlappingAvatars}>
+              {teamBPlayers.map((player, index) => (
+                <View
+                  key={player.id}
+                  style={[
+                    styles.overlappingAvatarContainer,
+                    index > 0 && { marginLeft: -16 }
+                  ]}
+                >
+                  {player.image ? (
+                    <Image source={{ uri: player.image }} style={styles.overlappingAvatarImage} />
+                  ) : (
+                    <View style={styles.overlappingAvatarDefault}>
+                      <Text style={styles.overlappingAvatarText}>
+                        {player.name.charAt(0).toUpperCase()}
+                      </Text>
+                    </View>
+                  )}
+                </View>
+              ))}
+            </View>
+          ) : (
+            <View style={styles.singleAvatarContainer}>
+              {teamBPlayers[0]?.image ? (
+                <Image source={{ uri: teamBPlayers[0].image }} style={styles.singleAvatarImage} />
+              ) : (
+                <View style={styles.singleAvatarDefault}>
+                  <Text style={styles.singleAvatarText}>
+                    {teamBPlayers[0]?.name.charAt(0).toUpperCase()}
+                  </Text>
+                </View>
+              )}
+            </View>
+          )}
+          {/* Names - Stacked for doubles, single for singles */}
+          <View style={styles.stackedNames}>
+            {matchType === 'DOUBLES' ? (
+              teamBPlayers.map(player => (
+                <Text key={player.id} style={styles.stackedNameText}>
+                  {player.name.split(' ')[0]}
+                </Text>
+              ))
+            ) : (
+              <Text style={styles.stackedNameText}>
+                {teamBPlayers[0]?.name.split(' ')[0]}
+              </Text>
+            )}
           </View>
+          {/* Score Inputs */}
           <View style={styles.scoresColumn}>
-            {[0,1,2].map((setIdx) => (
-              <View key={`B-${setIdx}`} style={styles.scoreSetContainer}>
-                <View style={styles.scoreInputWrapper}>
+            {[0,1,2].map((setIdx) => {
+              const setDisabled = isSetDisabled(setIdx);
+              const showTiebreak = needsTiebreak(setIdx);
+              return (
+                <View key={`B-${setIdx}`} style={styles.scoreInputWrapper}>
                   <TextInput
-                    style={[styles.scoreInput, (!isCaptain || mode !== 'submit') && styles.scoreInputDisabled]}
+                    style={[
+                      styles.scoreInput,
+                      (!isCaptain || mode !== 'submit' || setDisabled) && styles.scoreInputDisabled
+                    ]}
                     keyboardType="number-pad"
                     maxLength={isTennisOrPadel ? 1 : 2}
                     value={setScores[setIdx].team2Games ? String(setScores[setIdx].team2Games) : ''}
                     onChangeText={(value) => updateScore(setIdx, 'B', 'games', value)}
-                    editable={isCaptain && mode === 'submit'}
-                    placeholder={isTennisOrPadel ? '' : '15'}
+                    editable={isCaptain && mode === 'submit' && !setDisabled}
+                    placeholder=""
                     placeholderTextColor="#D1D5DB"
                   />
-                  {needsTiebreak(setIdx) && getSetWinner(setIdx) === 'B' && (
-                    <View style={styles.winIndicator}>
-                      <Text style={styles.winIndicatorText}>+1</Text>
+                  {showTiebreak && (
+                    <View style={styles.tiebreakOverlay}>
+                      <TextInput
+                        style={[
+                          styles.tiebreakOverlayInput,
+                          (!isCaptain || mode !== 'submit' || setDisabled) && styles.tiebreakInputDisabled
+                        ]}
+                        keyboardType="number-pad"
+                        maxLength={2}
+                        value={setScores[setIdx].team2Tiebreak ? String(setScores[setIdx].team2Tiebreak) : ''}
+                        onChangeText={(value) => updateScore(setIdx, 'B', 'tiebreak', value)}
+                        editable={isCaptain && mode === 'submit' && !setDisabled}
+                        placeholder=""
+                        placeholderTextColor="#9CA3AF"
+                      />
                     </View>
                   )}
                 </View>
-                {needsTiebreak(setIdx) && (
-                  <View style={styles.tiebreakInputWrapper}>
-                    <TextInput
-                      style={[styles.tiebreakInput, (!isCaptain || mode !== 'submit') && styles.scoreInputDisabled]}
-                      keyboardType="number-pad"
-                      maxLength={2}
-                      value={setScores[setIdx].team2Tiebreak ? String(setScores[setIdx].team2Tiebreak) : ''}
-                      onChangeText={(value) => updateScore(setIdx, 'B', 'tiebreak', value)}
-                      placeholder="TB"
-                      placeholderTextColor="#9CA3AF"
-                      editable={isCaptain && mode === 'submit'}
-                    />
-                  </View>
-                )}
-              </View>
-            ))}
+              );
+            })}
           </View>
         </View>
 
         {/* Game Summary */}
         <View style={styles.summarySection}>
-          <Text style={styles.summaryTitle}>Game Summary (Optional)</Text>
+          <Text style={styles.summaryTitle}>Game Summary</Text>
           <TextInput
             style={[styles.summaryInput, (!isCaptain || mode !== 'submit') && styles.scoreInputDisabled]}
             multiline
             numberOfLines={3}
-            placeholder="e.g. Great match with close rallies in the final set..."
+            placeholder="e.g. A great game with Serena, with plenty of good rallies and close points. I really got lucky there in the final set!"
             placeholderTextColor="#9CA3AF"
             value={comment}
             onChangeText={setComment}
@@ -519,18 +715,25 @@ export const MatchResultSheet: React.FC<MatchResultSheetProps> = ({
         </View>
 
         {/* Info Message */}
-        <View style={styles.infoContainer}>
-          <Ionicons name="information-circle" size={16} color="#3B82F6" />
-          <Text style={styles.infoText}>
-            {mode === 'view' 
-              ? 'These scores have been submitted and are awaiting opponent confirmation.'
-              : mode === 'review'
-              ? 'Please review the submitted scores carefully before approving or disputing.'
-              : matchType === 'DOUBLES' 
-              ? 'Only the team captain can submit scores. Your opponent will review and confirm.'
-              : 'Your opponent will verify the score. If they confirm, the result is final. If not, a dispute will be created.'}
-          </Text>
-        </View>
+        {mode !== 'submit' && (
+          <View style={styles.infoContainer}>
+            <Ionicons name="information-circle" size={16} color="#3B82F6" />
+            <Text style={styles.infoText}>
+              {mode === 'view'
+                ? 'These scores have been submitted and are awaiting opponent confirmation.'
+                : 'Please review the submitted scores carefully before approving or disputing.'}
+            </Text>
+          </View>
+        )}
+
+        {/* Red Disclaimer for Submit Mode */}
+        {mode === 'submit' && (
+          <View style={styles.disclaimerContainer}>
+            <Text style={styles.disclaimerText}>
+              Only team captains need to submit the scores.
+            </Text>
+          </View>
+        )}
 
         {/* Action Buttons */}
         {mode === 'submit' ? (
@@ -543,7 +746,7 @@ export const MatchResultSheet: React.FC<MatchResultSheetProps> = ({
               <ActivityIndicator color="#FFFFFF" />
             ) : (
               <Text style={styles.submitButtonText}>
-                {isCaptain ? 'Submit Result' : 'Only Captain Can Submit'}
+                {isCaptain ? 'Confirm Result' : 'Only Captain Can Confirm'}
               </Text>
             )}
           </TouchableOpacity>
@@ -557,7 +760,7 @@ export const MatchResultSheet: React.FC<MatchResultSheetProps> = ({
         ) : mode === 'review' ? (
           <View style={styles.reviewActions}>
             <TouchableOpacity
-              style={[styles.disputeButtonLarge]}
+              style={[styles.disputeButtonLarge, loading && styles.buttonDisabled]}
               onPress={async () => {
                 setLoading(true);
                 try {
@@ -569,7 +772,7 @@ export const MatchResultSheet: React.FC<MatchResultSheetProps> = ({
               disabled={loading}
             >
               {loading ? (
-                <ActivityIndicator color="#DC2626" />
+                <ActivityIndicator color="#DC2626" size="small" />
               ) : (
                 <>
                   <Ionicons name="close-circle" size={20} color="#DC2626" />
@@ -578,7 +781,7 @@ export const MatchResultSheet: React.FC<MatchResultSheetProps> = ({
               )}
             </TouchableOpacity>
             <TouchableOpacity
-              style={[styles.approveButtonLarge]}
+              style={[styles.approveButtonLarge, loading && styles.buttonDisabled]}
               onPress={async () => {
                 setLoading(true);
                 try {
@@ -590,11 +793,11 @@ export const MatchResultSheet: React.FC<MatchResultSheetProps> = ({
               disabled={loading}
             >
               {loading ? (
-                <ActivityIndicator color="#FFFFFF" />
+                <ActivityIndicator color="#FFFFFF" size="small" />
               ) : (
                 <>
-                  <Ionicons name="checkmark-circle" size={20} color="#FFFFFF" />
-                  <Text style={styles.approveButtonLargeText}>Approve & Confirm</Text>
+                  <Ionicons name="checkmark-circle" size={20} color="#2B2929" />
+                  <Text style={styles.approveButtonLargeText}>Confirm Result</Text>
                 </>
               )}
             </TouchableOpacity>
@@ -626,20 +829,140 @@ const styles = StyleSheet.create({
   },
   header: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 16,
+  },
+  closeButton: {
+    padding: 4,
+    marginTop: 4,
+  },
+  headerTitle: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: '#111827',
+  },
+  headerTitleContainer: {
+    flex: 1,
+    alignItems: 'flex-start',
+  },
+  headerSubtitle: {
+    fontSize: 16,
+    color: '#6B7280',
+    marginTop: 8,
+  },
+  togglesSection: {
+    flexDirection: 'row',
     justifyContent: 'space-between',
     paddingHorizontal: 20,
     paddingVertical: 16,
     borderBottomWidth: 1,
     borderBottomColor: '#F3F4F6',
   },
-  closeButton: {
-    padding: 4,
+  toggleItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: '700',
+  toggleLabel: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#374151',
+  },
+  overlappingAvatars: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginRight: 8,
+  },
+  singleAvatarContainer: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    marginRight: 8,
+    overflow: 'hidden',
+  },
+  singleAvatarImage: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 18,
+  },
+  singleAvatarDefault: {
+    width: '100%',
+    height: '100%',
+    backgroundColor: '#E5E7EB',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: 18,
+  },
+  singleAvatarText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#6B7280',
+  },
+  overlappingAvatarContainer: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
+    overflow: 'hidden',
+  },
+  overlappingAvatarImage: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 18,
+  },
+  overlappingAvatarDefault: {
+    width: '100%',
+    height: '100%',
+    backgroundColor: '#E5E7EB',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  overlappingAvatarText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#6B7280',
+  },
+  stackedNames: {
+    flex: 1,
+    justifyContent: 'center',
+    marginRight: 8,
+  },
+  stackedNameText: {
+    fontSize: 14,
+    fontWeight: '600',
     color: '#111827',
+    lineHeight: 18,
+  },
+  tiebreakOverlay: {
+    position: 'absolute',
+    top: -8,
+    right: -8,
+    width: 32,
+    height: 32,
+    backgroundColor: '#F3F4F6',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#D1D5DB',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 1,
+  },
+  tiebreakOverlayInput: {
+    width: '100%',
+    height: '100%',
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#374151',
+    textAlign: 'center',
+    padding: 0,
+  },
+  tiebreakInputDisabled: {
+    backgroundColor: '#E5E7EB',
+    opacity: 0.6,
   },
   teamsHeaderSection: {
     paddingHorizontal: 20,
@@ -750,26 +1073,26 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 20,
-    paddingTop: 16,
-    paddingBottom: 8,
+    paddingTop: 20,
+    paddingBottom: 12,
   },
   setsHeaderLabel: {
-    width: 80,
-    alignItems: 'center',
+    width: 100,
   },
   setsHeaderLabelText: {
-    fontSize: 12,
+    fontSize: 14,
     fontWeight: '600',
     color: '#9CA3AF',
     letterSpacing: 0.5,
   },
   setsHeaderNumbers: {
     flexDirection: 'row',
-    gap: 12,
     flex: 1,
+    justifyContent: 'flex-end',
+    gap: 12,
   },
   setNumberHeaderBox: {
-    width: 70,
+    width: 64,
     height: 32,
     borderRadius: 8,
     backgroundColor: '#F3F4F6',
@@ -777,17 +1100,17 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   setNumberHeaderText: {
-    fontSize: 14,
-    fontWeight: '700',
+    fontSize: 16,
+    fontWeight: '600',
     color: '#6B7280',
+    width: 64,
+    textAlign: 'center',
   },
   teamRow: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 20,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
+    paddingVertical: 16,
   },
   playersColumn: {
     width: 80,
@@ -858,17 +1181,13 @@ const styles = StyleSheet.create({
   },
   scoresColumn: {
     flexDirection: 'row',
+    justifyContent: 'flex-end',
     gap: 12,
-    flex: 1,
-  },
-  scoreSetContainer: {
-    alignItems: 'center',
-    gap: 4,
   },
   scoreInputWrapper: {
     position: 'relative',
-    width: 70,
-    height: 70,
+    width: 64,
+    height: 64,
   },
   scoreInput: {
     width: '100%',
@@ -876,15 +1195,16 @@ const styles = StyleSheet.create({
     backgroundColor: '#F9FAFB',
     borderRadius: 12,
     borderWidth: 2,
-    borderColor: '#E5E7EB',
-    fontSize: 28,
+    borderColor: '#BFDBFE',
+    fontSize: 24,
     fontWeight: '700',
     color: '#111827',
     textAlign: 'center',
   },
   scoreInputDisabled: {
-    backgroundColor: '#F3F4F6',
-    opacity: 0.6,
+    backgroundColor: '#E5E7EB',
+    borderColor: '#D1D5DB',
+    opacity: 0.5,
   },
   winIndicator: {
     position: 'absolute',
@@ -903,22 +1223,6 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: '700',
     color: '#FFFFFF',
-  },
-  tiebreakInputWrapper: {
-    width: 44,
-    height: 32,
-  },
-  tiebreakInput: {
-    width: '100%',
-    height: '100%',
-    backgroundColor: '#FEF3C7',
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#FCD34D',
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#92400E',
-    textAlign: 'center',
   },
   summarySection: {
     paddingHorizontal: 20,
@@ -955,6 +1259,17 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#1E40AF',
     lineHeight: 16,
+  },
+  disclaimerContainer: {
+    marginHorizontal: 20,
+    marginBottom: 16,
+    alignItems: 'center',
+  },
+  disclaimerText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#DC2626',
+    textAlign: 'center',
   },
   submitButton: {
     marginHorizontal: 20,
@@ -1011,7 +1326,7 @@ const styles = StyleSheet.create({
     gap: 8,
     paddingVertical: 16,
     borderRadius: 16,
-    backgroundColor: '#10B981',
+    backgroundColor: '#FEA04D',
     shadowColor: '#000',
     shadowOffset: {
       width: 0,
@@ -1024,6 +1339,9 @@ const styles = StyleSheet.create({
   approveButtonLargeText: {
     fontSize: 17,
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: '#2B2929',
+  },
+  buttonDisabled: {
+    opacity: 0.5,
   },
 });

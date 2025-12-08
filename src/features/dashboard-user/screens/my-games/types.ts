@@ -1,0 +1,119 @@
+export interface Match {
+  id: string;
+  matchType: string;
+  status: string;
+  scheduledTime?: string;
+  scheduledStartTime?: string;
+  matchDate?: string;
+  location?: string;
+  sport: string;
+  resultSubmittedById?: string;
+  resultSubmittedAt?: string;
+  createdById?: string;
+  team1Score?: number;
+  team2Score?: number;
+  outcome?: string;
+  fee?: 'FREE' | 'SPLIT' | 'FIXED';
+  feeAmount?: number | string;
+  courtBooked?: boolean;
+  description?: string;
+  division?: {
+    id: string;
+    name: string;
+    season?: {
+      id: string;
+      name: string;
+    };
+    league?: {
+      name: string;
+      sportType: string;
+    };
+  };
+  participants: Array<{
+    userId: string;
+    role: string;
+    invitationStatus: string;
+    user: {
+      id: string;
+      name: string;
+      image?: string;
+    };
+  }>;
+}
+
+export interface MatchInvitation {
+  id: string;
+  matchId: string;
+  inviteeId: string;
+  role: string;
+  team?: string;
+  status: string;
+  sentAt: string;
+  expiresAt: string;
+  message?: string;
+  match: {
+    id: string;
+    matchType: string;
+    format: string;
+    sport: string;
+    location?: string;
+    venue?: string;
+    notes?: string;
+    division?: {
+      id: string;
+      name: string;
+    };
+    participants: Array<{
+      userId: string;
+      role: string;
+      team?: string;
+      invitationStatus: string;
+      user: {
+        id: string;
+        name: string;
+        username?: string;
+        image?: string;
+      };
+    }>;
+    timeSlots?: Array<{
+      id: string;
+      proposedTime: string;
+      location?: string;
+      voteCount: number;
+    }>;
+  };
+  inviter: {
+    id: string;
+    name: string;
+    username?: string;
+    image?: string;
+  };
+  partnerStatus?: {
+    team1: Array<{
+      userId: string;
+      name: string;
+      role: string;
+      confirmed: boolean;
+      status: string;
+    }>;
+    team2: Array<{
+      userId: string;
+      name: string;
+      role: string;
+      confirmed: boolean;
+      status: string;
+    }>;
+  };
+}
+
+export interface MyGamesScreenProps {
+  sport?: 'pickleball' | 'tennis' | 'padel';
+}
+
+export type FilterTab = 'ALL' | 'UPCOMING' | 'PAST' | 'INVITES';
+
+export interface StatusInfo {
+  bg: string;
+  text: string;
+  label: string;
+}

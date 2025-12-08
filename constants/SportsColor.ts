@@ -11,7 +11,7 @@ export interface SportColors {
 
 export const SPORT_COLORS: Record<SportType, SportColors> = {
   PICKLEBALL: {
-    background: '#863A73',
+    background: '#A04DFE',
     badgeColor: '#A855F7',
     label: 'PICKLEBALL',
     buttonColor: '#602E98',

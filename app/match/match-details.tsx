@@ -74,6 +74,7 @@ export default function JoinMatchScreen() {
   const division = params.division as string;
   const courtBooked = params.courtBooked === 'true';
   const fee = params.fee as string;
+  const feeAmount = params.feeAmount as string;
   const description = params.description as string;
   const duration = params.duration as string;
   const divisionId = params.divisionId as string;
@@ -595,22 +596,24 @@ export default function JoinMatchScreen() {
   const handleDisputeResult = async () => {
     try {
       // Use the same confirm endpoint with confirmed: false
+      // Backend requires both disputeReason and disputeCategory (WRONG_SCORE, NO_SHOW, BEHAVIOR, OTHER)
       const response = await axiosInstance.post(
         endpoints.match.confirmResult(matchId),
-        { 
+        {
           confirmed: false,
-          disputeReason: 'Score disagreement - opponent disputed the submitted scores'
+          disputeReason: 'Score disagreement - opponent disputed the submitted scores',
+          disputeCategory: 'WRONG_SCORE'
         }
       );
-      
+
       toast.success('Match result disputed. An admin will review.');
       bottomSheetModalRef.current?.dismiss();
       router.back();
     } catch (error: any) {
       console.error('❌ Error disputing result:', error);
-      const errorMessage = error.response?.data?.error || 
-                          error.response?.data?.message || 
-                          error.message || 
+      const errorMessage = error.response?.data?.error ||
+                          error.response?.data?.message ||
+                          error.message ||
                           'Failed to dispute result';
       toast.error(errorMessage);
       throw error;
@@ -987,10 +990,23 @@ export default function JoinMatchScreen() {
             <Ionicons name="cash-outline" size={24} color={themeColor} />
           </View>
           <View style={styles.detailContent}>
-            <Text style={styles.detailTitle}>Split - Estimated {fee || 'RM50.00'} per player</Text>
-            <Text style={styles.detailSubtitle}>
-              The per-player fee is estimated. The final amount depends on how many players join this match.
+            <Text style={styles.detailTitle}>
+              {(() => {
+                if (fee === 'FREE') return 'Free';
+                const totalAmount = Number(feeAmount || 0);
+                if (fee === 'SPLIT') {
+                  const numPlayers = matchType === 'DOUBLES' ? 4 : 2;
+                  const perPlayer = (totalAmount / numPlayers).toFixed(2);
+                  return `Split - Estimated RM${perPlayer} per player`;
+                }
+                return `Fixed - RM${totalAmount.toFixed(2)} per player`;
+              })()}
             </Text>
+            {fee === 'SPLIT' && (
+              <Text style={styles.detailSubtitle}>
+                The per-player fee is estimated. The final amount depends on how many players join this match.
+              </Text>
+            )}
           </View>
         </View>
 
@@ -999,8 +1015,11 @@ export default function JoinMatchScreen() {
         {/* Description */}
         <View style={styles.descriptionSection}>
           <Text style={styles.descriptionTitle}>Description</Text>
-          <Text style={styles.descriptionText}>
-            {description || ''}
+          <Text style={[
+            styles.descriptionText,
+            !description && styles.noDescriptionText
+          ]}>
+            {description || 'No description'}
           </Text>
         </View>
 
@@ -1057,10 +1076,10 @@ export default function JoinMatchScreen() {
               if (status === 'ONGOING' && isOpponentCaptain) {
                 return (
                   <TouchableOpacity
-                    style={[styles.joinButton, { backgroundColor: "#F59E0B" }]}
+                    style={[styles.joinButton, styles.joinButtonWithIcon, { backgroundColor: "#F59E0B" }]}
                     onPress={() => bottomSheetModalRef.current?.present()}
                   >
-                    <Ionicons name="eye" size={18} color="#FFFFFF" style={{ marginRight: 6 }} />
+                    <Ionicons name="eye" size={18} color="#2B2929" />
                     <Text style={styles.joinButtonText}>View Scores</Text>
                   </TouchableOpacity>
                 );
@@ -1448,6 +1467,10 @@ const styles = StyleSheet.create({
     color: '#6B7280',
     lineHeight: 20,
   },
+  noDescriptionText: {
+    fontStyle: 'italic',
+    color: '#9CA3AF',
+  },
   partnershipStatus: {
     marginHorizontal: 24,
     marginTop: 20,
@@ -1522,13 +1545,17 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 2,
   },
+  joinButtonWithIcon: {
+    flexDirection: 'row',
+    gap: 8,
+  },
   joinButtonDisabled: {
     opacity: 0.5,
   },
   joinButtonText: {
     fontSize: 17,
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: '#2B2929',
   },
   bottomSheetBackground: {
     backgroundColor: '#FFFFFF',

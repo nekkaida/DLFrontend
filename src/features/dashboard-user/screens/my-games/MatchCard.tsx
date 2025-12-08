@@ -1,0 +1,86 @@
+import React from 'react';
+import { View, Text, TouchableOpacity } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { Match } from './types';
+import { matchCardStyles as styles } from './styles';
+import { ParticipantsRow } from './ParticipantsRow';
+import { getStatusColor, formatTimeRange, getMatchTime } from './utils';
+
+interface MatchCardProps {
+  match: Match;
+  onPress: (match: Match) => void;
+}
+
+export function MatchCard({ match, onPress }: MatchCardProps) {
+  const matchTime = getMatchTime(match);
+  const statusInfo = getStatusColor(match.status, matchTime);
+
+  const renderFeeText = () => {
+    if (match.fee === 'FREE') return 'Free';
+    if (!match.fee || !match.feeAmount) return 'Fee TBD';
+    const totalAmount = Number(match.feeAmount);
+    if (match.fee === 'SPLIT') {
+      const numPlayers = match.matchType === 'DOUBLES' ? 4 : 2;
+      const perPlayer = (totalAmount / numPlayers).toFixed(2);
+      return `Split · RM${perPlayer} per player`;
+    }
+    return `Fixed · RM${totalAmount.toFixed(2)} per player`;
+  };
+
+  return (
+    <TouchableOpacity
+      style={styles.matchCard}
+      onPress={() => onPress(match)}
+      activeOpacity={0.7}
+    >
+      {/* Players Row with LEAGUE Badge */}
+      <View style={styles.cardTopSection}>
+        <ParticipantsRow participants={match.participants} matchType={match.matchType} />
+        <View style={styles.leagueBadgeCard}>
+          <Text style={styles.leagueBadgeCardText}>LEAGUE</Text>
+        </View>
+      </View>
+
+      {/* Divider */}
+      <View style={styles.cardDivider} />
+
+      {/* Match Info Section */}
+      <View style={styles.cardInfoSection}>
+        <Text style={styles.matchTitleText}>
+          {match.matchType === 'DOUBLES' ? 'Doubles' : 'Singles'} League Match
+        </Text>
+
+        <View style={styles.cardInfoRow}>
+          <Ionicons name="time-outline" size={16} color="#6B7280" />
+          <Text style={styles.cardInfoText}>
+            {formatTimeRange(matchTime) || 'Time TBD'}
+          </Text>
+        </View>
+
+        <View style={styles.cardInfoRow}>
+          <Ionicons name="location-outline" size={16} color="#6B7280" />
+          <Text style={styles.cardInfoText}>{match.location || 'Location TBD'}</Text>
+        </View>
+
+        {/* Fee Info */}
+        <View style={styles.cardInfoRow}>
+          <Text style={styles.feeIcon}>$</Text>
+          <Text style={styles.cardInfoText}>{renderFeeText()}</Text>
+        </View>
+
+        {/* Status Badge */}
+        <View style={styles.cardFooterRow}>
+          <View style={{ flex: 1 }} />
+          <View style={[styles.cardStatusBadge, { backgroundColor: statusInfo.bg }]}>
+            <Text style={[styles.cardStatusText, { color: statusInfo.text }]}>
+              {statusInfo.label}
+            </Text>
+            {statusInfo.label === 'Scheduled' && (
+              <Ionicons name="checkmark-circle" size={14} color={statusInfo.text} style={{ marginLeft: 4 }} />
+            )}
+          </View>
+        </View>
+      </View>
+    </TouchableOpacity>
+  );
+}
