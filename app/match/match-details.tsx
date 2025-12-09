@@ -620,35 +620,41 @@ export default function JoinMatchScreen() {
     }
   };
 
-  // Determine if user is the captain of the team that CREATED the match (can submit result)
-  const isCreatorTeamCaptain = (() => {
-    if (matchType === 'SINGLES') {
-      // For singles, the creator can submit
-      return matchData.createdById === session?.user?.id;
-    }
-    // For doubles, check if user's partnership captain is the match creator
-    return partnershipData.captainId === matchData.createdById;
+  // Check if current user submitted the result
+  const isResultSubmitter = matchData.resultSubmittedById === session?.user?.id;
+
+  // Check if user is on the same team as the result submitter
+  const isOnSubmitterTeam = (() => {
+    if (!matchData.resultSubmittedById) return false;
+    
+    // Find the submitter's team
+    const submitterParticipant = participantsWithDetails.find(
+      p => p.userId === matchData.resultSubmittedById
+    );
+    const currentUserParticipant = participantsWithDetails.find(
+      p => p.userId === session?.user?.id
+    );
+    
+    if (!submitterParticipant || !currentUserParticipant) return false;
+    return submitterParticipant.team === currentUserParticipant.team;
   })();
 
-  // Determine if user is the OPPONENT captain (can review/approve result)
-  const isOpponentCaptain = (() => {
+  // Determine if user can review (approve/dispute) - must be on OPPOSING team from submitter
+  const canReviewResult = (() => {
     if (!isUserParticipant) return false;
-    if (matchType === 'SINGLES') {
-      // For singles, opponent is anyone who is a participant but not the creator
-      return matchData.createdById !== session?.user?.id;
-    }
-    // For doubles, user is opponent captain if they are a captain but NOT the creator's team captain
-    const isCaptain = partnershipData.captainId === session?.user?.id;
-    const isOnCreatorTeam = partnershipData.captainId === matchData.createdById;
-    return isCaptain && !isOnCreatorTeam;
+    const status = matchData.status?.toUpperCase() || matchStatus.toUpperCase();
+    if (status !== 'ONGOING') return false;
+    
+    // User can review if they are NOT the submitter AND NOT on the submitter's team
+    return !isResultSubmitter && !isOnSubmitterTeam;
   })();
 
   // Determine result sheet mode based on match status and user role
   const getResultSheetMode = (): 'submit' | 'view' | 'review' => {
     const status = matchData.status?.toUpperCase() || matchStatus.toUpperCase();
     
-    // If match is ONGOING (result submitted), opponent captain can review
-    if (status === 'ONGOING' && isOpponentCaptain) {
+    // If match is ONGOING (result submitted) and user can review
+    if (status === 'ONGOING' && canReviewResult) {
       return 'review';
     }
     
@@ -657,8 +663,8 @@ export default function JoinMatchScreen() {
       return 'view';
     }
     
-    // If creator team captain can still submit
-    if (isCreatorTeamCaptain && status === 'SCHEDULED') {
+    // If match is SCHEDULED and user is a participant, they can submit
+    if (status === 'SCHEDULED' && isUserParticipant) {
       return 'submit';
     }
     
@@ -1060,45 +1066,8 @@ export default function JoinMatchScreen() {
             {(() => {
               const status = matchData.status?.toUpperCase() || matchStatus.toUpperCase();
               
-              // Match COMPLETED - Show "View Scores" to everyone
+              // Match COMPLETED - Show "Add Result" to view scores (mode will be 'view')
               if (status === 'COMPLETED' || status === 'FINISHED') {
-                return (
-                  <TouchableOpacity
-                    style={[styles.joinButton, { backgroundColor: "#F59E0B" }]}
-                    onPress={() => bottomSheetModalRef.current?.present()}
-                  >
-                    <Text style={styles.joinButtonText}>View Scores</Text>
-                  </TouchableOpacity>
-                );
-              }
-              
-              // Match ONGOING (result submitted) - Opponent captain sees "View Scores" to approve/deny
-              if (status === 'ONGOING' && isOpponentCaptain) {
-                return (
-                  <TouchableOpacity
-                    style={[styles.joinButton, styles.joinButtonWithIcon, { backgroundColor: "#F59E0B" }]}
-                    onPress={() => bottomSheetModalRef.current?.present()}
-                  >
-                    <Ionicons name="eye" size={18} color="#2B2929" />
-                    <Text style={styles.joinButtonText}>View Scores</Text>
-                  </TouchableOpacity>
-                );
-              }
-              
-              // Match ONGOING but user is creator team - show waiting message
-              if (status === 'ONGOING' && isCreatorTeamCaptain) {
-                return (
-                  <TouchableOpacity
-                    style={[styles.joinButton, { backgroundColor: "#9CA3AF" }, styles.joinButtonDisabled]}
-                    disabled
-                  >
-                    <Text style={styles.joinButtonText}>Awaiting Approval</Text>
-                  </TouchableOpacity>
-                );
-              }
-              
-              // Match SCHEDULED - Creator team captain can submit
-              if (isCreatorTeamCaptain && canStartMatch) {
                 return (
                   <TouchableOpacity
                     style={[styles.joinButton, { backgroundColor: "#F59E0B" }]}
@@ -1109,7 +1078,45 @@ export default function JoinMatchScreen() {
                 );
               }
               
-              // Match not started yet
+              // Match ONGOING (result submitted) - Opposing team can approve/deny
+              if (status === 'ONGOING' && canReviewResult) {
+                return (
+                  <TouchableOpacity
+                    style={[styles.joinButton, styles.joinButtonWithIcon, { backgroundColor: "#F59E0B" }]}
+                    onPress={() => bottomSheetModalRef.current?.present()}
+                  >
+                    <Ionicons name="checkmark-circle" size={18} color="#2B2929" />
+                    <Text style={styles.joinButtonText}>Add Result</Text>
+                  </TouchableOpacity>
+                );
+              }
+              
+              // Match ONGOING but user is on submitter's team - show waiting message with "Add Result"
+              if (status === 'ONGOING' && isOnSubmitterTeam) {
+                return (
+                  <TouchableOpacity
+                    style={[styles.joinButton, styles.joinButtonWithIcon, { backgroundColor: "#9CA3AF" }]}
+                    onPress={() => bottomSheetModalRef.current?.present()}
+                  >
+                    <Ionicons name="time" size={18} color="#2B2929" />
+                    <Text style={styles.joinButtonText}>Add Result</Text>
+                  </TouchableOpacity>
+                );
+              }
+              
+              // Match SCHEDULED - Any participant can submit
+              if (status === 'SCHEDULED' && canStartMatch) {
+                return (
+                  <TouchableOpacity
+                    style={[styles.joinButton, { backgroundColor: "#F59E0B" }]}
+                    onPress={() => bottomSheetModalRef.current?.present()}
+                  >
+                    <Text style={styles.joinButtonText}>Add Result</Text>
+                  </TouchableOpacity>
+                );
+              }
+              
+              // Match not started yet - show scheduled status
               if (!canStartMatch) {
                 return (
                   <TouchableOpacity
@@ -1121,13 +1128,13 @@ export default function JoinMatchScreen() {
                 );
               }
               
-              // Default: Non-captain participant - can only view once submitted
+              // Default: Show Add Result button
               return (
                 <TouchableOpacity
-                  style={[styles.joinButton, { backgroundColor: "#9CA3AF" }, styles.joinButtonDisabled]}
-                  disabled
+                  style={[styles.joinButton, { backgroundColor: "#F59E0B" }]}
+                  onPress={() => bottomSheetModalRef.current?.present()}
                 >
-                  <Text style={styles.joinButtonText}>Captain Submits</Text>
+                  <Text style={styles.joinButtonText}>Add Result</Text>
                 </TouchableOpacity>
               );
             })()}
