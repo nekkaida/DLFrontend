@@ -461,16 +461,42 @@ export const MatchResultSheet: React.FC<MatchResultSheetProps> = ({
       <View style={styles.header}>
         <View style={styles.headerTitleContainer}>
           <Text style={styles.headerTitle}>
-            {mode === 'view' ? 'Submitted Scores' : mode === 'review' ? 'Review Match Result' : 'How did the match go?'}
+            {mode === 'view' ? 'Match Result' : mode === 'review' ? 'Review Match Result' : 'How did the match go?'}
           </Text>
           {mode === 'submit' && (
             <Text style={styles.headerSubtitle}>Submit the scores below.</Text>
+          )}
+          {mode === 'review' && (
+            <Text style={styles.headerSubtitle}>A result has been submitted. Please verify and approve or dispute.</Text>
+          )}
+          {mode === 'view' && matchDetails?.resultSubmittedAt && (
+            <Text style={styles.headerSubtitle}>Result submitted and confirmed.</Text>
           )}
         </View>
         <TouchableOpacity onPress={onClose} style={styles.closeButton}>
           <Ionicons name="close" size={24} color="#9CA3AF" />
         </TouchableOpacity>
       </View>
+
+      {/* Status Banner - Show when result is pending approval */}
+      {mode === 'review' && (
+        <View style={styles.statusBanner}>
+          <Ionicons name="information-circle" size={20} color="#F59E0B" />
+          <Text style={styles.statusBannerText}>
+            Opponent has submitted scores. Review and approve or dispute.
+          </Text>
+        </View>
+      )}
+
+      {/* Status Banner - Show when user's team submitted and waiting for approval */}
+      {mode === 'view' && matchDetails?.status === 'ONGOING' && (
+        <View style={[styles.statusBanner, { backgroundColor: '#EFF6FF' }]}>
+          <Ionicons name="time" size={20} color="#3B82F6" />
+          <Text style={[styles.statusBannerText, { color: '#1D4ED8' }]}>
+            Waiting for opponent to approve the submitted result.
+          </Text>
+        </View>
+      )}
 
       {/* Toggle Switches */}
       {mode === 'submit' && (
@@ -1343,5 +1369,22 @@ const styles = StyleSheet.create({
   },
   buttonDisabled: {
     opacity: 0.5,
+  },
+  statusBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginHorizontal: 20,
+    marginBottom: 16,
+    padding: 12,
+    backgroundColor: '#FEF3C7',
+    borderRadius: 12,
+  },
+  statusBannerText: {
+    flex: 1,
+    fontSize: 13,
+    fontWeight: '500',
+    color: '#92400E',
+    lineHeight: 18,
   },
 });
