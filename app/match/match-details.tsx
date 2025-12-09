@@ -1143,7 +1143,7 @@ export default function JoinMatchScreen() {
           // Join Match Button (shown to non-participants) 
           <View style={styles.buttonGroup}>
             {/* TEST BUTTON - No time check - Remove later */}
-            <TouchableOpacity
+            {/* <TouchableOpacity
               style={[styles.joinButton, { backgroundColor: "#10B981" }]}
               onPress={handleJoinMatch}
               disabled={loading || !canJoin || allSlotsFilled}
@@ -1155,7 +1155,7 @@ export default function JoinMatchScreen() {
                   🧪 Join (No Time Check Comment OUT After testing)
                 </Text>
               )}
-            </TouchableOpacity>
+            </TouchableOpacity> */}
             
             {/* Normal Join Button */}
             <TouchableOpacity
