@@ -19,7 +19,7 @@ import {
   TouchableOpacity,
   View
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { toast } from 'sonner-native';
 import { MessageInput } from './components/chat-input';
 import { ThreadList } from './components/chat-list';
@@ -679,11 +679,12 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
       {/* <SocketDebugPanel /> */}
       
       {currentThread ? (
-        <KeyboardAvoidingView
-          style={styles.chatContainer}
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-          keyboardVerticalOffset={0}
-        >
+        <SafeAreaView style={styles.chatContainer} edges={['bottom']}>
+          <KeyboardAvoidingView
+            style={styles.chatContainerInner}
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            keyboardVerticalOffset={0}
+          >
           {/* Message Action Bar */}
           <MessageActionBar
             visible={showActionBar}
@@ -848,7 +849,8 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
             sportType={currentThread.sportType}
             isGroupChat={currentThread.type === 'group'}
           />
-        </KeyboardAvoidingView>
+          </KeyboardAvoidingView>
+        </SafeAreaView>
       ) : (
         <View style={styles.threadsContainer}>
           {/* Header with Chats title and New Message button */}
@@ -948,6 +950,9 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
   },
   chatContainer: {
+    flex: 1,
+  },
+  chatContainerInner: {
     flex: 1,
   },
   threadsContainer: {
