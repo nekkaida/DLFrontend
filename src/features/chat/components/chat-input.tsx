@@ -140,13 +140,17 @@ export const MessageInput: React.FC<MessageInputProps> = ({
     }
   };
 
-  
+
+  // Simple clamp function for padding
+  const clamp = (v: number, min: number, max: number) => Math.min(Math.max(v, min), max);
+
+  // Bottom padding - parent SafeAreaView handles safe area, we just need minimal padding
   // When keyboard is visible, use minimal padding (keyboard covers safe area)
-  // When keyboard is hidden, use safe area insets for home indicator
   const bottomPadding = Platform.select({
-    ios: keyboardVisible ? 8 : Math.max(insets.bottom, 8),
-    android: 8,
-  });
+    ios: keyboardVisible ? 4 : clamp(insets.bottom, 4, 10),
+    android: clamp(insets.bottom, 8, 16),
+    default: clamp(insets.bottom, 6, 12),
+  }) as number;
 
   return (
     <View style={[styles.container, { paddingBottom: bottomPadding }]}>
