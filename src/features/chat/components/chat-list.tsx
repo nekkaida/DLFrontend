@@ -6,13 +6,14 @@ import {
   FlatList,
   Image,
   Platform,
+  Pressable,
   StyleSheet,
   Text,
   View,
 } from "react-native";
-import { TouchableOpacity } from "react-native-gesture-handler";
 import { useChatStore } from "../stores/ChatStore";
 import { Thread } from "../types";
+import { GroupAvatarStack } from "./GroupAvatarStack";
 
 interface ThreadListProps {
   onThreadSelect: (thread: Thread) => void;
@@ -68,21 +69,31 @@ export const ThreadList: React.FC<ThreadListProps> = ({ onThreadSelect }) => {
       : otherParticipant?.name?.charAt(0) || item.name?.charAt(0) || '?';
 
     return (
-    <TouchableOpacity
-      style={styles.threadItem}
+    <Pressable
+      style={({ pressed }) => [
+        styles.threadItem,
+        pressed && { opacity: 0.7 }
+      ]}
       onPress={() => {
         onThreadSelect(item);
       }}
-      activeOpacity={0.7}
-      delayPressIn={Platform.OS === 'android' ? 50 : 0}
     >
       <View style={styles.avatarContainer}>
-        {avatarImage ? (
+        {isGroupChat ? (
+          // Group chat - show stacked avatars of participants
+          <GroupAvatarStack
+            participants={item.participants}
+            sportColor={sportColors.background}
+            size={38}
+          />
+        ) : avatarImage ? (
+          // Direct chat with avatar image
           <Image source={{ uri: avatarImage }} style={styles.avatarImage} />
         ) : (
+          // Direct chat without avatar - show initial
           <View style={[
             styles.avatarPlaceholder,
-            { backgroundColor: isGroupChat ? sportColors.background : '#6de9a0' }
+            { backgroundColor: '#6de9a0' }
           ]}>
             <Text style={styles.avatarText}>{avatarInitial}</Text>
           </View>
@@ -95,26 +106,24 @@ export const ThreadList: React.FC<ThreadListProps> = ({ onThreadSelect }) => {
       </View>
 
       <View style={styles.threadContent}>
-        <View style={styles.threadHeader}>
-          <View style={styles.threadNameContainer}>
-            <Text style={styles.threadName} numberOfLines={1}>
-              {item.name || "Chat"}
-            </Text>
-            {isGroupChat && sportColors.label && (
-              <View style={[
-                styles.sportBadge,
-                { 
-                  borderColor: sportColors.badgeColor,
-                  borderWidth: 1.5,
-                }
-              ]}>
-                <Text style={[
-                  styles.sportBadgeText,
-                  { color: sportColors.badgeColor }
-                ]}>{sportColors.label}</Text>
-              </View>
-            )}
-          </View>
+        {/* Top row: Sport badge (for groups) + timestamp */}
+        <View style={styles.threadTopRow}>
+          {isGroupChat && sportColors.label ? (
+            <View style={[
+              styles.sportBadge,
+              {
+                borderColor: sportColors.badgeColor,
+                borderWidth: 1.5,
+              }
+            ]}>
+              <Text style={[
+                styles.sportBadgeText,
+                { color: sportColors.badgeColor }
+              ]}>{sportColors.label}</Text>
+            </View>
+          ) : (
+            <View style={styles.spacer} />
+          )}
           <Text style={styles.timestamp}>
             {new Date(
               item.lastMessage?.timestamp || item.updatedAt
@@ -125,28 +134,24 @@ export const ThreadList: React.FC<ThreadListProps> = ({ onThreadSelect }) => {
           </Text>
         </View>
 
+        {/* Thread name */}
+        <Text style={styles.threadName} numberOfLines={1}>
+          {item.name || "Chat"}
+        </Text>
+
         <View style={styles.messageContainer}>
           {item.lastMessage ? (
-            <View style={styles.messageRow}>
-              {item.type === "group" && item.lastMessage.metadata?.sender && (
-                <Text style={styles.senderName} numberOfLines={1}>
-                  {item.lastMessage.metadata.sender.name || 
-                   item.lastMessage.metadata.sender.username || 
-                   "Unknown"}: 
-                </Text>
-              )}
-              <Text 
-                style={[
-                  styles.lastMessage,
-                  item.lastMessage.metadata?.isDeleted && styles.deletedMessage
-                ]} 
-                numberOfLines={2}
-              >
-                {item.lastMessage.metadata?.isDeleted 
-                  ? "This message was deleted" 
-                  : item.lastMessage.content || "No message content"}
-              </Text>
-            </View>
+            <Text
+              style={[
+                styles.lastMessage,
+                item.lastMessage.metadata?.isDeleted && styles.deletedMessage
+              ]}
+              numberOfLines={2}
+            >
+              {item.lastMessage.metadata?.isDeleted
+                ? "This message was deleted"
+                : item.lastMessage.content || "No message content"}
+            </Text>
           ) : (
             <Text style={styles.emptyMessage} numberOfLines={1}>
               No messages yet
@@ -154,7 +159,7 @@ export const ThreadList: React.FC<ThreadListProps> = ({ onThreadSelect }) => {
           )}
         </View>
       </View>
-    </TouchableOpacity>
+    </Pressable>
   );
   };
 
@@ -192,7 +197,7 @@ export const ThreadList: React.FC<ThreadListProps> = ({ onThreadSelect }) => {
       extraData={threads}
       style={styles.container}
       contentContainerStyle={
-        !threads || threads.length === 0 ? styles.emptyContainer : undefined
+        !threads || threads.length === 0 ? styles.emptyListContainer : styles.listContainer
       }
       ListEmptyComponent={renderEmpty}
       refreshing={isLoading}
@@ -203,6 +208,8 @@ export const ThreadList: React.FC<ThreadListProps> = ({ onThreadSelect }) => {
         }
       }}
       showsVerticalScrollIndicator={false}
+      bounces={true}
+      scrollEnabled={true}
     />
   );
 };
@@ -211,6 +218,15 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: "#FFFFFF",
+  },
+  listContainer: {
+    flexGrow: 1,
+    paddingBottom: 100, // Account for NavBar (83px) + extra spacing
+  },
+  emptyListContainer: {
+    flexGrow: 1,
+    justifyContent: "center",
+    alignItems: "center",
   },
   loadingContainer: {
     flex: 1,
@@ -233,6 +249,10 @@ const styles = StyleSheet.create({
   avatarContainer: {
     position: 'relative',
     marginRight: 12,
+    minWidth: 70,
+    minHeight: 48,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   avatarPlaceholder: {
     width: 48,
@@ -275,29 +295,25 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
   },
-  threadHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 6,
-  },
-  threadNameContainer: {
-    flex: 1,
+  threadTopRow: {
     flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    gap: 8,
+    marginBottom: 2,
+  },
+  spacer: {
+    flex: 1,
   },
   threadName: {
     fontSize: 16,
     fontWeight: "600",
     color: "#111827",
-    flexShrink: 1,
+    marginBottom: 4,
   },
   sportBadge: {
     paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 12,
-    flexShrink: 0,
+    paddingVertical: 2,
+    borderRadius: 10,
     backgroundColor: 'transparent',
   },
   sportBadgeText: {
@@ -309,28 +325,14 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: "#6B7280",
     fontWeight: '500',
-    flexShrink: 0,
   },
   messageContainer: {
     marginTop: 2,
-  },
-  messageRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    flex: 1,
-  },
-  senderName: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#111827",
-    marginRight: 4,
-    flexShrink: 0,
   },
   lastMessage: {
     fontSize: 14,
     color: "#6B7280",
     lineHeight: 20,
-    flex: 1,
   },
   deletedMessage: {
     fontStyle: 'italic',
@@ -342,7 +344,6 @@ const styles = StyleSheet.create({
     fontStyle: 'italic',
   },
   emptyContainer: {
-    flex: 1,
     justifyContent: "center",
     alignItems: "center",
     paddingVertical: 60,
