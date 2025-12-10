@@ -9,6 +9,7 @@ import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 import 'react-native-reanimated';
 import { Toaster } from 'sonner-native';
 import { usePushNotifications } from '@/src/hooks/usePushNotifications';
@@ -56,11 +57,12 @@ export default function RootLayout() {
   }
 
   return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
-      <BottomSheetModalProvider>
-        <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-          <NavigationInterceptor>
-          <Stack
+    <SafeAreaProvider>
+      <GestureHandlerRootView style={{ flex: 1 }}>
+        <BottomSheetModalProvider>
+          <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+            <NavigationInterceptor>
+            <Stack
             screenOptions={{
               gestureEnabled: true,
               headerShown: false,
@@ -154,11 +156,12 @@ export default function RootLayout() {
         />
         <Stack.Screen name="+not-found" />
         </Stack>
-          </NavigationInterceptor>
-          <StatusBar style="auto" />
-          <Toaster />
-        </ThemeProvider>
-      </BottomSheetModalProvider>
-    </GestureHandlerRootView>
+            </NavigationInterceptor>
+            <StatusBar style="auto" />
+            <Toaster />
+          </ThemeProvider>
+        </BottomSheetModalProvider>
+      </GestureHandlerRootView>
+    </SafeAreaProvider>
   );
 }
