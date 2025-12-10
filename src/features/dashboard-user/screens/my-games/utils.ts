@@ -4,20 +4,22 @@ import { StatusInfo } from './types';
 export const getStatusColor = (status: string, matchTime?: string): StatusInfo => {
   const upperStatus = status.toUpperCase();
 
-  // For completed or cancelled matches, use DB status
-  if (['COMPLETED', 'FINISHED', 'CANCELLED'].includes(upperStatus)) {
-    switch (upperStatus) {
-      case 'COMPLETED':
-      case 'FINISHED':
-        return { bg: '#E5E7EB', text: '#374151', label: 'Completed' };
-      case 'CANCELLED':
-        return { bg: '#FEE2E2', text: '#991B1B', label: 'Cancelled' };
-    }
-  }
-
-  // ONGOING means result submitted, awaiting confirmation
-  if (upperStatus === 'ONGOING') {
-    return { bg: '#FEF3C7', text: '#92400E', label: 'Pending Confirmation' };
+  // Handle terminal statuses first (these don't need time-based logic)
+  switch (upperStatus) {
+    case 'COMPLETED':
+    case 'FINISHED':
+      return { bg: '#E5E7EB', text: '#374151', label: 'Completed' };
+    case 'CANCELLED':
+      return { bg: '#FEE2E2', text: '#991B1B', label: 'Cancelled' };
+    case 'VOID':
+      return { bg: '#FEE2E2', text: '#991B1B', label: 'Voided' };
+    case 'DRAFT':
+      return { bg: '#F3F4F6', text: '#6B7280', label: 'Draft' };
+    case 'UNFINISHED':
+      return { bg: '#FEF3C7', text: '#92400E', label: 'Unfinished' };
+    case 'ONGOING':
+      // ONGOING means result submitted, awaiting confirmation
+      return { bg: '#FEF3C7', text: '#92400E', label: 'Pending Confirmation' };
   }
 
   // For scheduled/open matches, calculate time-based status
