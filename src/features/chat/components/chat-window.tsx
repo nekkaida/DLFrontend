@@ -6,13 +6,13 @@ import {
     ActivityIndicator,
     Dimensions,
     FlatList,
+    Keyboard,
     Platform,
+    Pressable,
     StyleSheet,
     Text,
-    TouchableOpacity,
     View
 } from 'react-native';
-import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { Message } from '../types';
 import { MatchMessageBubble } from './MatchMessageBubble';
 import { SwipeableMessageBubble } from './SwipeableMessageBubble';
@@ -229,8 +229,13 @@ export const MessageWindow: React.FC<MessageWindowProps> = ({
     );
   }
 
+  // Dismiss keyboard when tapping on the message area
+  const handleDismissKeyboard = () => {
+    Keyboard.dismiss();
+  };
+
   return (
-    <GestureHandlerRootView style={styles.container}>
+    <Pressable style={styles.container} onPress={handleDismissKeyboard}>
       <FlatList
         ref={flatListRef}
         data={groupedMessages}
@@ -250,6 +255,8 @@ export const MessageWindow: React.FC<MessageWindowProps> = ({
         maintainVisibleContentPosition={{
           minIndexForVisible: 0,
         }}
+        keyboardShouldPersistTaps="handled"
+        onScrollBeginDrag={Keyboard.dismiss}
       />
 
       {/* Loading indicator for sending messages */}
@@ -262,15 +269,14 @@ export const MessageWindow: React.FC<MessageWindowProps> = ({
 
       {/* Scroll to bottom button */}
       {showScrollButton && (
-        <TouchableOpacity
-          style={styles.scrollToBottomButton}
+        <Pressable
+          style={({ pressed }) => [styles.scrollToBottomButton, pressed && { opacity: 0.8 }]}
           onPress={scrollToBottom}
-          activeOpacity={0.8}
         >
           <Ionicons name="chevron-down" size={20} color="#FFFFFF" />
-        </TouchableOpacity>
+        </Pressable>
       )}
-    </GestureHandlerRootView>
+    </Pressable>
   );
 };
 

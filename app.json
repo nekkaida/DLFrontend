@@ -22,7 +22,7 @@
         "foregroundImage": "./assets/images/dl-logo.png",
         "backgroundColor": "#ffffff"
       },
-      "edgeToEdgeEnabled": true,
+      "edgeToEdgeEnabled": false,
       "package": "com.anonymous.dlfrontend",
       "permissions": [
         "ACCESS_COARSE_LOCATION",

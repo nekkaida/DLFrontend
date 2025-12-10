@@ -9,9 +9,9 @@ import {
   Dimensions,
   Image,
   Platform,
+  Pressable,
   StyleSheet,
   Text,
-  TouchableOpacity,
   View,
 } from 'react-native';
 
@@ -150,14 +150,13 @@ export const NewMessageBottomSheet: React.FC<NewMessageBottomSheetProps> = ({
           )}
         </View>
       </View>
-      <TouchableOpacity
-        style={styles.chatButton}
+      <Pressable
+        style={({ pressed }) => [styles.chatButton, pressed && { opacity: 0.7 }]}
         onPress={() => handleSelectPlayer(item)}
-        activeOpacity={0.7}
       >
         <Ionicons name="chatbubble-outline" size={18} color="#FFFFFF" />
         <Text style={styles.chatButtonText}>Chat</Text>
-      </TouchableOpacity>
+      </Pressable>
     </View>
   ), [handleSelectPlayer]);
 
@@ -175,9 +174,9 @@ export const NewMessageBottomSheet: React.FC<NewMessageBottomSheetProps> = ({
     <View style={styles.headerSection}>
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={onClose} style={styles.cancelButton}>
+        <Pressable onPress={onClose} style={({ pressed }) => [styles.cancelButton, pressed && { opacity: 0.7 }]}>
           <Text style={styles.cancelText}>Cancel</Text>
-        </TouchableOpacity>
+        </Pressable>
         <Text style={styles.title}>New Message</Text>
         <View style={styles.cancelButton} />
       </View>
@@ -194,12 +193,12 @@ export const NewMessageBottomSheet: React.FC<NewMessageBottomSheetProps> = ({
             onChangeText={setSearchQuery}
           />
           {searchQuery.length > 0 && (
-            <TouchableOpacity
+            <Pressable
               onPress={() => setSearchQuery('')}
-              style={styles.clearButton}
+              style={({ pressed }) => [styles.clearButton, pressed && { opacity: 0.7 }]}
             >
               <Ionicons name="close-circle" size={20} color="#9CA3AF" />
-            </TouchableOpacity>
+            </Pressable>
           )}
         </View>
       </View>

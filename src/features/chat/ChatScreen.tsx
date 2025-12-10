@@ -6,25 +6,30 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
 import * as Haptics from 'expo-haptics';
 import { router } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  AppState,
+  AppStateStatus,
+  BackHandler,
   Dimensions,
+  Keyboard,
   KeyboardAvoidingView,
   Platform,
+  Pressable,
   StatusBar,
   StyleSheet,
   Text,
   TextInput,
-  TouchableOpacity,
   View
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { toast } from 'sonner-native';
 import { MessageInput } from './components/chat-input';
 import { ThreadList } from './components/chat-list';
 import { MessageWindow } from './components/chat-window';
 import { MatchFormData } from './components/CreateMatchScreen';
+import { GroupAvatarStack } from './components/GroupAvatarStack';
 import { MessageActionBar } from './components/MessageActionBar';
 import { NewMessageBottomSheet } from './components/NewMessageBottomSheet';
 import { useChatSocketEvents } from './hooks/useChatSocketEvents';
@@ -59,6 +64,9 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
   const [selectedMessage, setSelectedMessage] = useState<any>(null);
   const [showActionBar, setShowActionBar] = useState(false);
   const [showNewMessageSheet, setShowNewMessageSheet] = useState(false);
+  const [appStateKey, setAppStateKey] = useState(0); // Force re-render on app resume
+  const appStateRef = useRef<AppStateStatus>(AppState.currentState);
+  const searchInputRef = useRef<TextInput>(null);
   const insets = useSafeAreaInsets();
   const { setThreadMetadata, pendingMatchData, clearPendingMatch } = useCreateMatchStore();
   
@@ -96,6 +104,30 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
       setRefreshKey(prev => prev + 1);
     }
   }, [messages, currentThread?.id]);
+
+  // Handle app state changes to fix touch issues after backgrounding
+  // This forces a re-render which helps reset any stuck gesture handler state
+  useEffect(() => {
+    const handleAppStateChange = (nextAppState: AppStateStatus) => {
+      if (
+        appStateRef.current.match(/inactive|background/) &&
+        nextAppState === 'active'
+      ) {
+        console.log('📱 ChatScreen: App came to foreground, forcing re-render');
+        // Small delay to let gesture handler state settle
+        setTimeout(() => {
+          setAppStateKey(prev => prev + 1);
+        }, 100);
+      }
+      appStateRef.current = nextAppState;
+    };
+
+    const subscription = AppState.addEventListener('change', handleAppStateChange);
+
+    return () => {
+      subscription.remove();
+    };
+  }, []);
 
   // Handle pending match data when returning from create-match page
   useEffect(() => {
@@ -179,7 +211,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
 
   useEffect(() => {
     if (!threads) return;
-    
+
     if (searchQuery.trim() === '') {
       setFilteredThreads(threads);
     } else {
@@ -193,6 +225,36 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
       setFilteredThreads(filtered);
     }
   }, [searchQuery, threads]);
+
+  // Handle Android back button to go back from chat to thread list
+  useEffect(() => {
+    const backHandler = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (currentThread) {
+        handleBackToThreads();
+        return true; // Prevent default back behavior
+      }
+      return false; // Let default back behavior happen (exit app or go back in navigation)
+    });
+
+    return () => backHandler.remove();
+  }, [currentThread]);
+
+  // Handle keyboard hide to blur search input on Android
+  // This ensures the focus state matches the keyboard state
+  useEffect(() => {
+    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+
+    const keyboardHideListener = Keyboard.addListener(hideEvent, () => {
+      // Blur search input when keyboard hides (e.g., Android back button)
+      if (Platform.OS === 'android') {
+        searchInputRef.current?.blur();
+      }
+    });
+
+    return () => {
+      keyboardHideListener.remove();
+    };
+  }, []);
 
   const handleThreadSelect = async (thread: Thread) => {
     console.log('ChatScreen: Thread selected:', thread.name);
@@ -679,11 +741,12 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
       {/* <SocketDebugPanel /> */}
       
       {currentThread ? (
-        <KeyboardAvoidingView
-          style={styles.chatContainer}
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-          keyboardVerticalOffset={0}
-        >
+        <SafeAreaView style={styles.chatContainer} edges={['bottom']}>
+          <KeyboardAvoidingView
+            style={styles.chatContainerInner}
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            keyboardVerticalOffset={0}
+          >
           {/* Message Action Bar */}
           <MessageActionBar
             visible={showActionBar}
@@ -695,50 +758,40 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
           />
 
           <View style={[styles.chatHeader, { paddingTop: STATUS_BAR_HEIGHT + 12 }]}>
-            <TouchableOpacity 
-              style={styles.backButton}
+            <Pressable
+              style={({ pressed }) => [styles.backButton, pressed && { opacity: 0.7 }]}
               onPress={handleBackToThreads}
-              activeOpacity={0.7}
             >
               <Ionicons name="arrow-back" size={24} color="#111827" />
-            </TouchableOpacity>
+            </Pressable>
             
             {currentThread?.type === 'group' ? (
-              // Group chat header with avatar
-              <>
+              // Group chat header with stacked avatars
+              <View style={styles.groupHeaderWrapper}>
+                {/* Left section: Avatar with sport badge */}
                 <View style={styles.groupHeaderAvatar}>
-                  <View style={[
-                    styles.groupAvatarCircle,
-                    { backgroundColor: sportColors.background }
-                  ]}>
-                    <Text style={styles.groupAvatarText}>
-                      {currentThread.name?.charAt(0)?.toUpperCase() || 'G'}
-                    </Text>
-                  </View>
-                  {/* Badge number overlay */}
-                  <View style={styles.groupBadgeOverlay}>
-                    <Text style={styles.groupBadgeNumber}>
-                      {currentThread.participants.length}
-                    </Text>
-                  </View>
+                  {/* Sport badge above avatar */}
+                  {sportColors.label && (
+                    <View style={[
+                      styles.sportBadgeAboveAvatar,
+                      { borderColor: sportColors.badgeColor }
+                    ]}>
+                      <Text style={[
+                        styles.sportBadgeAboveAvatarText,
+                        { color: sportColors.badgeColor }
+                      ]}>{sportColors.label}</Text>
+                    </View>
+                  )}
+                  <GroupAvatarStack
+                    participants={currentThread.participants}
+                    sportColor={sportColors.background}
+                    size={38}
+                  />
                 </View>
-                
+
+                {/* Center section: Title, participants, action buttons */}
                 <View style={styles.groupHeaderContent}>
                   <View style={styles.groupHeaderTopRow}>
-                    {sportColors.label && (
-                      <View style={[
-                        styles.sportBadgeHeader,
-                        { 
-                          borderColor: sportColors.badgeColor,
-                          borderWidth: 1.5,
-                        }
-                      ]}>
-                        <Text style={[
-                          styles.sportBadgeHeaderText,
-                          { color: sportColors.badgeColor }
-                        ]}>{sportColors.label}</Text>
-                      </View>
-                    )}
                     <Text style={styles.groupHeaderTitle} numberOfLines={1}>
                       {headerContent.title}
                     </Text>
@@ -746,27 +799,19 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
                   <Text style={styles.groupHeaderParticipants} numberOfLines={1}>
                     {getParticipantPreview()}
                   </Text>
-                  
+
                   {/* Action buttons */}
                   <View style={styles.groupActionButtons}>
-                    <TouchableOpacity 
-                      style={[
-                        styles.actionButton, 
+                    <Pressable
+                      style={({ pressed }) => [
+                        styles.actionButton,
                         styles.primaryActionButton,
-                        { backgroundColor: sportColors.background }
+                        { backgroundColor: sportColors.background },
+                        pressed && { opacity: 0.8 }
                       ]}
-                      activeOpacity={0.8}
                       onPress={() => {
                         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                        
-                        // Debug: Log the current thread data
-                        console.log('🔍 Current Thread Data:', {
-                          name: currentThread.name,
-                          sportType: currentThread.sportType,
-                          metadata: currentThread.metadata,
-                          division: currentThread.division,
-                        });
-                        
+
                         router.push({
                           pathname: '/match/divisionstandings',
                           params: {
@@ -784,10 +829,13 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
                       }}
                     >
                       <Text style={styles.primaryActionText}>View Standings</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity 
-                      style={[styles.actionButton, styles.secondaryActionButton]}
-                      activeOpacity={0.8}
+                    </Pressable>
+                    <Pressable
+                      style={({ pressed }) => [
+                        styles.actionButton,
+                        styles.secondaryActionButton,
+                        pressed && { opacity: 0.8 }
+                      ]}
                       onPress={() => {
                         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                         router.push({
@@ -802,10 +850,21 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
                       }}
                     >
                       <Text style={styles.secondaryActionText}>View All Matches</Text>
-                    </TouchableOpacity>
+                    </Pressable>
                   </View>
                 </View>
-              </>
+
+                {/* Right section: 3-dot menu */}
+                <Pressable
+                  style={({ pressed }) => [styles.groupHeaderMenuButton, pressed && { opacity: 0.7 }]}
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    // TODO: Show menu options
+                  }}
+                >
+                  <Ionicons name="ellipsis-vertical" size={20} color="#6B7280" />
+                </Pressable>
+              </View>
             ) : (
               // Direct chat header (original design)
               <>
@@ -823,10 +882,13 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
                 </View>
               </>
             )}
-            
-            <TouchableOpacity style={styles.headerAction}>
-              <Ionicons name="ellipsis-vertical" size={20} color="#6B7280" />
-            </TouchableOpacity>
+
+            {/* Only show headerAction for direct chats (group chats have their own menu button) */}
+            {currentThread.type !== 'group' && (
+              <Pressable style={({ pressed }) => [styles.headerAction, pressed && { opacity: 0.7 }]}>
+                <Ionicons name="ellipsis-vertical" size={20} color="#6B7280" />
+              </Pressable>
+            )}
           </View>
           
           <MessageWindow
@@ -848,42 +910,53 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
             sportType={currentThread.sportType}
             isGroupChat={currentThread.type === 'group'}
           />
-        </KeyboardAvoidingView>
+          </KeyboardAvoidingView>
+        </SafeAreaView>
       ) : (
         <View style={styles.threadsContainer}>
           {/* Header with Chats title and New Message button */}
           <View style={[styles.chatsHeaderContainer, { paddingTop: STATUS_BAR_HEIGHT }]}>
             <Text style={styles.chatsTitle}>Chats</Text>
-            <TouchableOpacity
+            <Pressable
               onPress={() => {
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                setShowNewMessageSheet(true);
+                // Blur search input and dismiss keyboard before opening bottom sheet
+                searchInputRef.current?.blur();
+                Keyboard.dismiss();
+                // Small delay to let keyboard fully dismiss before opening bottom sheet
+                // This prevents gesture handler conflicts
+                setTimeout(() => {
+                  setShowNewMessageSheet(true);
+                }, 100);
               }}
-              activeOpacity={0.7}
+              style={({ pressed }) => pressed && { opacity: 0.7 }}
             >
               <Text style={styles.newMessageButton}>New Message</Text>
-            </TouchableOpacity>
+            </Pressable>
           </View>
 
           <View style={styles.searchContainer}>
             <View style={styles.searchBar}>
               <Ionicons name="search" size={20} color="#6B7280" style={styles.searchIcon} />
               <TextInput
+                ref={searchInputRef}
                 style={styles.searchInput}
                 placeholder="Search"
                 placeholderTextColor="#9CA3AF"
                 value={searchQuery}
                 onChangeText={setSearchQuery}
                 returnKeyType="search"
+                blurOnSubmit={true}
               />
               {searchQuery.length > 0 && (
-                <TouchableOpacity onPress={clearSearch} style={styles.clearButton}>
+                <Pressable onPress={clearSearch} style={styles.clearButton}>
                   <Ionicons name="close-circle" size={20} color="#9CA3AF" />
-                </TouchableOpacity>
+                </Pressable>
               )}
             </View>
           </View>
            <ThreadList
+            key={`thread-list-${appStateKey}`}
             onThreadSelect={handleThreadSelect}
           />
           {onTabPress && (
@@ -898,46 +971,48 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
       )}
 
 
-      {/* New Message Bottom Sheet */}
-      <NewMessageBottomSheet
-        visible={showNewMessageSheet}
-        onClose={() => setShowNewMessageSheet(false)}
-        onSelectUser={async (userId, userName) => {
-          if (!user?.id) {
-            toast.error('Please log in to start a conversation');
-            return;
-          }
+      {/* New Message Bottom Sheet - Only render when needed to prevent touch blocking */}
+      {showNewMessageSheet && (
+        <NewMessageBottomSheet
+          visible={showNewMessageSheet}
+          onClose={() => setShowNewMessageSheet(false)}
+          onSelectUser={async (userId, userName) => {
+            if (!user?.id) {
+              toast.error('Please log in to start a conversation');
+              return;
+            }
 
-          try {
-            console.log('Creating/finding thread with user:', userId, userName);
+            try {
+              console.log('Creating/finding thread with user:', userId, userName);
 
-            // Create or find existing direct message thread
-            const thread = await ChatService.createThread(
-              user.id,
-              [userId],
-              false // isGroup = false for direct messages
-            );
+              // Create or find existing direct message thread
+              const thread = await ChatService.createThread(
+                user.id,
+                [userId],
+                false // isGroup = false for direct messages
+              );
 
-            console.log('Thread created/found:', thread.id, thread.name);
+              console.log('Thread created/found:', thread.id, thread.name);
 
-            // Close the bottom sheet
-            setShowNewMessageSheet(false);
+              // Close the bottom sheet
+              setShowNewMessageSheet(false);
 
-            // Set the thread as current to navigate to the chat
-            setCurrentThread(thread);
+              // Set the thread as current to navigate to the chat
+              setCurrentThread(thread);
 
-            // Load messages for the thread
-            loadMessages(thread.id);
+              // Load messages for the thread
+              loadMessages(thread.id);
 
-            // Refresh the threads list to include the new thread
-            loadThreads(user.id);
+              // Refresh the threads list to include the new thread
+              loadThreads(user.id);
 
-          } catch (error) {
-            console.error('Error creating thread:', error);
-            toast.error('Failed to start conversation. Please try again.');
-          }
-        }}
-      />
+            } catch (error) {
+              console.error('Error creating thread:', error);
+              toast.error('Failed to start conversation. Please try again.');
+            }
+          }}
+        />
+      )}
     </View>
   );
 };
@@ -948,6 +1023,9 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
   },
   chatContainer: {
+    flex: 1,
+  },
+  chatContainerInner: {
     flex: 1,
   },
   threadsContainer: {
@@ -1038,21 +1116,31 @@ const styles = StyleSheet.create({
     padding: 4,
   },
   // Group chat header styles
-  groupHeaderAvatar: {
-    position: 'relative',
-    marginRight: 12,
+  groupHeaderWrapper: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'flex-start',
   },
-  groupAvatarCircle: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    justifyContent: 'center',
+  groupHeaderAvatar: {
+    marginRight: 12,
     alignItems: 'center',
   },
-  groupAvatarText: {
-    color: '#FFFFFF',
-    fontSize: 20,
-    fontWeight: '700',
+  groupHeaderMenuButton: {
+    padding: 8,
+    marginLeft: 4,
+    alignSelf: 'flex-start',
+  },
+  sportBadgeAboveAvatar: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 8,
+    borderWidth: 1.5,
+    backgroundColor: 'transparent',
+    marginBottom: 4,
+  },
+  sportBadgeAboveAvatarText: {
+    fontSize: 9,
+    fontWeight: '600',
   },
   groupBadgeOverlay: {
     position: 'absolute',

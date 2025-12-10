@@ -1,6 +1,6 @@
 import SearchIcon from "@/assets/icons/search-icon.svg";
 import { NavBar } from "@/shared/components/layout";
-import { LeagueCard, useLeagues } from "@/src/features/leagues";
+import { LeagueCard, LeagueGrid, useLeagues } from "@/src/features/leagues";
 import { SportDropdownHeader } from "@/src/shared/components/ui/SportDropdownHeader";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
@@ -174,14 +174,10 @@ export default function DashboardScreen() {
                 </View>
               </View>
 
-              {leagues.slice(1).map((league) => (
-                <LeagueCard
-                  key={league.id}
-                  league={league}
-                  variant="regular"
-                  onJoinPress={handleJoinLeague}
-                />
-              ))}
+              <LeagueGrid
+                leagues={leagues.slice(1)}
+                onJoinPress={handleJoinLeague}
+              />
             </>
           )}
         </Animated.ScrollView>

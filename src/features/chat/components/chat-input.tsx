@@ -4,12 +4,14 @@ import TennisMatchIcon from '@/assets/icons/chats/tennis-match.svg';
 import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect, useRef, useState } from 'react';
 import {
+  AppState,
+  AppStateStatus,
   Keyboard,
   Platform,
+  Pressable,
   StyleSheet,
   Text,
   TextInput,
-  TouchableOpacity,
   View
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -43,9 +45,35 @@ export const MessageInput: React.FC<MessageInputProps> = ({
   const [keyboardVisible, setKeyboardVisible] = useState(false);
   const inputRef = useRef<TextInput>(null);
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const appStateRef = useRef<AppStateStatus>(AppState.currentState);
   const insets = useSafeAreaInsets();
 
-  // Track keyboard visibility to adjust bottom padding
+  // Handle app state changes to fix TextInput after backgrounding (Android issue)
+  useEffect(() => {
+    const handleAppStateChange = (nextAppState: AppStateStatus) => {
+      if (
+        appStateRef.current.match(/inactive|background/) &&
+        nextAppState === 'active'
+      ) {
+        // App has come to foreground - blur and allow re-focus on Android
+        if (Platform.OS === 'android' && inputRef.current) {
+          // Small delay to let gesture handler state settle
+          setTimeout(() => {
+            inputRef.current?.blur();
+          }, 100);
+        }
+      }
+      appStateRef.current = nextAppState;
+    };
+
+    const subscription = AppState.addEventListener('change', handleAppStateChange);
+
+    return () => {
+      subscription.remove();
+    };
+  }, []);
+
+  // Track keyboard visibility to adjust bottom padding and blur input when keyboard hides
   useEffect(() => {
     const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
     const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
@@ -55,6 +83,11 @@ export const MessageInput: React.FC<MessageInputProps> = ({
     });
     const keyboardHideListener = Keyboard.addListener(hideEvent, () => {
       setKeyboardVisible(false);
+      // Blur input when keyboard hides (e.g., Android back button)
+      // This ensures the input state matches the keyboard state
+      if (Platform.OS === 'android') {
+        inputRef.current?.blur();
+      }
     });
 
     return () => {
@@ -130,6 +163,10 @@ export const MessageInput: React.FC<MessageInputProps> = ({
       if (typingTimeoutRef.current) {
         clearTimeout(typingTimeoutRef.current);
       }
+      // Keep focus on the input after sending so user can continue typing
+      setTimeout(() => {
+        inputRef.current?.focus();
+      }, 50);
     }
   };
 
@@ -140,13 +177,17 @@ export const MessageInput: React.FC<MessageInputProps> = ({
     }
   };
 
-  
+
+  // Simple clamp function for padding
+  const clamp = (v: number, min: number, max: number) => Math.min(Math.max(v, min), max);
+
+  // Bottom padding - parent SafeAreaView handles safe area, we just need minimal padding
   // When keyboard is visible, use minimal padding (keyboard covers safe area)
-  // When keyboard is hidden, use safe area insets for home indicator
   const bottomPadding = Platform.select({
-    ios: keyboardVisible ? 8 : Math.max(insets.bottom, 8),
-    android: 8,
-  });
+    ios: keyboardVisible ? 4 : clamp(insets.bottom, 4, 10),
+    android: clamp(insets.bottom, 8, 16),
+    default: clamp(insets.bottom, 6, 12),
+  }) as number;
 
   return (
     <View style={[styles.container, { paddingBottom: bottomPadding }]}>
@@ -164,59 +205,62 @@ export const MessageInput: React.FC<MessageInputProps> = ({
               </Text>
             </View>
           </View>
-          <TouchableOpacity
+          <Pressable
             onPress={onCancelReply}
-            style={styles.cancelReplyButton}
-            activeOpacity={0.7}
+            style={({ pressed }) => [styles.cancelReplyButton, pressed && { opacity: 0.7 }]}
           >
             <Ionicons name="close" size={20} color="#6B7280" />
-          </TouchableOpacity>
+          </Pressable>
         </View>
       )}
       
       <View style={styles.inputContainer}>
         {/* Match button */}
-        <TouchableOpacity
-          style={styles.attachmentButton}
+        <Pressable
+          style={({ pressed }) => [styles.attachmentButton, pressed && { opacity: 0.7 }]}
           onPress={handleMatch}
-          activeOpacity={0.7}
         >
           {MatchIcon ? (
             <MatchIcon width={24} height={24} />
           ) : (
             <Ionicons name="calendar-clear-outline" size={24} color="#6B7280" />
           )}
-        </TouchableOpacity>
+        </Pressable>
         
-        <View style={styles.textInputContainer}>
-          <TextInput
-            ref={inputRef}
-            style={styles.textInput}
-            value={message}
-            onChangeText={handleTextChange}
-            placeholder={placeholder}
-            placeholderTextColor="#9CA3AF"
-            multiline
-            maxLength={1000}
-            textAlignVertical="center"
-          />
+        <View style={styles.textInputWrapper}>
+          <Pressable
+            style={styles.textInputContainer}
+            onPress={() => inputRef.current?.focus()}
+          >
+            <TextInput
+              ref={inputRef}
+              style={styles.textInput}
+              value={message}
+              onChangeText={handleTextChange}
+              placeholder={placeholder}
+              placeholderTextColor="#9CA3AF"
+              multiline
+              maxLength={1000}
+              textAlignVertical="center"
+            />
+          </Pressable>
         </View>
         
-        <TouchableOpacity
-          style={[
+        <Pressable
+          style={({ pressed }) => [
             styles.sendButton,
-            { backgroundColor: getSendButtonColor() }
+            { backgroundColor: getSendButtonColor() },
+            pressed && { opacity: 0.7 }
           ]}
           onPress={handleSend}
           disabled={!message.trim()}
-          activeOpacity={0.7}
         >
           <Ionicons
             name="send"
             size={18}
             color={message.trim() ? '#FFFFFF' : '#9CA3AF'}
           />
-        </TouchableOpacity>
+        </Pressable>
       </View>
     </View>
   );
@@ -286,8 +330,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  textInputContainer: {
+  textInputWrapper: {
     flex: 1,
+  },
+  textInputContainer: {
     flexDirection: 'row',
     alignItems: 'flex-end',
     borderWidth: 1,
@@ -295,6 +341,7 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     backgroundColor: '#F9FAFB',
     paddingRight: 12,
+    minHeight: 40,
   },
   textInput: {
     flex: 1,
