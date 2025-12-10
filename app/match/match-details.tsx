@@ -6,6 +6,7 @@ import { getSportColors, SportType } from '@/constants/SportsColor';
 import { useSession } from '@/lib/auth-client';
 import axiosInstance, { endpoints } from '@/lib/endpoints';
 import { socketService } from '@/lib/socket-service';
+import { CancelMatchSheet } from '@/src/features/match/components/CancelMatchSheet';
 import { MatchResultSheet } from '@/src/features/match/components/MatchResultSheet';
 import { Ionicons } from '@expo/vector-icons';
 import { BottomSheetBackdrop, BottomSheetModal, BottomSheetView } from '@gorhom/bottom-sheet';
@@ -50,17 +51,27 @@ export default function JoinMatchScreen() {
   const [matchData, setMatchData] = useState<{
     createdById: string | null;
     resultSubmittedById: string | null;
+    resultSubmittedAt: string | null;
     status: string;
-  }>({ createdById: null, resultSubmittedById: null, status: 'SCHEDULED' });
+  }>({ createdById: null, resultSubmittedById: null, resultSubmittedAt: null, status: 'SCHEDULED' });
   
   // Partnership data with captain info
   const [partnershipData, setPartnershipData] = useState<{
     captainId: string | null;
     partnerId: string | null;
   }>({ captainId: null, partnerId: null });
+
+  // Auto-approval countdown state
+  const [autoApprovalCountdown, setAutoApprovalCountdown] = useState<{
+    hours: number;
+    minutes: number;
+    expired: boolean;
+  } | null>(null);
   
   const bottomSheetModalRef = useRef<BottomSheetModal>(null);
+  const cancelSheetRef = useRef<BottomSheetModal>(null);
   const snapPoints = useMemo(() => ['75%', '90%'], []);
+  const cancelSnapPoints = useMemo(() => ['70%', '85%'], []);
 
   // Parse params
   const matchId = params.matchId as string;
@@ -138,6 +149,7 @@ export default function JoinMatchScreen() {
           setMatchData({
             createdById: match.createdById || null,
             resultSubmittedById: match.resultSubmittedById || null,
+            resultSubmittedAt: match.resultSubmittedAt || null,
             status: match.status || 'SCHEDULED',
           });
         }
@@ -181,6 +193,40 @@ export default function JoinMatchScreen() {
       socketService.off('match_updated', handleMatchUpdate);
     };
   }, [matchId]);
+
+  // Auto-approval countdown timer (24 hours from result submission)
+  useEffect(() => {
+    // Only show countdown when match is ONGOING (result submitted, awaiting confirmation)
+    const status = matchData.status?.toUpperCase();
+    if (status !== 'ONGOING' || !matchData.resultSubmittedAt) {
+      setAutoApprovalCountdown(null);
+      return;
+    }
+
+    const calculateCountdown = () => {
+      const submittedAt = new Date(matchData.resultSubmittedAt!).getTime();
+      const autoApprovalTime = submittedAt + (24 * 60 * 60 * 1000); // 24 hours in ms
+      const now = Date.now();
+      const remaining = autoApprovalTime - now;
+
+      if (remaining <= 0) {
+        setAutoApprovalCountdown({ hours: 0, minutes: 0, expired: true });
+        return;
+      }
+
+      const hours = Math.floor(remaining / (60 * 60 * 1000));
+      const minutes = Math.floor((remaining % (60 * 60 * 1000)) / (60 * 1000));
+      setAutoApprovalCountdown({ hours, minutes, expired: false });
+    };
+
+    // Calculate immediately
+    calculateCountdown();
+
+    // Update every minute
+    const intervalId = setInterval(calculateCountdown, 60 * 1000);
+
+    return () => clearInterval(intervalId);
+  }, [matchData.status, matchData.resultSubmittedAt]);
 
   const fetchParticipantDetails = async () => {
     try {
@@ -461,6 +507,24 @@ export default function JoinMatchScreen() {
         textColor = '#065F46';
         statusText = 'In Progress';
         break;
+      case 'DRAFT':
+        // Match created but invitations expired/declined
+        badgeColor = '#F3F4F6';
+        textColor = '#6B7280';
+        statusText = 'Draft';
+        break;
+      case 'VOID':
+        // Match voided by admin
+        badgeColor = '#FEE2E2';
+        textColor = '#991B1B';
+        statusText = 'Voided';
+        break;
+      case 'UNFINISHED':
+        // Match started but not completed
+        badgeColor = '#FEF3C7';
+        textColor = '#92400E';
+        statusText = 'Unfinished';
+        break;
       case 'OPEN':
       case 'SCHEDULED':
       default:
@@ -618,6 +682,41 @@ export default function JoinMatchScreen() {
       toast.error(errorMessage);
       throw error;
     }
+  };
+
+  // Handler for cancelling match
+  const handleCancelMatch = async (data: { reason: string; comment?: string }) => {
+    try {
+      const response = await axiosInstance.post(
+        endpoints.match.cancel(matchId),
+        {
+          reason: data.reason,
+          comment: data.comment,
+        }
+      );
+
+      toast.success('Match cancelled successfully');
+      cancelSheetRef.current?.dismiss();
+      router.back();
+    } catch (error: any) {
+      console.error('❌ Error cancelling match:', error);
+      const errorMessage = error.response?.data?.error ||
+                          error.response?.data?.message ||
+                          error.message ||
+                          'Failed to cancel match';
+      toast.error(errorMessage);
+      throw error;
+    }
+  };
+
+  // Check if match can be cancelled (only SCHEDULED matches, before they start)
+  const canCancelMatch = () => {
+    const status = matchData.status?.toUpperCase() || matchStatus.toUpperCase();
+    // Can only cancel SCHEDULED matches, and user must be a participant
+    if (status !== 'SCHEDULED' || !isUserParticipant) return false;
+
+    // Don't allow cancellation if match has already started (based on time)
+    return !isMatchTimeReached();
   };
 
   // Determine if user is the captain of the team that CREATED the match (can submit result)
@@ -958,6 +1057,37 @@ export default function JoinMatchScreen() {
           </View>
         </View>
 
+        {/* Auto-Approval Countdown Banner */}
+        {autoApprovalCountdown && (
+          <View style={styles.autoApprovalBanner}>
+            <Ionicons
+              name={autoApprovalCountdown.expired ? "checkmark-circle" : "time-outline"}
+              size={20}
+              color={autoApprovalCountdown.expired ? "#22C55E" : "#F59E0B"}
+            />
+            <View style={styles.autoApprovalContent}>
+              {autoApprovalCountdown.expired ? (
+                <Text style={styles.autoApprovalText}>
+                  Result auto-approved! Awaiting system confirmation.
+                </Text>
+              ) : (
+                <>
+                  <Text style={styles.autoApprovalTitle}>
+                    Awaiting opponent confirmation
+                  </Text>
+                  <Text style={styles.autoApprovalText}>
+                    Auto-approves in{' '}
+                    <Text style={styles.autoApprovalTime}>
+                      {autoApprovalCountdown.hours}h {autoApprovalCountdown.minutes}m
+                    </Text>
+                    {' '}if not disputed
+                  </Text>
+                </>
+              )}
+            </View>
+          </View>
+        )}
+
         {/* Location */}
         <View style={styles.detailRow}>
           <View style={styles.iconContainer}>
@@ -1025,8 +1155,52 @@ export default function JoinMatchScreen() {
 
         <View style={styles.divider} />
 
+        {/* DRAFT Status Banner - Match invitations expired/declined */}
+        {matchData.status?.toUpperCase() === 'DRAFT' && (
+          <View style={styles.draftStatusBanner}>
+            <Ionicons name="document-outline" size={24} color="#6B7280" />
+            <View style={styles.draftStatusContent}>
+              <Text style={styles.draftStatusTitle}>Match is in Draft</Text>
+              <Text style={styles.draftStatusText}>
+                All invitations have expired or been declined. This match needs to be rescheduled or cancelled.
+              </Text>
+              {matchData.createdById === session?.user?.id && (
+                <Text style={styles.draftStatusHint}>
+                  As the match creator, you can delete this match and create a new one.
+                </Text>
+              )}
+            </View>
+          </View>
+        )}
+
+        {/* VOID Status Banner - Match voided by admin */}
+        {matchData.status?.toUpperCase() === 'VOID' && (
+          <View style={styles.voidStatusBanner}>
+            <Ionicons name="ban-outline" size={24} color="#DC2626" />
+            <View style={styles.voidStatusContent}>
+              <Text style={styles.voidStatusTitle}>Match Voided</Text>
+              <Text style={styles.voidStatusText}>
+                This match has been voided by an administrator. No points or statistics were recorded.
+              </Text>
+            </View>
+          </View>
+        )}
+
+        {/* UNFINISHED Status Banner - Match started but not completed */}
+        {matchData.status?.toUpperCase() === 'UNFINISHED' && (
+          <View style={styles.unfinishedStatusBanner}>
+            <Ionicons name="pause-circle-outline" size={24} color="#D97706" />
+            <View style={styles.unfinishedStatusContent}>
+              <Text style={styles.unfinishedStatusTitle}>Match Unfinished</Text>
+              <Text style={styles.unfinishedStatusText}>
+                This match was started but not completed. Please contact the league admin for assistance.
+              </Text>
+            </View>
+          </View>
+        )}
+
         {/* Partnership Status for Doubles - Only show if match not full */}
-        {matchType === 'DOUBLES' && !allSlotsFilled && (
+        {matchType === 'DOUBLES' && !allSlotsFilled && matchData.status?.toUpperCase() === 'SCHEDULED' && (
           <View style={styles.partnershipStatus}>
             {partnerInfo.hasPartner ? (
               <View style={styles.successBanner}>
@@ -1046,9 +1220,20 @@ export default function JoinMatchScreen() {
           </View>
         )}
 
-        {/* Report Section  - Waiting on updates from clients */} 
+        {/* Cancel Match Button - Only show for participants of scheduled matches */}
+        {canCancelMatch() && (
+          <TouchableOpacity
+            style={styles.cancelMatchButton}
+            onPress={() => cancelSheetRef.current?.present()}
+          >
+            <Ionicons name="close-circle-outline" size={20} color="#DC2626" />
+            <Text style={styles.cancelMatchButtonText}>Cancel Match</Text>
+          </TouchableOpacity>
+        )}
+
+        {/* Report Section  - Waiting on updates from clients */}
         <TouchableOpacity style={styles.reportButton}>
-          <Text style={styles.reportButtonText}>Report a problem</Text>  
+          <Text style={styles.reportButtonText}>Report a problem</Text>
         </TouchableOpacity>
       </ScrollView>
 
@@ -1197,6 +1382,25 @@ export default function JoinMatchScreen() {
             onSubmit={handleSubmitResult}
             onConfirm={handleConfirmResult}
             onDispute={handleDisputeResult}
+          />
+        </BottomSheetView>
+      </BottomSheetModal>
+
+      {/* Cancel Match Sheet Modal */}
+      <BottomSheetModal
+        ref={cancelSheetRef}
+        snapPoints={cancelSnapPoints}
+        backdropComponent={renderBackdrop}
+        enablePanDownToClose={true}
+        backgroundStyle={styles.bottomSheetBackground}
+      >
+        <BottomSheetView style={styles.bottomSheetContent}>
+          <CancelMatchSheet
+            matchId={matchId}
+            matchDate={date}
+            matchTime={time}
+            onClose={() => cancelSheetRef.current?.dismiss()}
+            onCancel={handleCancelMatch}
           />
         </BottomSheetView>
       </BottomSheetModal>
@@ -1502,6 +1706,138 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#DC2626',
     fontWeight: '500',
+  },
+  autoApprovalBanner: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+    marginHorizontal: 24,
+    marginTop: 12,
+    padding: 12,
+    borderRadius: 12,
+    backgroundColor: '#FFFBEB',
+    borderWidth: 1,
+    borderColor: '#FEF3C7',
+  },
+  autoApprovalContent: {
+    flex: 1,
+  },
+  autoApprovalTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#92400E',
+    marginBottom: 2,
+  },
+  autoApprovalText: {
+    fontSize: 13,
+    color: '#B45309',
+    lineHeight: 18,
+  },
+  autoApprovalTime: {
+    fontWeight: '700',
+    color: '#D97706',
+  },
+  draftStatusBanner: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
+    marginHorizontal: 24,
+    marginTop: 16,
+    padding: 16,
+    borderRadius: 12,
+    backgroundColor: '#F9FAFB',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  draftStatusContent: {
+    flex: 1,
+  },
+  draftStatusTitle: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#374151',
+    marginBottom: 4,
+  },
+  draftStatusText: {
+    fontSize: 13,
+    color: '#6B7280',
+    lineHeight: 18,
+  },
+  draftStatusHint: {
+    fontSize: 12,
+    color: '#9CA3AF',
+    fontStyle: 'italic',
+    marginTop: 8,
+  },
+  voidStatusBanner: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
+    marginHorizontal: 24,
+    marginTop: 16,
+    padding: 16,
+    borderRadius: 12,
+    backgroundColor: '#FEF2F2',
+    borderWidth: 1,
+    borderColor: '#FEE2E2',
+  },
+  voidStatusContent: {
+    flex: 1,
+  },
+  voidStatusTitle: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#DC2626',
+    marginBottom: 4,
+  },
+  voidStatusText: {
+    fontSize: 13,
+    color: '#991B1B',
+    lineHeight: 18,
+  },
+  unfinishedStatusBanner: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
+    marginHorizontal: 24,
+    marginTop: 16,
+    padding: 16,
+    borderRadius: 12,
+    backgroundColor: '#FFFBEB',
+    borderWidth: 1,
+    borderColor: '#FEF3C7',
+  },
+  unfinishedStatusContent: {
+    flex: 1,
+  },
+  unfinishedStatusTitle: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#D97706',
+    marginBottom: 4,
+  },
+  unfinishedStatusText: {
+    fontSize: 13,
+    color: '#92400E',
+    lineHeight: 18,
+  },
+  cancelMatchButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    marginHorizontal: 24,
+    marginTop: 16,
+    paddingVertical: 14,
+    borderRadius: 12,
+    backgroundColor: '#FEF2F2',
+    borderWidth: 1,
+    borderColor: '#FEE2E2',
+  },
+  cancelMatchButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#DC2626',
   },
   reportButton: {
     alignItems: 'center',
