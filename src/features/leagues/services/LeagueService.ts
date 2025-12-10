@@ -23,6 +23,11 @@ export interface League {
     game_type?: string;
     gender_category?: string;
   }>;
+  seasons?: Array<{
+    id: string;
+    name: string;
+    status?: string;
+  }>;
   memberships?: Array<{
     id: string;
     userId: string;
@@ -202,4 +207,100 @@ export class LeagueService {
     console.warn('LeagueService: Please navigate to league details and join a specific season.');
     return false;
   }
+
+  // Fetch user's active leagues (leagues where user has season memberships)
+  static async fetchUserActiveLeagues(userId: string): Promise<UserActiveLeague[]> {
+    try {
+      const backendUrl = getBackendBaseURL();
+
+      const response = await authClient.$fetch(`${backendUrl}/api/player/${userId}/seasons`, {
+        method: 'GET',
+      });
+
+      if (response && typeof response === 'object') {
+        const apiResponse = response as any;
+
+        // Handle authClient wrapped response
+        let seasons: any[] = [];
+        if (apiResponse.data?.data?.seasons) {
+          seasons = apiResponse.data.data.seasons;
+        } else if (apiResponse.data?.seasons) {
+          seasons = apiResponse.data.seasons;
+        } else if (apiResponse.seasons) {
+          seasons = apiResponse.seasons;
+        }
+
+        // Extract unique leagues from seasons where user has active membership
+        const leaguesMap = new Map<string, UserActiveLeague>();
+
+        for (const season of seasons) {
+          // Only include ACTIVE seasons
+          if (season.status !== 'ACTIVE') continue;
+
+          // Each season can have multiple leagues (many-to-many)
+          const leaguesList = season.leagues || [];
+          for (const league of leaguesList) {
+            if (!leaguesMap.has(league.id)) {
+              leaguesMap.set(league.id, {
+                id: league.id,
+                name: league.name,
+                sportType: league.sportType,
+                location: league.location,
+                status: league.status,
+                season: {
+                  id: season.id,
+                  name: season.name,
+                  status: season.status,
+                },
+                membership: season.membership,
+                totalSeasonMemberships: season._count?.memberships || season.registeredUserCount || 0,
+                memberships: season.memberships,
+              });
+            }
+          }
+        }
+
+        return Array.from(leaguesMap.values());
+      }
+
+      return [];
+    } catch (error) {
+      console.error('LeagueService: Error fetching user active leagues:', error);
+      return [];
+    }
+  }
+}
+
+// Type for user's active league with season info
+export interface UserActiveLeague {
+  id: string;
+  name: string;
+  sportType: string;
+  location?: string;
+  status: string;
+  season: {
+    id: string;
+    name: string;
+    status: string;
+  };
+  membership?: {
+    id: string;
+    joinedAt: string;
+    status: string;
+    paymentStatus: string;
+    division?: {
+      id: string;
+      name: string;
+    };
+  };
+  totalSeasonMemberships?: number;
+  memberships?: Array<{
+    id: string;
+    userId: string;
+    user?: {
+      id: string;
+      name: string;
+      image?: string;
+    };
+  }>;
 }
