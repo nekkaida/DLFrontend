@@ -1,15 +1,21 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Image, Dimensions, Platform } from 'react-native';
-import { League } from '../services/LeagueService';
+import { View, Text, TouchableOpacity, StyleSheet, Image, Dimensions, Platform, ScrollView } from 'react-native';
+import { League, UserActiveLeague } from '../services/LeagueService';
 import * as Haptics from 'expo-haptics';
 import { router } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
+import TrophyIcon from '@/assets/icons/trophy-icon.svg';
 
-const { width } = Dimensions.get('window');
+const { width: screenWidth } = Dimensions.get('window');
 
 // Responsive design helpers
-const isSmallScreen = width < 375;
-const isTablet = width > 768;
+const isSmallScreen = screenWidth < 375;
+const isTablet = screenWidth > 768;
+
+// Grid item width calculation (2 columns with 12px gap, 20px padding on each side)
+const GRID_GAP = 12;
+const HORIZONTAL_PADDING = 20;
+const GRID_ITEM_WIDTH = (screenWidth - (HORIZONTAL_PADDING * 2) - GRID_GAP) / 2;
 
 interface LeagueCardProps {
   league: League;
@@ -17,44 +23,33 @@ interface LeagueCardProps {
   variant?: 'featured' | 'regular';
   size?: 'compact' | 'large';
   sport?: 'pickleball' | 'tennis' | 'padel';
+  isGridItem?: boolean;
 }
 
 interface LeagueGridProps {
   leagues: League[];
   onJoinPress?: (leagueId: string) => void;
+  sport?: 'pickleball' | 'tennis' | 'padel';
 }
 
-export function LeagueGrid({ leagues, onJoinPress }: LeagueGridProps) {
-  if (leagues.length === 2) {
-    return (
-      <View style={styles.gridContainer}>
-        {leagues.map((league) => (
-          <LeagueCard 
-            key={league.id} 
-            league={league} 
-            onJoinPress={onJoinPress} 
-            variant="regular" 
-          />
-        ))}
-      </View>
-    );
-  }
-  
+export function LeagueGrid({ leagues, onJoinPress, sport = 'pickleball' }: LeagueGridProps) {
   return (
-    <>
+    <View style={styles.gridWrapper}>
       {leagues.map((league) => (
-        <LeagueCard 
-          key={league.id} 
-          league={league} 
-          onJoinPress={onJoinPress} 
-          variant="regular" 
+        <LeagueCard
+          key={league.id}
+          league={league}
+          onJoinPress={onJoinPress}
+          variant="regular"
+          isGridItem
+          sport={sport}
         />
       ))}
-    </>
+    </View>
   );
 }
 
-export function LeagueCard({ league, onJoinPress, variant = 'regular', size = 'compact', sport = 'pickleball' }: LeagueCardProps) {
+export function LeagueCard({ league, onJoinPress, variant = 'regular', size = 'compact', sport = 'pickleball', isGridItem = false }: LeagueCardProps) {
   const handleJoinPress = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     if (onJoinPress) {
@@ -232,37 +227,33 @@ export function LeagueCard({ league, onJoinPress, variant = 'regular', size = 'c
   const registrationSectionStyle = size === 'large' ? styles.regularRegistrationSectionLarge : styles.regularRegistrationSection;
   const playerCountStyle = size === 'large' ? styles.regularPlayerCountLarge : styles.regularPlayerCount;
 
+  // Get current season number (use first active season or default to 1)
+  const currentSeasonNumber = league.seasons?.[0]?.name?.match(/\d+/)?.[0] || '1';
+
+  // Build the card style - apply grid item width if in grid
+  const cardStyle = isGridItem
+    ? [styles.regularCard, styles.gridItem, { backgroundColor: getRegularCardColor(sport) }]
+    : [styles.regularCard, { backgroundColor: getRegularCardColor(sport) }];
+
   return (
-    <TouchableOpacity 
-      activeOpacity={0.9} 
-      style={[styles.regularCard, { backgroundColor: getRegularCardColor(sport) }]}
+    <TouchableOpacity
+      activeOpacity={0.9}
+      style={cardStyle}
       onPress={handleJoinPress}
     >
       <View style={cardContentStyle}>
-        {/* Header with league name and status */}
+        {/* Header with league name and season badge */}
         <View style={styles.regularHeader}>
           <View style={styles.regularTitleSection}>
-            <Text style={leagueNameStyle}>{league.name}</Text>
-            {/* Comment out category chip */}
-            {/* <View style={styles.gameTypeChip}>
-              <Text style={styles.gameTypeText}>{league.gameType}</Text>
-            </View> */}
+            <Text style={leagueNameStyle} numberOfLines={2}>{league.name}</Text>
           </View>
-          {/* Comment out status chip */}
-          {/* <View style={[styles.statusBadge, { backgroundColor: getStatusColor(league.status) }]}>
-            <Text style={styles.statusText}>{getStatusText(league.status)}</Text>
-          </View> */}
+          {/* Season badge */}
+          <View style={styles.seasonBadge}>
+            <TrophyIcon width={12} height={12} fill="#FFFFFF" />
+            <Text style={styles.seasonBadgeText}>S{currentSeasonNumber}</Text>
+          </View>
         </View>
-        
-        {/* Comment out description */}
-        {/* <View style={styles.regularInfo}>
-          {league.description && (
-            <Text style={styles.regularDescription} numberOfLines={1}>
-              {league.description}
-            </Text>
-          )}
-        </View> */}
-        
+
         {/* Player count with green circle */}
         <View style={playerCountStyle}>
           <View style={styles.statusCircle} />
@@ -270,17 +261,17 @@ export function LeagueCard({ league, onJoinPress, variant = 'regular', size = 'c
             {league.totalSeasonMemberships || 0} players
           </Text>
         </View>
-        
+
         {/* Profile pictures section */}
         {league.memberships && league.memberships.length > 0 && (
           <View style={styles.regularProfilePicturesSection}>
             <View style={styles.regularProfilePicturesContainer}>
-              {league.memberships.slice(0, 6).map((membership: NonNullable<League['memberships']>[0], index: number) => {
+              {league.memberships.slice(0, 4).map((membership: NonNullable<League['memberships']>[0], index: number) => {
                 if (!membership.user) return null;
                 return (
                   <View key={membership.id} style={[styles.regularProfilePicture, index > 0 && styles.regularProfilePictureOverlap]}>
                     {membership.user.image ? (
-                      <Image 
+                      <Image
                         source={{ uri: membership.user.image }}
                         style={styles.regularProfileImage}
                       />
@@ -294,18 +285,18 @@ export function LeagueCard({ league, onJoinPress, variant = 'regular', size = 'c
                   </View>
                 );
               })}
-              {league.totalSeasonMemberships && league.totalSeasonMemberships > 6 && (
+              {league.totalSeasonMemberships && league.totalSeasonMemberships > 4 && (
                 <View style={[styles.regularRemainingCount, styles.regularProfilePictureOverlap]}>
                   <Text style={styles.regularRemainingCountText}>
-                    +{league.totalSeasonMemberships - 6}
+                    +{league.totalSeasonMemberships - 4}
                   </Text>
                 </View>
               )}
             </View>
           </View>
         )}
-        
-        {/* Registration open text */}
+
+        {/* Registration open text at bottom */}
         <View style={registrationSectionStyle}>
           <Text style={registrationTextStyle}>Registration open</Text>
         </View>
@@ -314,7 +305,238 @@ export function LeagueCard({ league, onJoinPress, variant = 'regular', size = 'c
   );
 }
 
+// Active League Card width for horizontal scroll (slightly smaller than screen width)
+const ACTIVE_CARD_WIDTH = screenWidth - 80;
+const ACTIVE_CARD_GAP = 12;
+
+interface ActiveLeagueCardProps {
+  league: UserActiveLeague;
+  onViewStandings?: (leagueId: string, seasonId: string) => void;
+  sport?: 'pickleball' | 'tennis' | 'padel';
+}
+
+interface ActiveLeaguesCarouselProps {
+  leagues: UserActiveLeague[];
+  onViewStandings?: (leagueId: string, seasonId: string) => void;
+  sport?: 'pickleball' | 'tennis' | 'padel';
+}
+
+export function ActiveLeaguesCarousel({ leagues, onViewStandings, sport = 'pickleball' }: ActiveLeaguesCarouselProps) {
+  if (leagues.length === 0) return null;
+
+  // If only 1 league, show full width card
+  if (leagues.length === 1) {
+    return (
+      <View style={styles.activeCarouselSingle}>
+        <ActiveLeagueCard
+          league={leagues[0]}
+          onViewStandings={onViewStandings}
+          sport={sport}
+        />
+      </View>
+    );
+  }
+
+  // Multiple leagues - show horizontal scroll
+  return (
+    <ScrollView
+      horizontal
+      showsHorizontalScrollIndicator={false}
+      contentContainerStyle={styles.activeCarouselContent}
+      snapToInterval={ACTIVE_CARD_WIDTH + ACTIVE_CARD_GAP}
+      decelerationRate="fast"
+    >
+      {leagues.map((league) => (
+        <ActiveLeagueCard
+          key={league.id}
+          league={league}
+          onViewStandings={onViewStandings}
+          sport={sport}
+        />
+      ))}
+    </ScrollView>
+  );
+}
+
+export function ActiveLeagueCard({ league, onViewStandings, sport = 'pickleball' }: ActiveLeagueCardProps) {
+  const handleViewStandings = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    if (onViewStandings) {
+      onViewStandings(league.id, league.season.id);
+    } else {
+      // Default navigation to standings
+      router.push({
+        pathname: '/user-dashboard/league-details',
+        params: {
+          leagueId: league.id,
+          leagueName: league.name,
+          sport: sport,
+        }
+      });
+    }
+  };
+
+  const getGradientColors = (sportType: string): [string, string] => {
+    switch (sportType) {
+      case 'TENNIS':
+        return ['#A2E047', '#252721'];
+      case 'PADEL':
+        return ['#4DABFE', '#212427'];
+      case 'PICKLEBALL':
+      default:
+        return ['#A04DFE', '#212427'];
+    }
+  };
+
+  // Get season number from name (e.g., "Season 1" -> "1")
+  const seasonNumber = league.season.name?.match(/\d+/)?.[0] || '1';
+
+  return (
+    <TouchableOpacity
+      activeOpacity={0.9}
+      style={styles.activeCard}
+      onPress={handleViewStandings}
+    >
+      <LinearGradient
+        colors={getGradientColors(league.sportType)}
+        style={styles.activeCardGradient}
+      >
+        <View style={styles.activeCardContent}>
+          {/* Header with league name and season badge */}
+          <View style={styles.activeCardHeader}>
+            <Text style={styles.activeCardTitle} numberOfLines={2}>
+              {league.name}
+            </Text>
+            <View style={styles.seasonBadge}>
+              <TrophyIcon width={12} height={12} fill="#FFFFFF" />
+              <Text style={styles.seasonBadgeText}>S{seasonNumber}</Text>
+            </View>
+          </View>
+
+          {/* Player count */}
+          <View style={styles.activeCardStats}>
+            <View style={styles.statusCircle} />
+            <Text style={styles.activeCardStatsText}>
+              {league.totalSeasonMemberships || 0} players
+            </Text>
+          </View>
+
+          {/* Profile pictures */}
+          {league.memberships && league.memberships.length > 0 && (
+            <View style={styles.activeCardProfilesSection}>
+              <View style={styles.profilePicturesContainer}>
+                {league.memberships.slice(0, 6).map((membership, index) => {
+                  if (!membership.user) return null;
+                  return (
+                    <View key={membership.id} style={[styles.profilePicture, index > 0 && styles.profilePictureOverlap]}>
+                      {membership.user.image ? (
+                        <Image
+                          source={{ uri: membership.user.image }}
+                          style={styles.profileImage}
+                        />
+                      ) : (
+                        <View style={styles.defaultProfileImage}>
+                          <Text style={styles.defaultProfileText}>
+                            {membership.user.name?.charAt(0)?.toUpperCase() || 'U'}
+                          </Text>
+                        </View>
+                      )}
+                    </View>
+                  );
+                })}
+                {(league.totalSeasonMemberships || 0) > 6 && (
+                  <View style={[styles.remainingCount, styles.profilePictureOverlap]}>
+                    <Text style={styles.remainingCountText}>
+                      +{(league.totalSeasonMemberships || 0) - 6}
+                    </Text>
+                  </View>
+                )}
+              </View>
+            </View>
+          )}
+
+          {/* View standings link */}
+          <TouchableOpacity onPress={handleViewStandings}>
+            <Text style={styles.viewStandingsText}>View standings</Text>
+          </TouchableOpacity>
+        </View>
+      </LinearGradient>
+    </TouchableOpacity>
+  );
+}
+
 const styles = StyleSheet.create({
+  // Active leagues carousel styles
+  activeCarouselSingle: {
+    paddingHorizontal: 0,
+  },
+  activeCarouselContent: {
+    paddingRight: 20,
+    gap: ACTIVE_CARD_GAP,
+  },
+  activeCard: {
+    width: ACTIVE_CARD_WIDTH,
+    borderRadius: 16,
+    overflow: 'hidden',
+  },
+  activeCardGradient: {
+    width: '100%',
+    minHeight: 180,
+    borderRadius: 16,
+  },
+  activeCardContent: {
+    padding: isSmallScreen ? 14 : isTablet ? 20 : 16,
+    flex: 1,
+    justifyContent: 'space-between',
+  },
+  activeCardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 8,
+  },
+  activeCardTitle: {
+    color: '#FDFDFD',
+    fontSize: isSmallScreen ? 16 : isTablet ? 20 : 18,
+    fontWeight: '700',
+    flex: 1,
+    marginRight: 8,
+  },
+  activeCardStats: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  activeCardStatsText: {
+    color: '#FDFDFD',
+    fontSize: isSmallScreen ? 11 : isTablet ? 14 : 12,
+    fontWeight: '600',
+    marginLeft: 8,
+  },
+  activeCardProfilesSection: {
+    marginBottom: 12,
+  },
+  viewStandingsText: {
+    color: '#FDFDFD',
+    fontSize: isSmallScreen ? 12 : isTablet ? 14 : 13,
+    fontWeight: '500',
+    textDecorationLine: 'underline',
+  },
+
+  // Grid layout styles
+  gridWrapper: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+  },
+  gridRow: {
+    flexDirection: 'row',
+    marginBottom: 12,
+  },
+  gridItem: {
+    width: GRID_ITEM_WIDTH,
+    marginBottom: 12,
+  },
   gridContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -532,7 +754,6 @@ const styles = StyleSheet.create({
   regularCard: {
     borderRadius: 16,
     overflow: 'hidden',
-    marginBottom: 12,
     borderWidth: 1,
     borderColor: '#F3F4F6',
     shadowColor: '#000',
@@ -543,7 +764,6 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.05,
     shadowRadius: 4,
     elevation: 2,
-    flex: 1,
   },
   regularCardContent: {
     paddingHorizontal: isSmallScreen ? 14 : isTablet ? 18 : 16,
@@ -562,6 +782,21 @@ const styles = StyleSheet.create({
   regularTitleSection: {
     flex: 1,
     marginRight: 8,
+  },
+  // Season badge styles
+  seasonBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.3)',
+    borderRadius: 12,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    gap: 4,
+  },
+  seasonBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 11,
+    fontWeight: '700',
   },
   regularLeagueName: {
     fontSize: isSmallScreen ? 13 : isTablet ? 16 : 14,
