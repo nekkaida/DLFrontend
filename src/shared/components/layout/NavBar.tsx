@@ -28,13 +28,19 @@ export default function NavBar({ activeTab = 2, onTabPress, badgeCounts, sport =
   // Get safe area insets
   const insets = useSafeAreaInsets();
 
-  // Detect if Android device has gesture navigation
-  // Gesture navigation typically has bottom insets > 0 on Android
-  // Button navigation typically has bottom insets = 0 on Android
-  const hasAndroidGestureNav = Platform.OS === 'android' && insets.bottom > 0;
+  // Clamp function for safe padding values
+  const clamp = (v: number, min: number, max: number) => Math.min(Math.max(v, min), max);
 
-  // Only apply safe area adjustments if Android has gesture navigation
-  const shouldApplySafeArea = hasAndroidGestureNav;
+  // Calculate effective bottom padding based on platform
+  // iOS: use actual insets, Android: use clamped value with minimum for gesture nav
+  const effectiveBottomPadding = Platform.select({
+    ios: insets.bottom,
+    android: clamp(insets.bottom, 24, 48), // Minimum 24px for gesture nav on Android
+    default: insets.bottom,
+  }) as number;
+
+  // Apply safe area adjustments when we have bottom insets
+  const shouldApplySafeArea = effectiveBottomPadding > 0;
 
   // Debug log to show what activeTab prop is received
   console.log(`NavBar: Received activeTab prop: ${activeTab}`);
@@ -58,7 +64,7 @@ export default function NavBar({ activeTab = 2, onTabPress, badgeCounts, sport =
   };
 
   // Debug logging for render
-  console.log(`NavBar: Rendering with activeTab: ${activeTab}, safe area bottom: ${insets.bottom}px, gesture nav: ${hasAndroidGestureNav}`);
+  console.log(`NavBar: Rendering with activeTab: ${activeTab}, insets.bottom: ${insets.bottom}px, effective: ${effectiveBottomPadding}px`);
 
   const getSelectedColor = (sport: 'pickleball' | 'tennis' | 'padel'): string => {
     switch (sport) {
@@ -79,9 +85,10 @@ export default function NavBar({ activeTab = 2, onTabPress, badgeCounts, sport =
       style={[
         styles.navBar,
         shouldApplySafeArea && {
-          // Apply safe area adjustments only for Android gesture navigation
-          height: 50 + insets.bottom,
-          paddingBottom: insets.bottom,
+          // Apply safe area adjustments with effective bottom padding
+          // This ensures NavBar is always above Android gesture navigation bar
+          height: 50 + effectiveBottomPadding,
+          paddingBottom: effectiveBottomPadding,
         }
       ]}
       onLayout={(event) => {
