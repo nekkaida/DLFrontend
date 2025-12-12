@@ -4,7 +4,7 @@ import { getBackendBaseURL } from '@/src/config/network';
 import { Ionicons } from '@expo/vector-icons';
 import { format } from 'date-fns';
 import { router } from 'expo-router';
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { toast } from 'sonner-native';
 import { Message } from '../types';
@@ -34,8 +34,9 @@ export const MatchMessageBubble: React.FC<MatchMessageBubbleProps> = ({
   const firstName = senderName.split(' ')[0];
 
   const [showInfoModal, setShowInfoModal] = useState(false);
-  const [hasJoined, setHasJoined] = useState(false); // Track if user just joined
+  const [hasJoined, setHasJoined] = useState(false);
   const [isFetchingPartner, setIsFetchingPartner] = useState(false);
+  const [hasAlreadyPlayed, setHasAlreadyPlayed] = useState(false);
 
   if (!matchData) {
     console.log('❌ No matchData found for match message:', message.id);
@@ -112,6 +113,75 @@ export const MatchMessageBubble: React.FC<MatchMessageBubbleProps> = ({
     
     return false;
   }, [currentUserId, isMatchPoster, hasJoined, matchData.participants]);
+
+  // Check if match is already completed (has result)
+  const isMatchCompleted = React.useMemo(() => {
+    const status = (matchData as any).status?.toUpperCase();
+    return status === 'COMPLETED' || status === 'FINISHED';
+  }, [(matchData as any).status]);
+
+  // Check if user has already played against the match creator in this division
+  useEffect(() => {
+    const checkAlreadyPlayed = async () => {
+      // Skip if user is the match poster, already in match, or no matchId
+      if (!currentUserId || !matchData.matchId || isMatchPoster || isUserInMatch) {
+        return;
+      }
+
+      try {
+        const backendUrl = getBackendBaseURL();
+        
+        // First fetch match details to get divisionId and creatorId
+        const matchResponse = await fetch(`${backendUrl}/api/match/${matchData.matchId}`, {
+          headers: {
+            'x-user-id': currentUserId,
+          },
+        });
+
+        if (!matchResponse.ok) return;
+
+        const matchResult = await matchResponse.json();
+        const match = matchResult.match || matchResult.data || matchResult;
+        const divisionId = match.divisionId || match.division?.id;
+        const creatorId = match.createdById;
+
+        if (!divisionId || !creatorId) return;
+
+        // Check if user has played against creator in this division
+        // We check completed matches where both users participated on opposite teams
+        const historyResponse = await fetch(
+          `${backendUrl}/api/match?divisionId=${divisionId}&userId=${currentUserId}&status=COMPLETED`,
+          {
+            headers: {
+              'x-user-id': currentUserId,
+            },
+          }
+        );
+
+        if (!historyResponse.ok) return;
+
+        const historyResult = await historyResponse.json();
+        const matches = historyResult.matches || historyResult.data || historyResult || [];
+
+        // Check if any completed match has both current user and creator on opposite teams
+        const hasPlayed = matches.some((m: any) => {
+          const participants = m.participants || [];
+          const currentUserParticipant = participants.find((p: any) => p.userId === currentUserId);
+          const creatorParticipant = participants.find((p: any) => p.userId === creatorId);
+          
+          // Both must be in the match and on different teams
+          return currentUserParticipant && creatorParticipant && 
+                 currentUserParticipant.team !== creatorParticipant.team;
+        });
+
+        setHasAlreadyPlayed(hasPlayed);
+      } catch (error) {
+        console.error('Error checking if already played:', error);
+      }
+    };
+
+    checkAlreadyPlayed();
+  }, [currentUserId, matchData.matchId, isMatchPoster, isUserInMatch]);
   
   // Display name logic - always show first name
   const displayName = firstName;
@@ -297,19 +367,27 @@ export const MatchMessageBubble: React.FC<MatchMessageBubbleProps> = ({
               >
                 <Text style={styles.infoButtonText}>Info</Text>
               </TouchableOpacity>
-              <TouchableOpacity
-                style={[
-                  styles.joinButton,
-                  { backgroundColor: isUserInMatch ? '#9CA3AF' : sportColors.buttonColor }
-                ]}
-                activeOpacity={isUserInMatch ? 1 : 0.8}
-                disabled={isUserInMatch || isFetchingPartner}
-                onPress={handleOpenJoinMatch}
-              >
-                <Text style={styles.joinButtonText}>
-                  {isFetchingPartner ? 'Loading...' : isUserInMatch ? 'Joined' : 'Join match'}
-                </Text>
-              </TouchableOpacity>
+              {hasAlreadyPlayed ? (
+                // Show "Played" badge when teams have already played this season
+                <View style={styles.playedBadge}>
+                  <Ionicons name="checkmark-circle" size={14} color="#059669" />
+                  <Text style={styles.playedBadgeText}>Played</Text>
+                </View>
+              ) : (
+                <TouchableOpacity
+                  style={[
+                    styles.joinButton,
+                    { backgroundColor: (isUserInMatch || isMatchCompleted) ? '#9CA3AF' : sportColors.buttonColor }
+                  ]}
+                  activeOpacity={(isUserInMatch || isMatchCompleted) ? 1 : 0.8}
+                  disabled={isUserInMatch || isFetchingPartner || isMatchCompleted}
+                  onPress={handleOpenJoinMatch}
+                >
+                  <Text style={styles.joinButtonText}>
+                    {isFetchingPartner ? 'Loading...' : isMatchCompleted ? 'Completed' : isUserInMatch ? 'Joined' : 'Join match'}
+                  </Text>
+                </TouchableOpacity>
+              )}
             </View>
           </View>
         </View>
@@ -498,5 +576,21 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
     color: '#FFFFFF',
+  },
+  playedBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 16,
+    backgroundColor: '#ECFDF5',
+    borderWidth: 1,
+    borderColor: '#A7F3D0',
+    gap: 4,
+  },
+  playedBadgeText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#059669',
   },
 });
