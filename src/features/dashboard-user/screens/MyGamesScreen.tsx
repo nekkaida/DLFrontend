@@ -122,6 +122,19 @@ export default function MyGamesScreen({ sport = 'pickleball' }: MyGamesScreenPro
   const filteredMatches = useMemo(() => {
     let filtered = [...matches];
 
+    // Exclude DRAFT matches where user's invitation is still PENDING
+    // (these should appear in INVITES tab instead)
+    filtered = filtered.filter(match => {
+      if (match.status.toUpperCase() === 'DRAFT' && match.invitationStatus === 'PENDING') {
+        // Check if user is the creator - creators should see their DRAFT matches
+        const isCreator = match.createdById === session?.user?.id;
+        if (!isCreator) {
+          return false; // Hide from non-creators who haven't responded yet
+        }
+      }
+      return true;
+    });
+
     // Filter by search query
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
@@ -134,13 +147,15 @@ export default function MyGamesScreen({ sport = 'pickleball' }: MyGamesScreenPro
     }
 
     // Filter by tab (status)
+    // UPCOMING: Active/pending matches that need attention or are scheduled
+    // PAST: Historical matches that are done (completed, cancelled, void, unfinished)
     if (activeTab === 'UPCOMING') {
       filtered = filtered.filter(m =>
-        ['OPEN', 'SCHEDULED', 'ONGOING', 'IN_PROGRESS'].includes(m.status.toUpperCase())
+        ['OPEN', 'SCHEDULED', 'ONGOING', 'IN_PROGRESS', 'DRAFT'].includes(m.status.toUpperCase())
       );
     } else if (activeTab === 'PAST') {
       filtered = filtered.filter(m =>
-        ['COMPLETED', 'FINISHED', 'CANCELLED'].includes(m.status.toUpperCase())
+        ['COMPLETED', 'FINISHED', 'CANCELLED', 'VOID', 'UNFINISHED'].includes(m.status.toUpperCase())
       );
     }
 
@@ -162,7 +177,7 @@ export default function MyGamesScreen({ sport = 'pickleball' }: MyGamesScreenPro
     }
 
     return filtered;
-  }, [matches, searchQuery, activeTab, selectedSport, selectedDivision, selectedSeason]);
+  }, [matches, searchQuery, activeTab, selectedSport, selectedDivision, selectedSeason, session?.user?.id]);
 
   const clearAdvancedFilters = () => {
     setSelectedSport(null);
@@ -234,7 +249,7 @@ export default function MyGamesScreen({ sport = 'pickleball' }: MyGamesScreenPro
         seasonId: match.division?.season?.id || '',
         fee: match.fee || '',
         feeAmount: match.feeAmount?.toString() || '',
-        description: match.description || '',
+        description: match.notes || match.description || '',
         courtBooked: match.courtBooked ? 'true' : 'false',
       },
     });
