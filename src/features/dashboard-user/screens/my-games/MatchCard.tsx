@@ -4,7 +4,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { Match } from './types';
 import { matchCardStyles as styles } from './styles';
 import { ParticipantsRow } from './ParticipantsRow';
-import { getStatusColor, formatTimeRange, getMatchTime } from './utils';
+import { formatTimeRange, getMatchTime } from './utils';
+import { resolveMatchStatus } from './statusResolver';
 
 interface MatchCardProps {
   match: Match;
@@ -13,7 +14,8 @@ interface MatchCardProps {
 
 export function MatchCard({ match, onPress }: MatchCardProps) {
   const matchTime = getMatchTime(match);
-  const statusInfo = getStatusColor(match.status, matchTime);
+  const resolvedStatus = resolveMatchStatus({ match, matchTime });
+  const statusInfo = resolvedStatus.primary;
 
   const renderFeeText = () => {
     if (match.fee === 'FREE') return 'Free';
@@ -70,14 +72,22 @@ export function MatchCard({ match, onPress }: MatchCardProps) {
 
         {/* Status Badge */}
         <View style={styles.cardFooterRow}>
+          {resolvedStatus.secondary && (
+            <Text style={styles.secondaryStatusText}>{resolvedStatus.secondary}</Text>
+          )}
           <View style={{ flex: 1 }} />
           <View style={[styles.cardStatusBadge, { backgroundColor: statusInfo.bg }]}>
+            {resolvedStatus.icon && (
+              <Ionicons
+                name={resolvedStatus.icon as keyof typeof Ionicons.glyphMap}
+                size={14}
+                color={statusInfo.text}
+                style={{ marginRight: 4 }}
+              />
+            )}
             <Text style={[styles.cardStatusText, { color: statusInfo.text }]}>
               {statusInfo.label}
             </Text>
-            {statusInfo.label === 'Scheduled' && (
-              <Ionicons name="checkmark-circle" size={14} color={statusInfo.text} style={{ marginLeft: 4 }} />
-            )}
           </View>
         </View>
       </View>
