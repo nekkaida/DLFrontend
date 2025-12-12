@@ -1,12 +1,12 @@
 import { getBackendBaseURL } from '@/config/network';
 import { useSession } from '@/lib/auth-client';
 import { Ionicons } from '@expo/vector-icons';
+import { BottomSheetScrollView } from '@gorhom/bottom-sheet';
 import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
   Image,
-  ScrollView,
   StyleSheet,
   Switch,
   Text,
@@ -38,17 +38,29 @@ interface Partnership {
   partner: { id: string; name: string; image?: string };
 }
 
+// Walkover reasons matching backend enum
+type WalkoverReason = 'NO_SHOW' | 'LATE_CANCELLATION' | 'INJURY' | 'PERSONAL_EMERGENCY' | 'OTHER';
+
+const WALKOVER_REASONS: { value: WalkoverReason; label: string; icon: string }[] = [
+  { value: 'NO_SHOW', label: 'No Show', icon: 'person-remove-outline' },
+  { value: 'LATE_CANCELLATION', label: 'Late Cancellation', icon: 'time-outline' },
+  { value: 'INJURY', label: 'Injury', icon: 'medkit-outline' },
+  { value: 'PERSONAL_EMERGENCY', label: 'Personal Emergency', icon: 'alert-circle-outline' },
+  { value: 'OTHER', label: 'Other', icon: 'help-circle-outline' },
+];
+
 interface MatchResultSheetProps {
   matchId: string;
   matchType: 'SINGLES' | 'DOUBLES';
   players: Player[];
   sportType: string; // 'TENNIS', 'PADEL', 'PICKLEBALL'
   seasonId?: string;
-  mode?: 'submit' | 'view' | 'review'; // submit: add result, view: read-only, review: approve/dispute
+  mode?: 'submit' | 'view' | 'review' | 'disputed'; // submit: add result, view: read-only, review: approve/dispute, disputed: view-only with banner
   onClose: () => void;
-  onSubmit: (data: { setScores: SetScore[]; comment?: string }) => Promise<void>;
+  onSubmit: (data: { setScores?: SetScore[]; gameScores?: any[]; comment?: string; isUnfinished?: boolean }) => Promise<void>;
   onConfirm?: () => Promise<void>;
   onDispute?: () => Promise<void>;
+  onWalkover?: (data: { defaultingUserId: string; reason: WalkoverReason; reasonDetail?: string }) => Promise<void>;
 }
 
 export const MatchResultSheet: React.FC<MatchResultSheetProps> = ({
@@ -62,6 +74,7 @@ export const MatchResultSheet: React.FC<MatchResultSheetProps> = ({
   onSubmit,
   onConfirm,
   onDispute,
+  onWalkover,
 }) => {
   const { data: session } = useSession();
   const [loading, setLoading] = useState(false);
@@ -70,14 +83,19 @@ export const MatchResultSheet: React.FC<MatchResultSheetProps> = ({
   const [isCaptain, setIsCaptain] = useState(false);
   const [comment, setComment] = useState('');
   const [matchDetails, setMatchDetails] = useState<any>(null);
-  
+
   const [setScores, setSetScores] = useState<SetScore[]>([
     { setNumber: 1, team1Games: 0, team2Games: 0 },
     { setNumber: 2, team1Games: 0, team2Games: 0 },
     { setNumber: 3, team1Games: 0, team2Games: 0 },
   ]);
-  const [didntPlay, setDidntPlay] = useState(false); // TODO for zawad
-  const [matchIncomplete, setMatchIncomplete] = useState(false); // TODO for zawad
+  const [didntPlay, setDidntPlay] = useState(false);
+  const [matchIncomplete, setMatchIncomplete] = useState(false); // Marks match as UNFINISHED
+
+  // Walkover state
+  const [defaultingTeam, setDefaultingTeam] = useState<'A' | 'B' | null>(null);
+  const [walkoverReason, setWalkoverReason] = useState<WalkoverReason | null>(null);
+  const [walkoverDetail, setWalkoverDetail] = useState('');
 
   // Separate players by team
   // First try to filter by team property, then fallback to splitting the array
@@ -100,10 +118,10 @@ export const MatchResultSheet: React.FC<MatchResultSheetProps> = ({
 
   const isTennisOrPadel = sportType === 'TENNIS' || sportType === 'PADEL';
 
-  // Fetch match details if in view/review mode
+  // Fetch match details if in view/review/disputed mode
   useEffect(() => {
     const fetchMatchDetails = async () => {
-      if (mode === 'view' || mode === 'review') {
+      if (mode === 'view' || mode === 'review' || mode === 'disputed') {
         try {
           const backendUrl = getBackendBaseURL();
           const response = await fetch(`${backendUrl}/api/match/${matchId}`, {
@@ -342,54 +360,58 @@ export const MatchResultSheet: React.FC<MatchResultSheetProps> = ({
     );
 
     if (playedSets.length === 0) {
-      Alert.alert('Invalid Scores', 'Please enter at least one set score');
+      Alert.alert('Invalid Scores', 'Please enter at least one set/game score');
       return;
     }
 
-    // Validate tiebreaks for sets/games that need them
-    if (sportType === 'TENNIS' || sportType === 'PADEL') {
-      for (let i = 0; i < playedSets.length; i++) {
-        if (needsTiebreak(i)) {
-          const set = setScores[i];
-          if (!set.team1Tiebreak && !set.team2Tiebreak) {
-            Alert.alert(
-              'Missing Tiebreak',
-              `Set ${i + 1} requires a tiebreak score. Please enter the tiebreak points.`
-            );
-            return;
+    // Skip detailed validation if match is marked incomplete
+    // Backend will also skip validation when isUnfinished=true
+    if (!matchIncomplete) {
+      // Validate tiebreaks for sets/games that need them
+      if (sportType === 'TENNIS' || sportType === 'PADEL') {
+        for (let i = 0; i < playedSets.length; i++) {
+          if (needsTiebreak(i)) {
+            const set = setScores[i];
+            if (!set.team1Tiebreak && !set.team2Tiebreak) {
+              Alert.alert(
+                'Missing Tiebreak',
+                `Set ${i + 1} requires a tiebreak score. Please enter the tiebreak points.`
+              );
+              return;
+            }
           }
         }
-      }
-    } else if (sportType === 'PICKLEBALL') {
-      // For Pickleball: If close game (14+ each), require final scores in tiebreak boxes
-      for (let i = 0; i < playedSets.length; i++) {
-        if (needsTiebreak(i)) {
-          const set = setScores[i];
-          if (!set.team1Tiebreak && !set.team2Tiebreak) {
-            Alert.alert(
-              'Missing Final Score',
-              `Game ${i + 1} is a close game. Please enter the final winning scores.`
-            );
-            return;
-          }
-          // Validate win by 2
-          const tb1 = set.team1Tiebreak || 0;
-          const tb2 = set.team2Tiebreak || 0;
-          const winner = Math.max(tb1, tb2);
-          const loser = Math.min(tb1, tb2);
-          if (winner < 15) {
-            Alert.alert(
-              'Invalid Score',
-              `Game ${i + 1}: Winner must have at least 15 points.`
-            );
-            return;
-          }
-          if (winner - loser < 2) {
-            Alert.alert(
-              'Invalid Score',
-              `Game ${i + 1}: Must win by 2 points. Current: ${tb1}-${tb2}`
-            );
-            return;
+      } else if (sportType === 'PICKLEBALL') {
+        // For Pickleball: If close game (14+ each), require final scores in tiebreak boxes
+        for (let i = 0; i < playedSets.length; i++) {
+          if (needsTiebreak(i)) {
+            const set = setScores[i];
+            if (!set.team1Tiebreak && !set.team2Tiebreak) {
+              Alert.alert(
+                'Missing Final Score',
+                `Game ${i + 1} is a close game. Please enter the final winning scores.`
+              );
+              return;
+            }
+            // Validate win by 2
+            const tb1 = set.team1Tiebreak || 0;
+            const tb2 = set.team2Tiebreak || 0;
+            const winner = Math.max(tb1, tb2);
+            const loser = Math.min(tb1, tb2);
+            if (winner < 15) {
+              Alert.alert(
+                'Invalid Score',
+                `Game ${i + 1}: Winner must have at least 15 points.`
+              );
+              return;
+            }
+            if (winner - loser < 2) {
+              Alert.alert(
+                'Invalid Score',
+                `Game ${i + 1}: Must win by 2 points. Current: ${tb1}-${tb2}`
+              );
+              return;
+            }
           }
         }
       }
@@ -397,9 +419,10 @@ export const MatchResultSheet: React.FC<MatchResultSheetProps> = ({
 
     try {
       setLoading(true);
-      
+
       let submitData: any = {
-        comment: comment.trim() || undefined
+        comment: comment.trim() || undefined,
+        isUnfinished: matchIncomplete  // Pass the match incomplete flag
       };
 
       // Format data based on sport type
@@ -426,6 +449,45 @@ export const MatchResultSheet: React.FC<MatchResultSheetProps> = ({
     } catch (error) {
       console.error('Error submitting result:', error);
       Alert.alert('Error', 'Failed to submit match result');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleWalkover = async () => {
+    if (!defaultingTeam) {
+      Alert.alert('Select Team', 'Please select which team did not show up or forfeited.');
+      return;
+    }
+    if (!walkoverReason) {
+      Alert.alert('Select Reason', 'Please select a reason for the walkover.');
+      return;
+    }
+    if (walkoverReason === 'OTHER' && !walkoverDetail.trim()) {
+      Alert.alert('Provide Details', 'Please provide details for the walkover reason.');
+      return;
+    }
+
+    // Get the defaulting user ID - for singles, it's the player; for doubles, we pick the first player of that team
+    const defaultingPlayers = defaultingTeam === 'A' ? teamAPlayers : teamBPlayers;
+    const defaultingUserId = defaultingPlayers[0]?.id;
+
+    if (!defaultingUserId) {
+      Alert.alert('Error', 'Could not determine defaulting player.');
+      return;
+    }
+
+    try {
+      setLoading(true);
+      await onWalkover?.({
+        defaultingUserId,
+        reason: walkoverReason,
+        reasonDetail: walkoverDetail.trim() || undefined,
+      });
+      onClose();
+    } catch (error) {
+      console.error('Error submitting walkover:', error);
+      Alert.alert('Error', 'Failed to submit walkover');
     } finally {
       setLoading(false);
     }
@@ -461,42 +523,18 @@ export const MatchResultSheet: React.FC<MatchResultSheetProps> = ({
       <View style={styles.header}>
         <View style={styles.headerTitleContainer}>
           <Text style={styles.headerTitle}>
-            {mode === 'view' ? 'Match Result' : mode === 'review' ? 'Review Match Result' : 'How did the match go?'}
+            {mode === 'disputed' ? 'Disputed Score' : mode === 'view' ? 'Submitted Scores' : mode === 'review' ? 'Review Match Result' : didntPlay ? 'Report Walkover' : 'How did the match go?'}
           </Text>
           {mode === 'submit' && (
-            <Text style={styles.headerSubtitle}>Submit the scores below.</Text>
-          )}
-          {mode === 'review' && (
-            <Text style={styles.headerSubtitle}>A result has been submitted. Please verify and approve or dispute.</Text>
-          )}
-          {mode === 'view' && matchDetails?.resultSubmittedAt && (
-            <Text style={styles.headerSubtitle}>Result submitted and confirmed.</Text>
+            <Text style={styles.headerSubtitle}>
+              {didntPlay ? 'Select who forfeited and why.' : 'Submit the scores below.'}
+            </Text>
           )}
         </View>
         <TouchableOpacity onPress={onClose} style={styles.closeButton}>
           <Ionicons name="close" size={24} color="#9CA3AF" />
         </TouchableOpacity>
       </View>
-
-      {/* Status Banner - Show when result is pending approval */}
-      {mode === 'review' && (
-        <View style={styles.statusBanner}>
-          <Ionicons name="information-circle" size={20} color="#F59E0B" />
-          <Text style={styles.statusBannerText}>
-            Opponent has submitted scores. Review and approve or dispute.
-          </Text>
-        </View>
-      )}
-
-      {/* Status Banner - Show when user's team submitted and waiting for approval */}
-      {mode === 'view' && matchDetails?.status === 'ONGOING' && (
-        <View style={[styles.statusBanner, { backgroundColor: '#EFF6FF' }]}>
-          <Ionicons name="time" size={20} color="#3B82F6" />
-          <Text style={[styles.statusBannerText, { color: '#1D4ED8' }]}>
-            Waiting for opponent to approve the submitted result.
-          </Text>
-        </View>
-      )}
 
       {/* Toggle Switches */}
       {mode === 'submit' && (
@@ -505,35 +543,238 @@ export const MatchResultSheet: React.FC<MatchResultSheetProps> = ({
             <Text style={styles.toggleLabel}>Didn't play</Text>
             <Switch
               value={didntPlay}
-              onValueChange={setDidntPlay}
+              onValueChange={(value) => {
+                setDidntPlay(value);
+                // Reset walkover state when toggling off
+                if (!value) {
+                  setDefaultingTeam(null);
+                  setWalkoverReason(null);
+                  setWalkoverDetail('');
+                }
+                // Reset match incomplete when toggling walkover on
+                if (value) {
+                  setMatchIncomplete(false);
+                }
+              }}
               trackColor={{ false: '#E5E7EB', true: '#FEA04D' }}
               thumbColor="#FFFFFF"
             />
           </View>
-          <View style={styles.toggleItem}>
-            <Text style={styles.toggleLabel}>Match incomplete</Text>
-            <Switch
-              value={matchIncomplete}
-              onValueChange={setMatchIncomplete}
-              trackColor={{ false: '#E5E7EB', true: '#FEA04D' }}
-              thumbColor="#FFFFFF"
-            />
-          </View>
+          {/* Hide "Match incomplete" toggle when walkover is selected */}
+          {!didntPlay && (
+            <View style={styles.toggleItem}>
+              <Text style={styles.toggleLabel}>Match incomplete</Text>
+              <Switch
+                value={matchIncomplete}
+                onValueChange={setMatchIncomplete}
+                trackColor={{ false: '#E5E7EB', true: '#FEA04D' }}
+                thumbColor="#FFFFFF"
+              />
+            </View>
+          )}
         </View>
       )}
 
-      <ScrollView showsVerticalScrollIndicator={false}>
-        {/* Sets/Games Header */}
-        <View style={styles.setsHeaderRow}>
-          <View style={styles.setsHeaderLabel}>
-            <Text style={styles.setsHeaderLabelText}>{isTennisOrPadel ? 'SET' : 'GAME'}</Text>
+      <BottomSheetScrollView showsVerticalScrollIndicator={false}>
+        {/* Walkover UI - shown when "Didn't play" is toggled ON */}
+        {didntPlay && mode === 'submit' ? (
+          <View style={styles.walkoverContainer}>
+            {/* Who Forfeited Section */}
+            <View style={styles.walkoverSection}>
+              <Text style={styles.walkoverSectionTitle}>Who forfeited?</Text>
+              <View style={styles.walkoverTeamSelection}>
+                {/* Team A Option */}
+                <TouchableOpacity
+                  style={[
+                    styles.walkoverTeamOption,
+                    defaultingTeam === 'A' && styles.walkoverTeamOptionSelected,
+                  ]}
+                  onPress={() => setDefaultingTeam('A')}
+                >
+                  <View style={styles.walkoverTeamAvatars}>
+                    {matchType === 'DOUBLES' ? (
+                      teamAPlayers.slice(0, 2).map((player, index) => (
+                        <View
+                          key={player.id}
+                          style={[
+                            styles.walkoverAvatar,
+                            index > 0 && { marginLeft: -12 },
+                          ]}
+                        >
+                          {player.image ? (
+                            <Image source={{ uri: player.image }} style={styles.walkoverAvatarImage} />
+                          ) : (
+                            <View style={styles.walkoverAvatarDefault}>
+                              <Text style={styles.walkoverAvatarText}>
+                                {player.name.charAt(0).toUpperCase()}
+                              </Text>
+                            </View>
+                          )}
+                        </View>
+                      ))
+                    ) : (
+                      <View style={styles.walkoverAvatar}>
+                        {teamAPlayers[0]?.image ? (
+                          <Image source={{ uri: teamAPlayers[0].image }} style={styles.walkoverAvatarImage} />
+                        ) : (
+                          <View style={styles.walkoverAvatarDefault}>
+                            <Text style={styles.walkoverAvatarText}>
+                              {teamAPlayers[0]?.name.charAt(0).toUpperCase()}
+                            </Text>
+                          </View>
+                        )}
+                      </View>
+                    )}
+                  </View>
+                  <View style={styles.walkoverTeamNames}>
+                    {teamAPlayers.map(player => (
+                      <Text key={player.id} style={styles.walkoverTeamNameText} numberOfLines={1}>
+                        {player.name.split(' ')[0]}
+                      </Text>
+                    ))}
+                  </View>
+                  {defaultingTeam === 'A' && (
+                    <View style={styles.walkoverCheckmark}>
+                      <Ionicons name="checkmark-circle" size={24} color="#F59E0B" />
+                    </View>
+                  )}
+                </TouchableOpacity>
+
+                {/* Team B Option */}
+                <TouchableOpacity
+                  style={[
+                    styles.walkoverTeamOption,
+                    defaultingTeam === 'B' && styles.walkoverTeamOptionSelected,
+                  ]}
+                  onPress={() => setDefaultingTeam('B')}
+                >
+                  <View style={styles.walkoverTeamAvatars}>
+                    {matchType === 'DOUBLES' ? (
+                      teamBPlayers.slice(0, 2).map((player, index) => (
+                        <View
+                          key={player.id}
+                          style={[
+                            styles.walkoverAvatar,
+                            index > 0 && { marginLeft: -12 },
+                          ]}
+                        >
+                          {player.image ? (
+                            <Image source={{ uri: player.image }} style={styles.walkoverAvatarImage} />
+                          ) : (
+                            <View style={styles.walkoverAvatarDefault}>
+                              <Text style={styles.walkoverAvatarText}>
+                                {player.name.charAt(0).toUpperCase()}
+                              </Text>
+                            </View>
+                          )}
+                        </View>
+                      ))
+                    ) : (
+                      <View style={styles.walkoverAvatar}>
+                        {teamBPlayers[0]?.image ? (
+                          <Image source={{ uri: teamBPlayers[0].image }} style={styles.walkoverAvatarImage} />
+                        ) : (
+                          <View style={styles.walkoverAvatarDefault}>
+                            <Text style={styles.walkoverAvatarText}>
+                              {teamBPlayers[0]?.name.charAt(0).toUpperCase()}
+                            </Text>
+                          </View>
+                        )}
+                      </View>
+                    )}
+                  </View>
+                  <View style={styles.walkoverTeamNames}>
+                    {teamBPlayers.map(player => (
+                      <Text key={player.id} style={styles.walkoverTeamNameText} numberOfLines={1}>
+                        {player.name.split(' ')[0]}
+                      </Text>
+                    ))}
+                  </View>
+                  {defaultingTeam === 'B' && (
+                    <View style={styles.walkoverCheckmark}>
+                      <Ionicons name="checkmark-circle" size={24} color="#F59E0B" />
+                    </View>
+                  )}
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            {/* Reason Section */}
+            <View style={styles.walkoverSection}>
+              <Text style={styles.walkoverSectionTitle}>Reason for walkover</Text>
+              <View style={styles.walkoverReasonGrid}>
+                {WALKOVER_REASONS.map((reason) => (
+                  <TouchableOpacity
+                    key={reason.value}
+                    style={[
+                      styles.walkoverReasonOption,
+                      walkoverReason === reason.value && styles.walkoverReasonOptionSelected,
+                    ]}
+                    onPress={() => setWalkoverReason(reason.value)}
+                  >
+                    <Ionicons
+                      name={reason.icon as any}
+                      size={20}
+                      color={walkoverReason === reason.value ? '#F59E0B' : '#6B7280'}
+                    />
+                    <Text
+                      style={[
+                        styles.walkoverReasonText,
+                        walkoverReason === reason.value && styles.walkoverReasonTextSelected,
+                      ]}
+                    >
+                      {reason.label}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+
+            {/* Additional Details (shown when OTHER is selected or always for context) */}
+            <View style={styles.walkoverSection}>
+              <Text style={styles.walkoverSectionTitle}>
+                Additional details {walkoverReason === 'OTHER' ? '(required)' : '(optional)'}
+              </Text>
+              <TextInput
+                style={styles.walkoverDetailInput}
+                multiline
+                numberOfLines={3}
+                placeholder="Provide more context about what happened..."
+                placeholderTextColor="#9CA3AF"
+                value={walkoverDetail}
+                onChangeText={setWalkoverDetail}
+              />
+            </View>
+
+            {/* Submit Walkover Button */}
+            <TouchableOpacity
+              style={[
+                styles.submitButton,
+                (loading || !defaultingTeam || !walkoverReason) && styles.submitButtonDisabled,
+              ]}
+              onPress={handleWalkover}
+              disabled={loading || !defaultingTeam || !walkoverReason}
+            >
+              {loading ? (
+                <ActivityIndicator color="#FFFFFF" />
+              ) : (
+                <Text style={styles.submitButtonText}>Report Walkover</Text>
+              )}
+            </TouchableOpacity>
           </View>
-          <View style={styles.setsHeaderNumbers}>
-            {[1,2,3].map(n => (
-              <Text key={n} style={styles.setNumberHeaderText}>{n}</Text>
-            ))}
-          </View>
-        </View>
+        ) : (
+          <>
+            {/* Sets/Games Header */}
+            <View style={styles.setsHeaderRow}>
+              <View style={styles.setsHeaderLabel}>
+                <Text style={styles.setsHeaderLabelText}>{isTennisOrPadel ? 'SET' : 'GAME'}</Text>
+              </View>
+              <View style={styles.setsHeaderNumbers}>
+                {[1,2,3].map(n => (
+                  <Text key={n} style={styles.setNumberHeaderText}>{n}</Text>
+                ))}
+              </View>
+            </View>
 
         {/* Team A Row */}
         <View style={styles.teamRow}>
@@ -742,14 +983,95 @@ export const MatchResultSheet: React.FC<MatchResultSheetProps> = ({
 
         {/* Info Message */}
         {mode !== 'submit' && (
-          <View style={styles.infoContainer}>
-            <Ionicons name="information-circle" size={16} color="#3B82F6" />
-            <Text style={styles.infoText}>
-              {mode === 'view'
-                ? 'These scores have been submitted and are awaiting opponent confirmation.'
-                : 'Please review the submitted scores carefully before approving or disputing.'}
-            </Text>
-          </View>
+          mode === 'disputed' ? (
+            <View style={styles.disputedBanner}>
+              <Ionicons name="alert-circle" size={20} color="#DC2626" />
+              <View style={styles.disputedBannerContent}>
+                <Text style={styles.disputedBannerTitle}>Dispute Under Review</Text>
+                <Text style={styles.disputedBannerText}>
+                  This match result has been disputed and is awaiting admin review. No actions can be taken until the dispute is resolved.
+                </Text>
+
+                {/* Dispute Details */}
+                {matchDetails?.dispute && (
+                  <View style={styles.disputeDetailsContainer}>
+                    <View style={styles.disputeDetailRow}>
+                      <Text style={styles.disputeDetailLabel}>Disputed by:</Text>
+                      <Text style={styles.disputeDetailValue}>
+                        {matchDetails.dispute.raisedByUser?.name || 'Unknown'}
+                      </Text>
+                    </View>
+
+                    <View style={styles.disputeDetailRow}>
+                      <Text style={styles.disputeDetailLabel}>Category:</Text>
+                      <Text style={styles.disputeDetailValue}>
+                        {matchDetails.dispute.disputeCategory?.replace(/_/g, ' ') || 'N/A'}
+                      </Text>
+                    </View>
+
+                    {matchDetails.dispute.disputeComment && (
+                      <View style={styles.disputeReasonContainer}>
+                        <Text style={styles.disputeDetailLabel}>Reason:</Text>
+                        <Text style={styles.disputeReasonText}>
+                          {`"${matchDetails.dispute.disputeComment}"`}
+                        </Text>
+                      </View>
+                    )}
+
+                    {matchDetails.dispute.disputerScore && (
+                      <View style={styles.disputeDetailRow}>
+                        <Text style={styles.disputeDetailLabel}>Claimed score:</Text>
+                        <Text style={styles.disputeDetailValue}>
+                          {(() => {
+                            try {
+                              const scores = typeof matchDetails.dispute.disputerScore === 'string'
+                                ? JSON.parse(matchDetails.dispute.disputerScore)
+                                : matchDetails.dispute.disputerScore;
+                              if (Array.isArray(scores)) {
+                                return scores.map((s: any) =>
+                                  `${s.team1Games || s.team1Points || 0}-${s.team2Games || s.team2Points || 0}`
+                                ).join(', ');
+                              }
+                              return 'N/A';
+                            } catch {
+                              return 'N/A';
+                            }
+                          })()}
+                        </Text>
+                      </View>
+                    )}
+
+                    {matchDetails.dispute.evidenceUrl && (
+                      <View style={styles.disputeDetailRow}>
+                        <Text style={styles.disputeDetailLabel}>Evidence:</Text>
+                        <Text style={[styles.disputeDetailValue, { color: '#3B82F6' }]}>
+                          Attachment provided
+                        </Text>
+                      </View>
+                    )}
+
+                    <View style={styles.disputeDetailRow}>
+                      <Text style={styles.disputeDetailLabel}>Status:</Text>
+                      <View style={styles.disputeStatusBadge}>
+                        <Text style={styles.disputeStatusText}>
+                          {matchDetails.dispute.status || 'OPEN'}
+                        </Text>
+                      </View>
+                    </View>
+                  </View>
+                )}
+              </View>
+            </View>
+          ) : (
+            <View style={styles.infoContainer}>
+              <Ionicons name="information-circle" size={16} color="#3B82F6" />
+              <Text style={styles.infoText}>
+                {mode === 'view'
+                  ? 'These scores have been submitted and are awaiting opponent confirmation.'
+                  : 'Please review the submitted scores carefully before approving or disputing.'}
+              </Text>
+            </View>
+          )
         )}
 
         {/* Red Disclaimer for Submit Mode */}
@@ -779,6 +1101,13 @@ export const MatchResultSheet: React.FC<MatchResultSheetProps> = ({
         ) : mode === 'view' ? (
           <TouchableOpacity
             style={[styles.submitButton, { backgroundColor: '#6B7280' }]}
+            onPress={onClose}
+          >
+            <Text style={styles.submitButtonText}>Close</Text>
+          </TouchableOpacity>
+        ) : mode === 'disputed' ? (
+          <TouchableOpacity
+            style={[styles.submitButton, { backgroundColor: '#DC2626' }]}
             onPress={onClose}
           >
             <Text style={styles.submitButtonText}>Close</Text>
@@ -829,7 +1158,9 @@ export const MatchResultSheet: React.FC<MatchResultSheetProps> = ({
             </TouchableOpacity>
           </View>
         ) : null}
-      </ScrollView>
+          </>
+        )}
+      </BottomSheetScrollView>
     </View>
   );
 };
@@ -1370,21 +1701,186 @@ const styles = StyleSheet.create({
   buttonDisabled: {
     opacity: 0.5,
   },
-  statusBanner: {
+  // Walkover styles
+  walkoverContainer: {
+    paddingHorizontal: 20,
+    paddingTop: 16,
+    paddingBottom: 32,
+  },
+  walkoverSection: {
+    marginBottom: 24,
+  },
+  walkoverSectionTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#111827',
+    marginBottom: 12,
+  },
+  walkoverTeamSelection: {
+    gap: 12,
+  },
+  walkoverTeamOption: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    marginHorizontal: 20,
-    marginBottom: 16,
-    padding: 12,
-    backgroundColor: '#FEF3C7',
+    padding: 16,
+    backgroundColor: '#F9FAFB',
     borderRadius: 12,
+    borderWidth: 2,
+    borderColor: '#E5E7EB',
   },
-  statusBannerText: {
+  walkoverTeamOptionSelected: {
+    borderColor: '#F59E0B',
+    backgroundColor: '#FFFBEB',
+  },
+  walkoverTeamAvatars: {
+    flexDirection: 'row',
+    marginRight: 12,
+  },
+  walkoverAvatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
+    overflow: 'hidden',
+  },
+  walkoverAvatarImage: {
+    width: '100%',
+    height: '100%',
+  },
+  walkoverAvatarDefault: {
+    width: '100%',
+    height: '100%',
+    backgroundColor: '#E5E7EB',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  walkoverAvatarText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#6B7280',
+  },
+  walkoverTeamNames: {
     flex: 1,
-    fontSize: 13,
+  },
+  walkoverTeamNameText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#111827',
+    lineHeight: 20,
+  },
+  walkoverCheckmark: {
+    marginLeft: 8,
+  },
+  walkoverReasonGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  walkoverReasonOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    backgroundColor: '#F9FAFB',
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    gap: 6,
+  },
+  walkoverReasonOptionSelected: {
+    borderColor: '#F59E0B',
+    backgroundColor: '#FFFBEB',
+  },
+  walkoverReasonText: {
+    fontSize: 14,
     fontWeight: '500',
+    color: '#6B7280',
+  },
+  walkoverReasonTextSelected: {
     color: '#92400E',
+  },
+  walkoverDetailInput: {
+    backgroundColor: '#F9FAFB',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    padding: 12,
+    fontSize: 14,
+    color: '#111827',
+    minHeight: 80,
+    textAlignVertical: 'top',
+  },
+  // Disputed banner styles
+  disputedBanner: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
+    marginHorizontal: 20,
+    marginBottom: 20,
+    padding: 16,
+    backgroundColor: '#FEF2F2',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#FEE2E2',
+  },
+  disputedBannerContent: {
+    flex: 1,
+  },
+  disputedBannerTitle: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#DC2626',
+    marginBottom: 4,
+  },
+  disputedBannerText: {
+    fontSize: 13,
+    color: '#991B1B',
     lineHeight: 18,
+  },
+  // Dispute details styles
+  disputeDetailsContainer: {
+    marginTop: 12,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#FEE2E2',
+  },
+  disputeDetailRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  disputeDetailLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#991B1B',
+    width: 100,
+  },
+  disputeDetailValue: {
+    fontSize: 12,
+    color: '#7F1D1D',
+    flex: 1,
+  },
+  disputeReasonContainer: {
+    marginBottom: 8,
+  },
+  disputeReasonText: {
+    fontSize: 12,
+    color: '#7F1D1D',
+    fontStyle: 'italic',
+    marginTop: 4,
+    lineHeight: 16,
+  },
+  disputeStatusBadge: {
+    backgroundColor: '#FEE2E2',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  disputeStatusText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#DC2626',
+    textTransform: 'uppercase',
   },
 });

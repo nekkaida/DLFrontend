@@ -1,9 +1,9 @@
 import { Ionicons } from '@expo/vector-icons';
+import { BottomSheetScrollView } from '@gorhom/bottom-sheet';
 import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
-  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -149,7 +149,7 @@ export const CancelMatchSheet: React.FC<CancelMatchSheetProps> = ({
         </TouchableOpacity>
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false}>
+      <BottomSheetScrollView showsVerticalScrollIndicator={false}>
         {/* Late Cancellation Warning Banner */}
         {isLateCancellation && (
           <View style={styles.warningBanner}>
@@ -278,7 +278,7 @@ export const CancelMatchSheet: React.FC<CancelMatchSheetProps> = ({
             )}
           </TouchableOpacity>
         </View>
-      </ScrollView>
+      </BottomSheetScrollView>
     </View>
   );
 };

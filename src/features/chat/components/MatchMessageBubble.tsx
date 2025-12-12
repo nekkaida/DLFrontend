@@ -237,7 +237,7 @@ export const MatchMessageBubble: React.FC<MatchMessageBubbleProps> = ({
           courtBooked: matchData.courtBooked ? 'true' : 'false',
           fee: matchData.fee || 'FREE',
           feeAmount: (matchData as any).feeAmount || '0.00',
-          description: matchData.description || '',
+          description: (matchData as any).notes || matchData.description || '',
           duration: String(matchData.duration || 2),
           divisionId,
           seasonId,

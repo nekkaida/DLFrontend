@@ -1,7 +1,7 @@
 import { format } from 'date-fns';
 import { StatusInfo } from './types';
 
-export const getStatusColor = (status: string, matchTime?: string): StatusInfo => {
+export const getStatusColor = (status: string, matchTime?: string, isDisputed?: boolean): StatusInfo => {
   const upperStatus = status.toUpperCase();
 
   // Handle terminal statuses first (these don't need time-based logic)
@@ -18,6 +18,10 @@ export const getStatusColor = (status: string, matchTime?: string): StatusInfo =
     case 'UNFINISHED':
       return { bg: '#FEF3C7', text: '#92400E', label: 'Unfinished' };
     case 'ONGOING':
+      // Check if match is disputed - show "Disputed" instead of "Pending Confirmation"
+      if (isDisputed) {
+        return { bg: '#FEE2E2', text: '#991B1B', label: 'Disputed' };
+      }
       // ONGOING means result submitted, awaiting confirmation
       return { bg: '#FEF3C7', text: '#92400E', label: 'Pending Confirmation' };
   }

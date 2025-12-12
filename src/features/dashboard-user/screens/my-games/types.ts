@@ -17,6 +17,9 @@ export interface Match {
   feeAmount?: number | string;
   courtBooked?: boolean;
   description?: string;
+  notes?: string;  // Backend returns 'notes' field
+  isDisputed?: boolean;  // True if match has an active dispute
+  invitationStatus?: 'PENDING' | 'ACCEPTED' | 'DECLINED' | 'EXPIRED';  // Current user's invitation status for DRAFT matches
   division?: {
     id: string;
     name: string;
