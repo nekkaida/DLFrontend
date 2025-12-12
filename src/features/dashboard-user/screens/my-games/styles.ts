@@ -303,6 +303,11 @@ export const matchCardStyles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
   },
+  secondaryStatusText: {
+    fontSize: 12,
+    color: '#6B7280',
+    fontStyle: 'italic',
+  },
 });
 
 export const invitationCardStyles = StyleSheet.create({
