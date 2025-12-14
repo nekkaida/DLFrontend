@@ -228,7 +228,33 @@ export default function SeasonDetailsScreen({
   const handleViewStandingsPress = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     console.log('View Standings button pressed');
-    toast.info('Standings feature coming soon!');
+    
+    if (!season) {
+      toast.info('Season data not available');
+      return;
+    }
+    
+    // Get category info for display
+    const category = (season as any).category;
+    const categories = (season as any).categories || (category ? [category] : []);
+    const normalizedCategories = Array.isArray(categories) ? categories : [categories].filter(Boolean);
+    const seasonCategory = normalizedCategories && normalizedCategories.length > 0 
+      ? normalizedCategories[0] 
+      : null;
+    const categoryDisplayName = seasonCategory ? seasonCategory.name || '' : '';
+    
+    router.push({
+      pathname: '/standings' as any,
+      params: {
+        seasonId: season.id,
+        seasonName: season.name,
+        leagueId: leagueId || '',
+        leagueName: league?.name || '',
+        categoryName: categoryDisplayName,
+        startDate: season.startDate,
+        endDate: season.endDate,
+      }
+    });
   };
 
   const handleJoinWaitlistPress = () => {
