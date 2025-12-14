@@ -1,3 +1,4 @@
+import { getSportColors, SportType } from '@/constants/SportsColor';
 import { useSession } from '@/lib/auth-client';
 import { DivisionWithStandings, StandingEntry, StandingsService } from '@/src/features/leagues/services/StandingsService';
 import { Ionicons } from '@expo/vector-icons';
@@ -37,8 +38,12 @@ export default function StandingsScreen() {
   const leagueId = params.leagueId as string;
   const leagueName = params.leagueName as string;
   const categoryName = params.categoryName as string;
+  const sportType = params.sportType as SportType;
   const startDate = params.startDate as string;
   const endDate = params.endDate as string;
+
+  // Get sport colors
+  const sportColors = getSportColors(sportType);
   
   // State
   const [isLoading, setIsLoading] = useState(true);
@@ -144,7 +149,7 @@ export default function StandingsScreen() {
       >
         {/* Rank */}
         <View style={[styles.cell, { width: RANK_WIDTH }]}>
-          <Text style={[styles.rankText, isUserRow && styles.userText]}>
+          <Text style={[styles.rankText, isUserRow && { color: sportColors.background, fontWeight: '600' }]}>
             {standing.rank || index + 1}
           </Text>
         </View>
@@ -159,7 +164,7 @@ export default function StandingsScreen() {
             </View>
           )}
           <Text 
-            style={[styles.playerName, isUserRow && styles.userText]} 
+            style={[styles.playerName, isUserRow && { color: sportColors.background, fontWeight: '600' }]} 
             numberOfLines={1}
             ellipsizeMode="tail"
           >
@@ -169,21 +174,21 @@ export default function StandingsScreen() {
 
         {/* P (Played) */}
         <View style={[styles.cell, { width: STAT_WIDTH }]}>
-          <Text style={[styles.statText, isUserRow && styles.userText]}>
+          <Text style={[styles.statText, isUserRow && { color: sportColors.background, fontWeight: '600' }]}>
             {standing.matchesPlayed}
           </Text>
         </View>
 
         {/* W (Wins) */}
         <View style={[styles.cell, { width: STAT_WIDTH }]}>
-          <Text style={[styles.statText, isUserRow && styles.userText]}>
+          <Text style={[styles.statText, isUserRow && { color: sportColors.background, fontWeight: '600' }]}>
             {standing.wins}
           </Text>
         </View>
 
         {/* L (Losses) */}
         <View style={[styles.cell, { width: STAT_WIDTH }]}>
-          <Text style={[styles.statText, isUserRow && styles.userText]}>
+          <Text style={[styles.statText, isUserRow && { color: sportColors.background, fontWeight: '600' }]}>
             {standing.losses}
           </Text>
         </View>
@@ -194,7 +199,7 @@ export default function StandingsScreen() {
             style={styles.pointsButton}
             onPress={() => playerId && handlePlayerPress(playerId)}
           >
-            <Text style={styles.pointsText}>{standing.totalPoints}pts</Text>
+            <Text style={[styles.pointsText, { color: sportColors.background }]}>{standing.totalPoints}pts</Text>
           </TouchableOpacity>
         </View>
       </TouchableOpacity>
@@ -205,6 +210,10 @@ export default function StandingsScreen() {
     const { division, standings, userStanding } = divisionData;
     const isExpanded = expandedDivisions.has(division.id);
     const isUserDivision = userDivisionId === division.id;
+
+    // Determine header colors based on whether it's user's division or not
+    const headerBgColor = isUserDivision ? sportColors.background : sportColors.background;
+    const headerTextColor = '#FFFFFF';
 
     return (
       <View 
@@ -218,7 +227,7 @@ export default function StandingsScreen() {
         <TouchableOpacity
           style={[
             styles.divisionHeader,
-            isUserDivision && styles.userDivisionHeader,
+            { backgroundColor: headerBgColor, borderBottomColor: headerBgColor },
           ]}
           onPress={() => toggleDivision(division.id)}
           activeOpacity={0.8}
@@ -226,28 +235,24 @@ export default function StandingsScreen() {
           <View style={styles.divisionHeaderLeft}>
             <Text style={[
               styles.divisionTitle,
-              isUserDivision && styles.userDivisionTitle,
+              { color: headerTextColor },
             ]}>
               {division.name}
             </Text>
           </View>
           <View style={styles.divisionHeaderRight}>
-            <TouchableOpacity
-              style={[
-                styles.viewMatchesButton,
-                isUserDivision && styles.viewMatchesButtonActive,
-              ]}
-              onPress={() => handleViewMatches(division.id)}
-            >
-              <Text style={[
-                styles.viewMatchesText,
-                isUserDivision && styles.viewMatchesTextActive,
-              ]}>View Matches</Text>
-            </TouchableOpacity>
+            {isUserDivision && (
+              <TouchableOpacity
+                style={[styles.viewMatchesButton, { backgroundColor: '#FFFFFF' }]}
+                onPress={() => handleViewMatches(division.id)}
+              >
+                <Text style={[styles.viewMatchesText, { color: sportColors.background }]}>View Matches</Text>
+              </TouchableOpacity>
+            )}
             <Ionicons
               name={isExpanded ? 'chevron-up' : 'chevron-down'}
               size={20}
-              color={isUserDivision ? '#FFFFFF' : '#6B7280'}
+              color="#FFFFFF"
             />
           </View>
         </TouchableOpacity>
@@ -298,8 +303,8 @@ export default function StandingsScreen() {
               style={styles.viewResultsLink}
               onPress={() => toggleDivision(division.id)}
             >
-              <Text style={styles.viewResultsText}>View Results</Text>
-              <Ionicons name="chevron-down" size={16} color="#48A7F8" />
+              <Text style={[styles.viewResultsText, { color: sportColors.background }]}>View Results</Text>
+              <Ionicons name="chevron-down" size={16} color={sportColors.background} />
             </TouchableOpacity>
           </View>
         )}
@@ -311,33 +316,31 @@ export default function StandingsScreen() {
     <View style={styles.container}>
       {/* Header with Gradient */}
       <LinearGradient
-        colors={['#48A7F8', '#59C3FB']}
+        colors={[sportColors.background, sportColors.badgeColor]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
-        style={[styles.headerGradient, { paddingTop: insets.top + 12 }]}
+        style={[styles.header, { paddingTop: insets.top + 12 }]}
       >
-        {/* Top Bar */}
-        <View style={styles.topBar}>
-          <TouchableOpacity
-            style={styles.backButton}
-            onPress={() => router.back()}
-            activeOpacity={0.7}
-          >
-            <Ionicons name="chevron-back" size={24} color="#FFFFFF" />
-          </TouchableOpacity>
-        </View>
+        {/* Back Button */}
+        <TouchableOpacity
+          style={[styles.backButton, { top: insets.top + 12 }]}
+          onPress={() => router.back()}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="chevron-back" size={24} color="#FFFFFF" />
+        </TouchableOpacity>
 
-        {/* Season Info */}
-        <View style={styles.seasonInfo}>
+        {/* Header Content */}
+        <View style={styles.headerContent}>
           <Text style={styles.seasonTitle}>
             {seasonName || 'Season 1 (2025)'}
           </Text>
-          <Text style={styles.leagueName}>
+          <Text style={styles.leagueTitle}>
             {leagueName || 'League'}
           </Text>
           {categoryName && (
-            <View style={styles.categoryBadge}>
-              <Text style={styles.categoryBadgeText}>{categoryName}</Text>
+            <View style={[styles.sportBadge, { backgroundColor: sportColors.buttonColor }]}>
+              <Text style={styles.sportBadgeText}>{categoryName}</Text>
             </View>
           )}
           {(startDate || endDate) && (
@@ -356,7 +359,7 @@ export default function StandingsScreen() {
 
         {isLoading ? (
           <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color="#48A7F8" />
+            <ActivityIndicator size="large" color={sportColors.background} />
             <Text style={styles.loadingText}>Loading standings...</Text>
           </View>
         ) : divisionsWithStandings.length === 0 ? (
@@ -386,45 +389,48 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#F5F7FA',
   },
-  headerGradient: {
-    paddingHorizontal: 16,
-    paddingBottom: 24,
-  },
-  topBar: {
-    flexDirection: 'row',
+  header: {
+    paddingHorizontal: 20,
+    paddingBottom: 20,
     alignItems: 'center',
-    marginBottom: 16,
+    position: 'relative',
+    borderBottomLeftRadius: 20,
+    borderBottomRightRadius: 20,
   },
   backButton: {
+    position: 'absolute',
+    left: 16,
     padding: 4,
+    zIndex: 10,
   },
-  seasonInfo: {
+  headerContent: {
     alignItems: 'center',
   },
   seasonTitle: {
-    fontSize: 22,
+    fontSize: 26,
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: '#000000',
     marginBottom: 4,
   },
-  leagueName: {
-    fontSize: 14,
+  leagueTitle: {
+    fontSize: 16,
     fontWeight: '500',
     color: '#FFFFFF',
-    opacity: 0.9,
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  sportBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
     marginBottom: 12,
   },
-  categoryBadge: {
-    backgroundColor: '#2C2C2C',
-    paddingHorizontal: 16,
-    paddingVertical: 6,
-    borderRadius: 16,
-    marginBottom: 12,
-  },
-  categoryBadgeText: {
-    fontSize: 12,
+  sportBadgeText: {
+    fontSize: 11,
     fontWeight: '600',
     color: '#FFFFFF',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
   dateRange: {
     fontSize: 12,
@@ -486,8 +492,9 @@ const styles = StyleSheet.create({
     borderColor: '#E5E7EB',
   },
   userDivisionCard: {
-    borderWidth: 2,
-    borderColor: '#48A7F8',
+    backgroundColor: '#E9F3F8',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
   },
   divisionHeader: {
     flexDirection: 'row',
@@ -495,13 +502,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 16,
     paddingVertical: 14,
-    backgroundColor: '#F9FAFB',
     borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
-  },
-  userDivisionHeader: {
-    backgroundColor: '#48A7F8',
-    borderBottomColor: '#48A7F8',
   },
   divisionHeaderLeft: {
     flexDirection: 'row',
@@ -513,30 +514,19 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#1A1C1E',
   },
-  userDivisionTitle: {
-    color: '#FFFFFF',
-  },
   divisionHeaderRight: {
     flexDirection: 'row',
     alignItems: 'center',
   },
   viewMatchesButton: {
-    backgroundColor: '#48A7F8',
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 8,
     marginRight: 8,
   },
-  viewMatchesButtonActive: {
-    backgroundColor: '#FFFFFF',
-  },
   viewMatchesText: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#FFFFFF',
-  },
-  viewMatchesTextActive: {
-    color: '#48A7F8',
   },
   standingsTable: {
     paddingHorizontal: 8,
@@ -617,17 +607,12 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     color: '#4B5563',
   },
-  userText: {
-    color: '#48A7F8',
-    fontWeight: '600',
-  },
   pointsButton: {
     backgroundColor: 'transparent',
   },
   pointsText: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#48A7F8',
   },
   emptyStandings: {
     padding: 24,
@@ -647,7 +632,6 @@ const styles = StyleSheet.create({
   viewResultsText: {
     fontSize: 13,
     fontWeight: '500',
-    color: '#48A7F8',
     marginRight: 4,
   },
 });

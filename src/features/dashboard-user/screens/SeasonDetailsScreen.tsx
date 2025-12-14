@@ -251,6 +251,7 @@ export default function SeasonDetailsScreen({
         leagueId: leagueId || '',
         leagueName: league?.name || '',
         categoryName: categoryDisplayName,
+        sportType: selectedSport?.toUpperCase() || sport?.toUpperCase() || 'PICKLEBALL',
         startDate: season.startDate,
         endDate: season.endDate,
       }
