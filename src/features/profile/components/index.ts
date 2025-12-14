@@ -21,3 +21,6 @@ export { ProfileSportsSection } from './ProfileSportsSection';
 export { ProfileSkillLevelCard } from './ProfileSkillLevelCard';
 export { ProfileDMRCard } from './ProfileDMRCard';
 export { ProfileLeagueStatsCard } from './ProfileLeagueStatsCard';
+
+// Division standings component
+export { PlayerDivisionStandings } from './PlayerDivisionStandings';
