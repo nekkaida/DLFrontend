@@ -55,8 +55,7 @@ export default function NavBar({ activeTab = 2, onTabPress, badgeCounts, sport =
 
   const handleTabPress = (tabIndex: number) => {
     // Placeholder function that doesn't return anything
-    // You can add actual navigation logic here later
-    console.log(`NavBar: Tab ${tabIndex} pressed`);
+    // console.log(`NavBar: Tab ${tabIndex} pressed`);
 
     if (onTabPress) {
       onTabPress(tabIndex);
@@ -64,7 +63,7 @@ export default function NavBar({ activeTab = 2, onTabPress, badgeCounts, sport =
   };
 
   // Debug logging for render
-  console.log(`NavBar: Rendering with activeTab: ${activeTab}, insets.bottom: ${insets.bottom}px, effective: ${effectiveBottomPadding}px`);
+  // console.log(`NavBar: Rendering with activeTab: ${activeTab}, insets.bottom: ${insets.bottom}px, effective: ${effectiveBottomPadding}px`);
 
   const getSelectedColor = (sport: 'pickleball' | 'tennis' | 'padel'): string => {
     switch (sport) {
@@ -212,7 +211,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 0,
     elevation: 8,
-    zIndex: 9999,
+    zIndex: 900,
   },
   tabsContainer: {
     flexDirection: 'row',
@@ -220,7 +219,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     width: '100%',
     height: 49,
-    zIndex: 10000, // High z-index for tabs container
+    zIndex: 1000,
   },
   tab: {
     flex: 1,
@@ -231,7 +230,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 0,
     height: 49,
     position: 'relative',
-    zIndex: 10000, // Ensure individual tabs are above everything
+    zIndex: 1000,
   },
 
   iconContainer: {
