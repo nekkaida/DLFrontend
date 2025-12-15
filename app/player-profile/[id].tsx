@@ -2,7 +2,7 @@ import { getBackendBaseURL } from '@/config/network';
 import { authClient, useSession } from '@/lib/auth-client';
 import { ChatService } from '@/src/features/chat/services/ChatService';
 import { useChatStore } from '@/src/features/chat/stores/ChatStore';
-import { MatchHistoryButton, ProfileAchievementsCard, ProfileDMRCard, ProfileHeaderWithCurve, ProfileInfoCard, ProfileLeagueStatsCard, ProfilePictureSection, ProfileSkillLevelCard, ProfileSportsSection } from '@/src/features/profile/components';
+import { MatchHistoryButton, PlayerDivisionStandings, ProfileAchievementsCard, ProfileDMRCard, ProfileHeaderWithCurve, ProfileInfoCard, ProfileLeagueStatsCard, ProfilePictureSection, ProfileSkillLevelCard, ProfileSportsSection } from '@/src/features/profile/components';
 import { useProfileHandlers } from '@/src/features/profile/hooks/useProfileHandlers';
 import { useProfileState } from '@/src/features/profile/hooks/useProfileState';
 import { ProfileDataTransformer } from '@/src/features/profile/services/ProfileDataTransformer';
@@ -72,7 +72,7 @@ export default function PlayerProfileScreen() {
 
       setIsLoading(true);
       const backendUrl = getBackendBaseURL();
-      console.log('PlayerProfile: Fetching profile from:', `${backendUrl}/api/player/profile/public/${id}`);
+      // console.log('PlayerProfile: Fetching profile from:', `${backendUrl}/api/player/profile/public/${id}`);
 
       const authResponse = await authClient.$fetch(`${backendUrl}/api/player/profile/public/${id}`, {
         method: 'GET',
@@ -122,9 +122,6 @@ export default function PlayerProfileScreen() {
     try {
       setIsLoadingChat(true);
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-
-      console.log('PlayerProfile: Checking for existing thread between:', session.user.id, 'and', id);
-
       // Check if thread already exists
       const existingThread = threads.find(thread => 
         thread.type === 'direct' && 
@@ -186,6 +183,7 @@ export default function PlayerProfileScreen() {
         activeSports: [],
         image: 'loading...',
         achievements: [],
+        leagueStats: {},
       };
 
   // Helper function to get rating values from skillRatings
@@ -201,7 +199,7 @@ export default function PlayerProfileScreen() {
 
   // Calculate win rate from match history - placeholder until match system is implemented
   const calculateWinRate = () => {
-    if (userData.name === 'Loading...') return 0; // Still loading
+    if (userData.name === 'Loading...') return 0;
 
     // Check if user has match data
     const hasMatches = profileData?.totalMatches && profileData.totalMatches > 0;
@@ -343,6 +341,14 @@ export default function PlayerProfileScreen() {
               toast('Match history coming soon!');
             }}
           />
+
+          {/* Division Standings - Shows player's current divisions */}
+          {id && (
+            <PlayerDivisionStandings
+              userId={id as string}
+              showOnlyCurrentDivisions={true}
+            />
+          )}
 
           {/* League Stats Section */}
           <ProfileLeagueStatsCard

@@ -1,25 +1,23 @@
-import React from 'react';
-import { ScrollView, Text, View, StyleSheet, Dimensions, TouchableOpacity, ActivityIndicator, Alert, Image, StatusBar, Platform, Animated } from 'react-native';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { LinearGradient } from 'expo-linear-gradient';
-import { router } from 'expo-router';
-import { useFocusEffect } from '@react-navigation/native';
+import BackButtonIcon from '@/assets/icons/back-button.svg';
+import LeagueInfoIcon from '@/assets/icons/league-info.svg';
+import { useActivePartnership } from '@/features/pairing/hooks';
+import { authClient, useSession } from '@/lib/auth-client';
 import { NavBar } from '@/shared/components/layout';
 import { SportSwitcher } from '@/shared/components/ui/SportSwitcher';
-import { useDashboard } from '../DashboardContext';
 import { getBackendBaseURL } from '@/src/config/network';
-import { authClient } from '@/lib/auth-client';
-import * as Haptics from 'expo-haptics';
-import { CategoryService, Category } from '@/src/features/dashboard-user/services/CategoryService';
-import { SeasonService, Season } from '@/src/features/dashboard-user/services/SeasonService';
+import { Category, CategoryService } from '@/src/features/dashboard-user/services/CategoryService';
+import { Season, SeasonService } from '@/src/features/dashboard-user/services/SeasonService';
 import { LeagueService } from '@/src/features/leagues/services/LeagueService';
-import { useSession } from '@/lib/auth-client';
 import { questionnaireAPI } from '@/src/features/onboarding/services/api';
-import { PaymentOptionsBottomSheet } from '../components';
-import { useActivePartnership } from '@/features/pairing/hooks';
+import { useFocusEffect } from '@react-navigation/native';
+import * as Haptics from 'expo-haptics';
+import { LinearGradient } from 'expo-linear-gradient';
+import { router } from 'expo-router';
+import React from 'react';
+import { ActivityIndicator, Animated, Dimensions, Image, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { toast } from 'sonner-native';
-import LeagueInfoIcon from '@/assets/icons/league-info.svg';
-import BackButtonIcon from '@/assets/icons/back-button.svg';
+import { PaymentOptionsBottomSheet } from '../components';
 import { checkQuestionnaireStatus, getSeasonSport } from '../utils/questionnaireCheck';
 
 const { width } = Dimensions.get('window');
@@ -387,8 +385,29 @@ export default function LeagueDetailsScreen({
 
   const handleViewStandingsPress = (season: Season) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    console.log('View Standings button pressed');
-    toast.info('Standings feature coming soon!');
+    
+    // Get category info for display
+    const category = (season as any).category;  
+    const categories = (season as any).categories || (category ? [category] : []);
+    const normalizedCategories = Array.isArray(categories) ? categories : [categories].filter(Boolean);
+    const seasonCategory = normalizedCategories && normalizedCategories.length > 0 
+      ? normalizedCategories[0] 
+      : null;
+    const categoryDisplayName = seasonCategory ? seasonCategory.name || '' : '';
+    
+    router.push({
+      pathname: '/standings' as any,
+      params: {
+        seasonId: season.id,
+        seasonName: season.name,
+        leagueId: leagueId,
+        leagueName: league?.name || leagueName,
+        categoryName: categoryDisplayName,
+        sportType: selectedSport?.toUpperCase() || 'PICKLEBALL',
+        startDate: season.startDate,
+        endDate: season.endDate,
+      }
+    });
   };
 
   const handleClosePaymentOptions = () => {

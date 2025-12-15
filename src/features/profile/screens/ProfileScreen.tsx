@@ -22,6 +22,7 @@ import {
   EloProgressGraph,
   InlineDropdown,
   MatchHistoryButton,
+  PlayerDivisionStandings,
   ProfileAchievementsCard,
   ProfileHeaderWithCurve,
   ProfileInfoCard,
@@ -479,6 +480,14 @@ export default function ProfileScreen() {
               navigateTo('/match-history');
             }}
           />
+
+          {/* Division Standings - Shows user's current divisions */}
+          {session?.user?.id && (
+            <PlayerDivisionStandings
+              userId={session.user.id}
+              showOnlyCurrentDivisions={true}
+            />
+          )}
 
           {/* League Stats */}
           <ProfileLeagueStatsCard

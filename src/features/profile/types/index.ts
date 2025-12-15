@@ -58,6 +58,7 @@ export interface SkillRating {
 
 
 export interface UserData {
+  leagueStats: any;
   name: string;
   username: string;
   bio: string;
