@@ -13,6 +13,7 @@ import {
   TouchableOpacity,
   View,
   ActivityIndicator,
+  Dimensions,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -27,12 +28,70 @@ interface StandingsPlayer {
   points: number;
 }
 
+interface StandingsTeam {
+  rank: number;
+  players: StandingsPlayer[];
+  played: number;
+  wins: number;
+  losses: number;
+  points: number;
+}
+
+interface MatchPlayer {
+  id: string;
+  name: string;
+  username?: string;
+  image?: string | null;
+}
+
+const SCREEN_WIDTH = Dimensions.get('window').width;
+const CARD_WIDTH = SCREEN_WIDTH * 0.88;
+const CARD_GAP = 12;
+const CARD_PADDING_H = 16;
+
+interface SetScore {
+  setNumber: number;
+  team1Games: number;
+  team2Games: number;
+  team1Tiebreak?: number | null;
+  team2Tiebreak?: number | null;
+  hasTiebreak: boolean;
+}
+
+interface GameScore {
+  gameNumber: number;
+  team1Points: number;
+  team2Points: number;
+}
+
+interface MatchResult {
+  id: string;
+  matchType: string;
+  matchDate: string;
+  team1Score: number;
+  team2Score: number;
+  outcome: string;
+  setScores: SetScore[];
+  gameScores?: GameScore[];
+  team1Players: MatchPlayer[];
+  team2Players: MatchPlayer[];
+  isWalkover: boolean;
+  resultComment?: string;
+  venue?: string;
+}
+
 export default function DivisionStandingsScreen() {
   const insets = useSafeAreaInsets();
   const params = useLocalSearchParams();
   const [showResults, setShowResults] = useState(false);
   const [standings, setStandings] = useState<StandingsPlayer[]>([]);
+  const [groupedStandings, setGroupedStandings] = useState<StandingsTeam[]>([]);
   const [loading, setLoading] = useState(true);
+  const [results, setResults] = useState<MatchResult[]>([]);
+  const [resultsLoading, setResultsLoading] = useState(false);
+  const [scrollProgress, setScrollProgress] = useState(0);
+  const [scrollViewWidth, setScrollViewWidth] = useState(0);
+  const [contentWidth, setContentWidth] = useState(0);
 
   // Get params from parent
   const divisionId = params.divisionId as string;
@@ -71,12 +130,23 @@ export default function DivisionStandingsScreen() {
     ? `${formatGenderCategory(genderCategory)} ${gameType}`
     : gameType;
 
+  // Check if this is a doubles division
+  const isDoubles = gameType?.toLowerCase().includes('doubles') || false;
+
   // Fetch standings data
   useEffect(() => {
     if (divisionId) {
       fetchStandings();
     }
   }, [divisionId]);
+
+  // Fetch results when View Results is expanded
+  useEffect(() => {
+    if (showResults && divisionId && results.length === 0) {
+      fetchResults();
+    }
+  }, [showResults, divisionId]);
+
 
   const fetchStandings = async () => {
     try {
@@ -104,12 +174,83 @@ export default function DivisionStandingsScreen() {
       }));
 
       setStandings(transformedStandings);
+
+      // If doubles, group players by matching stats (teams share same stats)
+      if (isDoubles) {
+        const grouped = groupPlayersByTeam(transformedStandings);
+        console.log('📊 Grouped standings:', grouped.length, 'teams from', transformedStandings.length, 'players');
+        setGroupedStandings(grouped);
+      } else {
+        setGroupedStandings([]);
+      }
     } catch (error) {
       console.error('Error fetching standings:', error);
       // Keep empty array on error
       setStandings([]);
+      setGroupedStandings([]);
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Group players by matching stats (same points, wins, losses, played = same team)
+  // Only group pairs (exactly 2 players) together
+  const groupPlayersByTeam = (players: StandingsPlayer[]): StandingsTeam[] => {
+    if (players.length === 0) return [];
+    
+    const groups = new Map<string, StandingsPlayer[]>();
+    
+    // Group by stats key (points-wins-losses-played)
+    players.forEach(player => {
+      const key = `${player.points}-${player.wins}-${player.losses}-${player.played}`;
+      if (!groups.has(key)) {
+        groups.set(key, []);
+      }
+      groups.get(key)!.push(player);
+    });
+
+    // Convert to StandingsTeam array, sorted by rank
+    const teams: StandingsTeam[] = [];
+    groups.forEach((teamPlayers, key) => {
+      // Sort players by rank first
+      const sortedPlayers = teamPlayers.sort((a, b) => a.rank - b.rank);
+      
+      // Only create pairs (exactly 2 players per team)
+      // If there are more than 2 players with same stats, create separate teams
+      for (let i = 0; i < sortedPlayers.length; i += 2) {
+        const pair = sortedPlayers.slice(i, i + 2);
+        teams.push({
+          rank: Math.min(...pair.map(p => p.rank)),
+          players: pair,
+          played: pair[0].played,
+          wins: pair[0].wins,
+          losses: pair[0].losses,
+          points: pair[0].points,
+        });
+      }
+    });
+
+    // Sort by rank
+    return teams.sort((a, b) => a.rank - b.rank);
+  };
+
+  const fetchResults = async () => {
+    try {
+      setResultsLoading(true);
+      const response = await axiosInstance.get(
+        endpoints.match.getDivisionResults(divisionId),
+        { params: { limit: 10 } }
+      );
+
+      console.log('🏆 Results response:', response.data);
+
+      const matchesData = response.data.matches || response.data.data || [];
+      setResults(matchesData);
+    } catch (error) {
+      console.error('Error fetching results:', error);
+      setResults([]);
+    } finally {
+      setResultsLoading(false);
     }
   };
 
@@ -128,12 +269,10 @@ export default function DivisionStandingsScreen() {
   };
 
   const renderPlayerRow = (player: StandingsPlayer, index: number) => {
-    const isLastItem = index === standings.length - 1;
-    
     return (
       <View
         key={player.playerId}
-        style={[styles.playerRow, isLastItem && styles.playerRowLast]}
+        style={styles.playerCard}
       >
         {/* Rank */}
         <View style={styles.rankCell}>
@@ -173,6 +312,356 @@ export default function DivisionStandingsScreen() {
     );
   };
 
+  const renderTeamRow = (team: StandingsTeam, displayRank: number) => {
+    const isTeam = team.players.length > 1;
+    
+    return (
+      <View
+        key={`team-${team.rank}-${displayRank}`}
+        style={styles.playerCard}
+      >
+        {/* Rank */}
+        <View style={styles.rankCell}>
+          <Text style={styles.rankText}>{displayRank}</Text>
+        </View>
+
+        {/* Players */}
+        <View style={styles.playerCell}>
+          {isTeam ? (
+            // Doubles team - overlapping avatars
+            <View style={styles.teamAvatarsContainer}>
+              <View style={styles.teamAvatars}>
+                {team.players[0] && (
+                  <View style={styles.teamAvatar}>
+                    {team.players[0].image ? (
+                      <Image source={{ uri: team.players[0].image }} style={styles.avatarImage} />
+                    ) : (
+                      <View style={styles.defaultTeamAvatar}>
+                        <Text style={styles.defaultTeamAvatarText}>
+                          {team.players[0].name.charAt(0).toUpperCase()}
+                        </Text>
+                      </View>
+                    )}
+                  </View>
+                )}
+                {team.players[1] && (
+                  <View style={[styles.teamAvatar, styles.teamAvatarOverlap]}>
+                    {team.players[1].image ? (
+                      <Image source={{ uri: team.players[1].image }} style={styles.avatarImage} />
+                    ) : (
+                      <View style={styles.defaultTeamAvatar}>
+                        <Text style={styles.defaultTeamAvatarText}>
+                          {team.players[1].name.charAt(0).toUpperCase()}
+                        </Text>
+                      </View>
+                    )}
+                  </View>
+                )}
+              </View>
+              <Text style={styles.teamPlayerName} numberOfLines={1}>
+                {team.players.map(p => {
+                  const parts = p.name.split(' ');
+                  return `${parts[0]} ${parts[1]?.[0] || ''}`;
+                }).join(', ')}
+              </Text>
+            </View>
+          ) : (
+            // Single player
+            <>
+              <View style={styles.playerAvatar}>
+                {team.players[0]?.image ? (
+                  <Image source={{ uri: team.players[0].image }} style={styles.avatarImage} />
+                ) : (
+                  <View style={styles.defaultAvatar}>
+                    <Text style={styles.defaultAvatarText}>
+                      {team.players[0]?.name.charAt(0).toUpperCase() || '?'}
+                    </Text>
+                  </View>
+                )}
+              </View>
+              <Text style={styles.playerName}>{team.players[0]?.name || 'Unknown'}</Text>
+            </>
+          )}
+        </View>
+
+        {/* Stats */}
+        <View style={styles.statCell}>
+          <Text style={styles.statText}>{team.played}</Text>
+        </View>
+        <View style={styles.statCell}>
+          <Text style={styles.statText}>{team.wins}</Text>
+        </View>
+        <View style={styles.statCell}>
+          <Text style={styles.statText}>{team.losses}</Text>
+        </View>
+        <View style={styles.ptsCell}>
+          <Text style={styles.ptsText}>{team.points}pts</Text>
+        </View>
+      </View>
+    );
+  };
+
+  const renderPlayerPhoto = (player: MatchPlayer, size: number = 30) => {
+    if (player.image) {
+      return (
+        <Image
+          source={{ uri: player.image }}
+          style={[styles.cardPlayerPhoto, { width: size, height: size, borderRadius: size / 2 }]}
+        />
+      );
+    }
+    return (
+      <View style={[styles.cardPlayerPhotoDefault, { width: size, height: size, borderRadius: size / 2 }]}>
+        <Text style={[styles.cardPlayerPhotoDefaultText, { fontSize: size * 0.4 }]}>
+          {player.name.charAt(0).toUpperCase()}
+        </Text>
+      </View>
+    );
+  };
+
+  const renderTeamPhotos = (players: MatchPlayer[], isWinner: boolean) => {
+    const isSingles = players.length === 1;
+
+    if (isSingles) {
+      return (
+        <View style={styles.cardTeamPhotosContainer}>
+          {renderPlayerPhoto(players[0], 38)}
+        </View>
+      );
+    }
+
+    // Doubles - overlapping photos
+    return (
+      <View style={styles.cardTeamPhotosContainer}>
+        <View style={styles.cardDoublesPhotos}>
+          {renderPlayerPhoto(players[0], 38)}
+          <View style={styles.cardDoublesPhotoOverlap}>
+            {renderPlayerPhoto(players[1], 38)}
+          </View>
+        </View>
+      </View>
+    );
+  };
+
+  const renderTeamNames = (players: MatchPlayer[], isWinner: boolean) => {
+    const isSingles = players.length === 1;
+    const nameStyle = isWinner 
+      ? [styles.cardPlayerName, { color: sportColors.background }]
+      : styles.cardPlayerName;
+
+    if (isSingles) {
+      return (
+        <Text style={nameStyle} numberOfLines={1}>
+          {players[0].name.split(' ')[0]} {players[0].name.split(' ')[1]?.[0] || ''}.
+        </Text>
+      );
+    }
+
+    // Doubles - comma-separated first names
+    const names = players.map(p => {
+      const parts = p.name.split(' ');
+      return `${parts[0]} ${parts[1]?.[0] || ''}.`;
+    }).join(', ');
+
+    return (
+      <Text style={nameStyle} numberOfLines={2}>
+        {names}
+      </Text>
+    );
+  };
+
+  const isPickleball = sportType?.toLowerCase() === 'pickleball';
+
+  const renderResultCard = (match: MatchResult, index: number) => {
+    const isTeam1Winner = match.outcome === 'team1';
+    const isTeam2Winner = match.outcome === 'team2';
+    const scores = isPickleball ? match.gameScores : match.setScores;
+    const totalSets = scores?.length || 0;
+
+    return (
+      <View
+        key={match.id}
+        style={[
+          styles.resultCardNew,
+          { width: CARD_WIDTH, marginLeft: index === 0 ? 0 : CARD_GAP },
+          index === results.length - 1 && { marginRight: 0 },
+        ]}
+      >
+        {/* Venue Name */}
+        <Text style={styles.cardVenueName}>{match.venue || 'Venue TBD'}</Text>
+
+        {/* Score Display with Photos */}
+        <View style={styles.cardScoreSection}>
+          {/* Team 1 */}
+          <View style={styles.cardTeamSection}>
+            {renderTeamPhotos(match.team1Players, isTeam1Winner)}
+            {renderTeamNames(match.team1Players, isTeam1Winner)}
+          </View>
+
+          {/* Center Score */}
+          <View style={styles.cardCenterSection}>
+            <View style={styles.cardScoreRow}>
+              <Text style={styles.cardScoreNumber}>{match.team1Score}</Text>
+              <Text style={styles.cardScoreDash}> - </Text>
+              <Text style={styles.cardScoreNumber}>{match.team2Score}</Text>
+            </View>
+            <Text style={styles.cardMatchDate}>
+              {format(new Date(match.matchDate), 'd MMM yyyy')}
+            </Text>
+            {match.isWalkover && <Text style={styles.cardWalkover}>W/O</Text>}
+          </View>
+
+          {/* Team 2 */}
+          <View style={styles.cardTeamSection}>
+            {renderTeamPhotos(match.team2Players, isTeam2Winner)}
+            {renderTeamNames(match.team2Players, isTeam2Winner)}
+          </View>
+        </View>
+
+        {/* Set Scores Table */}
+        {scores && scores.length > 0 && (
+          <View style={styles.cardScoresTable}>
+            {/* Table Header */}
+            <View style={[styles.cardTableHeader, { backgroundColor: sportColors.background }]}>
+              <View style={styles.cardTableHeaderLabelCell}>
+                <Text style={styles.cardTableHeaderText}>
+                  Best of {totalSets}
+                </Text>
+              </View>
+              {scores.map((_, idx) => (
+                <View key={idx} style={styles.cardTableHeaderCell}>
+                  <Text style={styles.cardTableHeaderText}>
+                    {isPickleball ? idx + 1 : `${idx + 1}${idx === 0 ? 'st' : idx === 1 ? 'nd' : 'rd'}`}
+                  </Text>
+                </View>
+              ))}
+            </View>
+
+            {/* Team 1 Row */}
+            <View style={styles.cardTableRow}>
+              <View style={styles.cardTableLabelCell}>
+                <Text
+                  style={[
+                    styles.cardTablePlayerName,
+                    isTeam1Winner && styles.cardTablePlayerNameWinner,
+                  ]}
+                  numberOfLines={1}
+                >
+                  {match.team1Players[0].name.split(' ')[0]} {match.team1Players[0].name.split(' ')[1]?.[0] || ''}.
+                </Text>
+              </View>
+              {isPickleball
+                ? (match.gameScores || []).map((game, idx) => {
+                    const isWinningScore = game.team1Points > game.team2Points;
+                    return (
+                      <View key={idx} style={styles.cardTableScoreCell}>
+                        <Text
+                          style={[
+                            styles.cardTableScore,
+                            isWinningScore
+                              ? [styles.cardTableScoreWinner, { color: sportColors.background }]
+                              : styles.cardTableScoreLoser,
+                          ]}
+                        >
+                          {game.team1Points}
+                        </Text>
+                      </View>
+                    );
+                  })
+                : match.setScores.map((set, idx) => {
+                    const isWinningScore = set.team1Games > set.team2Games;
+                    return (
+                      <View key={idx} style={styles.cardTableScoreCell}>
+                        <Text
+                          style={[
+                            styles.cardTableScore,
+                            isWinningScore
+                              ? [styles.cardTableScoreWinner, { color: sportColors.background }]
+                              : styles.cardTableScoreLoser,
+                          ]}
+                        >
+                          {set.team1Games}
+                          {set.hasTiebreak && set.team1Tiebreak != null && (
+                            <Text style={styles.cardTiebreakScore}>
+                              ({set.team1Tiebreak})
+                            </Text>
+                          )}
+                        </Text>
+                      </View>
+                    );
+                  })}
+            </View>
+
+            {/* Team 2 Row */}
+            <View style={[styles.cardTableRow, styles.cardTableRowLast]}>
+              <View style={styles.cardTableLabelCell}>
+                <Text
+                  style={[
+                    styles.cardTablePlayerName,
+                    isTeam2Winner && styles.cardTablePlayerNameWinner,
+                  ]}
+                  numberOfLines={1}
+                >
+                  {match.team2Players[0].name.split(' ')[0]} {match.team2Players[0].name.split(' ')[1]?.[0] || ''}.
+                </Text>
+              </View>
+              {isPickleball
+                ? (match.gameScores || []).map((game, idx) => {
+                    const isWinningScore = game.team2Points > game.team1Points;
+                    return (
+                      <View key={idx} style={styles.cardTableScoreCell}>
+                        <Text
+                          style={[
+                            styles.cardTableScore,
+                            isWinningScore
+                              ? [styles.cardTableScoreWinner, { color: sportColors.background }]
+                              : styles.cardTableScoreLoser,
+                          ]}
+                        >
+                          {game.team2Points}
+                        </Text>
+                      </View>
+                    );
+                  })
+                : match.setScores.map((set, idx) => {
+                    const isWinningScore = set.team2Games > set.team1Games;
+                    return (
+                      <View key={idx} style={styles.cardTableScoreCell}>
+                        <Text
+                          style={[
+                            styles.cardTableScore,
+                            isWinningScore
+                              ? [styles.cardTableScoreWinner, { color: sportColors.background }]
+                              : styles.cardTableScoreLoser,
+                          ]}
+                        >
+                          {set.team2Games}
+                          {set.hasTiebreak && set.team2Tiebreak != null && (
+                            <Text style={styles.cardTiebreakScore}>
+                              ({set.team2Tiebreak})
+                            </Text>
+                          )}
+                        </Text>
+                      </View>
+                    );
+                  })}
+            </View>
+          </View>
+        )}
+
+        {/* Comment Section */}
+        {match.resultComment && (
+          <View style={styles.cardCommentSection}>
+            <Ionicons name="thumbs-up" size={16} color="#868686" />
+            <Text style={styles.cardCommentText} numberOfLines={2}>
+              {match.resultComment}
+            </Text>
+          </View>
+        )}
+      </View>
+    );
+  };
+
   return (
     <View style={styles.container}>
       {/* Header */}
@@ -203,8 +692,8 @@ export default function DivisionStandingsScreen() {
         <View style={styles.standingsSection}>
           <Text style={styles.standingsTitle}>Standings</Text>
 
-          {/* Division Card */}
-          <View style={styles.divisionCard}>
+          {/* Division Container - Contains both standings and results */}
+          <View style={styles.divisionContainer}>
             {/* Division Header - Sport themed */}
             <View style={[styles.divisionHeader, { backgroundColor: sportColors.background }]}>
               <Text style={styles.divisionName}>{divisionName}</Text>
@@ -217,10 +706,12 @@ export default function DivisionStandingsScreen() {
               </TouchableOpacity>
             </View>
 
+            {/* Standings Table Container */}
+            <View style={styles.standingsTableContainer}>
             {/* Table Header */}
             <View style={styles.tableHeader}>
               <View style={styles.rankHeaderCell}>
-                <Text style={styles.headerText}>Rank</Text>
+                <Text style={styles.headerText}>#</Text>
               </View>
               <View style={styles.playerHeaderCell}>
                 <Text style={styles.headerText}>Player</Text>
@@ -239,7 +730,7 @@ export default function DivisionStandingsScreen() {
               </View>
             </View>
 
-            {/* Table Body */}
+              {/* Table Body - Individual player cards */}
             <View style={styles.tableBody}>
               {loading ? (
                 <View style={styles.loadingContainer}>
@@ -254,24 +745,94 @@ export default function DivisionStandingsScreen() {
                     Standings will appear once matches are completed
                   </Text>
                 </View>
+              ) : isDoubles ? (
+                // Render grouped teams for doubles (show all teams, even if only 1)
+                groupedStandings.length > 0 ? (
+                  groupedStandings.map((team, index) => renderTeamRow(team, index + 1))
+                ) : (
+                  // Fallback: if grouping failed, show individual players
+                  standings.map((player, index) => renderPlayerRow(player, index))
+                )
               ) : (
+                // Render individual players for singles
                 standings.map((player, index) => renderPlayerRow(player, index))
               )}
+              </View>
             </View>
 
-            {/* View Results Toggle - Sport themed */}
+            {/* View Results Toggle - Aligned left with Rank column */}
             <TouchableOpacity
               style={styles.viewResultsButton}
               onPress={() => setShowResults(!showResults)}
               activeOpacity={0.7}
             >
-              <Text style={[styles.viewResultsText, { color: sportColors.background }]}>View Results</Text>
+              <Text style={styles.viewResultsText}>View Results</Text>
               <Ionicons
                 name={showResults ? 'chevron-up' : 'chevron-down'}
-                size={18}
-                color={sportColors.background}
+                size={16}
+                color="#F09433"
               />
             </TouchableOpacity>
+
+            {/* Results Section - Horizontal Scroll (inside same container) */}
+            {showResults && (
+              <View style={styles.resultsSectionNew}>
+                {resultsLoading ? (
+                  <View style={styles.resultsLoadingContainer}>
+                    <ActivityIndicator size="small" color={sportColors.background} />
+                    <Text style={styles.resultsLoadingText}>Loading results...</Text>
+                  </View>
+                ) : results.length === 0 ? (
+                  <View style={styles.noResultsContainer}>
+                    <Ionicons name="document-text-outline" size={32} color="#D1D5DB" />
+                    <Text style={styles.noResultsText}>No completed matches yet</Text>
+                  </View>
+                ) : (
+                  <>
+                    <ScrollView
+                      horizontal
+                      showsHorizontalScrollIndicator={false}
+                      decelerationRate="fast"
+                      snapToInterval={CARD_WIDTH + CARD_GAP}
+                      snapToAlignment="start"
+                      contentContainerStyle={styles.resultsScrollContent}
+                      onScroll={(event) => {
+                        const scrollX = event.nativeEvent.contentOffset.x;
+                        const maxScrollX = event.nativeEvent.contentSize.width - event.nativeEvent.layoutMeasurement.width;
+                        const progress = maxScrollX > 0 ? scrollX / maxScrollX : 0;
+                        setScrollProgress(progress);
+                      }}
+                      onContentSizeChange={(width) => {
+                        setContentWidth(width);
+                      }}
+                      onLayout={(event) => {
+                        setScrollViewWidth(event.nativeEvent.layout.width);
+                      }}
+                      scrollEventThrottle={16}
+                    >
+                      {results.map((match, index) => renderResultCard(match, index))}
+                    </ScrollView>
+                    {/* Progress Slider */}
+                    {contentWidth > scrollViewWidth && (
+                      <View style={styles.progressContainer}>
+                        <View style={styles.progressTrack}>
+                          <View
+                            style={[
+                              styles.progressBar,
+                              {
+                                width: `${(scrollViewWidth / contentWidth) * 100}%`,
+                                left: `${scrollProgress * (100 - (scrollViewWidth / contentWidth) * 100)}%`,
+                                backgroundColor: sportColors.background,
+                              },
+                            ]}
+                          />
+                        </View>
+                      </View>
+                    )}
+                  </>
+                )}
+              </View>
+            )}
           </View>
         </View>
       </ScrollView>
@@ -282,7 +843,7 @@ export default function DivisionStandingsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F9FAFB',
+    backgroundColor: '#F6FAFC',
   },
   header: {
     paddingHorizontal: 20,
@@ -348,8 +909,8 @@ const styles = StyleSheet.create({
     color: '#111827',
     marginBottom: 16,
   },
-  divisionCard: {
-    backgroundColor: '#FFFFFF',
+  divisionContainer: {
+    backgroundColor: '#E9F3F8',
     borderRadius: 16,
     overflow: 'hidden',
     shadowColor: '#000',
@@ -367,7 +928,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: '#863A73',
     paddingHorizontal: 16,
-    paddingVertical: 14,
+    paddingVertical: 12,
   },
   divisionName: {
     fontSize: 17,
@@ -375,58 +936,68 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
   },
   viewMatchesButton: {
-    backgroundColor: '#F59E0B',
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
     paddingHorizontal: 14,
-    paddingVertical: 6,
+    paddingVertical: 8,
     borderRadius: 6,
   },
   viewMatchesText: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#FFFFFF',
+    color: '#FEA04D',
+  },
+  standingsTableContainer: {
+    backgroundColor: '#E9F3F8',
+    paddingHorizontal: 8,
+    paddingVertical: 8,
   },
   tableHeader: {
     flexDirection: 'row',
-    backgroundColor: '#F3F4F6',
     paddingVertical: 10,
-    paddingHorizontal: 12,
+    paddingHorizontal: 8,
     alignItems: 'center',
   },
   rankHeaderCell: {
-    width: 45,
-  },
-  playerHeaderCell: {
-    flex: 1,
-  },
-  statHeaderCell: {
     width: 35,
     alignItems: 'center',
   },
+  playerHeaderCell: {
+    flex: 1,
+    paddingLeft: 0,
+    minWidth: 0, // Allow flex to shrink
+  },
+  statHeaderCell: {
+    width: 25,
+    alignItems: 'center',
+  },
   ptsHeaderCell: {
-    width: 50,
+    width: 40,
     alignItems: 'flex-end',
   },
   headerText: {
     fontSize: 12,
-    fontWeight: '700',
-    color: '#6B7280',
+    fontWeight: '500',
+    color: '#1D1D1F',
     textTransform: 'uppercase',
   },
   tableBody: {
-    paddingHorizontal: 12,
+    paddingHorizontal: 0,
+    gap: 8,
   },
-  playerRow: {
+  playerCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
-  },
-  playerRowLast: {
-    borderBottomWidth: 0,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    paddingVertical: 8,
+    paddingHorizontal: 8,
+    marginBottom: 0,
+    borderWidth: 1,
+    borderColor: '#DCE1E4',
   },
   rankCell: {
-    width: 45,
+    width: 35,
+    alignItems: 'center',
   },
   rankText: {
     fontSize: 15,
@@ -467,37 +1038,75 @@ const styles = StyleSheet.create({
     color: '#111827',
     flex: 1,
   },
+  teamAvatarsContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    flex: 1,
+  },
+  teamAvatars: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  teamAvatar: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    overflow: 'hidden',
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
+  },
+  teamAvatarOverlap: {
+    marginLeft: -7,
+  },
+  teamPlayerName: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#111827',
+    flex: 1,
+  },
+  defaultTeamAvatar: {
+    width: '100%',
+    height: '100%',
+    backgroundColor: '#E5E7EB',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  defaultTeamAvatarText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#6B7280',
+  },
   statCell: {
-    width: 35,
+    width: 25,
     alignItems: 'center',
   },
   statText: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '500',
-    color: '#6B7280',
+    color: '#1D1D1F',
   },
   ptsCell: {
-    width: 50,
+    width: 40,
     alignItems: 'flex-end',
   },
   ptsText: {
-    fontSize: 14,
-    fontWeight: '700',
+    fontSize: 13,
+    fontWeight: '500',
     color: '#F59E0B',
   },
   viewResultsButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 14,
+    paddingVertical: 16,
+    paddingLeft: 12,
     gap: 6,
-    borderTopWidth: 1,
-    borderTopColor: '#F3F4F6',
   },
   viewResultsText: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#F59E0B',
+    color: '#F09433',
+    textDecorationLine: 'underline',
   },
   loadingContainer: {
     paddingVertical: 60,
@@ -523,5 +1132,361 @@ const styles = StyleSheet.create({
     color: '#6B7280',
     textAlign: 'center',
     paddingHorizontal: 32,
+  },
+  // Results section styles
+  resultsSection: {
+    paddingHorizontal: 12,
+    paddingTop: 4,
+    paddingBottom: 12,
+  },
+  resultsLoadingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 24,
+    gap: 8,
+  },
+  resultsLoadingText: {
+    fontSize: 13,
+    color: '#6B7280',
+  },
+  noResultsContainer: {
+    alignItems: 'center',
+    paddingVertical: 24,
+    gap: 8,
+  },
+  noResultsText: {
+    fontSize: 13,
+    color: '#9CA3AF',
+  },
+  resultCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 8,
+  },
+  resultDate: {
+    fontSize: 11,
+    color: '#6B7280',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  resultTeamsContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  resultTeam: {
+    flex: 1,
+  },
+  resultPlayersContainer: {
+    gap: 4,
+  },
+  resultPlayerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  resultPlayerAvatar: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  resultAvatarImage: {
+    width: '100%',
+    height: '100%',
+  },
+  resultDefaultAvatar: {
+    width: '100%',
+    height: '100%',
+    backgroundColor: '#FEA04D',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  resultDefaultAvatarText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  resultPlayerName: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: '#374151',
+    flex: 1,
+  },
+  winnerText: {
+    fontWeight: '600',
+    color: '#F09433',
+  },
+  resultScoreContainer: {
+    alignItems: 'center',
+    paddingHorizontal: 12,
+  },
+  resultScoreBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+    gap: 4,
+  },
+  resultScoreText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#6B7280',
+  },
+  winnerScoreText: {
+    color: '#F09433',
+    fontWeight: '700',
+  },
+  resultScoreDivider: {
+    fontSize: 14,
+    color: '#D1D5DB',
+  },
+  walkoverText: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: '#F59E0B',
+    marginTop: 4,
+  },
+  setScoressContainer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 6,
+    marginTop: 10,
+    flexWrap: 'wrap',
+  },
+  setScoreBadge: {
+    backgroundColor: '#E5E7EB',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 4,
+  },
+  setScoreText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#374151',
+  },
+  tiebreakText: {
+    fontSize: 10,
+    color: '#6B7280',
+  },
+  commentContainer: {
+    marginTop: 10,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: '#F3F4F6',
+  },
+  commentText: {
+    fontSize: 12,
+    fontStyle: 'italic',
+    color: '#6B7280',
+    lineHeight: 18,
+  },
+  // New horizontal scroll results styles
+  resultsSectionNew: {
+    paddingLeft: 0,
+    paddingRight: 0,
+    paddingTop: 8,
+    paddingBottom: 12,
+  },
+  resultsScrollContent: {
+    paddingVertical: 4,
+    paddingLeft: 12,
+    paddingRight: 12,
+  },
+  resultCardNew: {
+    backgroundColor: '#FEFEFE',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(186, 186, 186, 0.4)',
+    padding: 18,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 6,
+    elevation: 2,
+  },
+  cardVenueName: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#86868B',
+    textAlign: 'center',
+    marginBottom: 12,
+  },
+  cardScoreSection: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    marginBottom: 16,
+  },
+  cardTeamSection: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  cardTeamPhotosContainer: {
+    marginBottom: 6,
+  },
+  cardDoublesPhotos: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  cardDoublesPhotoOverlap: {
+    marginLeft: -8,
+  },
+  cardPlayerPhoto: {
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
+  },
+  cardPlayerPhotoDefault: {
+    backgroundColor: '#FEA04D',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
+  },
+  cardPlayerPhotoDefaultText: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+  },
+  cardPlayerName: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1D1D1F',
+    textAlign: 'center',
+  },
+  cardCenterSection: {
+    alignItems: 'center',
+    paddingHorizontal: 8,
+  },
+  cardScoreRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  cardScoreNumber: {
+    fontSize: 36,
+    fontWeight: '600',
+    color: '#1D1D1F',
+  },
+  cardScoreDash: {
+    fontSize: 34,
+    fontWeight: '500',
+    color: '#1D1D1F',
+  },
+  cardMatchDate: {
+    fontSize: 10,
+    fontWeight: '400',
+    color: '#86868B',
+    marginTop: 4,
+  },
+  cardWalkover: {
+    fontSize: 8,
+    fontWeight: '600',
+    color: '#F59E0B',
+    marginTop: 2,
+  },
+  cardScoresTable: {
+    borderRadius: 8,
+    overflow: 'hidden',
+    marginBottom: 8,
+  },
+  cardTableHeader: {
+    flexDirection: 'row',
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    borderBottomLeftRadius: 8,
+    borderBottomRightRadius: 8,
+  },
+  cardTableHeaderLabelCell: {
+    flex: 1,
+  },
+  cardTableHeaderCell: {
+    width: 40,
+    alignItems: 'center',
+  },
+  cardTableHeaderText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  cardTableRow: {
+    flexDirection: 'row',
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    backgroundColor: '#FFFFFF',
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E7EB',
+  },
+  cardTableRowLast: {
+    borderBottomWidth: 0,
+  },
+  cardTableLabelCell: {
+    flex: 1,
+    justifyContent: 'center',
+  },
+  cardTablePlayerName: {
+    fontSize: 14,
+    fontWeight: '400',
+    color: '#1D1D1F',
+  },
+  cardTablePlayerNameWinner: {
+    fontWeight: '600',
+  },
+  cardTableScoreCell: {
+    width: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cardTableScore: {
+    fontSize: 12,
+    fontWeight: '400',
+    color: '#868686',
+  },
+  cardTableScoreWinner: {
+    fontWeight: '600',
+  },
+  cardTableScoreLoser: {
+    fontWeight: '400',
+    color: '#868686',
+  },
+  cardTiebreakScore: {
+    fontSize: 8,
+    color: '#868686',
+  },
+  cardCommentSection: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 6,
+    marginTop: 8,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: '#F3F4F6',
+  },
+  cardCommentText: {
+    flex: 1,
+    fontSize: 11,
+    fontWeight: '500',
+    color: '#868686',
+    lineHeight: 16,
+  },
+  progressContainer: {
+    paddingHorizontal: 12,
+    paddingTop: 12,
+    paddingBottom: 8,
+  },
+  progressTrack: {
+    height: 4,
+    backgroundColor: '#E5E7EB',
+    borderRadius: 2,
+    position: 'relative',
+    overflow: 'hidden',
+  },
+  progressBar: {
+    height: '100%',
+    borderRadius: 2,
+    position: 'absolute',
+    top: 0,
   },
 });

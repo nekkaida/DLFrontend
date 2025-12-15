@@ -96,7 +96,8 @@ export default function LeagueDetailsScreen({
     }
 
     // Primary check: Use gender fields from backend (most reliable)
-    const genderCategory = category.gender_category?.toUpperCase();
+    // Check both snake_case (gender_category) and camelCase (genderCategory) for backward compatibility
+    const genderCategory = category.gender_category?.toUpperCase() || category.genderCategory?.toUpperCase();
     const genderRestriction = category.genderRestriction?.toUpperCase();
     const categoryGender = genderCategory || genderRestriction;
 
