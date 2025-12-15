@@ -21,11 +21,18 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 const { width } = Dimensions.get('window');
 const isSmallScreen = width < 375;
 
-// Table column widths
-const RANK_WIDTH = 40;
-const PLAYER_WIDTH = 120;
-const STAT_WIDTH = 35;
-const POINTS_WIDTH = 50;
+// Table column widths - responsive based on screen width
+const TABLE_PADDING = 32;
+const AVAILABLE_WIDTH = width - TABLE_PADDING;
+
+// Fixed widths for smaller columns
+const RANK_WIDTH = isSmallScreen ? 35 : 40;
+const STAT_WIDTH = isSmallScreen ? 32 : 38;
+const POINTS_WIDTH = isSmallScreen ? 45 : 50;
+
+// Calculate remaining width for player column
+const FIXED_COLUMNS_WIDTH = RANK_WIDTH + (STAT_WIDTH * 3) + POINTS_WIDTH;
+const PLAYER_WIDTH = AVAILABLE_WIDTH - FIXED_COLUMNS_WIDTH;
 
 export default function StandingsScreen() {
   const insets = useSafeAreaInsets();
@@ -58,8 +65,6 @@ export default function StandingsScreen() {
   }, [seasonId, userId]);
 
   const fetchStandings = async () => {
-    console.log('🏆 Standings Screen - seasonId:', seasonId, 'userId:', userId);
-    
     if (!seasonId) {
       console.log('❌ No seasonId provided');
       setIsLoading(false);
@@ -68,10 +73,9 @@ export default function StandingsScreen() {
 
     try {
       setIsLoading(true);
-      console.log('🔍 Fetching standings for season:', seasonId);
       const data = await StandingsService.getSeasonDivisionsWithStandings(seasonId, userId);
-      console.log('📊 Got divisions with standings:', data.length, 'divisions');
-      console.log('📊 Divisions data:', JSON.stringify(data, null, 2));
+      // console.log('📊 Got divisions with standings:', data.length, 'divisions');
+      // console.log('📊 Divisions data:', JSON.stringify(data, null, 2));
       setDivisionsWithStandings(data);
 
       // Find which division the user is in and expand it by default
@@ -130,11 +134,14 @@ export default function StandingsScreen() {
     }
   };
 
-  const renderStandingRow = (standing: StandingEntry, index: number, isUserRow: boolean) => {
+  const renderStandingRow = (standing: StandingEntry, index: number, isUserRow: boolean, isUserDivision: boolean) => {
     const playerId = standing.userId || standing.odlayerId || standing.user?.id;
     const playerName = standing.user?.name || standing.odlayerName || 'Unknown Player';
     const playerImage = standing.user?.image || standing.odlayerImage;
     const playerInitial = playerName.charAt(0).toUpperCase();
+    
+    // Points color: orange for user's division, black for others
+    const pointsColor = isUserDivision ? '#F09433' : '#1A1C1E';
 
     return (
       <TouchableOpacity
@@ -148,14 +155,14 @@ export default function StandingsScreen() {
         activeOpacity={0.7}
       >
         {/* Rank */}
-        <View style={[styles.cell, { width: RANK_WIDTH }]}>
+        <View style={[styles.cell, styles.rankCell, { width: RANK_WIDTH }]}>
           <Text style={[styles.rankText, isUserRow && { color: sportColors.background, fontWeight: '600' }]}>
             {standing.rank || index + 1}
           </Text>
         </View>
 
         {/* Player */}
-        <View style={[styles.playerCell, { width: PLAYER_WIDTH }]}>
+        <View style={styles.playerCell}>
           {playerImage ? (
             <Image source={{ uri: playerImage }} style={styles.playerImage} />
           ) : (
@@ -194,12 +201,12 @@ export default function StandingsScreen() {
         </View>
 
         {/* Pts (Points) */}
-        <View style={[styles.cell, { width: POINTS_WIDTH }]}>
+        <View style={[styles.cell, styles.pointsCell, { width: POINTS_WIDTH }]}>
           <TouchableOpacity 
             style={styles.pointsButton}
             onPress={() => playerId && handlePlayerPress(playerId)}
           >
-            <Text style={[styles.pointsText, { color: sportColors.background }]}>{standing.totalPoints}pts</Text>
+            <Text style={[styles.pointsText, { color: pointsColor }]}>{standing.totalPoints}pts</Text>
           </TouchableOpacity>
         </View>
       </TouchableOpacity>
@@ -212,8 +219,8 @@ export default function StandingsScreen() {
     const isUserDivision = userDivisionId === division.id;
 
     // Determine header colors based on whether it's user's division or not
-    const headerBgColor = isUserDivision ? sportColors.background : sportColors.background;
-    const headerTextColor = '#FFFFFF';
+    const headerBgColor = isUserDivision ? sportColors.header : sportColors.header;
+    const headerTextColor = '#00000';
 
     return (
       <View 
@@ -243,16 +250,16 @@ export default function StandingsScreen() {
           <View style={styles.divisionHeaderRight}>
             {isUserDivision && (
               <TouchableOpacity
-                style={[styles.viewMatchesButton, { backgroundColor: '#FFFFFF' }]}
+                style={[styles.viewMatchesButton, { backgroundColor: '#000000' }]}
                 onPress={() => handleViewMatches(division.id)}
               >
-                <Text style={[styles.viewMatchesText, { color: sportColors.background }]}>View Matches</Text>
+                <Text style={[styles.viewMatchesText, { color: '#F09433'}]}>View Matches</Text>
               </TouchableOpacity>
             )}
             <Ionicons
               name={isExpanded ? 'chevron-up' : 'chevron-down'}
               size={20}
-              color="#FFFFFF"
+              color="#F09433"
             />
           </View>
         </TouchableOpacity>
@@ -262,10 +269,10 @@ export default function StandingsScreen() {
           <View style={styles.standingsTable}>
             {/* Table Header */}
             <View style={styles.tableHeader}>
-              <View style={[styles.headerCell, { width: RANK_WIDTH }]}>
+              <View style={[styles.headerCell, styles.rankHeaderCell, { width: RANK_WIDTH }]}>
                 <Text style={styles.headerText}>Rank</Text>
               </View>
-              <View style={[styles.headerCell, { width: PLAYER_WIDTH }]}>
+              <View style={[styles.headerCell, styles.playerHeaderCell]}>
                 <Text style={styles.headerText}>Player</Text>
               </View>
               <View style={[styles.headerCell, { width: STAT_WIDTH }]}>
@@ -277,7 +284,7 @@ export default function StandingsScreen() {
               <View style={[styles.headerCell, { width: STAT_WIDTH }]}>
                 <Text style={styles.headerText}>L</Text>
               </View>
-              <View style={[styles.headerCell, { width: POINTS_WIDTH }]}>
+              <View style={[styles.headerCell, styles.ptsHeaderCell, { width: POINTS_WIDTH }]}>
                 <Text style={styles.headerText}>Pts</Text>
               </View>
             </View>
@@ -290,7 +297,7 @@ export default function StandingsScreen() {
                   standing.odlayerId === userId || 
                   standing.user?.id === userId
                 );
-                return renderStandingRow(standing, index, !!isUserRow);
+                return renderStandingRow(standing, index, !!isUserRow, isUserDivision);
               })
             ) : (
               <View style={styles.emptyStandings}>
@@ -303,8 +310,8 @@ export default function StandingsScreen() {
               style={styles.viewResultsLink}
               onPress={() => toggleDivision(division.id)}
             >
-              <Text style={[styles.viewResultsText, { color: sportColors.background }]}>View Results</Text>
-              <Ionicons name="chevron-down" size={16} color={sportColors.background} />
+              <Text style={styles.viewResultsText}>View Results</Text>
+              <Ionicons name="chevron-down" size={16} color="#F09433" />
             </TouchableOpacity>
           </View>
         )}
@@ -327,7 +334,7 @@ export default function StandingsScreen() {
           onPress={() => router.back()}
           activeOpacity={0.7}
         >
-          <Ionicons name="chevron-back" size={24} color="#FFFFFF" />
+          <Ionicons name="chevron-back" size={24} color="#000000" />
         </TouchableOpacity>
 
         {/* Header Content */}
@@ -434,8 +441,7 @@ const styles = StyleSheet.create({
   },
   dateRange: {
     fontSize: 12,
-    color: '#FFFFFF',
-    opacity: 0.85,
+    color: '#000000',
   },
   content: {
     flex: 1,
@@ -484,7 +490,7 @@ const styles = StyleSheet.create({
     paddingBottom: 40,
   },
   divisionCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#F5F7FA',
     borderRadius: 16,
     marginBottom: 16,
     overflow: 'hidden',
@@ -502,7 +508,8 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 16,
     paddingVertical: 14,
-    borderBottomWidth: 1,
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
   },
   divisionHeaderLeft: {
     flexDirection: 'row',
@@ -530,12 +537,12 @@ const styles = StyleSheet.create({
   },
   standingsTable: {
     paddingHorizontal: 8,
-    paddingVertical: 8,
+    paddingVertical: 4,
   },
   tableHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 8,
+    paddingVertical: 10,
     paddingHorizontal: 8,
     borderBottomWidth: 1,
     borderBottomColor: '#E5E7EB',
@@ -543,6 +550,16 @@ const styles = StyleSheet.create({
   headerCell: {
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  rankHeaderCell: {
+    alignItems: 'flex-start',
+  },
+  playerHeaderCell: {
+    alignItems: 'flex-start',
+    flex: 1,
+  },
+  ptsHeaderCell: {
+    alignItems: 'flex-end',
   },
   headerText: {
     fontSize: 12,
@@ -552,24 +569,26 @@ const styles = StyleSheet.create({
   standingRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 10,
-    paddingHorizontal: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
-  },
-  evenRow: {
-    backgroundColor: '#FAFBFC',
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    marginBottom: 8,
   },
   userRow: {
-    backgroundColor: '#EBF5FF',
+    backgroundColor: '#FFFFFF',
   },
   cell: {
     alignItems: 'center',
     justifyContent: 'center',
   },
+  rankCell: {
+    alignItems: 'flex-start',
+  },
   playerCell: {
     flexDirection: 'row',
     alignItems: 'center',
+    flex: 1,
   },
   rankText: {
     fontSize: 14,
@@ -614,6 +633,10 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
   },
+  pointsCell: {
+    alignItems: 'flex-end',
+    justifyContent: 'center',
+  },
   emptyStandings: {
     padding: 24,
     alignItems: 'center',
@@ -632,6 +655,7 @@ const styles = StyleSheet.create({
   viewResultsText: {
     fontSize: 13,
     fontWeight: '500',
+    color: '#F09433',
     marginRight: 4,
   },
 });

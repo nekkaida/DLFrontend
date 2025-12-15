@@ -13,6 +13,7 @@ export const SPORT_COLORS: Record<SportType, SportColors> = {
   PICKLEBALL: {
     background: '#A04DFE',
     badgeColor: '#A855F7',
+    header:'#A04DFE',
     label: 'PICKLEBALL',
     buttonColor: '#602E98',
     icon: 'disc',
@@ -21,6 +22,7 @@ export const SPORT_COLORS: Record<SportType, SportColors> = {
   TENNIS: {
     background: '#65B741',
     badgeColor: '#22C55E',
+    header:'#A2E047',
     label: 'TENNIS',
     buttonColor: '#587A27',
     icon: 'tennisball',
@@ -29,6 +31,7 @@ export const SPORT_COLORS: Record<SportType, SportColors> = {
   PADEL: {
     background: '#3B82F6',
     badgeColor: '#60A5FA',
+    header:'#4DABFE',
     label: 'PADEL',
     buttonColor: '#2E6698',
     icon: 'tennisball',
