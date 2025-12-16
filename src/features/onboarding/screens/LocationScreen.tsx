@@ -268,8 +268,8 @@ const LocationScreen = () => {
 
         // Format: "District, City" (e.g., "Bandar Sunway, Subang Jaya")
         // expo-location returns: district = suburb, city = city name
-        const district = address.district || address.subLocality || '';
-        const city = address.city || address.locality || '';
+        const district = address.district || (address as any).subLocality || '';
+        const city = address.city || (address as any).locality || '';
         const postcode = address.postalCode || '';
         const state = address.region || '';
 
