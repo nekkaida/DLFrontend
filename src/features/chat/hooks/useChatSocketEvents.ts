@@ -176,9 +176,10 @@ export const useChatSocketEvents = (threadId: string | null, currentUserId: stri
       
       // Update the match message in the current thread if it exists
       if (data.matchId && data.threadId === currentThreadIdRef.current) {
-        const messages = useChatStore.getState().messages;
-        const matchMessage = messages.find(
-          m => m.matchData && (m.matchData as any).matchId === data.matchId
+        const messagesMap = useChatStore.getState().messages;
+        const threadMessages = messagesMap[data.threadId] || [];
+        const matchMessage = threadMessages.find(
+          (m: any) => m.matchData && (m.matchData as any).matchId === data.matchId
         );
         
         if (matchMessage) {
