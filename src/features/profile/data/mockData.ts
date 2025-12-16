@@ -74,6 +74,7 @@ export const userData: UserData = {
     { id: '2', title: 'Tournament Winner', icon: 'medal-outline', year: '2024' },
     { id: '3', title: 'Most Improved', icon: 'trending-up-outline' },
   ],
+  leagueStats: null,
 };
 
 export const gameTypeOptions = ['Singles', 'Doubles'];
