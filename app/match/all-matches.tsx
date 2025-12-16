@@ -242,7 +242,7 @@ export default function AllMatchesScreen() {
           courtBooked: match.courtBooked ? 'true' : 'false',
           fee: match.fee || 'FREE',
           feeAmount: String(match.feeAmount || '0.00'),
-          description: match.notes || match.description || '',
+          description: (match as any).notes || match.description || '',
           duration: String(duration),
           divisionId: divisionId,
           seasonId: match.division?.season?.id || '',
