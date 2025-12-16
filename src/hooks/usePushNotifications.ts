@@ -31,8 +31,8 @@ export function usePushNotifications(): UsePushNotificationsReturn {
   const [error, setError] = useState<string | null>(null);
   const [lastNotification, setLastNotification] = useState<Notifications.Notification | null>(null);
 
-  const notificationListener = useRef<Notifications.Subscription>();
-  const responseListener = useRef<Notifications.Subscription>();
+  const notificationListener = useRef<Notifications.Subscription | undefined>(undefined);
+  const responseListener = useRef<Notifications.Subscription | undefined>(undefined);
 
   // Handle notification tap - navigate based on notification data
   const handleNotificationResponse = useCallback(
@@ -42,11 +42,11 @@ export function usePushNotifications(): UsePushNotificationsReturn {
 
       // Navigate based on notification type
       if (data?.matchId) {
-        router.push(`/user-dashboard/matches/${data.matchId}`);
+        router.push(`/user-dashboard/matches/${data.matchId}` as any);
       } else if (data?.threadId) {
-        router.push(`/user-dashboard/chat/${data.threadId}`);
+        router.push(`/user-dashboard/chat/${data.threadId}` as any);
       } else if (data?.type === 'ADMIN_MESSAGE') {
-        router.push('/user-dashboard/notifications');
+        router.push('/user-dashboard/notifications' as any);
       }
     },
     [router]
