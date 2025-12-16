@@ -1,6 +1,7 @@
 import { getSportColors, SportType } from '@/constants/SportsColor';
 import { endpoints } from '@/lib/endpoints';
 import axiosInstance from '@/lib/endpoints';
+import { useSession } from '@/lib/auth-client';
 import { Ionicons } from '@expo/vector-icons';
 import { format } from 'date-fns';
 import { router, useLocalSearchParams } from 'expo-router';
@@ -35,6 +36,21 @@ interface StandingsTeam {
   wins: number;
   losses: number;
   points: number;
+}
+
+interface Division {
+  id: string;
+  name: string;
+  gameType: string;
+  genderCategory?: string;
+  standings?: StandingsPlayer[];
+  groupedStandings?: StandingsTeam[];
+  results?: MatchResult[];
+  resultsLoading?: boolean;
+  showResults?: boolean;
+  scrollProgress?: number;
+  scrollViewWidth?: number;
+  contentWidth?: number;
 }
 
 interface MatchPlayer {
@@ -83,24 +99,17 @@ interface MatchResult {
 export default function DivisionStandingsScreen() {
   const insets = useSafeAreaInsets();
   const params = useLocalSearchParams();
-  const [showResults, setShowResults] = useState(false);
-  const [standings, setStandings] = useState<StandingsPlayer[]>([]);
-  const [groupedStandings, setGroupedStandings] = useState<StandingsTeam[]>([]);
+  const { data: session } = useSession();
+  const currentUserId = session?.user?.id || '';
+  const [divisions, setDivisions] = useState<Division[]>([]);
   const [loading, setLoading] = useState(true);
-  const [results, setResults] = useState<MatchResult[]>([]);
-  const [resultsLoading, setResultsLoading] = useState(false);
-  const [scrollProgress, setScrollProgress] = useState(0);
-  const [scrollViewWidth, setScrollViewWidth] = useState(0);
-  const [contentWidth, setContentWidth] = useState(0);
+  const [seasonId, setSeasonId] = useState<string>('');
 
   // Get params from parent
   const divisionId = params.divisionId as string;
-  const divisionName = (params.divisionName as string) || 'Division 1';
   const sportType = (params.sportType as string) as SportType;
   const leagueName = (params.leagueName as string) || 'Petaling Jaya Padel League';
   const seasonName = (params.seasonName as string) || 'Season 1 (2025)';
-  const gameType = (params.gameType as string) || 'Mens Doubles';
-  const genderCategory = (params.genderCategory as string) || '';
   const seasonStartDate = params.seasonStartDate as string;
   const seasonEndDate = params.seasonEndDate as string;
 
@@ -126,42 +135,97 @@ export default function DivisionStandingsScreen() {
     return gender;
   };
 
-  const gameTypeBadgeText = genderCategory 
-    ? `${formatGenderCategory(genderCategory)} ${gameType}`
-    : gameType;
-
-  // Check if this is a doubles division
-  const isDoubles = gameType?.toLowerCase().includes('doubles') || false;
-
-  // Fetch standings data
+  // Fetch all divisions for the season
   useEffect(() => {
     if (divisionId) {
-      fetchStandings();
+      fetchDivisionsForSeason();
     }
   }, [divisionId]);
 
-  // Fetch results when View Results is expanded
-  useEffect(() => {
-    if (showResults && divisionId && results.length === 0) {
-      fetchResults();
-    }
-  }, [showResults, divisionId]);
 
-
-  const fetchStandings = async () => {
+  const fetchDivisionsForSeason = async () => {
     try {
       setLoading(true);
+      
+      // First, get the division details to obtain the seasonId
+      const divisionResponse = await axiosInstance.get(
+        endpoints.division.getById(divisionId)
+      );
+      
+      console.log('📊 Division response:', divisionResponse.data);
+      
+      // Handle response structure: {data: {...}, success: true} or {division: {...}}
+      const divisionData = divisionResponse.data.data || divisionResponse.data.division || divisionResponse.data;
+      const fetchedSeasonId = divisionData.seasonId;
+      
+      console.log('📊 Extracted seasonId:', fetchedSeasonId);
+      
+      if (!fetchedSeasonId) {
+        console.error('No seasonId found for division', divisionData);
+        setLoading(false);
+        return;
+      }
+      
+      setSeasonId(fetchedSeasonId);
+      
+      // Now fetch all divisions for this season
+      const divisionsResponse = await axiosInstance.get(
+        endpoints.division.getbySeasionId(fetchedSeasonId)
+      );
+      
+      const divisionsData = divisionsResponse.data.data || divisionsResponse.data || [];
+      
+      // Initialize divisions with basic data
+      const initializedDivisions: Division[] = divisionsData.map((div: any) => ({
+        id: div.id,
+        name: div.name,
+        gameType: div.gameType,
+        genderCategory: div.genderCategory,
+        standings: [],
+        groupedStandings: [],
+        results: [],
+        resultsLoading: false,
+        showResults: false,
+      }));
+      
+      setDivisions(initializedDivisions);
+      
+      // Fetch standings for each division
+      await Promise.all(
+        initializedDivisions.map((division) => fetchStandingsForDivision(division.id))
+      );
+      
+      // Pre-fetch results for all divisions so they're ready when users click "View Results"
+      // Set resultsLoading to true immediately for all divisions
+      setDivisions((prevDivisions) =>
+        prevDivisions.map((div) => ({ ...div, resultsLoading: true }))
+      );
+      
+      // Then fetch results for all divisions
+      initializedDivisions.forEach((division) => {
+        fetchResultsForDivision(division.id);
+      });
+      
+    } catch (error) {
+      console.error('Error fetching divisions for season:', error);
+      setDivisions([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchStandingsForDivision = async (divId: string) => {
+    try {
       const response = await axiosInstance.get(
-        endpoints.standings.getDivisionStandings(divisionId)
+        endpoints.standings.getDivisionStandings(divId)
       );
 
-      console.log('📊 Standings response:', response.data);
+      console.log(`📊 Standings response for division ${divId}:`, response.data);
 
       // Handle response structure: {data: [], success: true}
       const standingsData = response.data.data || response.data || [];
       
       // Transform backend data to match our interface
-      // Backend returns: odlayerName, odlayerImage OR user.name, user.image
       const transformedStandings: StandingsPlayer[] = standingsData.map((standing: any, index: number) => ({
         rank: standing.rank || index + 1,
         playerId: standing.odlayerId || standing.userId || standing.playerId,
@@ -173,23 +237,24 @@ export default function DivisionStandingsScreen() {
         points: standing.totalPoints || 0,
       }));
 
-      setStandings(transformedStandings);
-
-      // If doubles, group players by matching stats (teams share same stats)
-      if (isDoubles) {
-        const grouped = groupPlayersByTeam(transformedStandings);
-        console.log('📊 Grouped standings:', grouped.length, 'teams from', transformedStandings.length, 'players');
-        setGroupedStandings(grouped);
-      } else {
-        setGroupedStandings([]);
-      }
+      // Update the specific division
+      setDivisions((prevDivisions) =>
+        prevDivisions.map((div) => {
+          if (div.id === divId) {
+            const isDoubles = div.gameType?.toLowerCase().includes('doubles') || false;
+            const grouped = isDoubles ? groupPlayersByTeam(transformedStandings) : [];
+            
+            return {
+              ...div,
+              standings: transformedStandings,
+              groupedStandings: grouped,
+            };
+          }
+          return div;
+        })
+      );
     } catch (error) {
-      console.error('Error fetching standings:', error);
-      // Keep empty array on error
-      setStandings([]);
-      setGroupedStandings([]);
-    } finally {
-      setLoading(false);
+      console.error(`Error fetching standings for division ${divId}:`, error);
     }
   };
 
@@ -234,33 +299,67 @@ export default function DivisionStandingsScreen() {
     return teams.sort((a, b) => a.rank - b.rank);
   };
 
-  const fetchResults = async () => {
+  const fetchResultsForDivision = async (divId: string) => {
     try {
-      setResultsLoading(true);
+      // Set loading for this specific division
+      setDivisions((prevDivisions) =>
+        prevDivisions.map((div) =>
+          div.id === divId ? { ...div, resultsLoading: true } : div
+        )
+      );
+
       const response = await axiosInstance.get(
-        endpoints.match.getDivisionResults(divisionId),
+        endpoints.match.getDivisionResults(divId),
         { params: { limit: 10 } }
       );
 
-      console.log('🏆 Results response:', response.data);
+      console.log(`🏆 Results response for division ${divId}:`, response.data);
 
       const matchesData = response.data.matches || response.data.data || [];
-      setResults(matchesData);
+      
+      // Update the specific division with results
+      setDivisions((prevDivisions) =>
+        prevDivisions.map((div) =>
+          div.id === divId
+            ? { ...div, results: matchesData, resultsLoading: false }
+            : div
+        )
+      );
     } catch (error) {
-      console.error('Error fetching results:', error);
-      setResults([]);
-    } finally {
-      setResultsLoading(false);
+      console.error(`Error fetching results for division ${divId}:`, error);
+      setDivisions((prevDivisions) =>
+        prevDivisions.map((div) =>
+          div.id === divId
+            ? { ...div, results: [], resultsLoading: false }
+            : div
+        )
+      );
     }
+  };
+
+  const toggleShowResults = (divId: string) => {
+    setDivisions((prevDivisions) =>
+      prevDivisions.map((div) => {
+        if (div.id === divId) {
+          const newShowResults = !div.showResults;
+          // Fetch results if expanding and no results yet and not already loading
+          if (newShowResults && (!div.results || div.results.length === 0) && !div.resultsLoading) {
+            fetchResultsForDivision(divId);
+          }
+          return { ...div, showResults: newShowResults };
+        }
+        return div;
+      })
+    );
   };
 
   const sportColors = getSportColors(sportType);
 
-  const handleViewMatches = () => {
+  const handleViewMatches = (divId: string) => {
     router.push({
       pathname: '/match/all-matches',
       params: {
-        divisionId,
+        divisionId: divId,
         sportType,
         leagueName,
         seasonName,
@@ -472,7 +571,226 @@ export default function DivisionStandingsScreen() {
 
   const isPickleball = sportType?.toLowerCase() === 'pickleball';
 
-  const renderResultCard = (match: MatchResult, index: number) => {
+  // Check if current user is in a division's standings
+  const isUserInDivision = (division: Division): boolean => {
+    if (!currentUserId) return false;
+    const standings = division.standings || [];
+    const groupedStandings = division.groupedStandings || [];
+    
+    // Check individual standings
+    const inIndividualStandings = standings.some(player => player.playerId === currentUserId);
+    
+    // Check grouped standings (for doubles teams)
+    const inGroupedStandings = groupedStandings.some(team => 
+      team.players.some(player => player.playerId === currentUserId)
+    );
+    
+    return inIndividualStandings || inGroupedStandings;
+  };
+
+  const renderDivisionCard = (division: Division) => {
+    const isDoubles = division.gameType?.toLowerCase().includes('doubles') || false;
+    const standings = division.standings || [];
+    const groupedStandings = division.groupedStandings || [];
+    const results = division.results || [];
+    const resultsLoading = division.resultsLoading || false;
+    const showResults = division.showResults || false;
+    const userInDivision = isUserInDivision(division);
+
+    // Format division name with gender category
+    const gameTypeBadgeText = division.genderCategory 
+      ? `${formatGenderCategory(division.genderCategory)} ${division.gameType}`
+      : division.gameType;
+
+    // Conditional styling for division container
+    const divisionContainerStyle = [
+      styles.divisionContainer,
+      { marginBottom: 20 },
+      userInDivision 
+        ? {
+            backgroundColor: '#E9F3F8',
+            borderWidth: 1,
+            borderColor: '#C7E3F2',
+            shadowColor: '#000',
+            shadowOffset: {
+              width: 0,
+              height: 2,
+            },
+            shadowOpacity: 0.1,
+            shadowRadius: 4,
+            elevation: 3,
+          }
+        : {
+            backgroundColor: '#F6FAFC',
+          },
+    ];
+
+    return (
+      <View key={division.id} style={divisionContainerStyle}>
+        {/* Division Header - Sport themed */}
+        <View style={[styles.divisionHeader, { backgroundColor: sportColors.background }]}>
+          <Text style={styles.divisionName}>{division.name}</Text>
+          <TouchableOpacity
+            style={styles.viewMatchesButton}
+            onPress={() => handleViewMatches(division.id)}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.viewMatchesText}>View Matches</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Standings Table Container */}
+        <View style={[
+          styles.standingsTableContainer,
+          userInDivision 
+            ? { backgroundColor: '#E9F3F8' }
+            : { backgroundColor: '#F6FAFC' }
+        ]}>
+          {/* Table Header */}
+          <View style={styles.tableHeader}>
+            <View style={styles.rankHeaderCell}>
+              <Text style={styles.headerText}>#</Text>
+            </View>
+            <View style={styles.playerHeaderCell}>
+              <Text style={styles.headerText}>Player</Text>
+            </View>
+            <View style={styles.statHeaderCell}>
+              <Text style={styles.headerText}>P</Text>
+            </View>
+            <View style={styles.statHeaderCell}>
+              <Text style={styles.headerText}>W</Text>
+            </View>
+            <View style={styles.statHeaderCell}>
+              <Text style={styles.headerText}>L</Text>
+            </View>
+            <View style={styles.ptsHeaderCell}>
+              <Text style={styles.headerText}>Pts</Text>
+            </View>
+          </View>
+
+          {/* Table Body - Individual player cards */}
+          <View style={styles.tableBody}>
+            {standings.length === 0 ? (
+              <View style={styles.emptyContainer}>
+                <Ionicons name="trophy-outline" size={48} color="#D1D5DB" />
+                <Text style={styles.emptyTitle}>No Standings Yet</Text>
+                <Text style={styles.emptyText}>
+                  Standings will appear once matches are completed
+                </Text>
+              </View>
+            ) : isDoubles ? (
+              // Render grouped teams for doubles
+              groupedStandings.length > 0 ? (
+                groupedStandings.map((team, index) => renderTeamRow(team, index + 1))
+              ) : (
+                // Fallback: if grouping failed, show individual players
+                standings.map((player, index) => renderPlayerRow(player, index))
+              )
+            ) : (
+              // Render individual players for singles
+              standings.map((player, index) => renderPlayerRow(player, index))
+            )}
+          </View>
+        </View>
+
+        {/* View Results Toggle */}
+        <TouchableOpacity
+          style={styles.viewResultsButton}
+          onPress={() => toggleShowResults(division.id)}
+          activeOpacity={0.7}
+        >
+          <Text style={styles.viewResultsText}>View Results</Text>
+          <Ionicons
+            name={showResults ? 'chevron-up' : 'chevron-down'}
+            size={16}
+            color="#F09433"
+          />
+        </TouchableOpacity>
+
+        {/* Results Section - Horizontal Scroll */}
+        {showResults && (
+          <View style={styles.resultsSectionNew}>
+            {resultsLoading ? (
+              <View style={styles.resultsLoadingContainer}>
+                <ActivityIndicator size="small" color={sportColors.background} />
+                <Text style={styles.resultsLoadingText}>Loading results...</Text>
+              </View>
+            ) : results.length === 0 ? (
+              <View style={styles.noResultsContainer}>
+                <Ionicons name="document-text-outline" size={32} color="#D1D5DB" />
+                <Text style={styles.noResultsText}>No completed matches yet</Text>
+              </View>
+            ) : (
+              <>
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  decelerationRate="fast"
+                  snapToInterval={CARD_WIDTH + CARD_GAP}
+                  snapToAlignment="start"
+                  contentContainerStyle={styles.resultsScrollContent}
+                  onScroll={(event) => {
+                    const { contentOffset, contentSize, layoutMeasurement } = event.nativeEvent;
+                    const scrollX = contentOffset.x;
+                    const maxScrollX = contentSize.width - layoutMeasurement.width;
+                    const progress = maxScrollX > 0 ? scrollX / maxScrollX : 0;
+                    setDivisions((prevDivisions) =>
+                      prevDivisions.map((div) =>
+                        div.id === division.id
+                          ? { ...div, scrollProgress: progress }
+                          : div
+                      )
+                    );
+                  }}
+                  onContentSizeChange={(width) => {
+                    setDivisions((prevDivisions) =>
+                      prevDivisions.map((div) =>
+                        div.id === division.id
+                          ? { ...div, contentWidth: width }
+                          : div
+                      )
+                    );
+                  }}
+                  onLayout={(event) => {
+                    const layoutWidth = event.nativeEvent.layout.width;
+                    setDivisions((prevDivisions) =>
+                      prevDivisions.map((div) =>
+                        div.id === division.id
+                          ? { ...div, scrollViewWidth: layoutWidth }
+                          : div
+                      )
+                    );
+                  }}
+                  scrollEventThrottle={16}
+                >
+                  {results.map((match, index) => renderResultCard(match, index, results.length))}
+                </ScrollView>
+                {/* Progress Slider */}
+                {division.contentWidth && division.scrollViewWidth && division.contentWidth > division.scrollViewWidth && (
+                  <View style={styles.progressContainer}>
+                    <View style={styles.progressTrack}>
+                      <View
+                        style={[
+                          styles.progressBar,
+                          {
+                            width: `${(division.scrollViewWidth / division.contentWidth) * 100}%`,
+                            left: `${(division.scrollProgress || 0) * (100 - (division.scrollViewWidth / division.contentWidth) * 100)}%`,
+                            backgroundColor: sportColors.background,
+                          },
+                        ]}
+                      />
+                    </View>
+                  </View>
+                )}
+              </>
+            )}
+          </View>
+        )}
+      </View>
+    );
+  };
+
+  const renderResultCard = (match: MatchResult, index: number, totalResults: number) => {
     const isTeam1Winner = match.outcome === 'team1';
     const isTeam2Winner = match.outcome === 'team2';
     const scores = isPickleball ? match.gameScores : match.setScores;
@@ -484,7 +802,7 @@ export default function DivisionStandingsScreen() {
         style={[
           styles.resultCardNew,
           { width: CARD_WIDTH, marginLeft: index === 0 ? 0 : CARD_GAP },
-          index === results.length - 1 && { marginRight: 0 },
+          index === totalResults - 1 && { marginRight: 0 },
         ]}
       >
         {/* Venue Name */}
@@ -677,9 +995,6 @@ export default function DivisionStandingsScreen() {
         <View style={styles.headerContent}>
           <Text style={styles.seasonTitle}>{seasonName}</Text>
           <Text style={styles.leagueTitle}>{leagueName}</Text>
-          <View style={[styles.sportBadge, { backgroundColor: sportColors.background }]}>
-            <Text style={styles.sportBadgeText}>{gameTypeBadgeText}</Text>
-          </View>
           <View style={styles.dateRange}>
             <Text style={styles.dateText}>Start date: {startDate}</Text>
             <Text style={styles.dateText}>End date: {endDate}</Text>
@@ -692,148 +1007,22 @@ export default function DivisionStandingsScreen() {
         <View style={styles.standingsSection}>
           <Text style={styles.standingsTitle}>Standings</Text>
 
-          {/* Division Container - Contains both standings and results */}
-          <View style={styles.divisionContainer}>
-            {/* Division Header - Sport themed */}
-            <View style={[styles.divisionHeader, { backgroundColor: sportColors.background }]}>
-              <Text style={styles.divisionName}>{divisionName}</Text>
-              <TouchableOpacity
-                style={styles.viewMatchesButton}
-                onPress={handleViewMatches}
-                activeOpacity={0.7}
-              >
-                <Text style={styles.viewMatchesText}>View Matches</Text>
-              </TouchableOpacity>
+          {loading ? (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="large" color={sportColors.background} />
+              <Text style={styles.loadingText}>Loading divisions...</Text>
             </View>
-
-            {/* Standings Table Container */}
-            <View style={styles.standingsTableContainer}>
-            {/* Table Header */}
-            <View style={styles.tableHeader}>
-              <View style={styles.rankHeaderCell}>
-                <Text style={styles.headerText}>#</Text>
-              </View>
-              <View style={styles.playerHeaderCell}>
-                <Text style={styles.headerText}>Player</Text>
-              </View>
-              <View style={styles.statHeaderCell}>
-                <Text style={styles.headerText}>P</Text>
-              </View>
-              <View style={styles.statHeaderCell}>
-                <Text style={styles.headerText}>W</Text>
-              </View>
-              <View style={styles.statHeaderCell}>
-                <Text style={styles.headerText}>L</Text>
-              </View>
-              <View style={styles.ptsHeaderCell}>
-                <Text style={styles.headerText}>Pts</Text>
-              </View>
+          ) : divisions.length === 0 ? (
+            <View style={styles.emptyContainer}>
+              <Ionicons name="trophy-outline" size={48} color="#D1D5DB" />
+              <Text style={styles.emptyTitle}>No Divisions Found</Text>
+              <Text style={styles.emptyText}>
+                No divisions available for this season
+              </Text>
             </View>
-
-              {/* Table Body - Individual player cards */}
-            <View style={styles.tableBody}>
-              {loading ? (
-                <View style={styles.loadingContainer}>
-                  <ActivityIndicator size="large" color={sportColors.background} />
-                  <Text style={styles.loadingText}>Loading standings...</Text>
-                </View>
-              ) : standings.length === 0 ? (
-                <View style={styles.emptyContainer}>
-                  <Ionicons name="trophy-outline" size={48} color="#D1D5DB" />
-                  <Text style={styles.emptyTitle}>No Standings Yet</Text>
-                  <Text style={styles.emptyText}>
-                    Standings will appear once matches are completed
-                  </Text>
-                </View>
-              ) : isDoubles ? (
-                // Render grouped teams for doubles (show all teams, even if only 1)
-                groupedStandings.length > 0 ? (
-                  groupedStandings.map((team, index) => renderTeamRow(team, index + 1))
-                ) : (
-                  // Fallback: if grouping failed, show individual players
-                  standings.map((player, index) => renderPlayerRow(player, index))
-                )
-              ) : (
-                // Render individual players for singles
-                standings.map((player, index) => renderPlayerRow(player, index))
-              )}
-              </View>
-            </View>
-
-            {/* View Results Toggle - Aligned left with Rank column */}
-            <TouchableOpacity
-              style={styles.viewResultsButton}
-              onPress={() => setShowResults(!showResults)}
-              activeOpacity={0.7}
-            >
-              <Text style={styles.viewResultsText}>View Results</Text>
-              <Ionicons
-                name={showResults ? 'chevron-up' : 'chevron-down'}
-                size={16}
-                color="#F09433"
-              />
-            </TouchableOpacity>
-
-            {/* Results Section - Horizontal Scroll (inside same container) */}
-            {showResults && (
-              <View style={styles.resultsSectionNew}>
-                {resultsLoading ? (
-                  <View style={styles.resultsLoadingContainer}>
-                    <ActivityIndicator size="small" color={sportColors.background} />
-                    <Text style={styles.resultsLoadingText}>Loading results...</Text>
-                  </View>
-                ) : results.length === 0 ? (
-                  <View style={styles.noResultsContainer}>
-                    <Ionicons name="document-text-outline" size={32} color="#D1D5DB" />
-                    <Text style={styles.noResultsText}>No completed matches yet</Text>
-                  </View>
-                ) : (
-                  <>
-                    <ScrollView
-                      horizontal
-                      showsHorizontalScrollIndicator={false}
-                      decelerationRate="fast"
-                      snapToInterval={CARD_WIDTH + CARD_GAP}
-                      snapToAlignment="start"
-                      contentContainerStyle={styles.resultsScrollContent}
-                      onScroll={(event) => {
-                        const scrollX = event.nativeEvent.contentOffset.x;
-                        const maxScrollX = event.nativeEvent.contentSize.width - event.nativeEvent.layoutMeasurement.width;
-                        const progress = maxScrollX > 0 ? scrollX / maxScrollX : 0;
-                        setScrollProgress(progress);
-                      }}
-                      onContentSizeChange={(width) => {
-                        setContentWidth(width);
-                      }}
-                      onLayout={(event) => {
-                        setScrollViewWidth(event.nativeEvent.layout.width);
-                      }}
-                      scrollEventThrottle={16}
-                    >
-                      {results.map((match, index) => renderResultCard(match, index))}
-                    </ScrollView>
-                    {/* Progress Slider */}
-                    {contentWidth > scrollViewWidth && (
-                      <View style={styles.progressContainer}>
-                        <View style={styles.progressTrack}>
-                          <View
-                            style={[
-                              styles.progressBar,
-                              {
-                                width: `${(scrollViewWidth / contentWidth) * 100}%`,
-                                left: `${scrollProgress * (100 - (scrollViewWidth / contentWidth) * 100)}%`,
-                                backgroundColor: sportColors.background,
-                              },
-                            ]}
-                          />
-                        </View>
-                      </View>
-                    )}
-                  </>
-                )}
-              </View>
-            )}
-          </View>
+          ) : (
+            divisions.map((division) => renderDivisionCard(division))
+          )}
         </View>
       </ScrollView>
     </View>
@@ -911,7 +1100,7 @@ const styles = StyleSheet.create({
   },
   divisionContainer: {
     backgroundColor: '#E9F3F8',
-    borderRadius: 16,
+    borderRadius: 8,
     overflow: 'hidden',
     shadowColor: '#000',
     shadowOffset: {
@@ -928,7 +1117,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: '#863A73',
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingVertical: 6,
+    borderBottomLeftRadius: 8,
+    borderBottomRightRadius: 8,
   },
   divisionName: {
     fontSize: 17,
@@ -982,7 +1173,7 @@ const styles = StyleSheet.create({
   },
   tableBody: {
     paddingHorizontal: 0,
-    gap: 8,
+    gap: 4,
   },
   playerCard: {
     flexDirection: 'row',
@@ -1011,8 +1202,8 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   playerAvatar: {
-    width: 36,
-    height: 36,
+    width: 28,
+    height: 28,
     borderRadius: 18,
     overflow: 'hidden',
   },
@@ -1034,7 +1225,7 @@ const styles = StyleSheet.create({
   },
   playerName: {
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: '500',
     color: '#111827',
     flex: 1,
   },
@@ -1082,7 +1273,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   statText: {
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '500',
     color: '#1D1D1F',
   },
@@ -1091,7 +1282,7 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
   },
   ptsText: {
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '500',
     color: '#F59E0B',
   },

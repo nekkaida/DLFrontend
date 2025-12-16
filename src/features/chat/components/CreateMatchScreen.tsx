@@ -451,35 +451,48 @@ export const CreateMatchScreen: React.FC<CreateMatchScreenProps> = ({
             }}
           >
             <Text style={styles.sectionLabel}>Location</Text>
-            <View style={styles.inputCard}>
-              <Ionicons name="location-outline" size={22} color="#A04DFE" />
-              <TextInput
-                style={styles.textInput}
-                value={formData.location}
-                onChangeText={(text) => setFormData({ ...formData, location: text })}
-                placeholder="Select location"
-                placeholderTextColor="#BABABA"
-                onFocus={() => {
-                  // Scroll to location field when focused, positioning it above keyboard
-                  setTimeout(() => {
-                    scrollViewRef.current?.scrollTo({ y: locationY - 20, animated: true });
-                  }, 300);
-                }}
-              />
-            </View>
-            
-            {/* Court Booked Toggle - Below Location */}
-            <View style={styles.courtBookedCard}>
-              <Text style={styles.courtBookedLabel}>
-                Court booked?
-              </Text>
-              <Switch
-                value={formData.courtBooked}
-                onValueChange={(value) => setFormData({ ...formData, courtBooked: value })}
-                trackColor={{ false: '#D1D5DB', true: '#86EFAC' }}
-                thumbColor={formData.courtBooked ? '#22C55E' : '#F4F4F5'}
-                ios_backgroundColor="#D1D5DB"
-              />
+            <View style={styles.locationCard}>
+              <View style={styles.locationInputRow}>
+                <Ionicons name="location-outline" size={22} color="#A04DFE" />
+                <TextInput
+                  style={styles.textInput}
+                  value={formData.location}
+                  onChangeText={(text) => setFormData({ ...formData, location: text })}
+                  placeholder="Select location"
+                  placeholderTextColor="#BABABA"
+                  onFocus={() => {
+                    // Scroll to location field when focused, positioning it above keyboard
+                    setTimeout(() => {
+                      scrollViewRef.current?.scrollTo({ y: locationY - 20, animated: true });
+                    }, 300);
+                  }}
+                />
+              </View>
+              
+              {/* Court Booked Toggle */}
+              <View style={styles.courtBookedRow}>
+                <View style={styles.courtBookedLabelContainer}>
+                  <Ionicons 
+                    name="calendar-outline" 
+                    size={18} 
+                    color={formData.courtBooked ? '#22C55E' : '#86868B'} 
+                    style={styles.courtBookedIcon} 
+                  />
+                  <Text style={[
+                    styles.courtBookedLabel,
+                    formData.courtBooked && styles.courtBookedLabelChecked
+                  ]}>
+                    {formData.courtBooked ? 'Court booked' : 'Court booked?'}
+                  </Text>
+                </View>
+                <Switch
+                  value={formData.courtBooked}
+                  onValueChange={(value) => setFormData({ ...formData, courtBooked: value })}
+                  trackColor={{ false: '#D1D5DB', true: '#86EFAC' }}
+                  thumbColor={formData.courtBooked ? '#22C55E' : '#F4F4F5'}
+                  ios_backgroundColor="#D1D5DB"
+                />
+              </View>
             </View>
           </View>
 
@@ -860,6 +873,21 @@ const styles = StyleSheet.create({
   otherMonthText: {
     color: '#BABABA',
   },
+  locationCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#EAEAEA',
+    overflow: 'hidden',
+  },
+  locationInputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 14,
+    paddingTop: 14,
+    paddingBottom: 12,
+    gap: 12,
+  },
   inputCard: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -911,22 +939,36 @@ const styles = StyleSheet.create({
     marginTop: 8,
     textAlign: 'left',
   },
-  courtBookedCard: {
+  locationDivider: {
+    height: 1,
+    backgroundColor: '#EAEAEA',
+    marginHorizontal: 14,
+  },
+  courtBookedRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: '#EAEAEA',
     paddingHorizontal: 14,
-    paddingVertical: 16,
-    marginTop: 12,
+    paddingTop: 10,
+    paddingBottom: 14,
+    borderTopWidth: 1,
+    borderTopColor: '#F5F5F5',
+  },
+  courtBookedLabelContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  courtBookedIcon: {
+    marginRight: 0,
   },
   courtBookedLabel: {
     fontSize: 14,
     fontWeight: '500',
-    color: '#1D1D1F',
+    color: '#86868B',
+  },
+  courtBookedLabelChecked: {
+    color: '#22C55E',
   },
   playerCountRow: {
     flexDirection: 'row',

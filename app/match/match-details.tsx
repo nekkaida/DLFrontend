@@ -1745,7 +1745,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     marginHorizontal: 24,
     borderRadius: 12,
-    marginTop: 20,
   },
   descriptionTitle: {
     fontSize: 15,
