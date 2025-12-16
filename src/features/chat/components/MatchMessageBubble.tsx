@@ -9,6 +9,7 @@ import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { toast } from 'sonner-native';
 import { Message } from '../types';
 import { MatchInfoModal } from './MatchInfoModal';
+import { useChatStore } from '../stores/ChatStore';
 
 interface MatchMessageBubbleProps {
   message: Message;
@@ -23,12 +24,19 @@ export const MatchMessageBubble: React.FC<MatchMessageBubbleProps> = ({
 }) => {
   const { data: session } = useSession();
   const currentUserId = session?.user?.id;
-  const matchData = message.matchData;
-  const senderName = message.metadata?.sender?.name ||
+  const { updateMessage, messages } = useChatStore();
+  
+  // Get the latest message from store to ensure we have the most up-to-date data
+  const currentThreadId = message.threadId;
+  const latestMessage = messages[currentThreadId]?.find(m => m.id === message.id) || message;
+  const matchData = latestMessage.matchData || message.matchData;
+  const senderName = latestMessage.metadata?.sender?.name ||
+                    latestMessage.metadata?.sender?.username ||
+                    message.metadata?.sender?.name ||
                     message.metadata?.sender?.username ||
                     'Unknown';
-  const senderImage = message.metadata?.sender?.image || null;
-  const senderId = message.senderId;
+  const senderImage = latestMessage.metadata?.sender?.image || message.metadata?.sender?.image || null;
+  const senderId = latestMessage.senderId || message.senderId;
 
   // Get first name only for display
   const firstName = senderName.split(' ')[0];
@@ -37,11 +45,103 @@ export const MatchMessageBubble: React.FC<MatchMessageBubbleProps> = ({
   const [hasJoined, setHasJoined] = useState(false);
   const [isFetchingPartner, setIsFetchingPartner] = useState(false);
   const [hasAlreadyPlayed, setHasAlreadyPlayed] = useState(false);
+  const [timeRemaining, setTimeRemaining] = useState<string>('');
+  const [isExpired, setIsExpired] = useState(false);
+  const [isDeclining, setIsDeclining] = useState(false);
+  // Get the most up-to-date request status from multiple sources
+  const getLatestRequestStatus = () => {
+    // Priority: latestMessage from store > message prop matchData
+    const storeStatus = latestMessage.matchData?.requestStatus;
+    const propsStatus = message.matchData?.requestStatus;
+    return (storeStatus || propsStatus) as 'PENDING' | 'ACCEPTED' | 'DECLINED' | 'EXPIRED' | undefined;
+  };
+  
+  const [requestStatus, setRequestStatus] = useState<'PENDING' | 'ACCEPTED' | 'DECLINED' | 'EXPIRED' | undefined>(
+    getLatestRequestStatus()
+  );
+
+  // Sync requestStatus state with message prop changes and store updates
+  useEffect(() => {
+    const status = getLatestRequestStatus();
+    // Always update if we have a definitive status (not undefined/PENDING)
+    // This ensures declined/accepted/expired status is properly reflected
+    if (status && status !== requestStatus) {
+      setRequestStatus(status);
+    }
+  }, [matchData?.requestStatus, latestMessage.matchData?.requestStatus, message.matchData?.requestStatus]);
+  
+  // Also sync hasJoined state if user is in participants
+  useEffect(() => {
+    if (currentUserId && matchData?.participants) {
+      const userParticipant = matchData.participants.find((p: any) => 
+        (p.userId === currentUserId || p.id === currentUserId) && 
+        (p.invitationStatus === 'ACCEPTED' || !p.invitationStatus)
+      );
+      if (userParticipant && !hasJoined) {
+        setHasJoined(true);
+      }
+    }
+  }, [matchData?.participants, currentUserId, hasJoined]);
 
   if (!matchData) {
     console.log('❌ No matchData found for match message:', message.id);
     return null;
   }
+
+  // Check if this is a friendly match request
+  const isFriendlyRequest = matchData.isFriendlyRequest === true;
+  const requestStatusFromData = matchData.requestStatus as 'PENDING' | 'ACCEPTED' | 'DECLINED' | 'EXPIRED' | undefined;
+  const requestExpiresAt = matchData.requestExpiresAt;
+  const isRequestRecipient = currentUserId === matchData.requestRecipientId;
+  
+  // Use state for requestStatus if available, otherwise fall back to data
+  const currentRequestStatus = requestStatus !== undefined ? requestStatus : requestStatusFromData;
+
+  // Calculate time remaining for expiration timer
+  useEffect(() => {
+    if (!isFriendlyRequest || !requestExpiresAt || currentRequestStatus !== 'PENDING') {
+      return;
+    }
+
+    const calculateTimeRemaining = () => {
+      const now = new Date();
+      const expiresAt = new Date(requestExpiresAt);
+      const diff = expiresAt.getTime() - now.getTime();
+
+      if (diff <= 0) {
+        setIsExpired(true);
+        setTimeRemaining('Expired');
+        return;
+      }
+
+      const hours = Math.floor(diff / (1000 * 60 * 60));
+      const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+
+      if (hours > 0) {
+        setTimeRemaining(`Expires in ${hours}h ${minutes}m`);
+      } else if (minutes > 0) {
+        setTimeRemaining(`Expires in ${minutes}m`);
+      } else {
+        setTimeRemaining('Expires soon');
+      }
+    };
+
+    calculateTimeRemaining();
+    const interval = setInterval(calculateTimeRemaining, 60000); // Update every minute
+
+    return () => clearInterval(interval);
+  }, [isFriendlyRequest, requestExpiresAt, currentRequestStatus]);
+
+  // Check if expired on mount
+  useEffect(() => {
+    if (isFriendlyRequest && requestExpiresAt) {
+      const now = new Date();
+      const expiresAt = new Date(requestExpiresAt);
+      if (expiresAt < now) {
+        setIsExpired(true);
+      }
+    }
+  }, [isFriendlyRequest, requestExpiresAt]);
 
   // Helper functions for time formatting
   const formatDisplayDate = (dateString: string) => {
@@ -99,20 +199,76 @@ export const MatchMessageBubble: React.FC<MatchMessageBubbleProps> = ({
 
   // Check if current user is the one who posted the match
   const isMatchPoster = currentUserId === senderId;
+
+  // Handle decline request
+  const handleDeclineRequest = async () => {
+    if (!matchData.matchId || !currentUserId) {
+      toast.error('Unable to decline request');
+      return;
+    }
+
+    if (!isRequestRecipient) {
+      toast.error('You are not the recipient of this request');
+      return;
+    }
+
+    setIsDeclining(true);
+    try {
+      const backendUrl = getBackendBaseURL();
+      const response = await fetch(`${backendUrl}/api/friendly/${matchData.matchId}/decline`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-user-id': currentUserId,
+        },
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to decline request');
+      }
+
+      toast.success('Request declined');
+      // Update local state to reflect declined status
+      setRequestStatus('DECLINED');
+      
+      // Update message in chat store so UI reflects the change
+      if (matchData) {
+        const updatedMatchData = {
+          ...matchData,
+          requestStatus: 'DECLINED',
+        };
+        
+        updateMessage(latestMessage.id, {
+          matchData: updatedMatchData as any,
+        });
+      }
+    } catch (error: any) {
+      console.error('Error declining request:', error);
+      toast.error(error?.message || 'Failed to decline request');
+    } finally {
+      setIsDeclining(false);
+    }
+  };
   
   // Check if current user is already in the match
   const isUserInMatch = React.useMemo(() => {
     if (!currentUserId) return false;
     if (isMatchPoster) return true; // Match creator is always in the match
     if (hasJoined) return true; // User just joined
+    // For friendly requests, if status is ACCEPTED, user has joined
+    if (isFriendlyRequest && currentRequestStatus === 'ACCEPTED') return true;
     
     // Check if user is in participants array
     if (matchData.participants && matchData.participants.length > 0) {
-      return matchData.participants.some(p => p.userId === currentUserId);
+      return matchData.participants.some((p: any) => 
+        (p.userId === currentUserId || p.id === currentUserId) && 
+        (p.invitationStatus === 'ACCEPTED' || !p.invitationStatus)
+      );
     }
     
     return false;
-  }, [currentUserId, isMatchPoster, hasJoined, matchData.participants]);
+  }, [currentUserId, isMatchPoster, hasJoined, matchData.participants, isFriendlyRequest, currentRequestStatus]);
 
   // Check if match is already completed (has result)
   const isMatchCompleted = React.useMemo(() => {
@@ -199,6 +355,51 @@ export const MatchMessageBubble: React.FC<MatchMessageBubbleProps> = ({
       return;
     }
 
+    // If this is a friendly request, join directly via API
+    if (isFriendlyRequest) {
+      setIsFetchingPartner(true);
+      try {
+        const backendUrl = getBackendBaseURL();
+        const response = await fetch(`${backendUrl}/api/friendly/${matchData.matchId}/join`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-user-id': currentUserId,
+          },
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || 'Failed to join match');
+        }
+
+        const result = await response.json();
+        toast.success('Match request accepted!');
+        setHasJoined(true);
+        setRequestStatus('ACCEPTED');
+        
+        // Update message in chat store so UI reflects the change
+        if (matchData) {
+          const updatedMatchData = {
+            ...matchData,
+            requestStatus: 'ACCEPTED',
+            isFriendlyRequest: false,
+            participants: result.participants || matchData.participants || [],
+          };
+          
+          updateMessage(latestMessage.id, {
+            matchData: updatedMatchData as any,
+          });
+        }
+      } catch (error: any) {
+        console.error('Error joining friendly match:', error);
+        toast.error(error?.message || 'Failed to join match');
+      } finally {
+        setIsFetchingPartner(false);
+      }
+      return;
+    }
+
     setIsFetchingPartner(true);
     
     try {
@@ -269,12 +470,23 @@ export const MatchMessageBubble: React.FC<MatchMessageBubbleProps> = ({
             </View>
           )}
           <Text style={styles.senderName}>
-            <Text style={styles.senderNameBold}>{displayName}</Text>
-            {' posted a league match'}
+            {isFriendlyRequest && isMatchPoster ? (
+              <>
+                <Text style={styles.senderNameBold}>You</Text>
+                {' sent a friendly match request'}
+              </>
+            ) : (
+              <>
+                <Text style={styles.senderNameBold}>{displayName}</Text>
+                {isFriendlyRequest 
+                  ? ' sent you a friendly match request'
+                  : ' posted a league match'}
+              </>
+            )}
           </Text>
         </View>
         <Text style={styles.timestamp}>
-          {format(new Date(message.timestamp), 'HH:mm')}
+          {format(new Date(latestMessage.timestamp || message.timestamp), 'HH:mm')}
         </Text>
       </View>
 
@@ -282,7 +494,7 @@ export const MatchMessageBubble: React.FC<MatchMessageBubbleProps> = ({
         {/* Match Title Row with Sport Badge */}
         <View style={styles.titleRow}>
           <Text style={styles.matchTitle}>
-            {matchData.matchType === 'SINGLES' ? 'Singles' : matchData.matchType === 'DOUBLES' ? 'Doubles' : matchData.numberOfPlayers === '2' ? 'Singles' : 'Doubles'} League Match
+            {matchData.matchType === 'SINGLES' ? 'Singles' : matchData.matchType === 'DOUBLES' ? 'Doubles' : matchData.numberOfPlayers === '2' ? 'Singles' : 'Doubles'} {isFriendlyRequest ? 'Friendly Match' : 'League Match'}
           </Text>
           <View style={[styles.sportBadge, { borderColor: sportColors.badgeColor }]}>
             <Text style={[styles.sportBadgeText, { color: sportColors.badgeColor }]}>
@@ -290,6 +502,37 @@ export const MatchMessageBubble: React.FC<MatchMessageBubbleProps> = ({
             </Text>
           </View>
         </View>
+
+        {/* Expiration Timer for Friendly Requests */}
+        {isFriendlyRequest && currentRequestStatus === 'PENDING' && timeRemaining && (
+          <View style={styles.expirationRow}>
+            <Ionicons 
+              name="time-outline" 
+              size={14} 
+              color={isExpired || timeRemaining.includes('soon') ? '#DC2626' : '#6B7280'} 
+            />
+            <Text style={[
+              styles.expirationText,
+              (isExpired || timeRemaining.includes('soon')) && styles.expirationTextWarning
+            ]}>
+              {timeRemaining}
+            </Text>
+          </View>
+        )}
+
+        {/* Status Badge for Declined/Expired Requests */}
+        {isFriendlyRequest && (currentRequestStatus === 'DECLINED' || currentRequestStatus === 'EXPIRED' || isExpired) && (
+          <View style={styles.statusBadge}>
+            <Ionicons 
+              name={currentRequestStatus === 'DECLINED' ? "close-circle" : "time-outline"} 
+              size={14} 
+              color="#DC2626" 
+            />
+            <Text style={styles.statusBadgeText}>
+              {currentRequestStatus === 'DECLINED' ? 'Declined' : 'Expired'}
+            </Text>
+          </View>
+        )}
 
         {/* Main Content Row */}
         <View style={styles.contentRow}>
@@ -367,7 +610,34 @@ export const MatchMessageBubble: React.FC<MatchMessageBubbleProps> = ({
               >
                 <Text style={styles.infoButtonText}>Info</Text>
               </TouchableOpacity>
-              {hasAlreadyPlayed ? (
+              {isFriendlyRequest && isRequestRecipient && currentRequestStatus === 'PENDING' && !isExpired && !hasJoined && !isUserInMatch ? (
+                // Friendly request: Show Decline and Join buttons (only if not joined yet)
+                <>
+                  <TouchableOpacity
+                    style={styles.declineButton}
+                    activeOpacity={0.8}
+                    disabled={isDeclining}
+                    onPress={handleDeclineRequest}
+                  >
+                    <Text style={styles.declineButtonText}>
+                      {isDeclining ? 'Declining...' : 'Decline'}
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[
+                      styles.joinButton,
+                      { backgroundColor: sportColors.buttonColor }
+                    ]}
+                    activeOpacity={0.8}
+                    disabled={isFetchingPartner}
+                    onPress={handleOpenJoinMatch}
+                  >
+                    <Text style={styles.joinButtonText}>
+                      {isFetchingPartner ? 'Loading...' : 'Join match'}
+                    </Text>
+                  </TouchableOpacity>
+                </>
+              ) : hasAlreadyPlayed ? (
                 // Show "Played" badge when teams have already played this season
                 <View style={styles.playedBadge}>
                   <Ionicons name="checkmark-circle" size={14} color="#059669" />
@@ -377,14 +647,23 @@ export const MatchMessageBubble: React.FC<MatchMessageBubbleProps> = ({
                 <TouchableOpacity
                   style={[
                     styles.joinButton,
-                    { backgroundColor: (isUserInMatch || isMatchCompleted) ? '#9CA3AF' : sportColors.buttonColor }
+                    { 
+                      backgroundColor: (isUserInMatch || isMatchCompleted || (isFriendlyRequest && (isExpired || currentRequestStatus === 'DECLINED' || currentRequestStatus === 'EXPIRED'))) 
+                        ? '#9CA3AF' 
+                        : sportColors.buttonColor 
+                    }
                   ]}
-                  activeOpacity={(isUserInMatch || isMatchCompleted) ? 1 : 0.8}
-                  disabled={isUserInMatch || isFetchingPartner || isMatchCompleted}
+                  activeOpacity={(isUserInMatch || isMatchCompleted || (isFriendlyRequest && (isExpired || currentRequestStatus === 'DECLINED' || currentRequestStatus === 'EXPIRED'))) ? 1 : 0.8}
+                  disabled={isUserInMatch || isFetchingPartner || isMatchCompleted || (isFriendlyRequest && (isExpired || currentRequestStatus === 'DECLINED' || currentRequestStatus === 'EXPIRED'))}
                   onPress={handleOpenJoinMatch}
                 >
                   <Text style={styles.joinButtonText}>
-                    {isFetchingPartner ? 'Loading...' : isMatchCompleted ? 'Completed' : isUserInMatch ? 'Joined' : 'Join match'}
+                    {isFetchingPartner ? 'Loading...' 
+                      : isMatchCompleted ? 'Completed' 
+                      : isUserInMatch ? 'Joined' 
+                      : (isFriendlyRequest && (isExpired || currentRequestStatus === 'DECLINED' || currentRequestStatus === 'EXPIRED')) 
+                        ? (currentRequestStatus === 'DECLINED' ? 'Declined' : 'Expired')
+                        : 'Join match'}
                   </Text>
                 </TouchableOpacity>
               )}
@@ -592,5 +871,53 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
     color: '#059669',
+  },
+  expirationRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: -8,
+    marginBottom: 8,
+    gap: 4,
+  },
+  expirationText: {
+    fontSize: 12,
+    color: '#6B7280',
+    fontWeight: '500',
+  },
+  expirationTextWarning: {
+    color: '#DC2626',
+    fontWeight: '600',
+  },
+  statusBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: -8,
+    marginBottom: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+    backgroundColor: '#FEF2F2',
+    alignSelf: 'flex-start',
+    gap: 4,
+  },
+  statusBadgeText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#DC2626',
+  },
+  declineButton: {
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 16,
+    alignItems: 'center',
+    backgroundColor: '#FEF2F2',
+    borderWidth: 1,
+    borderColor: '#FECACA',
+    minWidth: 70,
+  },
+  declineButtonText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#DC2626',
   },
 });

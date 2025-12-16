@@ -203,6 +203,8 @@ export const endpoints = {
     join: (id: string) => `/api/friendly/${id}/join`,
     submitResult: (id: string) => `/api/friendly/${id}/result`,
     confirmResult: (id: string) => `/api/friendly/${id}/confirm`,
+    accept: (id: string) => `/api/friendly/${id}/accept`,
+    decline: (id: string) => `/api/friendly/${id}/decline`,
   },
 
   notifications: {

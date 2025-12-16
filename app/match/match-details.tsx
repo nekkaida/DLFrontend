@@ -886,9 +886,9 @@ export default function JoinMatchScreen() {
           {isFriendly ? (
             <FriendlyBadge />
           ) : (
-            <View style={styles.leagueBadge}>
-              <Text style={styles.leagueBadgeText}>LEAGUE</Text>
-            </View>
+          <View style={styles.leagueBadge}>
+            <Text style={styles.leagueBadgeText}>LEAGUE</Text>
+          </View>
           )}
         </View>
         
@@ -898,8 +898,8 @@ export default function JoinMatchScreen() {
             <Text style={styles.headerLeagueName}>Friendly Match</Text>
           ) : (
             <>
-              <Text style={styles.headerLeagueName}>{leagueName || 'League Match'}</Text>
-              <Text style={styles.headerSeason}>{season || 'Season 1'} - {division || 'Division 1'}</Text>
+          <Text style={styles.headerLeagueName}>{leagueName || 'League Match'}</Text>
+          <Text style={styles.headerSeason}>{season || 'Season 1'} - {division || 'Division 1'}</Text>
             </>
           )}
         </View>
@@ -1467,14 +1467,14 @@ export default function JoinMatchScreen() {
               // Match not started yet - Only show Cancel Match button if user can cancel
               if (!canStartMatch) {
                 if (canCancelMatch()) {
-                  return (
-                    <TouchableOpacity
+                return (
+                  <TouchableOpacity
                       style={[styles.joinButton, { backgroundColor: "#EF4444" }]}
                       onPress={() => cancelSheetRef.current?.present()}
-                    >
+                  >
                       <Text style={[styles.joinButtonText, { color: "#FFFFFF" }]}>Cancel Match</Text>
-                    </TouchableOpacity>
-                  );
+                  </TouchableOpacity>
+                );
                 }
                 // If match hasn't started and user can't cancel, don't show any button
                 return null;

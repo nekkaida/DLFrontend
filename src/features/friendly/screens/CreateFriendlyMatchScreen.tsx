@@ -32,6 +32,9 @@ interface CreateFriendlyMatchScreenProps {
   sport: 'pickleball' | 'tennis' | 'padel';
   onClose: () => void;
   onCreateMatch: (matchData: FriendlyMatchFormData) => Promise<void>;
+  isRequest?: boolean;
+  recipientId?: string;
+  threadId?: string;
 }
 
 export interface FriendlyMatchFormData {
@@ -56,6 +59,9 @@ export const CreateFriendlyMatchScreen: React.FC<CreateFriendlyMatchScreenProps>
   sport,
   onClose,
   onCreateMatch,
+  isRequest = false,
+  recipientId,
+  threadId,
 }) => {
   const insets = useSafeAreaInsets();
   

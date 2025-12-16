@@ -305,28 +305,51 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
 
  const handleMatch = () => {
     console.log('Create match button pressed');
-    if (!currentThread) return;
+    if (!currentThread || !user) return;
     
-    // Store thread metadata for the create match screen
-    setThreadMetadata({
-      threadId: currentThread.id,
-      threadName: currentThread.name || 'League Chat',
-      divisionId: currentThread.metadata?.divisionId,
-      sportType: currentThread.sportType || 'PICKLEBALL',
-    });
-    
-    // Navigate to the create match page
-    router.push({
-      pathname: '/match/create-match',
-      params: {
-        leagueName: currentThread.metadata?.leagueName || currentThread.division?.league?.name || 'League',
-        season: currentThread.metadata?.seasonName || 'Season 1',
-        division: currentThread.metadata?.divisionName || 'Division I',
-        sportType: currentThread.sportType || 'PICKLEBALL',
-        divisionId: currentThread.metadata?.divisionId || '',
+    // Check if this is a direct chat (1-on-1)
+    if (currentThread.type === 'direct') {
+      // Find the recipient (other participant)
+      const recipient = currentThread.participants.find(p => p.id !== user.id);
+      
+      if (!recipient) {
+        console.error('Cannot find recipient for friendly match request');
+        return;
+      }
+      
+      // Navigate to friendly match creation screen with request params
+      router.push({
+        pathname: '/friendly/create',
+        params: {
+          isRequest: 'true',
+          recipientId: recipient.id,
+          threadId: currentThread.id,
+          sportType: currentThread.sportType || 'PICKLEBALL',
+        },
+      });
+    } else {
+      // Group chat - use existing league match flow
+      // Store thread metadata for the create match screen
+      setThreadMetadata({
         threadId: currentThread.id,
-      },
-    });
+        threadName: currentThread.name || 'League Chat',
+        divisionId: currentThread.metadata?.divisionId,
+        sportType: currentThread.sportType || 'PICKLEBALL',
+      });
+      
+      // Navigate to the create match page
+      router.push({
+        pathname: '/match/create-match',
+        params: {
+          leagueName: currentThread.metadata?.leagueName || currentThread.division?.league?.name || 'League',
+          season: currentThread.metadata?.seasonName || 'Season 1',
+          division: currentThread.metadata?.divisionName || 'Division I',
+          sportType: currentThread.sportType || 'PICKLEBALL',
+          divisionId: currentThread.metadata?.divisionId || '',
+          threadId: currentThread.id,
+        },
+      });
+    }
   };
 
   const handleCreateMatch = async (matchData: MatchFormData) => {

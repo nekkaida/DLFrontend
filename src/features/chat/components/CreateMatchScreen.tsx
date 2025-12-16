@@ -242,28 +242,28 @@ export const CreateMatchScreen: React.FC<CreateMatchScreenProps> = ({
       
       {/* White Navigation Bar */}
       <View style={[styles.navBar, { paddingTop: insets.top }]}>
-        <TouchableOpacity onPress={onClose} style={styles.backButton}>
+          <TouchableOpacity onPress={onClose} style={styles.backButton}>
           <Ionicons name="chevron-back" size={24} color="#1D1D1F" />
-        </TouchableOpacity>
+          </TouchableOpacity>
         <Text style={styles.navTitle}>Create a Match</Text>
         <View style={styles.navPlaceholder} />
-      </View>
-
+        </View>
+        
       {/* League Banner */}
       <View style={[styles.leagueBanner, { backgroundColor: sportColors.background }]}>
         <View style={styles.leagueBannerLeft}>
           <View style={styles.sportIconContainer}>
             <SportIcon width={40} height={40} fill="#FFFFFF" />
           </View>
-          <View style={styles.leagueBannerContent}>
-            <Text style={styles.leagueName}>{leagueInfo.name}</Text>
-            {leagueInfo.season && (
-              <Text style={styles.leagueSeason}>
-                {leagueInfo.season}
-                {leagueInfo.division && ` - ${leagueInfo.division}`}
-              </Text>
-            )}
-          </View>
+        <View style={styles.leagueBannerContent}>
+          <Text style={styles.leagueName}>{leagueInfo.name}</Text>
+          {leagueInfo.season && (
+            <Text style={styles.leagueSeason}>
+              {leagueInfo.season}
+              {leagueInfo.division && ` - ${leagueInfo.division}`}
+            </Text>
+          )}
+        </View>
         </View>
         <View style={styles.leagueBannerRight}>
           <View style={styles.leagueBadge}>
@@ -279,15 +279,15 @@ export const CreateMatchScreen: React.FC<CreateMatchScreenProps> = ({
           keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
         >
           <View style={styles.contentWrapper}>
-            <ScrollView
-              ref={scrollViewRef}
-              style={styles.content}
-              contentContainerStyle={[styles.scrollContent, { paddingBottom: 200 }]}
-              showsVerticalScrollIndicator={false}
-              keyboardShouldPersistTaps="handled"
-              keyboardDismissMode="interactive"
-            >
-            {/* Date Selection */}
+          <ScrollView
+            ref={scrollViewRef}
+            style={styles.content}
+            contentContainerStyle={[styles.scrollContent, { paddingBottom: 200 }]}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="interactive"
+          >
+          {/* Date Selection */}
           <View style={styles.section}>
             <View style={styles.dateSectionHeader}>
               <Text style={styles.sectionLabel}>Date</Text>
@@ -614,7 +614,7 @@ export const CreateMatchScreen: React.FC<CreateMatchScreenProps> = ({
               />
             </View>
           </View>
-            </ScrollView>
+          </ScrollView>
           </View>
         </KeyboardAvoidingView>
 

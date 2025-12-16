@@ -361,28 +361,28 @@ export default function DashboardScreen() {
       </View>
     );
   }
-
-  if (currentView === "myGames") {
-    return (
-      <View style={styles.container}>
-        <MyGamesScreen sport={selectedSport} />
-        <NavBar
-          activeTab={activeTab}
-          onTabPress={handleTabPress}
-          sport={selectedSport}
-          badgeCounts={{ chat: chatUnreadCount }}
-        />
-      </View>
-    );
-  }
-
+    
+    if (currentView === "myGames") {
+      return (
+        <View style={styles.container}>
+          <MyGamesScreen sport={selectedSport} />
+          <NavBar
+            activeTab={activeTab}
+            onTabPress={handleTabPress}
+            sport={selectedSport}
+            badgeCounts={{ chat: chatUnreadCount }}
+          />
+        </View>
+      );
+    }
+    
   if (currentView === "friendly") {
     return (
       <View style={styles.container}>
         <FriendlyScreen sport={selectedSport} />
-        <NavBar
-          activeTab={activeTab}
-          onTabPress={handleTabPress}
+        <NavBar 
+          activeTab={activeTab} 
+          onTabPress={handleTabPress} 
           sport={selectedSport}
           badgeCounts={{ chat: chatUnreadCount }}
         />

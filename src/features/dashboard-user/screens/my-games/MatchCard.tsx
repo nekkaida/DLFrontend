@@ -42,9 +42,9 @@ export function MatchCard({ match, onPress }: MatchCardProps) {
         {match.isFriendly ? (
           <FriendlyBadge />
         ) : (
-          <View style={styles.leagueBadgeCard}>
-            <Text style={styles.leagueBadgeCardText}>LEAGUE</Text>
-          </View>
+        <View style={styles.leagueBadgeCard}>
+          <Text style={styles.leagueBadgeCardText}>LEAGUE</Text>
+        </View>
         )}
       </View>
 
