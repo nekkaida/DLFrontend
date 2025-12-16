@@ -578,6 +578,9 @@ const styles = StyleSheet.create({
   userRow: {
     backgroundColor: '#FFFFFF',
   },
+  evenRow: {
+    backgroundColor: '#F9FAFB',
+  },
   cell: {
     alignItems: 'center',
     justifyContent: 'center',
