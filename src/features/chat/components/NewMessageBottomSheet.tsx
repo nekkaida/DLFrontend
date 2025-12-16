@@ -227,7 +227,7 @@ export const NewMessageBottomSheet: React.FC<NewMessageBottomSheetProps> = ({
         <BottomSheetFlatList
           data={filteredPlayers}
           renderItem={renderPlayerItem}
-          keyExtractor={(item) => item.id}
+          keyExtractor={(item: Player) => item.id}
           contentContainerStyle={
             filteredPlayers.length === 0
               ? styles.emptyListContainer
