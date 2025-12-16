@@ -405,8 +405,8 @@ export default function LeagueDetailsScreen({
         leagueName: league?.name || leagueName,
         categoryName: categoryDisplayName,
         sportType: selectedSport?.toUpperCase() || 'PICKLEBALL',
-        startDate: season.startDate,
-        endDate: season.endDate,
+        startDate: season.startDate instanceof Date ? season.startDate.toISOString() : season.startDate,
+        endDate: season.endDate instanceof Date ? season.endDate.toISOString() : season.endDate,
       }
     });
   };
