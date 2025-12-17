@@ -88,8 +88,10 @@ export const MatchMessageBubble: React.FC<MatchMessageBubbleProps> = ({
     return null;
   }
 
-  // Check if this is a friendly match request
+  // Check if this is a friendly match (either a request or regular friendly match)
   const isFriendlyRequest = matchData.isFriendlyRequest === true;
+  const matchDataAny = matchData as any;
+  const isFriendly = matchDataAny.isFriendly === true || matchData.isFriendlyRequest === true;
   const requestStatusFromData = matchData.requestStatus as 'PENDING' | 'ACCEPTED' | 'DECLINED' | 'EXPIRED' | undefined;
   const requestExpiresAt = matchData.requestExpiresAt;
   const isRequestRecipient = currentUserId === matchData.requestRecipientId;
@@ -470,7 +472,7 @@ export const MatchMessageBubble: React.FC<MatchMessageBubbleProps> = ({
             </View>
           )}
           <Text style={styles.senderName}>
-            {isFriendlyRequest && isMatchPoster ? (
+            {isFriendly && isMatchPoster ? (
               <>
                 <Text style={styles.senderNameBold}>You</Text>
                 {' sent a friendly match request'}
@@ -478,7 +480,7 @@ export const MatchMessageBubble: React.FC<MatchMessageBubbleProps> = ({
             ) : (
               <>
                 <Text style={styles.senderNameBold}>{displayName}</Text>
-                {isFriendlyRequest 
+                {isFriendly 
                   ? ' sent you a friendly match request'
                   : ' posted a league match'}
               </>
@@ -494,7 +496,7 @@ export const MatchMessageBubble: React.FC<MatchMessageBubbleProps> = ({
         {/* Match Title Row with Sport Badge */}
         <View style={styles.titleRow}>
           <Text style={styles.matchTitle}>
-            {matchData.matchType === 'SINGLES' ? 'Singles' : matchData.matchType === 'DOUBLES' ? 'Doubles' : matchData.numberOfPlayers === '2' ? 'Singles' : 'Doubles'} {isFriendlyRequest ? 'Friendly Match' : 'League Match'}
+            {matchData.matchType === 'SINGLES' ? 'Singles' : matchData.matchType === 'DOUBLES' ? 'Doubles' : matchData.numberOfPlayers === '2' ? 'Singles' : 'Doubles'} {isFriendly ? 'Friendly Match' : 'League Match'}
           </Text>
           <View style={[styles.sportBadge, { borderColor: sportColors.badgeColor }]}>
             <Text style={[styles.sportBadgeText, { color: sportColors.badgeColor }]}>
@@ -503,56 +505,31 @@ export const MatchMessageBubble: React.FC<MatchMessageBubbleProps> = ({
           </View>
         </View>
 
-        {/* Expiration Timer for Friendly Requests */}
-        {isFriendlyRequest && currentRequestStatus === 'PENDING' && timeRemaining && (
-          <View style={styles.expirationRow}>
-            <Ionicons 
-              name="time-outline" 
-              size={14} 
-              color={isExpired || timeRemaining.includes('soon') ? '#DC2626' : '#6B7280'} 
-            />
-            <Text style={[
-              styles.expirationText,
-              (isExpired || timeRemaining.includes('soon')) && styles.expirationTextWarning
-            ]}>
-              {timeRemaining}
-            </Text>
-          </View>
-        )}
-
-        {/* Status Badge for Declined/Expired Requests */}
-        {isFriendlyRequest && (currentRequestStatus === 'DECLINED' || currentRequestStatus === 'EXPIRED' || isExpired) && (
-          <View style={styles.statusBadge}>
-            <Ionicons 
-              name={currentRequestStatus === 'DECLINED' ? "close-circle" : "time-outline"} 
-              size={14} 
-              color="#DC2626" 
-            />
-            <Text style={styles.statusBadgeText}>
-              {currentRequestStatus === 'DECLINED' ? 'Declined' : 'Expired'}
-            </Text>
-          </View>
-        )}
-
         {/* Main Content Row */}
         <View style={styles.contentRow}>
           {/* Left Column - Info */}
           <View style={styles.leftColumn}>
             {/* Location */}
             <View style={styles.infoRow}>
-              <Ionicons name="location-outline" size={16} color="#86868B" />
-              <Text style={styles.infoText}>{matchData.location || 'TBD'}</Text>
+              <View style={styles.iconContainer}>
+                <Ionicons name="location-outline" size={14} color="#86868B" />
+              </View>
+              <Text style={styles.infoText} numberOfLines={1}>{matchData.location || 'TBD'}</Text>
             </View>
 
             {/* Date */}
             <View style={styles.infoRow}>
-              <Ionicons name="calendar-outline" size={16} color="#86868B" />
+              <View style={styles.iconContainer}>
+                <Ionicons name="calendar-outline" size={14} color="#86868B" />
+              </View>
               <Text style={styles.infoText}>{formatDisplayDate(matchData.date)}</Text>
             </View>
 
             {/* Time Range */}
             <View style={styles.infoRow}>
-              <Ionicons name="time-outline" size={16} color="#86868B" />
+              <View style={styles.iconContainer}>
+                <Ionicons name="time-outline" size={14} color="#86868B" />
+              </View>
               <Text style={styles.infoText}>
                 {formattedStartTime} – {formattedEndTime}
               </Text>
@@ -560,7 +537,9 @@ export const MatchMessageBubble: React.FC<MatchMessageBubbleProps> = ({
 
             {/* Cost */}
             <View style={styles.infoRow}>
-              <Text style={styles.costIcon}>$</Text>
+              <View style={styles.iconContainer}>
+                <Text style={styles.costIcon}>$</Text>
+              </View>
               <Text style={styles.infoText}>
                 {(() => {
                   const fee = matchData.fee as 'FREE' | 'SPLIT' | 'FIXED' | undefined;
@@ -572,9 +551,9 @@ export const MatchMessageBubble: React.FC<MatchMessageBubbleProps> = ({
                     const totalAmount = parseFloat(feeAmount);
                     const numPlayers = parseInt(matchData.numberOfPlayers || '2', 10);
                     const perPlayer = numPlayers > 0 ? (totalAmount / numPlayers).toFixed(2) : '0.00';
-                    return `Split · Est. RM${perPlayer} per player`;
+                    return `RM${perPlayer}/player`;
                   } else if (fee === 'FIXED' && feeAmount) {
-                    return `Fixed · RM${parseFloat(feeAmount).toFixed(2)} per player`;
+                    return `RM${parseFloat(feeAmount).toFixed(2)}/player`;
                   }
                   return 'Free';
                 })()}
@@ -582,8 +561,40 @@ export const MatchMessageBubble: React.FC<MatchMessageBubbleProps> = ({
             </View>
           </View>
 
-          {/* Right Column - Court Badge and Action Buttons */}
+          {/* Right Column - Status Badges */}
           <View style={styles.rightColumn}>
+            {/* Expiration Timer for Friendly Requests */}
+            {isFriendlyRequest && currentRequestStatus === 'PENDING' && timeRemaining && !isExpired && (
+              <View style={[
+                styles.expirationBadge,
+                timeRemaining.includes('soon') && styles.expirationBadgeWarning
+              ]}>
+                <Ionicons 
+                  name="hourglass-outline" 
+                  size={11} 
+                  color={timeRemaining.includes('soon') ? '#DC2626' : '#F59E0B'} 
+                />
+                <Text style={[
+                  styles.expirationText,
+                  timeRemaining.includes('soon') && styles.expirationTextWarning
+                ]} numberOfLines={1}>
+                  {timeRemaining}
+                </Text>
+              </View>
+            )}
+            {/* Status Badge for Declined/Expired Requests */}
+            {isFriendlyRequest && (currentRequestStatus === 'DECLINED' || currentRequestStatus === 'EXPIRED' || isExpired) && (
+              <View style={styles.statusBadge}>
+                <Ionicons 
+                  name={currentRequestStatus === 'DECLINED' ? "close-circle" : "time-outline"} 
+                  size={11} 
+                  color="#DC2626" 
+                />
+                <Text style={styles.statusBadgeText}>
+                  {currentRequestStatus === 'DECLINED' ? 'Declined' : 'Expired'}
+                </Text>
+              </View>
+            )}
             {/* Court Booked Badge */}
             <View style={[
               styles.courtBadge,
@@ -593,82 +604,83 @@ export const MatchMessageBubble: React.FC<MatchMessageBubbleProps> = ({
                 styles.courtBadgeText,
                 matchData.courtBooked ? styles.courtBadgeTextBooked : styles.courtBadgeTextNotBooked
               ]}>
-                Court {matchData.courtBooked ? 'booked' : 'not booked'}
+                {matchData.courtBooked ? 'Court booked' : 'No court'}
               </Text>
               <Ionicons
                 name={matchData.courtBooked ? "checkmark-circle" : "close-circle"}
-                size={14}
+                size={12}
                 color={matchData.courtBooked ? "#16A34A" : "#DC2626"}
               />
             </View>
-            {/* Action Buttons */}
-            <View style={styles.actionButtonsRow}>
-              <TouchableOpacity
-                style={styles.infoButton}
-                activeOpacity={0.7}
-                onPress={() => setShowInfoModal(true)}
-              >
-                <Text style={styles.infoButtonText}>Info</Text>
-              </TouchableOpacity>
-              {isFriendlyRequest && isRequestRecipient && currentRequestStatus === 'PENDING' && !isExpired && !hasJoined && !isUserInMatch ? (
-                // Friendly request: Show Decline and Join buttons (only if not joined yet)
-                <>
-                  <TouchableOpacity
-                    style={styles.declineButton}
-                    activeOpacity={0.8}
-                    disabled={isDeclining}
-                    onPress={handleDeclineRequest}
-                  >
-                    <Text style={styles.declineButtonText}>
-                      {isDeclining ? 'Declining...' : 'Decline'}
-                    </Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={[
-                      styles.joinButton,
-                      { backgroundColor: sportColors.buttonColor }
-                    ]}
-                    activeOpacity={0.8}
-                    disabled={isFetchingPartner}
-                    onPress={handleOpenJoinMatch}
-                  >
-                    <Text style={styles.joinButtonText}>
-                      {isFetchingPartner ? 'Loading...' : 'Join match'}
-                    </Text>
-                  </TouchableOpacity>
-                </>
-              ) : hasAlreadyPlayed ? (
-                // Show "Played" badge when teams have already played this season
-                <View style={styles.playedBadge}>
-                  <Ionicons name="checkmark-circle" size={14} color="#059669" />
-                  <Text style={styles.playedBadgeText}>Played</Text>
-                </View>
-              ) : (
-                <TouchableOpacity
-                  style={[
-                    styles.joinButton,
-                    { 
-                      backgroundColor: (isUserInMatch || isMatchCompleted || (isFriendlyRequest && (isExpired || currentRequestStatus === 'DECLINED' || currentRequestStatus === 'EXPIRED'))) 
-                        ? '#9CA3AF' 
-                        : sportColors.buttonColor 
-                    }
-                  ]}
-                  activeOpacity={(isUserInMatch || isMatchCompleted || (isFriendlyRequest && (isExpired || currentRequestStatus === 'DECLINED' || currentRequestStatus === 'EXPIRED'))) ? 1 : 0.8}
-                  disabled={isUserInMatch || isFetchingPartner || isMatchCompleted || (isFriendlyRequest && (isExpired || currentRequestStatus === 'DECLINED' || currentRequestStatus === 'EXPIRED'))}
-                  onPress={handleOpenJoinMatch}
-                >
-                  <Text style={styles.joinButtonText}>
-                    {isFetchingPartner ? 'Loading...' 
-                      : isMatchCompleted ? 'Completed' 
-                      : isUserInMatch ? 'Joined' 
-                      : (isFriendlyRequest && (isExpired || currentRequestStatus === 'DECLINED' || currentRequestStatus === 'EXPIRED')) 
-                        ? (currentRequestStatus === 'DECLINED' ? 'Declined' : 'Expired')
-                        : 'Join match'}
-                  </Text>
-                </TouchableOpacity>
-              )}
-            </View>
           </View>
+        </View>
+
+        {/* Action Buttons - Full width row at bottom */}
+        <View style={styles.actionButtonsRow}>
+          <TouchableOpacity
+            style={styles.infoButton}
+            activeOpacity={0.7}
+            onPress={() => setShowInfoModal(true)}
+          >
+            <Text style={styles.infoButtonText}>Info</Text>
+          </TouchableOpacity>
+          {isFriendlyRequest && isRequestRecipient && currentRequestStatus === 'PENDING' && !isExpired && !hasJoined && !isUserInMatch ? (
+            // Friendly request: Show Decline and Join buttons (only if not joined yet)
+            <>
+              <TouchableOpacity
+                style={styles.declineButton}
+                activeOpacity={0.8}
+                disabled={isDeclining}
+                onPress={handleDeclineRequest}
+              >
+                <Text style={styles.declineButtonText}>
+                  {isDeclining ? 'Declining...' : 'Decline'}
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.joinButton,
+                  { backgroundColor: sportColors.buttonColor }
+                ]}
+                activeOpacity={0.8}
+                disabled={isFetchingPartner}
+                onPress={handleOpenJoinMatch}
+              >
+                <Text style={styles.joinButtonText}>
+                  {isFetchingPartner ? 'Loading...' : 'Join match'}
+                </Text>
+              </TouchableOpacity>
+            </>
+          ) : hasAlreadyPlayed ? (
+            // Show "Played" badge when teams have already played this season
+            <View style={styles.playedBadge}>
+              <Ionicons name="checkmark-circle" size={12} color="#059669" />
+              <Text style={styles.playedBadgeText}>Played</Text>
+            </View>
+          ) : (
+            <TouchableOpacity
+              style={[
+                styles.joinButton,
+                { 
+                  backgroundColor: (isUserInMatch || isMatchCompleted || (isFriendlyRequest && (isExpired || currentRequestStatus === 'DECLINED' || currentRequestStatus === 'EXPIRED'))) 
+                    ? '#9CA3AF' 
+                    : sportColors.buttonColor 
+                }
+              ]}
+              activeOpacity={(isUserInMatch || isMatchCompleted || (isFriendlyRequest && (isExpired || currentRequestStatus === 'DECLINED' || currentRequestStatus === 'EXPIRED'))) ? 1 : 0.8}
+              disabled={isUserInMatch || isFetchingPartner || isMatchCompleted || (isFriendlyRequest && (isExpired || currentRequestStatus === 'DECLINED' || currentRequestStatus === 'EXPIRED'))}
+              onPress={handleOpenJoinMatch}
+            >
+              <Text style={styles.joinButtonText}>
+                {isFetchingPartner ? 'Loading...' 
+                  : isMatchCompleted ? 'Completed' 
+                  : isUserInMatch ? 'Joined' 
+                  : (isFriendlyRequest && (isExpired || currentRequestStatus === 'DECLINED' || currentRequestStatus === 'EXPIRED')) 
+                    ? (currentRequestStatus === 'DECLINED' ? 'Declined' : 'Expired')
+                    : 'Join match'}
+              </Text>
+            </TouchableOpacity>
+          )}
         </View>
       </View>
 
@@ -689,14 +701,14 @@ export const MatchMessageBubble: React.FC<MatchMessageBubbleProps> = ({
 
 const styles = StyleSheet.create({
   container: {
-    marginVertical: 8,
+    marginVertical: 6,
     paddingHorizontal: 4,
   },
   headerRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: 6,
   },
   senderRow: {
     flexDirection: 'row',
@@ -704,27 +716,27 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   avatar: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
     backgroundColor: '#E5E7EB',
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 8,
+    marginRight: 6,
   },
   avatarImage: {
     width: 24,
     height: 24,
-    borderRadius: 14,
-    marginRight: 8,
+    borderRadius: 12,
+    marginRight: 6,
   },
   avatarText: {
     color: '#6B7280',
-    fontSize: 12,
+    fontSize: 10,
     fontWeight: '600',
   },
   senderName: {
-    fontSize: 13,
+    fontSize: 12,
     color: '#6B7280',
     fontWeight: '400',
     flex: 1,
@@ -734,26 +746,26 @@ const styles = StyleSheet.create({
     color: '#374151',
   },
   timestamp: {
-    fontSize: 12,
+    fontSize: 11,
     color: '#9CA3AF',
-    marginLeft: 8,
+    marginLeft: 6,
   },
   matchCard: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 16,
+    borderRadius: 12,
     borderWidth: 1,
     borderColor: '#E5E7EB',
-    padding: 20,
+    padding: 14,
     width: '100%',
   },
   titleRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: 10,
   },
   matchTitle: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: '700',
     color: '#111827',
     flex: 1,
@@ -768,42 +780,49 @@ const styles = StyleSheet.create({
   rightColumn: {
     alignItems: 'flex-end',
     justifyContent: 'flex-start',
-    marginLeft: 16,
-    gap: 12,
+    marginLeft: 10,
+    gap: 6,
   },
   sportBadge: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
     borderWidth: 1.5,
     backgroundColor: 'transparent',
   },
   sportBadgeText: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '600',
   },
   infoRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: 6,
+  },
+  iconContainer: {
+    width: 16,
+    height: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 8,
   },
   infoText: {
-    fontSize: 14,
+    fontSize: 13,
     color: '#86868B',
-    marginLeft: 8,
+    flex: 1,
+    lineHeight: 16,
   },
   costIcon: {
     fontSize: 13,
-    fontWeight: '500',
+    fontWeight: '600',
     color: '#86868B',
-    width: 16,
   },
   courtBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
     alignSelf: 'flex-end',
   },
   courtBadgeBooked: {
@@ -813,7 +832,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FEF2F2',
   },
   courtBadgeText: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '500',
     marginRight: 4,
   },
@@ -826,97 +845,101 @@ const styles = StyleSheet.create({
   actionButtonsRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    marginTop: 22,
+    justifyContent: 'flex-end',
+    gap: 6,
+    marginTop: 10,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: '#F3F4F6',
   },
   infoButton: {
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: 16,
+    paddingVertical: 6,
+    paddingHorizontal: 14,
+    borderRadius: 14,
     borderWidth: 1,
     borderColor: '#E5E7EB',
     alignItems: 'center',
     backgroundColor: '#F2F2F2',
-    minWidth: 70,
   },
   infoButtonText: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '600',
     color: '#602E98',
   },
   joinButton: {
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: 16,
+    paddingVertical: 6,
+    paddingHorizontal: 14,
+    borderRadius: 14,
     alignItems: 'center',
-    minWidth: 70,
   },
   joinButtonText: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '600',
     color: '#FFFFFF',
   },
   playedBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 16,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: 14,
     backgroundColor: '#ECFDF5',
     borderWidth: 1,
     borderColor: '#A7F3D0',
     gap: 4,
   },
   playedBadgeText: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '600',
     color: '#059669',
   },
-  expirationRow: {
+  expirationBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: -8,
-    marginBottom: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 10,
+    backgroundColor: '#FEF3C7',
+    alignSelf: 'flex-end',
     gap: 4,
   },
+  expirationBadgeWarning: {
+    backgroundColor: '#FEE2E2',
+  },
   expirationText: {
-    fontSize: 12,
-    color: '#6B7280',
-    fontWeight: '500',
+    fontSize: 11,
+    color: '#D97706',
+    fontWeight: '600',
   },
   expirationTextWarning: {
     color: '#DC2626',
-    fontWeight: '600',
   },
   statusBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: -8,
-    marginBottom: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 8,
-    backgroundColor: '#FEF2F2',
-    alignSelf: 'flex-start',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 10,
+    backgroundColor: '#FEE2E2',
+    alignSelf: 'flex-end',
     gap: 4,
   },
   statusBadgeText: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '600',
     color: '#DC2626',
   },
   declineButton: {
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: 16,
+    paddingVertical: 6,
+    paddingHorizontal: 14,
+    borderRadius: 14,
     alignItems: 'center',
     backgroundColor: '#FEF2F2',
     borderWidth: 1,
     borderColor: '#FECACA',
-    minWidth: 70,
   },
   declineButtonText: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '600',
     color: '#DC2626',
   },

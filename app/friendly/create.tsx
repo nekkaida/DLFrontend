@@ -54,9 +54,12 @@ export default function CreateFriendlyMatchPage() {
       const time24 = convertTo24Hour(startTime);
       const dateTimeString = `${formData.date}T${time24}:00`;
       const deviceTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      
+      // Use sport from formData (user's selection)
+      const selectedSportType = formData.sport.toUpperCase() as 'PICKLEBALL' | 'TENNIS' | 'PADEL';
 
       const payload: any = {
-        sport: sportType,
+        sport: selectedSportType,
         matchType: formData.numberOfPlayers === 4 ? 'DOUBLES' : 'SINGLES',
         format: 'STANDARD',
         matchDate: dateTimeString,
@@ -106,11 +109,12 @@ export default function CreateFriendlyMatchPage() {
             fee: formData.fee,
             feeAmount: formData.feeAmount || '0.00',
             description: formData.description,
-            sportType: sportType,
+            sportType: selectedSportType,
             leagueName: 'Friendly Match',
             courtBooked: formData.courtBooked,
             status: 'SCHEDULED',
             participants: matchResult.participants || [],
+            isFriendly: true,
             isFriendlyRequest: true,
             requestExpiresAt: expiresAt.toISOString(),
             requestStatus: 'PENDING',

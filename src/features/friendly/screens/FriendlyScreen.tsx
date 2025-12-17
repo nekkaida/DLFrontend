@@ -171,8 +171,11 @@ export const FriendlyScreen: React.FC<FriendlyScreenProps> = ({ sport }) => {
       const dateTimeString = `${formData.date}T${time24}:00`;
       const deviceTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
+      // Use sport from formData (user's selection)
+      const selectedSportType = formData.sport.toUpperCase() as 'PICKLEBALL' | 'TENNIS' | 'PADEL';
+
       const payload = {
-        sport: sportType,
+        sport: selectedSportType,
         matchType: formData.numberOfPlayers === 4 ? 'DOUBLES' : 'SINGLES',
         format: 'STANDARD',
         matchDate: dateTimeString,

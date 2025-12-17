@@ -77,8 +77,6 @@ export default function JoinMatchScreen() {
   
   const bottomSheetModalRef = useRef<BottomSheetModal>(null);
   const cancelSheetRef = useRef<BottomSheetModal>(null);
-  const snapPoints = useMemo(() => ['75%', '90%'], []);
-  const cancelSnapPoints = useMemo(() => ['70%', '85%'], []);
 
   // Parse params
   const matchId = params.matchId as string;
@@ -100,6 +98,12 @@ export default function JoinMatchScreen() {
   const participants = params.participants ? JSON.parse(params.participants as string) : [];
   const matchStatus = (params.status as string) || 'SCHEDULED';
   const isFriendly = params.isFriendly === 'true';
+
+  // Higher snap points for match result sheet to ensure buttons are visible
+  // Start at higher snap point (index 1) so buttons are immediately visible
+  const snapPoints = useMemo(() => ['75%', '85%'], []);
+  const initialSnapIndex = useMemo(() => 1, []);
+  const cancelSnapPoints = useMemo(() => ['70%', '85%'], []);
 
   // Debug log only once - remove later
   // console.log('🔍 MATCH DETAILS DEBUG:', { matchId, matchStatus });
@@ -1416,10 +1420,9 @@ export default function JoinMatchScreen() {
               if (status === 'ONGOING' && matchData.isDisputed) {
                 return (
                   <TouchableOpacity
-                    style={[styles.joinButton, styles.joinButtonWithIcon, { backgroundColor: "#DC2626" }]}
+                    style={[styles.joinButton, { backgroundColor: "#DC2626" }]}
                     onPress={() => bottomSheetModalRef.current?.present()}
                   >
-                    <Ionicons name="eye" size={18} color="#FFFFFF" />
                     <Text style={[styles.joinButtonText, { color: "#FFFFFF" }]}>View Scores (Disputed)</Text>
                   </TouchableOpacity>
                 );
@@ -1429,10 +1432,9 @@ export default function JoinMatchScreen() {
               if (status === 'ONGOING' && canReviewResult) {
                 return (
                   <TouchableOpacity
-                    style={[styles.joinButton, styles.joinButtonWithIcon, { backgroundColor: "#F59E0B" }]}
+                    style={[styles.joinButton, { backgroundColor: "#F59E0B" }]}
                     onPress={() => bottomSheetModalRef.current?.present()}
                   >
-                    <Ionicons name="eye" size={18} color="#2B2929" />
                     <Text style={styles.joinButtonText}>View Score</Text>
                   </TouchableOpacity>
                 );
@@ -1442,10 +1444,9 @@ export default function JoinMatchScreen() {
               if (status === 'ONGOING' && isResultSubmitter) {
                 return (
                   <TouchableOpacity
-                    style={[styles.joinButton, styles.joinButtonWithIcon, { backgroundColor: "#6B7280" }]}
+                    style={[styles.joinButton, { backgroundColor: "#6B7280" }]}
                     onPress={() => bottomSheetModalRef.current?.present()}
                   >
-                    <Ionicons name="eye" size={18} color="#FFFFFF" />
                     <Text style={[styles.joinButtonText, { color: "#FFFFFF" }]}>View Score</Text>
                   </TouchableOpacity>
                 );
@@ -1528,6 +1529,7 @@ export default function JoinMatchScreen() {
       <BottomSheetModal
         ref={bottomSheetModalRef}
         snapPoints={snapPoints}
+        index={initialSnapIndex}
         backdropComponent={renderBackdrop}
         enablePanDownToClose={true}
         backgroundStyle={styles.bottomSheetBackground}
