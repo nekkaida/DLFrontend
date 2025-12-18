@@ -238,21 +238,23 @@ export const CreateMatchScreen: React.FC<CreateMatchScreenProps> = ({
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor={sportColors.background} />
+      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
       
-      {/* Header with Sport Background */}
-      <View style={[styles.header, { backgroundColor: sportColors.background, paddingTop: insets.top }]}>
-        <View style={styles.headerTop}>
+      {/* White Navigation Bar */}
+      <View style={[styles.navBar, { paddingTop: insets.top }]}>
           <TouchableOpacity onPress={onClose} style={styles.backButton}>
-            <Ionicons name="chevron-back" size={28} color="#FFFFFF" />
+          <Ionicons name="chevron-back" size={24} color="#1D1D1F" />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Create a Match</Text>
-          <View style={styles.leagueBadge}>
-            <Text style={styles.leagueBadgeText}>LEAGUE</Text>
-          </View>
+        <Text style={styles.navTitle}>Create a Match</Text>
+        <View style={styles.navPlaceholder} />
         </View>
         
-        {/* League Info Banner */}
+      {/* League Banner */}
+      <View style={[styles.leagueBanner, { backgroundColor: sportColors.background }]}>
+        <View style={styles.leagueBannerLeft}>
+          <View style={styles.sportIconContainer}>
+            <SportIcon width={40} height={40} fill="#FFFFFF" />
+          </View>
         <View style={styles.leagueBannerContent}>
           <Text style={styles.leagueName}>{leagueInfo.name}</Text>
           {leagueInfo.season && (
@@ -262,10 +264,11 @@ export const CreateMatchScreen: React.FC<CreateMatchScreenProps> = ({
             </Text>
           )}
         </View>
-
-        {/* Sport Icon */}
-        <View style={styles.headerIcon}>
-          <SportIcon width={60} height={60} fill="#FFFFFF" />
+        </View>
+        <View style={styles.leagueBannerRight}>
+          <View style={styles.leagueBadge}>
+            <Text style={styles.leagueBadgeText}>LEAGUE</Text>
+          </View>
         </View>
       </View>
 
@@ -275,6 +278,7 @@ export const CreateMatchScreen: React.FC<CreateMatchScreenProps> = ({
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
         >
+          <View style={styles.contentWrapper}>
           <ScrollView
             ref={scrollViewRef}
             style={styles.content}
@@ -451,35 +455,48 @@ export const CreateMatchScreen: React.FC<CreateMatchScreenProps> = ({
             }}
           >
             <Text style={styles.sectionLabel}>Location</Text>
-            <View style={styles.inputCard}>
-              <Ionicons name="location-outline" size={22} color="#A04DFE" />
-              <TextInput
-                style={styles.textInput}
-                value={formData.location}
-                onChangeText={(text) => setFormData({ ...formData, location: text })}
-                placeholder="Select location"
-                placeholderTextColor="#BABABA"
-                onFocus={() => {
-                  // Scroll to location field when focused, positioning it above keyboard
-                  setTimeout(() => {
-                    scrollViewRef.current?.scrollTo({ y: locationY - 20, animated: true });
-                  }, 300);
-                }}
-              />
-            </View>
-            
-            {/* Court Booked Toggle - Below Location */}
-            <View style={styles.courtBookedCard}>
-              <Text style={styles.courtBookedLabel}>
-                Court booked?
-              </Text>
-              <Switch
-                value={formData.courtBooked}
-                onValueChange={(value) => setFormData({ ...formData, courtBooked: value })}
-                trackColor={{ false: '#D1D5DB', true: '#86EFAC' }}
-                thumbColor={formData.courtBooked ? '#22C55E' : '#F4F4F5'}
-                ios_backgroundColor="#D1D5DB"
-              />
+            <View style={styles.locationCard}>
+              <View style={styles.locationInputRow}>
+                <Ionicons name="location-outline" size={22} color="#A04DFE" />
+                <TextInput
+                  style={styles.textInput}
+                  value={formData.location}
+                  onChangeText={(text) => setFormData({ ...formData, location: text })}
+                  placeholder="Select location"
+                  placeholderTextColor="#BABABA"
+                  onFocus={() => {
+                    // Scroll to location field when focused, positioning it above keyboard
+                    setTimeout(() => {
+                      scrollViewRef.current?.scrollTo({ y: locationY - 20, animated: true });
+                    }, 300);
+                  }}
+                />
+              </View>
+              
+              {/* Court Booked Toggle */}
+              <View style={styles.courtBookedRow}>
+                <View style={styles.courtBookedLabelContainer}>
+                  <Ionicons 
+                    name="calendar-outline" 
+                    size={18} 
+                    color={formData.courtBooked ? '#22C55E' : '#86868B'} 
+                    style={styles.courtBookedIcon} 
+                  />
+                  <Text style={[
+                    styles.courtBookedLabel,
+                    formData.courtBooked && styles.courtBookedLabelChecked
+                  ]}>
+                    {formData.courtBooked ? 'Court booked' : 'Court booked?'}
+                  </Text>
+                </View>
+                <Switch
+                  value={formData.courtBooked}
+                  onValueChange={(value) => setFormData({ ...formData, courtBooked: value })}
+                  trackColor={{ false: '#D1D5DB', true: '#86EFAC' }}
+                  thumbColor={formData.courtBooked ? '#22C55E' : '#F4F4F5'}
+                  ios_backgroundColor="#D1D5DB"
+                />
+              </View>
             </View>
           </View>
 
@@ -598,6 +615,7 @@ export const CreateMatchScreen: React.FC<CreateMatchScreenProps> = ({
             </View>
           </View>
           </ScrollView>
+          </View>
         </KeyboardAvoidingView>
 
         {/* Create Button - Fixed at bottom */}
@@ -669,62 +687,79 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#F6FAFC',
   },
-  header: {
-    paddingBottom: 24,
-    borderBottomLeftRadius: 20,
-    borderBottomRightRadius: 20,
-    position: 'relative',
-    overflow: 'hidden',
-  },
-  headerTop: {
+  navBar: {
+    backgroundColor: '#FFFFFF',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E7EB',
   },
   backButton: {
     padding: 4,
   },
-  headerTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#FFFFFF',
-  },
-  leagueBadge: {
-    backgroundColor: '#FEA04D',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 4,
-    borderWidth: 1,
-    borderColor: '#F09433',
-  },
-  leagueBadgeText: {
-    color: '#FFFFFF',
-    fontSize: 10,
-    fontWeight: '600',
-    letterSpacing: 0.25,
-  },
-  leagueBannerContent: {
-    paddingHorizontal: 24,
-    marginTop: 4,
-  },
-  leagueName: {
+  navTitle: {
     fontSize: 18,
     fontWeight: '700',
+    color: '#1D1D1F',
+  },
+  navPlaceholder: {
+    width: 32,
+  },
+  leagueBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingLeft: 16,
+    paddingRight: 0,
+    paddingTop: 26,
+    paddingBottom: 36,
+  },
+  leagueBannerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    gap: 12,
+  },
+  leagueBannerRight: {
+    marginLeft: 'auto',
+    alignSelf: 'stretch',
+    justifyContent: 'center',
+  },
+  sportIconContainer: {
+    width: 40,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  leagueBannerContent: {
+    flex: 1,
+  },
+  leagueName: {
+    fontSize: 16,
+    fontWeight: '700',
     color: '#FFFFFF',
-    marginBottom: 4,
+    marginBottom: 2,
   },
   leagueSeason: {
     fontSize: 14,
     color: 'rgba(255, 255, 255, 0.9)',
     fontWeight: '500',
   },
-  headerIcon: {
-    position: 'absolute',
-    bottom: 8,
-    right: 16,
-    opacity: 0.9,
+  leagueBadge: {
+    backgroundColor: '#FEA04D',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 0,
+  },
+  leagueBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 11,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
   keyboardView: {
     flex: 1,
@@ -732,13 +767,24 @@ const styles = StyleSheet.create({
   keyboardAvoidingView: {
     flex: 1,
   },
+  contentWrapper: {
+    flex: 1,
+    backgroundColor: '#F6FAFC',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    overflow: 'hidden',
+    marginTop: -15,
+    zIndex: 1,
+    paddingTop: 24,
+  },
   content: {
     flex: 1,
   },
   scrollContent: {
     paddingHorizontal: 20,
-    paddingTop: 24,
+    paddingTop: 16,
     paddingBottom: 24,
+    backgroundColor: '#F6FAFC',
   },
   section: {
     marginBottom: 24,
@@ -860,6 +906,21 @@ const styles = StyleSheet.create({
   otherMonthText: {
     color: '#BABABA',
   },
+  locationCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#EAEAEA',
+    overflow: 'hidden',
+  },
+  locationInputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 14,
+    paddingTop: 14,
+    paddingBottom: 12,
+    gap: 12,
+  },
   inputCard: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -911,22 +972,36 @@ const styles = StyleSheet.create({
     marginTop: 8,
     textAlign: 'left',
   },
-  courtBookedCard: {
+  locationDivider: {
+    height: 1,
+    backgroundColor: '#EAEAEA',
+    marginHorizontal: 14,
+  },
+  courtBookedRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: '#EAEAEA',
     paddingHorizontal: 14,
-    paddingVertical: 16,
-    marginTop: 12,
+    paddingTop: 10,
+    paddingBottom: 14,
+    borderTopWidth: 1,
+    borderTopColor: '#F5F5F5',
+  },
+  courtBookedLabelContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  courtBookedIcon: {
+    marginRight: 0,
   },
   courtBookedLabel: {
     fontSize: 14,
     fontWeight: '500',
-    color: '#1D1D1F',
+    color: '#86868B',
+  },
+  courtBookedLabelChecked: {
+    color: '#22C55E',
   },
   playerCountRow: {
     flexDirection: 'row',
