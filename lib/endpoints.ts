@@ -196,6 +196,17 @@ export const endpoints = {
     getHeadToHead: (opponentId: string) => `/api/match/head-to-head/${opponentId}`,
   },
 
+  friendly: {
+    getAll: "/api/friendly",
+    getById: (id: string) => `/api/friendly/${id}`,
+    create: "/api/friendly/create",
+    join: (id: string) => `/api/friendly/${id}/join`,
+    submitResult: (id: string) => `/api/friendly/${id}/result`,
+    confirmResult: (id: string) => `/api/friendly/${id}/confirm`,
+    accept: (id: string) => `/api/friendly/${id}/accept`,
+    decline: (id: string) => `/api/friendly/${id}/decline`,
+  },
+
   notifications: {
     getAll: "/api/notifications/",
     unreadCount: "/api/notifications/unread-count",
