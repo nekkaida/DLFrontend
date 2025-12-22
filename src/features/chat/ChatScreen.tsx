@@ -2,11 +2,12 @@ import { getBackendBaseURL } from '@/config/network';
 import { getSportColors } from '@/constants/SportsColor';
 import { authClient, useSession } from '@/lib/auth-client';
 import { NavBar } from '@/shared/components/layout';
+import { chatLogger } from '@/utils/logger';
 import { Ionicons } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
 import * as Haptics from 'expo-haptics';
 import { router } from 'expo-router';
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   AppState,
@@ -38,7 +39,37 @@ import { ChatService } from './services/ChatService';
 import { useChatStore } from './stores/ChatStore';
 import { useCreateMatchStore } from './stores/CreateMatchStore';
 
-import { Thread } from './types';
+import { Message, Thread, User } from './types';
+
+// Profile data interface for API response
+interface ProfileData {
+  id: string;
+  name?: string;
+  username?: string;
+  email?: string;
+  image?: string;
+  [key: string]: unknown;
+}
+
+// Auth response interface
+interface AuthResponse {
+  data?: {
+    data?: ProfileData;
+  } & ProfileData;
+}
+
+// Match participant interface
+interface MatchParticipant {
+  id: string;
+  playerId: string;
+  matchId: string;
+  invitationStatus: 'PENDING' | 'ACCEPTED' | 'DECLINED';
+  player?: {
+    id: string;
+    name?: string;
+    username?: string;
+  };
+}
 
 const { width } = Dimensions.get('window');
 const isSmallScreen = width < 375;
@@ -60,9 +91,9 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
   const { data: session} = useSession();
   const [filteredThreads, setFilteredThreads] = useState<Thread[]>([]);
-  const [profileData, setProfileData] = useState<any>(null);
+  const [profileData, setProfileData] = useState<ProfileData | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
-  const [selectedMessage, setSelectedMessage] = useState<any>(null);
+  const [selectedMessage, setSelectedMessage] = useState<Message | null>(null);
   const [showActionBar, setShowActionBar] = useState(false);
   const [showNewMessageSheet, setShowNewMessageSheet] = useState(false);
   const [appStateKey, setAppStateKey] = useState(0); // Force re-render on app resume
@@ -101,7 +132,6 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
   // Force re-render when messages change
   useEffect(() => {
     if (currentThread?.id && messages[currentThread.id]) {
-      console.log('💬 Messages updated for current thread:', messages[currentThread.id].length);
       setRefreshKey(prev => prev + 1);
     }
   }, [messages, currentThread?.id]);
@@ -109,14 +139,15 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
   // Handle app state changes to fix touch issues after backgrounding
   // This forces a re-render which helps reset any stuck gesture handler state
   useEffect(() => {
+    let timeoutId: ReturnType<typeof setTimeout> | null = null;
+
     const handleAppStateChange = (nextAppState: AppStateStatus) => {
       if (
         appStateRef.current.match(/inactive|background/) &&
         nextAppState === 'active'
       ) {
-        console.log('📱 ChatScreen: App came to foreground, forcing re-render');
         // Small delay to let gesture handler state settle
-        setTimeout(() => {
+        timeoutId = setTimeout(() => {
           setAppStateKey(prev => prev + 1);
         }, 100);
       }
@@ -127,13 +158,15 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
 
     return () => {
       subscription.remove();
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
     };
   }, []);
 
   // Handle pending match data when returning from create-match page
   useEffect(() => {
     if (pendingMatchData && currentThread) {
-      console.log('📋 Processing pending match data:', pendingMatchData);
       handleCreateMatch(pendingMatchData);
       clearPendingMatch();
     }
@@ -149,48 +182,31 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
   const fetchProfileData = async () => {
     try {
       if (!session?.user?.id) {
-        console.log(
-          "ChatScreen: No session user ID available for profile data"
-        );
+        chatLogger.debug("No session user ID available for profile data");
         return;
       }
 
       const backendUrl = getBackendBaseURL();
-      console.log(
-        "ChatScreen: Fetching profile data from:",
-        `${backendUrl}/api/player/profile/me`
-      );
+      chatLogger.debug("Fetching profile data from:", `${backendUrl}/api/player/profile/me`);
 
       const authResponse = await authClient.$fetch(
         `${backendUrl}/api/player/profile/me`,
         {
           method: "GET",
         }
-      );
+      ) as AuthResponse | null;
 
-      if (
-        authResponse &&
-        (authResponse as any).data &&
-        (authResponse as any).data.data
-      ) {
-        console.log(
-          "ChatScreen: Setting profile data:",
-          (authResponse as any).data.data
-        );
-        setProfileData((authResponse as any).data.data);
-      } else if (authResponse && (authResponse as any).data) {
-        console.log(
-          "ChatScreen: Setting profile data (direct):",
-          (authResponse as any).data
-        );
-        setProfileData((authResponse as any).data);
+      if (authResponse?.data?.data) {
+        chatLogger.debug("Setting profile data:", authResponse.data.data);
+        setProfileData(authResponse.data.data);
+      } else if (authResponse?.data) {
+        chatLogger.debug("Setting profile data (direct):", authResponse.data);
+        setProfileData(authResponse.data as ProfileData);
       } else {
-        console.error(
-          "ChatScreen: No profile data received from authClient"
-        );
+        chatLogger.error("No profile data received from authClient");
       }
     } catch (error) {
-      console.error("ChatScreen: Error fetching profile data:", error);
+      chatLogger.error("Error fetching profile data:", error);
     }
   };
 
@@ -257,66 +273,61 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
     };
   }, []);
 
-  const handleThreadSelect = async (thread: Thread) => {
-    console.log('ChatScreen: Thread selected:', thread.name);
+  const handleThreadSelect = useCallback(async (thread: Thread) => {
+    chatLogger.debug('Thread selected:', thread.name);
     setCurrentThread(thread);
-    
+
     // Mark thread as read when opening it
     if (user?.id && thread.unreadCount > 0) {
-      console.log('ChatScreen: Marking thread as read, unread count:', thread.unreadCount);
+      chatLogger.debug('Marking thread as read, unread count:', thread.unreadCount);
       try {
         await ChatService.markAllAsRead(thread.id, user.id);
-        console.log('ChatScreen: Thread marked as read successfully');
+        chatLogger.debug('Thread marked as read successfully');
         updateThread({
           ...thread,
           unreadCount: 0,
         });
       } catch (error) {
-        console.error('ChatScreen: Error marking thread as read:', error);
+        chatLogger.error('Error marking thread as read:', error);
       }
     }
-  };
+  }, [user?.id, setCurrentThread, updateThread]);
 
-  const handleSendMessage = (content: string, replyToId?: string) => {
+  const handleSendMessage = useCallback((content: string, replyToId?: string) => {
     if (!currentThread || !user?.id) return;
 
-    console.log('Sending message:', {
-      threadId: currentThread.id,
-      senderId: user.id,
-      content,
-      replyToId,
-    });
+    chatLogger.debug('Sending message:', { threadId: currentThread.id, senderId: user.id });
 
     sendMessage(currentThread.id, user.id, content, replyToId);
-    
+
     if (replyingTo) {
       setReplyingTo(null);
     }
-  };
+  }, [currentThread, user?.id, sendMessage, replyingTo, setReplyingTo]);
 
-  const handleBackToThreads = () => {
+  const handleBackToThreads = useCallback(() => {
     setCurrentThread(null);
     setSearchQuery('');
-  };
+  }, [setCurrentThread]);
 
-  const clearSearch = () => {
+  const clearSearch = useCallback(() => {
     setSearchQuery('');
-  };
+  }, []);
 
- const handleMatch = () => {
-    console.log('Create match button pressed');
+  const handleMatch = useCallback(() => {
+    chatLogger.debug('Create match button pressed');
     if (!currentThread || !user) return;
-    
+
     // Check if this is a direct chat (1-on-1)
     if (currentThread.type === 'direct') {
       // Find the recipient (other participant)
       const recipient = currentThread.participants.find(p => p.id !== user.id);
-      
+
       if (!recipient) {
-        console.error('Cannot find recipient for friendly match request');
+        chatLogger.error('Cannot find recipient for friendly match request');
         return;
       }
-      
+
       // Navigate to friendly match creation screen with request params
       router.push({
         pathname: '/friendly/create',
@@ -336,7 +347,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
         divisionId: currentThread.metadata?.divisionId,
         sportType: currentThread.sportType || 'PICKLEBALL',
       });
-      
+
       // Navigate to the create match page
       router.push({
         pathname: '/match/create-match',
@@ -350,13 +361,13 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
         },
       });
     }
-  };
+  }, [currentThread, user, setThreadMetadata]);
 
   const handleCreateMatch = async (matchData: MatchFormData) => {
-    console.log('Match created:', matchData);
-    
+    chatLogger.debug('Match created:', matchData);
+
     if (!currentThread || !user) {
-      console.error('Cannot create match: missing thread or user');
+      chatLogger.error('Cannot create match: missing thread or user');
       toast.error('Cannot create match: missing information');
       return;
     }
@@ -371,8 +382,8 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
       let seasonId: string | undefined;
       
       if (currentThread.metadata?.divisionId) {
-        console.log('🔍 Fetching division data for match creation...');
-        
+        chatLogger.debug('Fetching division data for match creation...');
+
         try {
           const divisionResponse = await fetch(
             `${backendUrl}/api/division/${currentThread.metadata.divisionId}`,
@@ -381,32 +392,32 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
               headers: { 'x-user-id': user.id }
             }
           );
-          
+
           if (!divisionResponse.ok) {
             throw new Error(`Failed to fetch division: ${divisionResponse.status}`);
           }
-          
+
           const divisionResult = await divisionResponse.json();
           const divisionData = divisionResult.data || divisionResult;
-          
+
           divisionGameType = divisionData.gameType?.toUpperCase();
           seasonId = divisionData.seasonId || divisionData.season?.id;
-          
-          console.log('✅ Division info:', {
+
+          chatLogger.debug('Division info:', {
             divisionId: divisionData.id,
             gameType: divisionGameType,
             seasonId: seasonId,
           });
         } catch (error) {
-          console.error('❌ Failed to fetch division:', error);
+          chatLogger.error('Failed to fetch division:', error);
           toast.error('Failed to fetch division details');
           return;
         }
       }
       
       if (divisionGameType === 'DOUBLES' && seasonId) {
-        console.log('🎾 Division is DOUBLES type, fetching partnership...');
-        
+        chatLogger.debug('Division is DOUBLES type, fetching partnership...');
+
         try {
           const partnershipResponse = await fetch(
             `${backendUrl}/api/pairing/partnership/active/${seasonId}`,
@@ -415,34 +426,34 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
               headers: { 'x-user-id': user.id }
             }
           );
-          
+
           if (!partnershipResponse.ok) {
             throw new Error(`No active partnership found for this season`);
           }
-          
+
           const partnershipResult = await partnershipResponse.json();
           const partnership = partnershipResult?.data;
-          
+
           if (!partnership || !partnership.id) {
             toast.warning('No partner found', {
               description: 'You need to pair up with a partner for doubles divisions',
             });
             return;
           }
-          
+
           // Determine partner ID based on whether user is captain or partner
-          partnerId = partnership.captainId === user.id 
-            ? partnership.partnerId 
+          partnerId = partnership.captainId === user.id
+            ? partnership.partnerId
             : partnership.captainId;
-          
-          console.log('✅ Partner found:', {
+
+          chatLogger.debug('Partner found:', {
             userId: user.id,
             partnerId,
             isCaptain: partnership.captainId === user.id,
           });
-          
+
         } catch (error) {
-          console.error('❌ Failed to fetch partnership:', error);
+          chatLogger.error('Failed to fetch partnership:', error);
           toast.error('Partner required', {
             description: error instanceof Error ? error.message : 'You must have an active partnership for doubles divisions',
           });
@@ -482,11 +493,26 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
       const deviceTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
     
   
-      const matchPayload: any = {
+      interface MatchPayload {
+        divisionId?: string;
+        matchType: string;
+        format: string;
+        matchDate: string;
+        deviceTimezone: string;
+        location: string;
+        notes?: string;
+        duration: number;
+        courtBooked: boolean;
+        fee: string;
+        feeAmount?: number;
+        partnerId?: string;
+      }
+
+      const matchPayload: MatchPayload = {
         divisionId: currentThread.metadata?.divisionId,
         matchType: divisionGameType || (isDoubles ? 'DOUBLES' : 'SINGLES'),
         format: 'STANDARD',
-        matchDate: dateTimeString,  
+        matchDate: dateTimeString,
         deviceTimezone,
         location: matchData.location || 'TBD',
         notes: matchData.description,
@@ -495,11 +521,11 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
         fee: matchData.fee || 'FREE',
         feeAmount: matchData.fee !== 'FREE' ? parseFloat(matchData.feeAmount || '0') : undefined,
       };
-      
+
       // Add partnerId only for DOUBLES divisions
       if (divisionGameType === 'DOUBLES' && partnerId) {
         matchPayload.partnerId = partnerId;
-        console.log('✅ Added partnerId to payload:', partnerId);
+        chatLogger.debug('Added partnerId to payload:', partnerId);
       }
       
       // console.log('📤 Creating match with payload:', {
@@ -522,29 +548,24 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
 
       if (!matchResponse.ok) {
         const errorData = await matchResponse.json();
-        console.error('❌ Match creation failed:', {
+        chatLogger.error('Match creation failed:', {
           status: matchResponse.status,
           errorData,
-          originalPayload: matchPayload
         });
         throw new Error(errorData.error || 'Failed to create match');
       }
 
       const matchResult = await matchResponse.json();
-      console.log('✅ Match created successfully:', {
-        matchId: matchResult.id,
-        fullResult: matchResult
-      });
+      chatLogger.debug('Match created successfully:', { matchId: matchResult.id });
 
       // Filter participants to only include ACCEPTED (not PENDING invitations)
-      const acceptedParticipants = matchResult.participants?.filter(
-        (p: any) => p.invitationStatus === 'ACCEPTED'
-      ) || [];
+      const acceptedParticipants = (matchResult.participants as MatchParticipant[] || []).filter(
+        (p: MatchParticipant) => p.invitationStatus === 'ACCEPTED'
+      );
 
-      console.log('✅ Filtered participants:', {
+      chatLogger.debug('Filtered participants:', {
         total: matchResult.participants?.length,
         accepted: acceptedParticipants.length,
-        participants: acceptedParticipants
       });
 
       // Send a message to the thread with match data for UI display
@@ -587,56 +608,52 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
         throw new Error(errorData.error || 'Failed to send match message');
       }
 
-      console.log('✅ Match message sent to thread');
+      chatLogger.debug('Match message sent to thread');
       toast.success('Match created successfully!');
     } catch (error) {
-      console.error('❌ Error creating match:', error);
+      chatLogger.error('Error creating match:', error);
       toast.error(error instanceof Error ? error.message : 'Failed to create match');
     }
   };
 
-  const handleReply = (message: any) => {
-    // console.log('📝 Reply to message:', message.id);
-    // console.log('📝 Message content:', message.content);
-    // console.log('📝 Message sender:', message.metadata?.sender);
-    // console.log('📝 Full message object:', JSON.stringify(message, null, 2));
+  const handleReply = useCallback((message: Message) => {
     setReplyingTo(message);
-  };
+  }, [setReplyingTo]);
 
-  const handleCancelReply = () => {
+  const handleCancelReply = useCallback(() => {
     setReplyingTo(null);
-  };
+  }, [setReplyingTo]);
 
-  const handleLongPress = (message: any) => {
-    console.log('Long press on message:', message.id);
+  const handleLongPress = useCallback((message: Message) => {
+    chatLogger.debug('Long press on message:', message.id);
     setSelectedMessage(message);
     setShowActionBar(true);
-  };
+  }, []);
 
-  const handleCloseActionBar = () => {
+  const handleCloseActionBar = useCallback(() => {
     setShowActionBar(false);
     setSelectedMessage(null);
-  };
+  }, []);
 
-  const handleActionBarReply = () => {
+  const handleActionBarReply = useCallback(() => {
     if (selectedMessage) {
-      handleReply(selectedMessage);
+      setReplyingTo(selectedMessage);
     }
-  };
+  }, [selectedMessage, setReplyingTo]);
 
-  const handleActionBarCopy = async () => {
+  const handleActionBarCopy = useCallback(async () => {
     if (selectedMessage?.content && !selectedMessage.metadata?.isDeleted) {
       try {
         await Clipboard.setStringAsync(selectedMessage.content);
         toast.success('Message copied to clipboard');
       } catch (error) {
-        console.error('Failed to copy:', error);
+        chatLogger.error('Failed to copy:', error);
         toast.error('Failed to copy message');
       }
     }
-  };
+  }, [selectedMessage]);
 
-  const handleActionBarDelete = async () => {
+  const handleActionBarDelete = useCallback(async () => {
     if (selectedMessage) {
       // Show confirmation toast
       toast('Delete this message?', {
@@ -647,7 +664,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
               await deleteMessageFromStore(selectedMessage.id, currentThread?.id || '');
               toast.success('Message deleted');
             } catch (error) {
-              console.error('Failed to delete:', error);
+              chatLogger.error('Failed to delete:', error);
               toast.error('Failed to delete message');
             }
           },
@@ -658,32 +675,32 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
         },
       });
     }
-  };
+  }, [selectedMessage, currentThread?.id, deleteMessageFromStore]);
 
-  const handleDeleteMessageAction = async (messageId: string) => {
+  const handleDeleteMessageAction = useCallback(async (messageId: string) => {
     if (!currentThread) {
       return;
     }
     try {
       await deleteMessageFromStore(messageId, currentThread.id);
-      console.log('✅ Message deleted successfully');
+      chatLogger.debug('Message deleted successfully');
     } catch (error) {
-      console.error('❌ Failed to delete message:', error);
+      chatLogger.error('Failed to delete message:', error);
       toast.error('Failed to delete message. Please try again.');
     }
-  };
+  }, [currentThread, deleteMessageFromStore]);
 
-  // Get header content based on chat type
-  const getHeaderContent = () => {
+  // Memoize header content to avoid recalculating on every render
+  const headerContent = useMemo(() => {
     if (!currentThread || !user?.id) return { title: 'Chat', subtitle: null, sportType: null, season: null, avatar: null, participantName: 'Unknown User' };
 
     if (currentThread.type === 'group') {
       // Group chat: show group name and participant count
       // Get season name from thread metadata
-      const seasonName = currentThread.metadata?.seasonName || 
-                        currentThread.division?.season?.name || 
+      const seasonName = currentThread.metadata?.seasonName ||
+                        currentThread.division?.season?.name ||
                         null;
-      
+
       return {
         title: currentThread.name || 'Group Chat',
         subtitle: seasonName,
@@ -696,13 +713,13 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
       const otherParticipant = currentThread.participants.find(
         participant => participant.id !== user.id
       );
-      
+
       if (otherParticipant) {
         return {
           title: otherParticipant.name || otherParticipant.username || 'Unknown User',
           subtitle: otherParticipant.username ? `@${otherParticipant.username}` : null,
           sportType: null,
-          avatar: otherParticipant.avatar || (otherParticipant as any)?.image || null,
+          avatar: otherParticipant.avatar || null,
           participantName: otherParticipant.name || 'Unknown User'
         };
       } else {
@@ -715,15 +732,14 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
         };
       }
     }
-  };
+  }, [currentThread, user?.id]);
 
-  const headerContent = getHeaderContent();
-  const sportColors = getSportColors(headerContent.sportType);
+  const sportColors = useMemo(() => getSportColors(headerContent.sportType), [headerContent.sportType]);
 
-  // Generate participant preview text for group chats
-  const getParticipantPreview = () => {
+  // Memoize participant preview text for group chats
+  const participantPreview = useMemo(() => {
     if (!currentThread || currentThread.type !== 'group') return '';
-    
+
     const participantNames = currentThread.participants
       .slice(0, 5) // Show first 5 participants
       .map(p => {
@@ -732,14 +748,112 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
         // Shorten long names
         return firstName.length > 10 ? firstName.substring(0, 8) + '.' : firstName;
       });
-    
+
     // Add ellipsis if there are more participants
     if (currentThread.participants.length > 5) {
       return participantNames.join(', ') + '...';
     }
-    
+
     return participantNames.join(', ');
-  };
+  }, [currentThread]);
+
+  // Memoize handlers for NewMessageBottomSheet
+  const handleCloseNewMessageSheet = useCallback(() => {
+    setShowNewMessageSheet(false);
+  }, []);
+
+  const handleSelectUser = useCallback(async (userId: string, userName: string) => {
+    if (!user?.id) {
+      toast.error('Please log in to start a conversation');
+      return;
+    }
+
+    try {
+      chatLogger.debug('Creating/finding thread with user:', userId, userName);
+
+      // Create or find existing direct message thread
+      const thread = await ChatService.createThread(
+        user.id,
+        [userId],
+        false // isGroup = false for direct messages
+      );
+
+      chatLogger.debug('Thread created/found:', thread.id, thread.name);
+
+      // Close the bottom sheet
+      setShowNewMessageSheet(false);
+
+      // Set the thread as current to navigate to the chat
+      setCurrentThread(thread);
+
+      // Load messages for the thread
+      loadMessages(thread.id);
+
+      // Refresh the threads list to include the new thread
+      loadThreads(user.id);
+
+    } catch (error) {
+      chatLogger.error('Error creating thread:', error);
+      toast.error('Failed to start conversation. Please try again.');
+    }
+  }, [user?.id, setCurrentThread, loadMessages, loadThreads]);
+
+  // Memoize navigation handlers for group chat header
+  const handleViewStandings = useCallback(() => {
+    if (!currentThread) return;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    router.push({
+      pathname: '/match/divisionstandings',
+      params: {
+        divisionId: currentThread.metadata?.divisionId || currentThread.division?.id,
+        divisionName: currentThread.metadata?.divisionName || currentThread.division?.name || 'Division 1',
+        sportType: currentThread.sportType || 'PICKLEBALL',
+        leagueName: currentThread.metadata?.leagueName || currentThread.division?.league?.name || 'League',
+        seasonName: currentThread.metadata?.seasonName || currentThread.division?.season?.name || 'Season 1',
+        gameType: currentThread.metadata?.gameType || currentThread.division?.gameType || 'Singles',
+        genderCategory: currentThread.metadata?.genderCategory || currentThread.division?.genderCategory || '',
+        seasonStartDate: currentThread.division?.season?.startDate,
+        seasonEndDate: currentThread.division?.season?.endDate,
+      },
+    });
+  }, [currentThread]);
+
+  const handleViewAllMatches = useCallback(() => {
+    if (!currentThread) return;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    router.push({
+      pathname: '/match/all-matches',
+      params: {
+        divisionId: currentThread.metadata?.divisionId || currentThread.division?.id,
+        sportType: currentThread.sportType || 'PICKLEBALL',
+        leagueName: currentThread.metadata?.leagueName || currentThread.division?.league?.name || 'League',
+        seasonName: currentThread.metadata?.seasonName || currentThread.division?.season?.name || 'Season 1',
+      },
+    });
+  }, [currentThread]);
+
+  const handleOpenNewMessage = useCallback(() => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    // Blur search input and dismiss keyboard before opening bottom sheet
+    searchInputRef.current?.blur();
+    Keyboard.dismiss();
+    // Small delay to let keyboard fully dismiss before opening bottom sheet
+    // This prevents gesture handler conflicts
+    setTimeout(() => {
+      setShowNewMessageSheet(true);
+    }, 100);
+  }, []);
+
+  // Memoize menu button handler (placeholder for future implementation)
+  const handleGroupMenuPress = useCallback(() => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    // TODO: Show menu options
+  }, []);
+
+  // Memoize image error handler
+  const handleAvatarError = useCallback(() => {
+    chatLogger.debug('Profile image failed to load:', headerContent.avatar);
+  }, [headerContent.avatar]);
 
   if (isLoading && (!threads || threads.length === 0)) {
     return (
@@ -827,7 +941,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
                     </Text>
                   </View>
                   <Text style={styles.groupHeaderParticipants} numberOfLines={1}>
-                    {getParticipantPreview()}
+                    {participantPreview}
                   </Text>
 
                   {/* Action buttons */}
@@ -839,24 +953,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
                         { backgroundColor: sportColors.background },
                         pressed && { opacity: 0.8 }
                       ]}
-                      onPress={() => {
-                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-
-                        router.push({
-                          pathname: '/match/divisionstandings',
-                          params: {
-                            divisionId: currentThread.metadata?.divisionId || currentThread.division?.id,
-                            divisionName: currentThread.metadata?.divisionName || currentThread.division?.name || 'Division 1',
-                            sportType: currentThread.sportType || 'PICKLEBALL',
-                            leagueName: currentThread.metadata?.leagueName || currentThread.division?.league?.name || 'League',
-                            seasonName: currentThread.metadata?.seasonName || currentThread.division?.season?.name || 'Season 1',
-                            gameType: currentThread.metadata?.gameType || currentThread.division?.gameType || 'Singles',
-                            genderCategory: currentThread.metadata?.genderCategory || currentThread.division?.genderCategory || '',
-                            seasonStartDate: currentThread.division?.season?.startDate,
-                            seasonEndDate: currentThread.division?.season?.endDate,
-                          },
-                        });
-                      }}
+                      onPress={handleViewStandings}
                     >
                       <Text style={styles.primaryActionText}>View Standings</Text>
                     </Pressable>
@@ -866,18 +963,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
                         styles.secondaryActionButton,
                         pressed && { opacity: 0.8 }
                       ]}
-                      onPress={() => {
-                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                        router.push({
-                          pathname: '/match/all-matches',
-                          params: {
-                            divisionId: currentThread.metadata?.divisionId || currentThread.division?.id,
-                            sportType: currentThread.sportType || 'PICKLEBALL',
-                            leagueName: currentThread.metadata?.leagueName || currentThread.division?.league?.name || 'League',
-                            seasonName: currentThread.metadata?.seasonName || currentThread.division?.season?.name || 'Season 1',
-                          },
-                        });
-                      }}
+                      onPress={handleViewAllMatches}
                     >
                       <Text style={styles.secondaryActionText}>View All Matches</Text>
                     </Pressable>
@@ -887,10 +973,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
                 {/* Right section: 3-dot menu */}
                 <Pressable
                   style={({ pressed }) => [styles.groupHeaderMenuButton, pressed && { opacity: 0.7 }]}
-                  onPress={() => {
-                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                    // TODO: Show menu options
-                  }}
+                  onPress={handleGroupMenuPress}
                 >
                   <Ionicons name="ellipsis-vertical" size={20} color="#6B7280" />
                 </Pressable>
@@ -904,9 +987,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
                     <Image
                       source={{ uri: headerContent.avatar }}
                       style={styles.chatHeaderAvatarImage}
-                      onError={() => {
-                        console.log('Profile image failed to load:', headerContent.avatar);
-                      }}
+                      onError={handleAvatarError}
                     />
                   ) : (
                     <View style={styles.defaultChatHeaderAvatarContainer}>
@@ -966,17 +1047,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
           <View style={[styles.chatsHeaderContainer, { paddingTop: STATUS_BAR_HEIGHT }]}>
             <Text style={styles.chatsTitle}>Chats</Text>
             <Pressable
-              onPress={() => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                // Blur search input and dismiss keyboard before opening bottom sheet
-                searchInputRef.current?.blur();
-                Keyboard.dismiss();
-                // Small delay to let keyboard fully dismiss before opening bottom sheet
-                // This prevents gesture handler conflicts
-                setTimeout(() => {
-                  setShowNewMessageSheet(true);
-                }, 100);
-              }}
+              onPress={handleOpenNewMessage}
               style={({ pressed }) => pressed && { opacity: 0.7 }}
             >
               <Text style={styles.newMessageButton}>New Message</Text>
@@ -1023,42 +1094,8 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
       {showNewMessageSheet && (
         <NewMessageBottomSheet
           visible={showNewMessageSheet}
-          onClose={() => setShowNewMessageSheet(false)}
-          onSelectUser={async (userId, userName) => {
-            if (!user?.id) {
-              toast.error('Please log in to start a conversation');
-              return;
-            }
-
-            try {
-              console.log('Creating/finding thread with user:', userId, userName);
-
-              // Create or find existing direct message thread
-              const thread = await ChatService.createThread(
-                user.id,
-                [userId],
-                false // isGroup = false for direct messages
-              );
-
-              console.log('Thread created/found:', thread.id, thread.name);
-
-              // Close the bottom sheet
-              setShowNewMessageSheet(false);
-
-              // Set the thread as current to navigate to the chat
-              setCurrentThread(thread);
-
-              // Load messages for the thread
-              loadMessages(thread.id);
-
-              // Refresh the threads list to include the new thread
-              loadThreads(user.id);
-
-            } catch (error) {
-              console.error('Error creating thread:', error);
-              toast.error('Failed to start conversation. Please try again.');
-            }
-          }}
+          onClose={handleCloseNewMessageSheet}
+          onSelectUser={handleSelectUser}
         />
       )}
     </View>
