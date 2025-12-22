@@ -182,8 +182,18 @@ export const MatchResultSheet: React.FC<MatchResultSheetProps> = ({
   const isTennisOrPadel = normalizedSportType === 'TENNIS' || normalizedSportType === 'PADEL';
   const isPickleball = normalizedSportType === 'PICKLEBALL';
 
-  // Check if this is a friendly match in view mode (casual play - no scores to show)
-  const isFriendlyViewMode = mode === 'view' && (matchDetails?.isFriendly || matchDetails?.isFriendlyRequest || isFriendlyMatch);
+  // Check if this is a friendly match in view mode with NO scores (casual play only)
+  // If the friendly match has scores (from Friendly Match toggle), show the scores
+  const hasScores = matchDetails?.setScores || matchDetails?.gameScores ||
+    (matchDetails?.scores && matchDetails.scores.length > 0) ||
+    (matchDetails?.pickleballScores && matchDetails.pickleballScores.length > 0);
+  const isFriendlyViewMode = mode === 'view' &&
+    (matchDetails?.isFriendly || matchDetails?.isFriendlyRequest || isFriendlyMatch) &&
+    !hasScores;
+  // Check if this is a friendly match with scores in view mode (for hiding "awaiting confirmation" banner)
+  const isFriendlyWithScoresViewMode = mode === 'view' &&
+    (matchDetails?.isFriendly || matchDetails?.isFriendlyRequest || isFriendlyMatch) &&
+    hasScores;
 
   // Fetch match details if in view/review/disputed mode
   useEffect(() => {
@@ -2024,8 +2034,8 @@ export const MatchResultSheet: React.FC<MatchResultSheetProps> = ({
           )}
         </View>
 
-        {/* Info Message - Hide for friendly matches in view mode */}
-        {mode !== 'submit' && !isFriendlyViewMode && (
+        {/* Info Message - Hide for friendly matches in view mode (both casual play and with scores) */}
+        {mode !== 'submit' && !isFriendlyViewMode && !isFriendlyWithScoresViewMode && (
           mode === 'disputed' ? (
             <View style={styles.disputedBanner}>
               <Ionicons name="alert-circle" size={20} color="#DC2626" />
