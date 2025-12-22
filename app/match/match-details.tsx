@@ -1027,23 +1027,25 @@ export default function JoinMatchScreen() {
           <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
             <Ionicons name="chevron-back" size={28} color="#FFFFFF" />
           </TouchableOpacity>
+          <Text style={styles.headerMatchType}>
+            {matchType === 'DOUBLES' ? 'Doubles' : 'Singles'} {isFriendly ? 'Friendly' : 'League'} Match
+          </Text>
           {isFriendly ? (
             <FriendlyBadge />
           ) : (
-          <View style={styles.leagueBadge}>
-            <Text style={styles.leagueBadgeText}>LEAGUE</Text>
-          </View>
+            <View style={styles.leagueBadge}>
+              <Text style={styles.leagueBadgeText}>LEAGUE</Text>
+            </View>
           )}
         </View>
-        
+
         <View style={styles.headerContent}>
-          <Text style={styles.headerTitle}>{matchType === 'DOUBLES' ? 'Doubles' : 'Singles'} {isFriendly ? 'Friendly' : 'League'} Match</Text>
           {isFriendly ? (
             <Text style={styles.headerLeagueName}>Friendly Match</Text>
           ) : (
             <>
-          <Text style={styles.headerLeagueName}>{leagueName || 'League Match'}</Text>
-          <Text style={styles.headerSeason}>{season || 'Season 1'} - {division || 'Division 1'}</Text>
+              <Text style={styles.headerLeagueName}>{leagueName || 'League Match'}</Text>
+              <Text style={styles.headerSeason}>{season || 'Season 1'} - {division || 'Division 1'}</Text>
             </>
           )}
         </View>
@@ -1641,7 +1643,7 @@ export default function JoinMatchScreen() {
                 <ActivityIndicator color="#FFFFFF" size="small" />
               ) : (
                 <Text style={styles.joinButtonText}>
-                  🧪 Join (No Time Check Comment OUT After testing)
+                  🧪 Join (No Time Check)
                 </Text>
               )}
             </TouchableOpacity>
@@ -1729,7 +1731,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
   },
   header: {
-    paddingBottom: 24,
+    paddingBottom: 16,
     borderBottomLeftRadius: 24,
     borderBottomRightRadius: 24,
     overflow: 'hidden',
@@ -1737,13 +1739,19 @@ const styles = StyleSheet.create({
   },
   headerTop: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingVertical: 8,
+    gap: 8,
   },
   backButton: {
     padding: 4,
+  },
+  headerMatchType: {
+    flex: 1,
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#FFFFFF',
   },
   leagueBadge: {
     backgroundColor: '#FEA04D',
@@ -1759,13 +1767,7 @@ const styles = StyleSheet.create({
   },
   headerContent: {
     paddingHorizontal: 24,
-    marginTop: 8,
-  },
-  headerTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: 'rgba(255,255,255,0.8)',
-    marginBottom: 4,
+    marginTop: 4,
   },
   headerLeagueName: {
     fontSize: 20,

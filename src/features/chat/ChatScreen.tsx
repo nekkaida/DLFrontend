@@ -875,6 +875,10 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
                             sportType: currentThread.sportType || 'PICKLEBALL',
                             leagueName: currentThread.metadata?.leagueName || currentThread.division?.league?.name || 'League',
                             seasonName: currentThread.metadata?.seasonName || currentThread.division?.season?.name || 'Season 1',
+                            gameType: currentThread.metadata?.gameType || currentThread.division?.gameType || '',
+                            genderCategory: currentThread.metadata?.genderCategory || currentThread.division?.genderCategory || '',
+                            seasonStartDate: currentThread.division?.season?.startDate,
+                            seasonEndDate: currentThread.division?.season?.endDate,
                           },
                         });
                       }}

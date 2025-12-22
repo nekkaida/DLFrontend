@@ -43,6 +43,7 @@ export const FriendlyScreen: React.FC<FriendlyScreenProps> = ({ sport }) => {
     start: null,
     end: null,
   });
+  const [collapsedDates, setCollapsedDates] = useState<Set<string>>(new Set());
   const dateRangeFilterRef = useRef<DateRangeFilterModalRef>(null);
 
   const fetchFriendlyMatches = useCallback(async () => {
@@ -238,6 +239,18 @@ export const FriendlyScreen: React.FC<FriendlyScreenProps> = ({ sport }) => {
     setDateRange({ start, end });
   };
 
+  const toggleDateSection = (dateKey: string) => {
+    setCollapsedDates((prev) => {
+      const next = new Set(prev);
+      if (next.has(dateKey)) {
+        next.delete(dateKey);
+      } else {
+        next.add(dateKey);
+      }
+      return next;
+    });
+  };
+
   const renderEmptyState = () => (
     <View style={styles.emptyContainer}>
       <Ionicons name="calendar-outline" size={64} color="#9CA3AF" />
@@ -250,18 +263,28 @@ export const FriendlyScreen: React.FC<FriendlyScreenProps> = ({ sport }) => {
     </View>
   );
 
-  const renderMatchGroup = (dateKey: string, dateMatches: FriendlyMatch[]) => (
-    <View key={dateKey} style={styles.dateSection}>
-      <View style={styles.dateDivider}>
-        <View style={styles.dividerLine} />
-        <Text style={styles.dateLabel}>{dateKey}</Text>
-        <View style={styles.dividerLine} />
+  const renderMatchGroup = (dateKey: string, dateMatches: FriendlyMatch[]) => {
+    const isCollapsed = collapsedDates.has(dateKey);
+    return (
+      <View key={dateKey} style={styles.dateSection}>
+        <TouchableOpacity
+          style={styles.dateDivider}
+          onPress={() => toggleDateSection(dateKey)}
+          activeOpacity={0.7}
+        >
+          <Ionicons
+            name={isCollapsed ? 'chevron-forward' : 'chevron-down'}
+            size={18}
+            color="#86868B"
+          />
+          <Text style={styles.dateLabel}>{dateKey}</Text>
+        </TouchableOpacity>
+        {!isCollapsed && dateMatches.map((match) => (
+          <FriendlyMatchCard key={match.id} match={match} onPress={handleMatchPress} />
+        ))}
       </View>
-      {dateMatches.map((match) => (
-        <FriendlyMatchCard key={match.id} match={match} onPress={handleMatchPress} />
-      ))}
-    </View>
-  );
+    );
+  };
 
   return (
     <View style={[styles.container, { backgroundColor: sportColors.background }]}>
@@ -461,17 +484,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 16,
     paddingVertical: 12,
-    gap: 12,
-  },
-  dividerLine: {
-    flex: 1,
-    height: 1,
-    backgroundColor: '#E5E7EB',
+    gap: 8,
   },
   dateLabel: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#6B7280',
+    color: '#86868B',
   },
   loadingContainer: {
     flex: 1,
