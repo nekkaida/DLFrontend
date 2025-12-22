@@ -161,11 +161,11 @@ const styles = StyleSheet.create({
     shadowColor: '#000',
     shadowOffset: {
       width: 0,
-      height: 2,
+      height: 4,
     },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 2,
+    shadowOpacity: 0.12,
+    shadowRadius: 2,
+    elevation: 4,
   },
   cardTopSection: {
     flexDirection: 'row',
