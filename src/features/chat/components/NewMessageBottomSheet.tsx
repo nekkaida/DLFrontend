@@ -1,7 +1,8 @@
 import { getBackendBaseURL } from '@/config/network';
 import { authClient, useSession } from '@/lib/auth-client';
+import { chatLogger } from '@/utils/logger';
 import { Ionicons } from '@expo/vector-icons';
-import BottomSheet, { BottomSheetBackdrop, BottomSheetFlatList, BottomSheetTextInput } from '@gorhom/bottom-sheet';
+import BottomSheet, { BottomSheetBackdrop, BottomSheetBackdropProps, BottomSheetFlatList, BottomSheetTextInput } from '@gorhom/bottom-sheet';
 import * as Haptics from 'expo-haptics';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -14,6 +15,21 @@ import {
   Text,
   View,
 } from 'react-native';
+
+// API response types
+interface PlayerApiResponse {
+  id: string;
+  name?: string;
+  username?: string;
+  displayUsername?: string;
+  image?: string | null;
+}
+
+interface FetchResponse {
+  data?: {
+    data?: PlayerApiResponse[];
+  } | PlayerApiResponse[];
+}
 
 const { width } = Dimensions.get('window');
 const isSmallScreen = width < 375;
@@ -82,13 +98,17 @@ export const NewMessageBottomSheet: React.FC<NewMessageBottomSheetProps> = ({
         { method: 'GET' }
       );
 
-      if (response && (response as any).data) {
-        const playersData = (response as any).data.data || (response as any).data;
+      const typedResponse = response as FetchResponse | null;
+      if (typedResponse?.data) {
+        const responseData = typedResponse.data;
+        const playersData = Array.isArray(responseData)
+          ? responseData
+          : (responseData as { data?: PlayerApiResponse[] }).data || [];
 
         // Filter out current user and transform to player format
-        const playersList: Player[] = (Array.isArray(playersData) ? playersData : [])
-          .filter((player: any) => player.id !== session?.user?.id)
-          .map((player: any) => ({
+        const playersList: Player[] = playersData
+          .filter((player: PlayerApiResponse) => player.id !== session?.user?.id)
+          .map((player: PlayerApiResponse) => ({
             id: player.id,
             name: player.name || 'Unknown',
             username: player.username || player.displayUsername,
@@ -99,7 +119,7 @@ export const NewMessageBottomSheet: React.FC<NewMessageBottomSheetProps> = ({
         setFilteredPlayers(playersList);
       }
     } catch (error) {
-      console.error('Error fetching players:', error);
+      chatLogger.error('Error fetching players:', error);
     } finally {
       setIsLoading(false);
     }
@@ -118,7 +138,7 @@ export const NewMessageBottomSheet: React.FC<NewMessageBottomSheetProps> = ({
   }, [onClose]);
 
   const renderBackdrop = useCallback(
-    (props: any) => (
+    (props: BottomSheetBackdropProps) => (
       <BottomSheetBackdrop
         {...props}
         disappearsOnIndex={-1}
