@@ -1,6 +1,6 @@
 import { getSportColors, SportType } from '@/constants/SportsColor';
 import { Ionicons } from '@expo/vector-icons';
-import React, { useCallback } from 'react';
+import React, { useCallback, useMemo } from 'react';
 import { Image, StyleSheet, Text, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
@@ -28,7 +28,7 @@ interface SwipeableMessageBubbleProps {
 const SWIPE_THRESHOLD = 60;
 const REPLY_ICON_SIZE = 24;
 
-export const SwipeableMessageBubble: React.FC<SwipeableMessageBubbleProps> = ({
+export const SwipeableMessageBubble: React.FC<SwipeableMessageBubbleProps> = React.memo(({
   message,
   isCurrentUser,
   showAvatar,
@@ -40,15 +40,13 @@ export const SwipeableMessageBubble: React.FC<SwipeableMessageBubbleProps> = ({
   onLongPress,
   messageMap,
 }) => {
-  // Get sport-specific color for current user messages in group chats
-  const getSportColor = () => {
-    if (!isCurrentUser || !isGroupChat) return '#DCC6FD'; 
-    
+  // Memoized sport-specific color for current user messages in group chats
+  const bubbleColor = useMemo(() => {
+    if (!isCurrentUser || !isGroupChat) return '#DCC6FD';
+
     const colors = getSportColors(sportType);
     return colors.messageColor;
-  };
-  
-  const bubbleColor = getSportColor();
+  }, [isCurrentUser, isGroupChat, sportType]);
   const translateX = useSharedValue(0);
   const replyIconScale = useSharedValue(0);
   const replyIconOpacity = useSharedValue(0);
@@ -278,7 +276,9 @@ export const SwipeableMessageBubble: React.FC<SwipeableMessageBubbleProps> = ({
       )}
     </View>
   );
-};
+});
+
+SwipeableMessageBubble.displayName = 'SwipeableMessageBubble';
 
 const styles = StyleSheet.create({
   container: {
