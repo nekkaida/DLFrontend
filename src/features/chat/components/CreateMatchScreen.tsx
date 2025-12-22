@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import Slider from '@react-native-community/slider';
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useMemo, useCallback, memo } from 'react';
 import {
   KeyboardAvoidingView,
   Modal,
@@ -18,6 +18,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { format, addDays, startOfWeek, isSameDay, startOfMonth, endOfMonth, addMonths, subMonths } from 'date-fns';
+import { toast } from 'sonner-native';
 
 // Sport icon imports
 import PickleballIcon from '@/assets/images/045-PICKLEBALL.svg';
@@ -52,7 +53,7 @@ export interface MatchFormData {
 
 type FeeType = 'FREE' | 'SPLIT' | 'FIXED';
 
-export const CreateMatchScreen: React.FC<CreateMatchScreenProps> = ({
+export const CreateMatchScreen: React.FC<CreateMatchScreenProps> = memo(({
   leagueInfo,
   onClose,
   onCreateMatch,
@@ -84,8 +85,8 @@ export const CreateMatchScreen: React.FC<CreateMatchScreenProps> = ({
   const [locationY, setLocationY] = useState(0);
   const [descriptionY, setDescriptionY] = useState(0);
 
-  // Get sport-specific colors
-  const getSportColors = () => {
+  // Memoized sport-specific colors
+  const sportColors = useMemo(() => {
     switch (leagueInfo.sportType) {
       case 'PICKLEBALL':
         return { background: '#A04DFE', badge: '#A855F7', label: 'Pickleball' };
@@ -96,12 +97,10 @@ export const CreateMatchScreen: React.FC<CreateMatchScreenProps> = ({
       default:
         return { background: '#A04DFE', badge: '#A855F7', label: 'Friendly' };
     }
-  };
+  }, [leagueInfo.sportType]);
 
-  const sportColors = getSportColors();
-
-  // Get sport icon component
-  const getSportIcon = () => {
+  // Memoized sport icon component
+  const SportIcon = useMemo(() => {
     switch (leagueInfo.sportType) {
       case 'TENNIS':
         return TennisIcon;
@@ -111,26 +110,24 @@ export const CreateMatchScreen: React.FC<CreateMatchScreenProps> = ({
       default:
         return PickleballIcon;
     }
-  };
+  }, [leagueInfo.sportType]);
 
-  const SportIcon = getSportIcon();
-
-  // Generate week days for the date selector
-  const getWeekDays = () => {
+  // Memoized week days for the date selector
+  const weekDays = useMemo(() => {
     const days = [];
     for (let i = 0; i < 7; i++) {
       days.push(addDays(currentWeekStart, i));
     }
     return days;
-  };
+  }, [currentWeekStart]);
 
-  // Generate month days for the date selector (including leading/trailing days)
-  const getMonthDays = () => {
+  // Memoized month days for the date selector (including leading/trailing days)
+  const monthDays = useMemo(() => {
     const monthStart = startOfMonth(currentMonth);
     const monthEnd = endOfMonth(currentMonth);
     const startDate = startOfWeek(monthStart, { weekStartsOn: 1 });
     const endDate = startOfWeek(addDays(monthEnd, 7), { weekStartsOn: 1 });
-    
+
     const days = [];
     let currentDate = startDate;
     while (currentDate < endDate) {
@@ -138,39 +135,38 @@ export const CreateMatchScreen: React.FC<CreateMatchScreenProps> = ({
       currentDate = addDays(currentDate, 1);
     }
     return days;
-  };
+  }, [currentMonth]);
 
-  const weekDays = getWeekDays();
-  const monthDays = getMonthDays();
+  const handlePreviousWeek = useCallback(() => {
+    setCurrentWeekStart(prev => addDays(prev, -7));
+  }, []);
 
-  const handlePreviousWeek = () => {
-    setCurrentWeekStart(addDays(currentWeekStart, -7));
-  };
+  const handleNextWeek = useCallback(() => {
+    setCurrentWeekStart(prev => addDays(prev, 7));
+  }, []);
 
-  const handleNextWeek = () => {
-    setCurrentWeekStart(addDays(currentWeekStart, 7));
-  };
+  const handlePreviousMonth = useCallback(() => {
+    setCurrentMonth(prev => subMonths(prev, 1));
+  }, []);
 
-  const handlePreviousMonth = () => {
-    setCurrentMonth(subMonths(currentMonth, 1));
-  };
+  const handleNextMonth = useCallback(() => {
+    setCurrentMonth(prev => addMonths(prev, 1));
+  }, []);
 
-  const handleNextMonth = () => {
-    setCurrentMonth(addMonths(currentMonth, 1));
-  };
+  const toggleMonthView = useCallback(() => {
+    setIsMonthView(prev => {
+      // Sync current month with current week when toggling to month view
+      if (!prev) {
+        setCurrentMonth(startOfMonth(currentWeekStart));
+      }
+      return !prev;
+    });
+  }, [currentWeekStart]);
 
-  const toggleMonthView = () => {
-    setIsMonthView(!isMonthView);
-    // Sync current month with current week when toggling
-    if (!isMonthView) {
-      setCurrentMonth(startOfMonth(currentWeekStart));
-    }
-  };
-
-  const handleDateSelect = (date: Date) => {
+  const handleDateSelect = useCallback((date: Date) => {
     setSelectedDate(date);
-    setFormData({ ...formData, date: format(date, 'yyyy-MM-dd') });
-  };
+    setFormData(prev => ({ ...prev, date: format(date, 'yyyy-MM-dd') }));
+  }, []);
 
   // For Android, we need to show/hide the picker
   const showAndroidTimePicker = () => {
@@ -229,10 +225,63 @@ export const CreateMatchScreen: React.FC<CreateMatchScreenProps> = ({
 
   const handleCreateMatch = () => {
     // Validate required fields
-    if (!formData.date || !formData.time) {
-      // TODO: Show error toast
+    if (!formData.date) {
+      toast.error('Please select a date');
       return;
     }
+
+    if (!formData.time) {
+      toast.error('Please select a time');
+      return;
+    }
+
+    // Validate date/time is not in the past
+    try {
+      const dateStr = formData.date;
+      const timeStr = formData.time.split(' - ')[0]; // Get start time only
+      const dateTimeStr = `${dateStr} ${timeStr}`;
+      const selectedDateTime = new Date(dateTimeStr);
+      const now = new Date();
+
+      if (selectedDateTime < now) {
+        toast.error('Match date and time cannot be in the past');
+        return;
+      }
+    } catch {
+      // Continue with other validations - date format might be unusual but valid
+    }
+
+    if (!formData.location || formData.location.trim() === '') {
+      toast.error('Please enter a location');
+      // Optionally scroll to location field
+      if (locationY > 0) {
+        scrollViewRef.current?.scrollTo({ y: locationY - 100, animated: true });
+      }
+      return;
+    }
+
+    // Validate fee amount if not FREE
+    if (formData.fee !== 'FREE') {
+      const feeAmount = parseFloat(formData.feeAmount);
+
+      if (!formData.feeAmount || formData.feeAmount.trim() === '') {
+        toast.error('Please enter a fee amount');
+        return;
+      }
+
+      if (isNaN(feeAmount) || feeAmount <= 0) {
+        toast.error('Please enter a valid fee amount greater than 0');
+        return;
+      }
+
+      // Maximum fee validation (prevent extremely large amounts)
+      if (feeAmount > 10000) {
+        toast.error('Fee amount cannot exceed RM 10,000');
+        return;
+      }
+    }
+
+    // All validations passed
     onCreateMatch(formData);
   };
 
@@ -290,7 +339,7 @@ export const CreateMatchScreen: React.FC<CreateMatchScreenProps> = ({
           {/* Date Selection */}
           <View style={styles.section}>
             <View style={styles.dateSectionHeader}>
-              <Text style={styles.sectionLabel}>Date</Text>
+              <Text style={styles.sectionLabel}>Date <Text style={styles.requiredAsterisk}>*</Text></Text>
               <TouchableOpacity
                 onPress={toggleMonthView}
                 style={styles.expandButton}
@@ -401,7 +450,7 @@ export const CreateMatchScreen: React.FC<CreateMatchScreenProps> = ({
 
           {/* Time Selection */}
           <View style={styles.section}>
-            <Text style={styles.sectionLabel}>Time</Text>
+            <Text style={styles.sectionLabel}>Time <Text style={styles.requiredAsterisk}>*</Text></Text>
             <TouchableOpacity
               style={styles.inputCard}
               onPress={Platform.OS === 'ios' ? showIOSTimePicker : showAndroidTimePicker}
@@ -454,7 +503,7 @@ export const CreateMatchScreen: React.FC<CreateMatchScreenProps> = ({
               setLocationY(y);
             }}
           >
-            <Text style={styles.sectionLabel}>Location</Text>
+            <Text style={styles.sectionLabel}>Location <Text style={styles.requiredAsterisk}>*</Text></Text>
             <View style={styles.locationCard}>
               <View style={styles.locationInputRow}>
                 <Ionicons name="location-outline" size={22} color="#A04DFE" />
@@ -555,7 +604,26 @@ export const CreateMatchScreen: React.FC<CreateMatchScreenProps> = ({
                   <TextInput
                     style={styles.feeAmountInput}
                     value={formData.feeAmount}
-                    onChangeText={(text) => setFormData({ ...formData, feeAmount: text })}
+                    onChangeText={(text) => {
+                      // Only allow numbers and one decimal point
+                      const sanitized = text.replace(/[^0-9.]/g, '');
+                      // Prevent multiple decimal points
+                      const parts = sanitized.split('.');
+                      let validAmount = parts.length > 2 ? `${parts[0]}.${parts.slice(1).join('')}` : sanitized;
+
+                      // Limit to 2 decimal places
+                      if (parts.length === 2 && parts[1].length > 2) {
+                        validAmount = `${parts[0]}.${parts[1].substring(0, 2)}`;
+                      }
+
+                      // Prevent amount exceeding 10000
+                      const numericValue = parseFloat(validAmount);
+                      if (!isNaN(numericValue) && numericValue > 10000) {
+                        return; // Don't update if exceeds max
+                      }
+
+                      setFormData({ ...formData, feeAmount: validAmount });
+                    }}
                     placeholder="0.00"
                     placeholderTextColor="#BABABA"
                     keyboardType="decimal-pad"
@@ -567,7 +635,12 @@ export const CreateMatchScreen: React.FC<CreateMatchScreenProps> = ({
               <View style={styles.estimatedCostRow}>
                 <View style={styles.bulletPoint} />
                 <Text style={styles.estimatedCostText}>
-                  Estimated Cost Per Player     RM  {(parseFloat(formData.feeAmount || '0') / formData.numberOfPlayers).toFixed(2)}
+                  Estimated Cost Per Player     RM  {(() => {
+                    const amount = parseFloat(formData.feeAmount || '0');
+                    const players = formData.numberOfPlayers || 2;
+                    const perPlayer = !isNaN(amount) && players > 0 ? (amount / players).toFixed(2) : '0.00';
+                    return perPlayer;
+                  })()}
                 </Text>
               </View>
             )}
@@ -575,7 +648,10 @@ export const CreateMatchScreen: React.FC<CreateMatchScreenProps> = ({
               <View style={styles.estimatedCostRow}>
                 <View style={styles.bulletPoint} />
                 <Text style={styles.estimatedCostText}>
-                  Cost Per Player     RM  {parseFloat(formData.feeAmount || '0').toFixed(2)}
+                  Cost Per Player     RM  {(() => {
+                    const amount = parseFloat(formData.feeAmount || '0');
+                    return !isNaN(amount) ? amount.toFixed(2) : '0.00';
+                  })()}
                 </Text>
               </View>
             )}
@@ -680,7 +756,9 @@ export const CreateMatchScreen: React.FC<CreateMatchScreenProps> = ({
       )}
     </View>
   );
-};
+});
+
+CreateMatchScreen.displayName = 'CreateMatchScreen';
 
 const styles = StyleSheet.create({
   container: {
@@ -794,6 +872,11 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#1D1D1F',
     marginBottom: 10,
+  },
+  requiredAsterisk: {
+    color: '#DC2626',
+    fontSize: 14,
+    fontWeight: '600',
   },
   dateSectionHeader: {
     flexDirection: 'row',
