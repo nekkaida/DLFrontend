@@ -26,7 +26,7 @@ export default function HomeRoute() {
   const handleLogin = async () => {
     // Mark that user has seen the landing page before navigating
     await LandingStorage.markLandingSeen();
-    router.push('/login');
+    router.push('/login?from=landing');
   };
 
   const handleSplashComplete = () => {

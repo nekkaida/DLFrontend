@@ -1,7 +1,7 @@
 import { authClient } from "@/lib/auth-client";
 import axiosInstance, { endpoints } from "@/lib/endpoints";
 import { LoginScreen } from "@/src/features/auth/screens/LoginScreen";
-import { useRouter, useNavigation } from "expo-router";
+import { useRouter, useNavigation, useLocalSearchParams } from "expo-router";
 import React, { useEffect } from "react";
 import { toast } from "sonner-native";
 import { useSession } from "@/lib/auth-client";
@@ -10,20 +10,17 @@ export default function LoginRoute() {
   const router = useRouter();
   const navigation = useNavigation();
   const { data: session } = useSession();
+  const { from } = useLocalSearchParams<{ from?: string }>();
 
-  // Disable gesture navigation when user is unauthenticated (after logout)
-  // This prevents users from swiping back to protected pages
+  // Conditionally enable gesture navigation:
+  // - Allow swipe back when coming from landing page (from=landing)
+  // - Disable swipe back after logout to prevent accessing protected pages
   useEffect(() => {
-    if (!session?.user) {
-      navigation.setOptions({
-        gestureEnabled: false,
-      });
-    } else {
-      navigation.setOptions({
-        gestureEnabled: true,
-      });
-    }
-  }, [session?.user, navigation]);
+    const allowGesture = from === 'landing';
+    navigation.setOptions({
+      gestureEnabled: allowGesture,
+    });
+  }, [from, navigation]);
 
   const handleLogin = async (emailOrUsername: string, password: string) => {
     try {
