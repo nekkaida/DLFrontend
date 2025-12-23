@@ -345,7 +345,63 @@ export default function DashboardScreen() {
 
   // use this for swtiching between tabs
   if (currentView === "connect") {
-    return <CommunityScreen onTabPress={handleTabPress} sport={selectedSport} />;
+    return (
+      <View style={styles.container}>
+        <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
+        <View style={[styles.headerContainer, { paddingTop: STATUS_BAR_HEIGHT }]}>
+          <TouchableOpacity
+            style={styles.profilePicture}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              router.push("/profile");
+            }}
+          >
+            {profileData?.image || session?.user?.image ? (
+              <Image
+                source={{ uri: profileData?.image || session?.user?.image }}
+                style={styles.profileImage}
+              />
+            ) : (
+              <View style={styles.defaultAvatarContainer}>
+                <Text style={styles.defaultAvatarText}>
+                  {(profileData?.name || session?.user?.name)?.charAt(0)?.toUpperCase() || "U"}
+                </Text>
+              </View>
+            )}
+          </TouchableOpacity>
+          <SportSwitcher
+            currentSport={selectedSport}
+            availableSports={getUserSelectedSports()}
+            onSportChange={setSelectedSport}
+          />
+          <View style={styles.headerRight}>
+            <NotificationBell
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                setNotificationDrawerVisible(true);
+              }}
+              unreadCount={unreadCount}
+              isOpen={notificationDrawerVisible}
+            />
+          </View>
+        </View>
+        <View style={styles.contentContainer}>
+          <View style={styles.contentBox}>
+            <CommunityScreen onTabPress={handleTabPress} sport={selectedSport} />
+          </View>
+        </View>
+        <NavBar
+          activeTab={activeTab}
+          onTabPress={handleTabPress}
+          sport={selectedSport}
+          badgeCounts={{ chat: chatUnreadCount }}
+        />
+        <NotificationDrawer
+          visible={notificationDrawerVisible}
+          onClose={() => setNotificationDrawerVisible(false)}
+        />
+      </View>
+    );
   }
 
   if (currentView === "chat") {
@@ -365,26 +421,118 @@ export default function DashboardScreen() {
     if (currentView === "myGames") {
       return (
         <View style={styles.container}>
-          <MyGamesScreen sport={selectedSport} />
+          <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
+          <View style={[styles.headerContainer, { paddingTop: STATUS_BAR_HEIGHT }]}>
+            <TouchableOpacity
+              style={styles.profilePicture}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                router.push("/profile");
+              }}
+            >
+              {profileData?.image || session?.user?.image ? (
+                <Image
+                  source={{ uri: profileData?.image || session?.user?.image }}
+                  style={styles.profileImage}
+                />
+              ) : (
+                <View style={styles.defaultAvatarContainer}>
+                  <Text style={styles.defaultAvatarText}>
+                    {(profileData?.name || session?.user?.name)?.charAt(0)?.toUpperCase() || "U"}
+                  </Text>
+                </View>
+              )}
+            </TouchableOpacity>
+            <SportSwitcher
+              currentSport={selectedSport}
+              availableSports={getUserSelectedSports()}
+              onSportChange={setSelectedSport}
+            />
+            <View style={styles.headerRight}>
+              <NotificationBell
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  setNotificationDrawerVisible(true);
+                }}
+                unreadCount={unreadCount}
+                isOpen={notificationDrawerVisible}
+              />
+            </View>
+          </View>
+          <View style={styles.contentContainer}>
+            <View style={styles.contentBox}>
+              <MyGamesScreen sport={selectedSport} />
+            </View>
+          </View>
           <NavBar
             activeTab={activeTab}
             onTabPress={handleTabPress}
             sport={selectedSport}
             badgeCounts={{ chat: chatUnreadCount }}
           />
+          <NotificationDrawer
+            visible={notificationDrawerVisible}
+            onClose={() => setNotificationDrawerVisible(false)}
+          />
         </View>
       );
     }
-    
+
   if (currentView === "friendly") {
     return (
       <View style={styles.container}>
-        <FriendlyScreen sport={selectedSport} />
-        <NavBar 
-          activeTab={activeTab} 
-          onTabPress={handleTabPress} 
+        <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
+        <View style={[styles.headerContainer, { paddingTop: STATUS_BAR_HEIGHT }]}>
+          <TouchableOpacity
+            style={styles.profilePicture}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              router.push("/profile");
+            }}
+          >
+            {profileData?.image || session?.user?.image ? (
+              <Image
+                source={{ uri: profileData?.image || session?.user?.image }}
+                style={styles.profileImage}
+              />
+            ) : (
+              <View style={styles.defaultAvatarContainer}>
+                <Text style={styles.defaultAvatarText}>
+                  {(profileData?.name || session?.user?.name)?.charAt(0)?.toUpperCase() || "U"}
+                </Text>
+              </View>
+            )}
+          </TouchableOpacity>
+          <SportSwitcher
+            currentSport={selectedSport}
+            availableSports={getUserSelectedSports()}
+            onSportChange={setSelectedSport}
+          />
+          <View style={styles.headerRight}>
+            <NotificationBell
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                setNotificationDrawerVisible(true);
+              }}
+              unreadCount={unreadCount}
+              isOpen={notificationDrawerVisible}
+            />
+          </View>
+        </View>
+        <View style={styles.contentContainer}>
+          <View style={styles.contentBox}>
+            <FriendlyScreen sport={selectedSport} />
+          </View>
+        </View>
+        <NavBar
+          activeTab={activeTab}
+          onTabPress={handleTabPress}
           sport={selectedSport}
           badgeCounts={{ chat: chatUnreadCount }}
+        />
+        <NotificationDrawer
+          visible={notificationDrawerVisible}
+          onClose={() => setNotificationDrawerVisible(false)}
         />
       </View>
     );

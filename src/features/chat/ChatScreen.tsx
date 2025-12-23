@@ -1071,11 +1071,11 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
 
           <View style={styles.searchContainer}>
             <View style={styles.searchBar}>
-              <Ionicons name="search" size={20} color="#6B7280" style={styles.searchIcon} />
+              <Ionicons name="search-outline" size={18} color="#9CA3AF" style={styles.searchIcon} />
               <TextInput
                 ref={searchInputRef}
                 style={styles.searchInput}
-                placeholder="Search"
+                placeholder="Search chats..."
                 placeholderTextColor="#9CA3AF"
                 value={searchQuery}
                 onChangeText={setSearchQuery}
@@ -1083,8 +1083,8 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
                 blurOnSubmit={true}
               />
               {searchQuery.length > 0 && (
-                <Pressable onPress={clearSearch} style={styles.clearButton}>
-                  <Ionicons name="close-circle" size={20} color="#9CA3AF" />
+                <Pressable onPress={clearSearch}>
+                  <Ionicons name="close-circle" size={18} color="#9CA3AF" />
                 </Pressable>
               )}
             </View>
@@ -1130,37 +1130,38 @@ const styles = StyleSheet.create({
   },
   threadsContainer: {
     flex: 1,
+    backgroundColor: '#F6FAFC',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    borderWidth: 1,
+    borderColor: '#D5D5D5',
+    borderBottomWidth: 0,
+    overflow: 'hidden',
   },
   searchContainer: {
-    paddingHorizontal: isSmallScreen ? 12 : isTablet ? 24 : 16,
-    paddingVertical: isSmallScreen ? 6 : isTablet ? 10 : 8,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
-    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 16,
+    marginBottom: 10,
+    backgroundColor: '#F6FAFC',
   },
   searchBar: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    paddingVertical: Platform.OS === 'android' ? 4 : 8,
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    height: 36,
     borderWidth: 1,
     borderColor: '#E5E7EB',
-    minHeight: 40,
   },
   searchIcon: {
-    marginRight: 8,
+    marginRight: 6,
   },
   searchInput: {
     flex: 1,
-    fontSize: isSmallScreen ? 14 : isTablet ? 18 : 16,
-    color: '#111827',
-    paddingVertical: Platform.OS === 'android' ? 8 : 4,
-    paddingHorizontal: 0,
-  },
-  clearButton: {
-    padding: 4,
+    fontSize: 13,
+    color: '#1F2937',
+    paddingVertical: 0,
+    textAlignVertical: 'center',
   },
   chatHeader: {
     flexDirection: 'row',

@@ -6,17 +6,15 @@ import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  ActivityIndicator,
   Alert,
   FlatList,
   RefreshControl,
-  StatusBar,
   Text,
   TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { MatchCardSkeleton } from '@/src/components/MatchCardSkeleton';
 
 import {
   Match,
@@ -35,16 +33,18 @@ import {
 } from './my-games';
 
 export default function MyGamesScreen({ sport = 'pickleball' }: MyGamesScreenProps) {
-  const insets = useSafeAreaInsets();
   const { data: session } = useSession();
   const [matches, setMatches] = useState<Match[]>([]);
   const [invitations, setInvitations] = useState<MatchInvitation[]>([]);
 
-  const sportColors = getSportColors(sport as SportType);
+  // Convert to uppercase for getSportColors (expects 'PICKLEBALL', 'TENNIS', 'PADEL')
+  const sportType = sport.toUpperCase() as SportType;
+  const sportColors = getSportColors(sportType);
   const filterBottomSheetRef = useRef<FilterBottomSheetRef>(null);
 
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
 
   // Filter states
   const [searchQuery, setSearchQuery] = useState('');
@@ -58,8 +58,11 @@ export default function MyGamesScreen({ sport = 'pickleball' }: MyGamesScreenPro
     status: null,
   });
 
-  const fetchMyMatches = useCallback(async () => {
+  const fetchMyMatches = useCallback(async (showSkeleton = false) => {
     if (!session?.user?.id) return;
+
+    const startTime = Date.now();
+    const minDelay = showSkeleton ? 800 : 0; // Minimum 800ms for skeleton visibility
 
     try {
       const backendUrl = getBackendBaseURL();
@@ -81,8 +84,17 @@ export default function MyGamesScreen({ sport = 'pickleball' }: MyGamesScreenPro
       console.error('Error fetching my matches:', error);
       setMatches([]);
     } finally {
-      setLoading(false);
-      setRefreshing(false);
+      // Ensure minimum delay for skeleton visibility on initial load
+      const elapsed = Date.now() - startTime;
+      const remainingDelay = Math.max(0, minDelay - elapsed);
+
+      setTimeout(() => {
+        setLoading(false);
+        setRefreshing(false);
+        if (showSkeleton) {
+          setIsInitialLoad(false);
+        }
+      }, remainingDelay);
     }
   }, [session?.user?.id]);
 
@@ -99,7 +111,7 @@ export default function MyGamesScreen({ sport = 'pickleball' }: MyGamesScreenPro
   }, [session?.user?.id]);
 
   useEffect(() => {
-    fetchMyMatches();
+    fetchMyMatches(true); // Show skeleton on initial load
     fetchPendingInvitations();
   }, [fetchMyMatches, fetchPendingInvitations]);
 
@@ -134,6 +146,12 @@ export default function MyGamesScreen({ sport = 'pickleball' }: MyGamesScreenPro
   const filteredMatches = useMemo(() => {
     let filtered = [...matches];
 
+    // Filter by the currently selected sport from the dashboard
+    filtered = filtered.filter(match => {
+      const matchSport = (match.sport || match.division?.league?.sportType || '').toUpperCase();
+      return matchSport === sportType;
+    });
+
     // Exclude DRAFT matches where user's invitation is still PENDING
     // (these should appear in INVITES tab instead)
     filtered = filtered.filter(match => {
@@ -150,12 +168,22 @@ export default function MyGamesScreen({ sport = 'pickleball' }: MyGamesScreenPro
     // Filter by search query
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
-      filtered = filtered.filter(match =>
-        match.division?.league?.name?.toLowerCase().includes(query) ||
-        match.location?.toLowerCase().includes(query) ||
-        match.division?.name?.toLowerCase().includes(query) ||
-        match.division?.season?.name?.toLowerCase().includes(query)
-      );
+      filtered = filtered.filter(match => {
+        // Build the match title like the MatchCard does
+        const matchTypeLabel = match.matchType === 'DOUBLES' ? 'doubles' : 'singles';
+        const matchCategoryLabel = match.isFriendly ? 'friendly' : 'league';
+        const matchTitle = `${matchTypeLabel} ${matchCategoryLabel} match`;
+
+        return (
+          matchTitle.includes(query) ||
+          match.division?.league?.name?.toLowerCase().includes(query) ||
+          match.location?.toLowerCase().includes(query) ||
+          match.division?.name?.toLowerCase().includes(query) ||
+          match.division?.season?.name?.toLowerCase().includes(query) ||
+          // Also search participant names
+          match.participants?.some(p => p.user?.name?.toLowerCase().includes(query))
+        );
+      });
     }
 
     // Filter by tab (status)
@@ -208,11 +236,19 @@ export default function MyGamesScreen({ sport = 'pickleball' }: MyGamesScreenPro
     }
 
     return filtered;
-  }, [matches, searchQuery, activeTab, filters, session?.user?.id]);
+  }, [matches, searchQuery, activeTab, filters, session?.user?.id, sportType]);
 
   const handleApplyFilters = (newFilters: FilterOptions) => {
     setFilters(newFilters);
   };
+
+  // Filter invitations by the currently selected sport
+  const filteredInvitations = useMemo(() => {
+    return invitations.filter(invitation => {
+      const invitationSport = (invitation.match?.sport || '').toUpperCase();
+      return invitationSport === sportType;
+    });
+  }, [invitations, sportType]);
 
   const hasActiveFilters = Object.values(filters).some(Boolean);
 
@@ -322,90 +358,75 @@ export default function MyGamesScreen({ sport = 'pickleball' }: MyGamesScreenPro
     </View>
   );
 
-  if (loading) {
-    return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#FEA04D" />
-        <Text style={styles.loadingText}>Loading your matches...</Text>
-      </View>
-    );
-  }
-
   return (
-    <View style={[styles.container, { backgroundColor: sportColors.background }]}>
-      <StatusBar barStyle="light-content" backgroundColor={sportColors.background} />
-
-      {/* Custom Header */}
-      <View style={[styles.header, { backgroundColor: sportColors.background, paddingTop: insets.top }]}>
-        <View style={styles.headerTopRight} />
-        <View style={styles.headerContent}>
-          <Text style={styles.headerTitle}>My Games</Text>
-        </View>
-      </View>
-
-      {/* Content wrapper with grey background */}
+    <View style={styles.container}>
+      {/* Content wrapper */}
       <View style={styles.contentWrapper}>
-        {/* Search Bar */}
+        {/* Search Bar - Compact */}
         <View style={styles.searchContainer}>
           <View style={styles.searchInputWrapper}>
-            <Ionicons name="search-outline" size={20} color="#9CA3AF" style={styles.searchIcon} />
+            <Ionicons name="search-outline" size={18} color="#9CA3AF" style={styles.searchIcon} />
             <TextInput
               style={styles.searchInput}
-              placeholder="Search matches, leagues, or locations..."
+              placeholder="Search matches..."
               placeholderTextColor="#9CA3AF"
               value={searchQuery}
               onChangeText={setSearchQuery}
             />
             {searchQuery.length > 0 && (
               <TouchableOpacity onPress={() => setSearchQuery('')}>
-                <Ionicons name="close-circle" size={20} color="#9CA3AF" />
+                <Ionicons name="close-circle" size={18} color="#9CA3AF" />
               </TouchableOpacity>
             )}
+          </View>
+        </View>
+
+        {/* Filter Controls */}
+        <View style={styles.controlsContainer}>
+          {/* Filter Chips */}
+          <View style={styles.chipsContainer}>
+            {(['ALL', 'UPCOMING', 'PAST', 'INVITES'] as FilterTab[]).map((tab) => (
+              <TouchableOpacity
+                key={tab}
+                style={[
+                  styles.chip,
+                  activeTab === tab
+                    ? { backgroundColor: sportColors.background }
+                    : { backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: sportColors.background }
+                ]}
+                onPress={() => setActiveTab(tab)}
+              >
+                <Text style={[
+                  styles.chipText,
+                  activeTab === tab ? { color: '#FFFFFF' } : { color: sportColors.background }
+                ]}>
+                  {tab === 'ALL' ? 'All' :
+                    tab === 'UPCOMING' ? 'Upcoming' :
+                      tab === 'PAST' ? 'Past' :
+                        `Invites${filteredInvitations.length > 0 ? ` (${filteredInvitations.length})` : ''}`}
+                </Text>
+              </TouchableOpacity>
+            ))}
           </View>
 
           {/* Filter Button */}
           <TouchableOpacity
             style={[
               styles.filterButton,
-              hasActiveFilters && { ...styles.filterButtonActive, backgroundColor: filterButtonColor }
+              hasActiveFilters && { backgroundColor: filterButtonColor, borderColor: filterButtonColor }
             ]}
             onPress={() => filterBottomSheetRef.current?.present()}
           >
-            <Ionicons name="filter" size={20} color={hasActiveFilters ? "#FFFFFF" : "#4B5563"} />
-            {hasActiveFilters && <View style={styles.filterBadge} />}
+            <Ionicons name="options-outline" size={18} color={hasActiveFilters ? "#FFFFFF" : sportColors.background} />
           </TouchableOpacity>
         </View>
 
-        {/* Filter Chips */}
-        <View style={styles.chipsContainer}>
-          {(['ALL', 'UPCOMING', 'PAST', 'INVITES'] as FilterTab[]).map((tab) => (
-            <TouchableOpacity
-              key={tab}
-              style={[
-                styles.chip,
-                activeTab === tab
-                  ? { backgroundColor: sportColors.background }
-                  : { backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: sportColors.background }
-              ]}
-              onPress={() => setActiveTab(tab)}
-            >
-              <Text style={[
-                styles.chipText,
-                activeTab === tab ? { color: '#FFFFFF' } : { color: sportColors.background }
-              ]}>
-                {tab === 'ALL' ? 'All' :
-                  tab === 'UPCOMING' ? 'Upcoming' :
-                    tab === 'PAST' ? 'Past' :
-                      `Invites${invitations.length > 0 ? ` (${invitations.length})` : ''}`}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-
-        {/* Matches/Invitations List */}
-        {activeTab === 'INVITES' ? (
+        {/* Skeleton Loading - Only on initial load */}
+        {loading && isInitialLoad ? (
+          <MatchCardSkeleton count={4} />
+        ) : activeTab === 'INVITES' ? (
           <FlatList
-            data={invitations}
+            data={filteredInvitations}
             keyExtractor={(item) => item.id}
             renderItem={({ item }) => (
               <InvitationCard
@@ -418,7 +439,11 @@ export default function MyGamesScreen({ sport = 'pickleball' }: MyGamesScreenPro
             contentContainerStyle={styles.listContent}
             ListEmptyComponent={renderEmptyInvitationsState}
             refreshControl={
-              <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+              <RefreshControl
+                refreshing={refreshing}
+                onRefresh={onRefresh}
+                tintColor={sportColors.background}
+              />
             }
           />
         ) : (
@@ -431,7 +456,11 @@ export default function MyGamesScreen({ sport = 'pickleball' }: MyGamesScreenPro
             contentContainerStyle={styles.listContent}
             ListEmptyComponent={renderEmptyState}
             refreshControl={
-              <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+              <RefreshControl
+                refreshing={refreshing}
+                onRefresh={onRefresh}
+                tintColor={sportColors.background}
+              />
             }
           />
         )}

@@ -4,13 +4,11 @@ import {
   Text,
   TouchableOpacity,
   FlatList,
-  ActivityIndicator,
   RefreshControl,
   StyleSheet,
-  StatusBar,
   Modal,
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { MatchCardSkeleton } from '@/src/components/MatchCardSkeleton';
 import { Ionicons } from '@expo/vector-icons';
 import { format } from 'date-fns';
 import { toast } from 'sonner-native';
@@ -29,7 +27,6 @@ interface FriendlyScreenProps {
 type FilterTab = 'all' | 'open' | 'full';
 
 export const FriendlyScreen: React.FC<FriendlyScreenProps> = ({ sport }) => {
-  const insets = useSafeAreaInsets();
   const { data: session } = useSession();
   const sportType: SportType = sport.toUpperCase() as SportType;
   const sportColors = getSportColors(sportType);
@@ -37,6 +34,7 @@ export const FriendlyScreen: React.FC<FriendlyScreenProps> = ({ sport }) => {
   const [matches, setMatches] = useState<FriendlyMatch[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
   const [activeTab, setActiveTab] = useState<FilterTab>('all');
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [dateRange, setDateRange] = useState<{ start: Date | null; end: Date | null }>({
@@ -46,7 +44,10 @@ export const FriendlyScreen: React.FC<FriendlyScreenProps> = ({ sport }) => {
   const [collapsedDates, setCollapsedDates] = useState<Set<string>>(new Set());
   const dateRangeFilterRef = useRef<DateRangeFilterModalRef>(null);
 
-  const fetchFriendlyMatches = useCallback(async () => {
+  const fetchFriendlyMatches = useCallback(async (showSkeleton = false) => {
+    const startTime = Date.now();
+    const minDelay = showSkeleton ? 800 : 0; // Minimum 800ms for skeleton visibility
+
     try {
       setLoading(true);
       const params: any = {
@@ -72,13 +73,22 @@ export const FriendlyScreen: React.FC<FriendlyScreenProps> = ({ sport }) => {
       toast.error('Failed to load friendly matches');
       setMatches([]);
     } finally {
-      setLoading(false);
-      setRefreshing(false);
+      // Ensure minimum delay for skeleton visibility on initial load
+      const elapsed = Date.now() - startTime;
+      const remainingDelay = Math.max(0, minDelay - elapsed);
+
+      setTimeout(() => {
+        setLoading(false);
+        setRefreshing(false);
+        if (showSkeleton) {
+          setIsInitialLoad(false);
+        }
+      }, remainingDelay);
     }
   }, [sportType, dateRange]);
 
   useEffect(() => {
-    fetchFriendlyMatches();
+    fetchFriendlyMatches(true); // Show skeleton on initial load
   }, [fetchFriendlyMatches]);
 
   const onRefresh = useCallback(() => {
@@ -287,16 +297,7 @@ export const FriendlyScreen: React.FC<FriendlyScreenProps> = ({ sport }) => {
   };
 
   return (
-    <View style={[styles.container, { backgroundColor: sportColors.background }]}>
-      <StatusBar barStyle="light-content" backgroundColor={sportColors.background} />
-
-      {/* Header */}
-      <View style={[styles.header, { backgroundColor: sportColors.background, paddingTop: insets.top + 8 }]}>
-        <View style={styles.headerContent}>
-          <Text style={styles.headerTitle}>Friendly</Text>
-        </View>
-      </View>
-
+    <View style={styles.container}>
       {/* Content */}
       <View style={styles.contentWrapper}>
         {/* Filter Controls */}
@@ -346,11 +347,8 @@ export const FriendlyScreen: React.FC<FriendlyScreenProps> = ({ sport }) => {
         </View>
 
         {/* Matches List */}
-        {loading && !refreshing ? (
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color={sportColors.background} />
-            <Text style={styles.loadingText}>Loading matches...</Text>
-          </View>
+        {loading && isInitialLoad ? (
+          <MatchCardSkeleton count={4} />
         ) : Object.keys(groupedMatches).length === 0 ? (
           renderEmptyState()
         ) : (
@@ -424,9 +422,6 @@ const styles = StyleSheet.create({
   },
   contentWrapper: {
     flex: 1,
-    backgroundColor: '#F9FAFB',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
     paddingTop: 16,
   },
   controlsContainer: {
