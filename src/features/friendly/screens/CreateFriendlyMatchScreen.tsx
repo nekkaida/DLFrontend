@@ -28,6 +28,9 @@ import PickleballIcon from '@/assets/images/045-PICKLEBALL.svg';
 import PadelIcon from '@/assets/images/padel-icon.svg';
 import TennisIcon from '@/assets/images/tennis-icon.svg';
 
+// Note: Sport is determined by the currently selected sport in the dashboard (leagues tab).
+// Users cannot change the sport within this screen.
+
 interface CreateFriendlyMatchScreenProps {
   sport: 'pickleball' | 'tennis' | 'padel';
   onClose: () => void;
@@ -65,9 +68,9 @@ export const CreateFriendlyMatchScreen: React.FC<CreateFriendlyMatchScreenProps>
   threadId,
 }) => {
   const insets = useSafeAreaInsets();
-  
-  const [selectedSport, setSelectedSport] = useState<'pickleball' | 'tennis' | 'padel'>(sport);
-  const sportType: SportType = selectedSport.toUpperCase() as SportType;
+
+  // Sport is determined by the dashboard's selected sport (passed via props)
+  const sportType: SportType = sport.toUpperCase() as SportType;
   const sportColors = getSportColors(sportType);
   
   const [formData, setFormData] = useState<FriendlyMatchFormData>({
@@ -221,11 +224,6 @@ export const CreateFriendlyMatchScreen: React.FC<CreateFriendlyMatchScreenProps>
     setFormData({ ...formData, numberOfPlayers: newCount });
   };
 
-  const handleSportChange = (newSport: 'pickleball' | 'tennis' | 'padel') => {
-    setSelectedSport(newSport);
-    setFormData({ ...formData, sport: newSport });
-  };
-
   const handleCreateMatch = async () => {
     // Validate required fields
     if (!formData.date || !formData.time) {
@@ -245,7 +243,7 @@ export const CreateFriendlyMatchScreen: React.FC<CreateFriendlyMatchScreenProps>
 
     setIsSubmitting(true);
     try {
-      await onCreateMatch({ ...formData, sport: selectedSport });
+      await onCreateMatch({ ...formData, sport });
       toast.success('Friendly match created successfully');
     } catch (error: any) {
       toast.error(error?.message || 'Failed to create friendly match');
@@ -299,54 +297,6 @@ export const CreateFriendlyMatchScreen: React.FC<CreateFriendlyMatchScreenProps>
               keyboardShouldPersistTaps="handled"
               keyboardDismissMode="interactive"
             >
-            {/* Sport Selection */}
-            <View style={styles.section}>
-              <Text style={styles.sectionLabel}>Sport</Text>
-              <View style={styles.sportSelectionContainer}>
-                {(['pickleball', 'tennis', 'padel'] as const).map((sportOption) => {
-                  const isSelected = selectedSport === sportOption;
-                  const optionSportType = sportOption.toUpperCase() as SportType;
-                  const optionColors = getSportColors(optionSportType);
-                  let SportIconComponent;
-                  switch (optionSportType) {
-                    case 'TENNIS':
-                      SportIconComponent = TennisIcon;
-                      break;
-                    case 'PADEL':
-                      SportIconComponent = PadelIcon;
-                      break;
-                    case 'PICKLEBALL':
-                    default:
-                      SportIconComponent = PickleballIcon;
-                      break;
-                  }
-                  
-                  return (
-                    <TouchableOpacity
-                      key={sportOption}
-                      style={[
-                        styles.sportOption,
-                        isSelected && {
-                          backgroundColor: optionColors.background,
-                          borderColor: optionColors.background,
-                        }
-                      ]}
-                      onPress={() => handleSportChange(sportOption)}
-                      activeOpacity={0.7}
-                    >
-                      <SportIconComponent width={24} height={24} fill={isSelected ? '#FFFFFF' : '#86868B'} />
-                      <Text style={[
-                        styles.sportOptionText,
-                        isSelected && styles.sportOptionTextSelected
-                      ]}>
-                        {sportOption.charAt(0).toUpperCase() + sportOption.slice(1)}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
-            </View>
-
             {/* Date Selection */}
           <View style={styles.section}>
             <View style={styles.dateSectionHeader}>
@@ -861,32 +811,6 @@ const styles = StyleSheet.create({
   },
   section: {
     marginBottom: 24,
-  },
-  sportSelectionContainer: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  sportOption: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderRadius: 10,
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: '#EAEAEA',
-  },
-  sportOptionText: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#86868B',
-  },
-  sportOptionTextSelected: {
-    color: '#FFFFFF',
-    fontWeight: '600',
   },
   sectionLabel: {
     fontSize: 14,

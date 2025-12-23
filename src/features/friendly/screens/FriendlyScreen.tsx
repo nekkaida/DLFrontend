@@ -7,10 +7,8 @@ import {
   ActivityIndicator,
   RefreshControl,
   StyleSheet,
-  StatusBar,
   Modal,
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { format } from 'date-fns';
 import { toast } from 'sonner-native';
@@ -29,7 +27,6 @@ interface FriendlyScreenProps {
 type FilterTab = 'all' | 'open' | 'full';
 
 export const FriendlyScreen: React.FC<FriendlyScreenProps> = ({ sport }) => {
-  const insets = useSafeAreaInsets();
   const { data: session } = useSession();
   const sportType: SportType = sport.toUpperCase() as SportType;
   const sportColors = getSportColors(sportType);
@@ -287,16 +284,7 @@ export const FriendlyScreen: React.FC<FriendlyScreenProps> = ({ sport }) => {
   };
 
   return (
-    <View style={[styles.container, { backgroundColor: sportColors.background }]}>
-      <StatusBar barStyle="light-content" backgroundColor={sportColors.background} />
-
-      {/* Header */}
-      <View style={[styles.header, { backgroundColor: sportColors.background, paddingTop: insets.top + 8 }]}>
-        <View style={styles.headerContent}>
-          <Text style={styles.headerTitle}>Friendly</Text>
-        </View>
-      </View>
-
+    <View style={styles.container}>
       {/* Content */}
       <View style={styles.contentWrapper}>
         {/* Filter Controls */}
@@ -424,9 +412,6 @@ const styles = StyleSheet.create({
   },
   contentWrapper: {
     flex: 1,
-    backgroundColor: '#F9FAFB',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
     paddingTop: 16,
   },
   controlsContainer: {

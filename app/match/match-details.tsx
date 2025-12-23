@@ -118,7 +118,7 @@ export default function JoinMatchScreen() {
   // Debug log only once - remove later
   // console.log('🔍 MATCH DETAILS DEBUG:', { matchId, matchStatus });
 
-  const sportColors = getSportColors(sportType as SportType);
+  const sportColors = getSportColors(sportType?.toUpperCase() as SportType);
   const themeColor = sportColors.background;
 
   // Backdrop component for bottom sheet
@@ -1621,7 +1621,7 @@ export default function JoinMatchScreen() {
                 );
               }
 
-              // Show Cancel Match button if user can cancel
+              // Show the button if user can cancel
               // This handles: partially-filled matches, before time, AND orphaned expired matches
               if (canCancelMatch()) {
                 return (

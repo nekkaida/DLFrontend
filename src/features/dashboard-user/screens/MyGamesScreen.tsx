@@ -10,13 +10,11 @@ import {
   Alert,
   FlatList,
   RefreshControl,
-  StatusBar,
   Text,
   TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import {
   Match,
@@ -35,12 +33,13 @@ import {
 } from './my-games';
 
 export default function MyGamesScreen({ sport = 'pickleball' }: MyGamesScreenProps) {
-  const insets = useSafeAreaInsets();
   const { data: session } = useSession();
   const [matches, setMatches] = useState<Match[]>([]);
   const [invitations, setInvitations] = useState<MatchInvitation[]>([]);
 
-  const sportColors = getSportColors(sport as SportType);
+  // Convert to uppercase for getSportColors (expects 'PICKLEBALL', 'TENNIS', 'PADEL')
+  const sportType = sport.toUpperCase() as SportType;
+  const sportColors = getSportColors(sportType);
   const filterBottomSheetRef = useRef<FilterBottomSheetRef>(null);
 
   const [loading, setLoading] = useState(true);
@@ -134,6 +133,12 @@ export default function MyGamesScreen({ sport = 'pickleball' }: MyGamesScreenPro
   const filteredMatches = useMemo(() => {
     let filtered = [...matches];
 
+    // Filter by the currently selected sport from the dashboard
+    filtered = filtered.filter(match => {
+      const matchSport = (match.sport || match.division?.league?.sportType || '').toUpperCase();
+      return matchSport === sportType;
+    });
+
     // Exclude DRAFT matches where user's invitation is still PENDING
     // (these should appear in INVITES tab instead)
     filtered = filtered.filter(match => {
@@ -208,11 +213,19 @@ export default function MyGamesScreen({ sport = 'pickleball' }: MyGamesScreenPro
     }
 
     return filtered;
-  }, [matches, searchQuery, activeTab, filters, session?.user?.id]);
+  }, [matches, searchQuery, activeTab, filters, session?.user?.id, sportType]);
 
   const handleApplyFilters = (newFilters: FilterOptions) => {
     setFilters(newFilters);
   };
+
+  // Filter invitations by the currently selected sport
+  const filteredInvitations = useMemo(() => {
+    return invitations.filter(invitation => {
+      const invitationSport = (invitation.match?.sport || '').toUpperCase();
+      return invitationSport === sportType;
+    });
+  }, [invitations, sportType]);
 
   const hasActiveFilters = Object.values(filters).some(Boolean);
 
@@ -332,80 +345,72 @@ export default function MyGamesScreen({ sport = 'pickleball' }: MyGamesScreenPro
   }
 
   return (
-    <View style={[styles.container, { backgroundColor: sportColors.background }]}>
-      <StatusBar barStyle="light-content" backgroundColor={sportColors.background} />
-
-      {/* Custom Header */}
-      <View style={[styles.header, { backgroundColor: sportColors.background, paddingTop: insets.top }]}>
-        <View style={styles.headerTopRight} />
-        <View style={styles.headerContent}>
-          <Text style={styles.headerTitle}>My Games</Text>
-        </View>
-      </View>
-
-      {/* Content wrapper with grey background */}
+    <View style={styles.container}>
+      {/* Content wrapper */}
       <View style={styles.contentWrapper}>
-        {/* Search Bar */}
+        {/* Search Bar - Compact */}
         <View style={styles.searchContainer}>
           <View style={styles.searchInputWrapper}>
-            <Ionicons name="search-outline" size={20} color="#9CA3AF" style={styles.searchIcon} />
+            <Ionicons name="search-outline" size={18} color="#9CA3AF" style={styles.searchIcon} />
             <TextInput
               style={styles.searchInput}
-              placeholder="Search matches, leagues, or locations..."
+              placeholder="Search matches..."
               placeholderTextColor="#9CA3AF"
               value={searchQuery}
               onChangeText={setSearchQuery}
             />
             {searchQuery.length > 0 && (
               <TouchableOpacity onPress={() => setSearchQuery('')}>
-                <Ionicons name="close-circle" size={20} color="#9CA3AF" />
+                <Ionicons name="close-circle" size={18} color="#9CA3AF" />
               </TouchableOpacity>
             )}
+          </View>
+        </View>
+
+        {/* Filter Controls */}
+        <View style={styles.controlsContainer}>
+          {/* Filter Chips */}
+          <View style={styles.chipsContainer}>
+            {(['ALL', 'UPCOMING', 'PAST', 'INVITES'] as FilterTab[]).map((tab) => (
+              <TouchableOpacity
+                key={tab}
+                style={[
+                  styles.chip,
+                  activeTab === tab
+                    ? { backgroundColor: sportColors.background }
+                    : { backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: sportColors.background }
+                ]}
+                onPress={() => setActiveTab(tab)}
+              >
+                <Text style={[
+                  styles.chipText,
+                  activeTab === tab ? { color: '#FFFFFF' } : { color: sportColors.background }
+                ]}>
+                  {tab === 'ALL' ? 'All' :
+                    tab === 'UPCOMING' ? 'Upcoming' :
+                      tab === 'PAST' ? 'Past' :
+                        `Invites${filteredInvitations.length > 0 ? ` (${filteredInvitations.length})` : ''}`}
+                </Text>
+              </TouchableOpacity>
+            ))}
           </View>
 
           {/* Filter Button */}
           <TouchableOpacity
             style={[
               styles.filterButton,
-              hasActiveFilters && { ...styles.filterButtonActive, backgroundColor: filterButtonColor }
+              hasActiveFilters && { backgroundColor: filterButtonColor, borderColor: filterButtonColor }
             ]}
             onPress={() => filterBottomSheetRef.current?.present()}
           >
-            <Ionicons name="filter" size={20} color={hasActiveFilters ? "#FFFFFF" : "#4B5563"} />
-            {hasActiveFilters && <View style={styles.filterBadge} />}
+            <Ionicons name="options-outline" size={18} color={hasActiveFilters ? "#FFFFFF" : sportColors.background} />
           </TouchableOpacity>
-        </View>
-
-        {/* Filter Chips */}
-        <View style={styles.chipsContainer}>
-          {(['ALL', 'UPCOMING', 'PAST', 'INVITES'] as FilterTab[]).map((tab) => (
-            <TouchableOpacity
-              key={tab}
-              style={[
-                styles.chip,
-                activeTab === tab
-                  ? { backgroundColor: sportColors.background }
-                  : { backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: sportColors.background }
-              ]}
-              onPress={() => setActiveTab(tab)}
-            >
-              <Text style={[
-                styles.chipText,
-                activeTab === tab ? { color: '#FFFFFF' } : { color: sportColors.background }
-              ]}>
-                {tab === 'ALL' ? 'All' :
-                  tab === 'UPCOMING' ? 'Upcoming' :
-                    tab === 'PAST' ? 'Past' :
-                      `Invites${invitations.length > 0 ? ` (${invitations.length})` : ''}`}
-              </Text>
-            </TouchableOpacity>
-          ))}
         </View>
 
         {/* Matches/Invitations List */}
         {activeTab === 'INVITES' ? (
           <FlatList
-            data={invitations}
+            data={filteredInvitations}
             keyExtractor={(item) => item.id}
             renderItem={({ item }) => (
               <InvitationCard
