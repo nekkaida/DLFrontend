@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { MatchCardSkeleton } from '@/src/components/MatchCardSkeleton';
+import { AnimatedFilterChip } from '@/src/shared/components/ui/AnimatedFilterChip';
 import { Ionicons } from '@expo/vector-icons';
 import { format } from 'date-fns';
 import { toast } from 'sonner-native';
@@ -347,23 +348,13 @@ export const FriendlyScreen: React.FC<FriendlyScreenProps> = ({ sport }) => {
         <View style={styles.controlsContainer}>
           <View style={styles.chipsContainer}>
             {(['all', 'open', 'full'] as FilterTab[]).map((tab) => (
-              <TouchableOpacity
+              <AnimatedFilterChip
                 key={tab}
-                style={[
-                  styles.chip,
-                  activeTab === tab
-                    ? { backgroundColor: sportColors.background }
-                    : { backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: sportColors.background }
-                ]}
+                label={tab.charAt(0).toUpperCase() + tab.slice(1)}
+                isActive={activeTab === tab}
+                activeColor={sportColors.background}
                 onPress={() => setActiveTab(tab)}
-              >
-                <Text style={[
-                  styles.chipText,
-                  activeTab === tab ? { color: '#FFFFFF' } : { color: sportColors.background }
-                ]}>
-                  {tab.charAt(0).toUpperCase() + tab.slice(1)}
-                </Text>
-              </TouchableOpacity>
+              />
             ))}
           </View>
 
