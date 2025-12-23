@@ -115,7 +115,7 @@ export default function RootLayout() {
           name="onboarding" 
           options={{ 
             headerShown: false,
-            gestureEnabled: true,
+            gestureEnabled: false,
           }} 
         />
         <Stack.Screen 
