@@ -96,9 +96,32 @@ export default function LoginRoute() {
     router.push("/resetPassword");
   };
 
-  const handleSocialLogin = (provider: "facebook" | "google" | "apple") => {
-    console.log(`Social login with ${provider} - not implemented yet`);
-    // TODO: Implement social login functionality
+  const handleSocialLogin = async (provider: "facebook" | "google" | "apple") => {
+    try {
+      // Only Google is currently configured
+      if (provider !== "google") {
+        toast.info(`${provider.charAt(0).toUpperCase() + provider.slice(1)} sign-in coming soon!`);
+        return;
+      }
+
+      console.log(`Social login with ${provider}`);
+
+      const result = await authClient.signIn.social({
+        provider,
+        callbackURL: "/user-dashboard", // Converts to deuceleague://user-dashboard
+      });
+
+      console.log("Social login result:", result);
+
+      if (result.error) {
+        console.error("Social login failed:", result.error);
+        toast.error(result.error.message || "Social login failed. Please try again.");
+      }
+      // Success handling is done via the callbackURL redirect
+    } catch (error: any) {
+      console.error("Social login error:", error);
+      toast.error(error.message || "Social login failed. Please try again.");
+    }
   };
 
   return (
