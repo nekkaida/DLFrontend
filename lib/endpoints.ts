@@ -194,6 +194,12 @@ export const endpoints = {
     getUpcoming: "/api/match/upcoming",
     getRecent: "/api/match/recent",
     getHeadToHead: (opponentId: string) => `/api/match/head-to-head/${opponentId}`,
+
+    // Comments
+    getComments: (id: string) => `/api/match/${id}/comments`,
+    createComment: (id: string) => `/api/match/${id}/comment`,
+    updateComment: (id: string, commentId: string) => `/api/match/${id}/comment/${commentId}`,
+    deleteComment: (id: string, commentId: string) => `/api/match/${id}/comment/${commentId}`,
   },
 
   friendly: {
@@ -205,6 +211,12 @@ export const endpoints = {
     confirmResult: (id: string) => `/api/friendly/${id}/confirm`,
     accept: (id: string) => `/api/friendly/${id}/accept`,
     decline: (id: string) => `/api/friendly/${id}/decline`,
+
+    // Comments
+    getComments: (id: string) => `/api/friendly/${id}/comments`,
+    createComment: (id: string) => `/api/friendly/${id}/comment`,
+    updateComment: (id: string, commentId: string) => `/api/friendly/${id}/comment/${commentId}`,
+    deleteComment: (id: string, commentId: string) => `/api/friendly/${id}/comment/${commentId}`,
   },
 
   notifications: {
