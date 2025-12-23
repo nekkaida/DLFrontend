@@ -239,6 +239,7 @@ export const QuestionnaireFlow: React.FC<QuestionnaireFlowProps> = ({
                 currentPageAnswers={currentPageAnswers}
                 responses={responses}
                 showContent={showContent}
+                onSkipAndProceed={handleNext}
                 navigationButtons={
                   <NavigationButtons
                     onBack={onBack}
