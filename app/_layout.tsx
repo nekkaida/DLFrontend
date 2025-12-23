@@ -87,7 +87,7 @@ export default function RootLayout() {
           name="login" 
           options={{ 
             headerShown: false,
-            gestureEnabled: false,
+            gestureEnabled: true,
           }} 
         />
         <Stack.Screen 
@@ -115,7 +115,7 @@ export default function RootLayout() {
           name="onboarding" 
           options={{ 
             headerShown: false,
-            gestureEnabled: true,
+            gestureEnabled: false,
           }} 
         />
         <Stack.Screen 
