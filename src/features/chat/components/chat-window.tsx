@@ -19,7 +19,7 @@ import { Message } from '../types';
 import { MatchMessageBubble } from './MatchMessageBubble';
 import { SwipeableMessageBubble } from './SwipeableMessageBubble';
 import { BREAKPOINTS, FLATLIST_CONFIG } from '../constants';
-import { SportType } from '@/constants/SportsColor';
+import { getSportColors, SportType } from '@/constants/SportsColor';
 
 interface MessageWindowProps {
   messages: Message[];
@@ -105,8 +105,16 @@ export const MessageWindow: React.FC<MessageWindowProps> = ({
   const { data: session } = useSession();
   const flatListRef = useRef<FlatList>(null);
   const [showScrollButton, setShowScrollButton] = useState(false);
+  const [highlightedMessageId, setHighlightedMessageId] = useState<string | null>(null);
+  const highlightTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const user = session?.user;
+
+  // Get sport-specific colors for UI elements
+  const sportColors = React.useMemo(
+    () => getSportColors(sportType as SportType | null),
+    [sportType]
+  );
 
   // Create a message lookup map for O(1) access
   const messageMap = React.useMemo(() => {
@@ -115,7 +123,16 @@ export const MessageWindow: React.FC<MessageWindowProps> = ({
     return map;
   }, [messages]);
 
-  // Group messages by date
+  // Cleanup highlight timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (highlightTimeoutRef.current) {
+        clearTimeout(highlightTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  // Group messages by date (reversed for inverted FlatList - newest first)
   const groupedMessages = React.useMemo(() => {
     const grouped: Record<string, Message[]> = {};
 
@@ -128,37 +145,44 @@ export const MessageWindow: React.FC<MessageWindowProps> = ({
     });
 
     const flatData: GroupedMessage[] = [];
+    // Sort dates in descending order (newest first) for inverted list
     Object.entries(grouped)
-      .sort(([dateA], [dateB]) => dateA.localeCompare(dateB))
+      .sort(([dateA], [dateB]) => dateB.localeCompare(dateA))
       .forEach(([, dateMessages]) => {
-        const firstMessage = dateMessages[0];
-        flatData.push({
-          id: `date-${format(new Date(firstMessage.timestamp), 'yyyy-MM-dd')}`,
-          type: 'date',
-          date: firstMessage.timestamp.toISOString(),
+        // Sort messages within each day in descending order (newest first)
+        const sortedMessages = dateMessages.sort(
+          (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+        );
+
+        // Add messages first (they appear at top in inverted list, which is visual bottom)
+        sortedMessages.forEach(message => {
+          flatData.push({
+            id: message.id,
+            type: 'message',
+            message,
+          });
         });
 
-        dateMessages
-          .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())
-          .forEach(message => {
-            flatData.push({
-              id: message.id,
-              type: 'message',
-              message,
-            });
-          });
+        // Add date divider after messages (appears above messages visually in inverted list)
+        const lastMessage = sortedMessages[sortedMessages.length - 1];
+        flatData.push({
+          id: `date-${format(new Date(lastMessage.timestamp), 'yyyy-MM-dd')}`,
+          type: 'date',
+          date: lastMessage.timestamp.toISOString(),
+        });
       });
 
     return flatData;
   }, [messages]);
 
-  // Auto-scroll to bottom when messages change
+  // Auto-scroll to bottom when messages change (for inverted list, scroll to offset 0)
   useEffect(() => {
     let timeoutId: ReturnType<typeof setTimeout> | null = null;
 
     if (messages.length > 0) {
       timeoutId = setTimeout(() => {
-        flatListRef.current?.scrollToEnd({ animated: true });
+        // For inverted list, offset 0 is the visual bottom (newest messages)
+        flatListRef.current?.scrollToOffset({ offset: 0, animated: true });
       }, 100);
     }
 
@@ -168,6 +192,38 @@ export const MessageWindow: React.FC<MessageWindowProps> = ({
       }
     };
   }, [messages.length]);
+
+  // Handle reply preview press - scroll to the original message and highlight it
+  const handleReplyPreviewPress = useCallback((messageId: string) => {
+    // Find the index of the message in groupedMessages
+    const index = groupedMessages.findIndex(
+      item => item.type === 'message' && item.message?.id === messageId
+    );
+
+    if (index !== -1) {
+      // Clear any existing highlight timeout
+      if (highlightTimeoutRef.current) {
+        clearTimeout(highlightTimeoutRef.current);
+      }
+
+      // Scroll to the message
+      flatListRef.current?.scrollToIndex({
+        index,
+        animated: true,
+        viewPosition: 0.5, // Center the message in the view
+      });
+
+      // Highlight the message after a short delay to allow scroll to complete
+      setTimeout(() => {
+        setHighlightedMessageId(messageId);
+      }, 300);
+
+      // Clear highlight after animation completes (150ms fade in + 800ms hold + 500ms fade out = 1450ms)
+      highlightTimeoutRef.current = setTimeout(() => {
+        setHighlightedMessageId(null);
+      }, 1800);
+    }
+  }, [groupedMessages]);
 
   // Memoized render item function
   const renderItem = useCallback(
@@ -185,7 +241,10 @@ export const MessageWindow: React.FC<MessageWindowProps> = ({
       const nextMessage = nextItem?.type === 'message' ? nextItem.message : null;
 
       const showAvatar = !previousMessage || previousMessage.senderId !== message.senderId;
-      const isLastInGroup = !nextMessage || nextMessage.senderId !== message.senderId;
+      // In inverted list: previousMessage (index-1) is visually BELOW (newer)
+      // isLastInGroup = true when this is the last message before sender changes
+      // i.e., the message below (previousMessage) is from a different sender or doesn't exist
+      const isLastInGroup = !previousMessage || previousMessage.senderId !== message.senderId;
 
       // Check for match message type
       const messageWithType = message as Message & { messageType?: string; matchData?: unknown };
@@ -222,28 +281,55 @@ export const MessageWindow: React.FC<MessageWindowProps> = ({
           onDelete={onDeleteMessage || noop}
           onLongPress={onLongPress}
           messageMap={messageMap}
+          isHighlighted={highlightedMessageId === message.id}
+          onReplyPreviewPress={handleReplyPreviewPress}
         />
       );
     },
-    [user?.id, groupedMessages, isGroupChat, sportType, onReply, onDeleteMessage, onLongPress, messageMap]
+    [user?.id, groupedMessages, isGroupChat, sportType, onReply, onDeleteMessage, onLongPress, messageMap, highlightedMessageId, handleReplyPreviewPress]
   );
 
   // Memoized key extractor
   const keyExtractor = useCallback((item: GroupedMessage) => item.id, []);
 
-  // Memoized scroll handler
+  // Memoized scroll handler for inverted FlatList
+  // In inverted list: contentOffset.y = 0 means at visual bottom (newest messages)
+  // Higher contentOffset.y means scrolled up (viewing older messages)
   const handleScroll = useCallback(
     (event: NativeSyntheticEvent<NativeScrollEvent>) => {
-      const { contentOffset, contentSize, layoutMeasurement } = event.nativeEvent;
-      const isNearBottom = contentSize.height - contentOffset.y - layoutMeasurement.height < 100;
-      setShowScrollButton(!isNearBottom && messages.length > 10);
+      const { contentOffset } = event.nativeEvent;
+      // Show button when scrolled up past 150px threshold
+      const isNearBottom = contentOffset.y < 150;
+      setShowScrollButton(!isNearBottom && messages.length > 5);
     },
     [messages.length]
   );
 
-  // Memoized scroll to bottom
+  // Memoized scroll to bottom (for inverted list, scroll to offset 0)
   const scrollToBottom = useCallback(() => {
-    flatListRef.current?.scrollToEnd({ animated: true });
+    flatListRef.current?.scrollToOffset({ offset: 0, animated: true });
+  }, []);
+
+  // Handle scroll to index failure (message not yet rendered)
+  const handleScrollToIndexFailed = useCallback((info: {
+    index: number;
+    highestMeasuredFrameIndex: number;
+    averageItemLength: number;
+  }) => {
+    // Scroll to the closest rendered item first, then try again
+    flatListRef.current?.scrollToOffset({
+      offset: info.averageItemLength * info.index,
+      animated: true,
+    });
+
+    // Retry scrolling after a delay
+    setTimeout(() => {
+      flatListRef.current?.scrollToIndex({
+        index: info.index,
+        animated: true,
+        viewPosition: 0.5,
+      });
+    }, 100);
   }, []);
 
   // Loading skeleton
@@ -271,15 +357,16 @@ export const MessageWindow: React.FC<MessageWindowProps> = ({
           styles.contentContainer,
           groupedMessages.length === 0 && styles.emptyContentContainer
         ]}
+        inverted
         showsVerticalScrollIndicator={false}
         onEndReached={onLoadMore}
         onEndReachedThreshold={0.1}
         onScroll={handleScroll}
         scrollEventThrottle={16}
         ListEmptyComponent={EmptyMessages}
-        maintainVisibleContentPosition={{ minIndexForVisible: 0 }}
         keyboardShouldPersistTaps="handled"
         onScrollBeginDrag={Keyboard.dismiss}
+        onScrollToIndexFailed={handleScrollToIndexFailed}
         // Performance optimizations
         initialNumToRender={FLATLIST_CONFIG.INITIAL_NUM_TO_RENDER}
         maxToRenderPerBatch={FLATLIST_CONFIG.MAX_TO_RENDER_PER_BATCH}
@@ -298,7 +385,11 @@ export const MessageWindow: React.FC<MessageWindowProps> = ({
       {/* Scroll to bottom button */}
       {showScrollButton && (
         <Pressable
-          style={({ pressed }) => [styles.scrollToBottomButton, pressed && styles.scrollButtonPressed]}
+          style={({ pressed }) => [
+            styles.scrollToBottomButton,
+            { backgroundColor: sportColors.buttonColor },
+            pressed && styles.scrollButtonPressed
+          ]}
           onPress={scrollToBottom}
         >
           <Ionicons name="chevron-down" size={20} color="#FFFFFF" />
@@ -318,7 +409,10 @@ const styles = StyleSheet.create({
   },
   contentContainer: {
     paddingHorizontal: isSmallScreen ? 12 : isTablet ? 24 : 16,
-    paddingVertical: isSmallScreen ? 8 : isTablet ? 16 : 12,
+    // For inverted list: paddingTop adds space at visual bottom (above input)
+    // paddingBottom adds space at visual top (oldest messages)
+    paddingTop: 4, // Minimal gap above input (WhatsApp style)
+    paddingBottom: isSmallScreen ? 8 : isTablet ? 16 : 12, // Space at top for oldest messages
     flexGrow: 1,
   },
   emptyContentContainer: {
@@ -414,7 +508,6 @@ const styles = StyleSheet.create({
     width: isSmallScreen ? 36 : isTablet ? 48 : 40,
     height: isSmallScreen ? 36 : isTablet ? 48 : 40,
     borderRadius: isSmallScreen ? 18 : isTablet ? 24 : 20,
-    backgroundColor: '#863A73',
     justifyContent: 'center',
     alignItems: 'center',
     ...Platform.select({

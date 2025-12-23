@@ -14,6 +14,7 @@ import {
   TextInput,
   View
 } from 'react-native';
+import Animated, { FadeInDown, FadeOutDown } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Message } from '../types';
 
@@ -29,7 +30,12 @@ interface MessageInputProps {
   isGroupChat?: boolean;
 }
 
-export const MessageInput: React.FC<MessageInputProps> = ({
+// Ref type for exposing focus method
+export interface MessageInputRef {
+  focus: () => void;
+}
+
+export const MessageInput = React.forwardRef<MessageInputRef, MessageInputProps>(({
   onSendMessage,
   onTyping,
   placeholder = 'Type a message...',
@@ -39,7 +45,7 @@ export const MessageInput: React.FC<MessageInputProps> = ({
   onCancelReply,
   sportType,
   isGroupChat = false,
-}) => {
+}, ref) => {
   const [message, setMessage] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const [keyboardVisible, setKeyboardVisible] = useState(false);
@@ -48,6 +54,11 @@ export const MessageInput: React.FC<MessageInputProps> = ({
   const sendFocusTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const appStateRef = useRef<AppStateStatus>(AppState.currentState);
   const insets = useSafeAreaInsets();
+
+  // Expose focus method via ref
+  React.useImperativeHandle(ref, () => ({
+    focus: () => inputRef.current?.focus(),
+  }));
 
   // Cleanup all timeouts on unmount
   useEffect(() => {
@@ -113,6 +124,20 @@ export const MessageInput: React.FC<MessageInputProps> = ({
       keyboardHideListener.remove();
     };
   }, []);
+
+  // Memoized reply colors based on sport type
+  const replyColors = useMemo(() => {
+    switch (sportType) {
+      case 'PICKLEBALL':
+        return { bar: '#A04DFE', label: '#7C3AED' };
+      case 'TENNIS':
+        return { bar: '#65B741', label: '#4D7C0F' };
+      case 'PADEL':
+        return { bar: '#3B82F6', label: '#2563EB' };
+      default:
+        return { bar: '#A04DFE', label: '#7C3AED' };
+    }
+  }, [sportType]);
 
   // Memoized send button color based on sport type and message
   const sendButtonColor = useMemo(() => {
@@ -211,14 +236,18 @@ export const MessageInput: React.FC<MessageInputProps> = ({
 
   return (
     <View style={[styles.container, { paddingBottom: bottomPadding }]}>
-      {/* Reply Preview Bar */}
+      {/* Reply Preview Bar - Animated for smooth appearance */}
       {replyingTo && (
-        <View style={styles.replyPreviewContainer}>
+        <Animated.View
+          entering={FadeInDown.duration(200)}
+          exiting={FadeOutDown.duration(150)}
+          style={styles.replyPreviewContainer}
+        >
           <View style={styles.replyPreviewContent}>
-            <View style={styles.replyBar} />
+            <View style={[styles.replyBar, { backgroundColor: replyColors.bar }]} />
             <View style={styles.replyTextContainer}>
-              <Text style={styles.replyLabel}>
-                Replying to {replyingTo.metadata?.sender?.name || replyingTo.metadata?.sender?.username || 'User'}
+              <Text style={[styles.replyLabel, { color: replyColors.label }]}>
+                {replyingTo.metadata?.sender?.name || replyingTo.metadata?.sender?.username || 'User'}
               </Text>
               <Text style={styles.replyMessageText} numberOfLines={2}>
                 {replyingTo.content || 'Message'}
@@ -229,9 +258,11 @@ export const MessageInput: React.FC<MessageInputProps> = ({
             onPress={onCancelReply}
             style={({ pressed }) => [styles.cancelReplyButton, pressed && { opacity: 0.7 }]}
           >
-            <Ionicons name="close" size={20} color="#6B7280" />
+            <View style={styles.cancelReplyCircle}>
+              <Ionicons name="close" size={14} color="#6B7280" />
+            </View>
           </Pressable>
-        </View>
+        </Animated.View>
       )}
       
       <View style={styles.inputContainer}>
@@ -284,7 +315,9 @@ export const MessageInput: React.FC<MessageInputProps> = ({
       </View>
     </View>
   );
-};
+});
+
+MessageInput.displayName = 'MessageInput';
 
 const styles = StyleSheet.create({
   container: {
@@ -313,7 +346,6 @@ const styles = StyleSheet.create({
   replyBar: {
     width: 4,
     alignSelf: 'stretch',
-    backgroundColor: '#863A73',
     borderRadius: 2,
     marginRight: 12,
     minHeight: 40,
@@ -325,7 +357,6 @@ const styles = StyleSheet.create({
   replyLabel: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#863A73',
     marginBottom: 4,
   },
   replyMessageText: {
@@ -334,8 +365,16 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   cancelReplyButton: {
-    padding: 8,
+    padding: 4,
     marginLeft: 8,
+  },
+  cancelReplyCircle: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: '#E5E7EB',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   inputContainer: {
     flexDirection: 'row',

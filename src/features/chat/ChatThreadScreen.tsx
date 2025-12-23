@@ -23,7 +23,7 @@ import {
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { toast } from 'sonner-native';
-import { MessageInput } from './components/chat-input';
+import { MessageInput, MessageInputRef } from './components/chat-input';
 import { MessageWindow } from './components/chat-window';
 import { MatchFormData } from './components/CreateMatchScreen';
 import { GroupAvatarStack } from './components/GroupAvatarStack';
@@ -63,6 +63,7 @@ export const ChatThreadScreen: React.FC<ChatThreadScreenProps> = ({ threadId }) 
   const [showActionBar, setShowActionBar] = useState(false);
   const [isLoadingThread, setIsLoadingThread] = useState(true);
   const appStateRef = useRef<AppStateStatus>(AppState.currentState);
+  const messageInputRef = useRef<MessageInputRef>(null);
   const insets = useSafeAreaInsets();
 
   const { setThreadMetadata, pendingMatchData, clearPendingMatch } = useCreateMatchStore();
@@ -458,6 +459,10 @@ export const ChatThreadScreen: React.FC<ChatThreadScreenProps> = ({ threadId }) 
 
   const handleReply = useCallback((message: Message) => {
     setReplyingTo(message);
+    // Focus input to bring up keyboard
+    setTimeout(() => {
+      messageInputRef.current?.focus();
+    }, 50);
   }, [setReplyingTo]);
 
   const handleCancelReply = useCallback(() => {
@@ -478,6 +483,10 @@ export const ChatThreadScreen: React.FC<ChatThreadScreenProps> = ({ threadId }) 
   const handleActionBarReply = useCallback(() => {
     if (selectedMessage) {
       setReplyingTo(selectedMessage);
+      // Focus input to bring up keyboard
+      setTimeout(() => {
+        messageInputRef.current?.focus();
+      }, 50);
     }
   }, [selectedMessage, setReplyingTo]);
 
@@ -812,6 +821,7 @@ export const ChatThreadScreen: React.FC<ChatThreadScreenProps> = ({ threadId }) 
           />
 
           <MessageInput
+            ref={messageInputRef}
             onSendMessage={handleSendMessage}
             onhandleMatch={handleMatch}
             replyingTo={replyingTo}
