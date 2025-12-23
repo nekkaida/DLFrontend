@@ -46,7 +46,6 @@ export const FriendlyScreen: React.FC<FriendlyScreenProps> = ({ sport }) => {
     start: null,
     end: null,
   });
-  const [collapsedDates, setCollapsedDates] = useState<Set<string>>(new Set());
   const dateRangeFilterRef = useRef<DateRangeFilterModalRef>(null);
 
   // Check if there's new content by comparing summary with cache
@@ -123,10 +122,17 @@ export const FriendlyScreen: React.FC<FriendlyScreenProps> = ({ sport }) => {
       };
 
       if (dateRange.start) {
-        params.fromDate = dateRange.start.toISOString();
-      }
-      if (dateRange.end) {
-        params.toDate = dateRange.end.toISOString();
+        // Set start date to beginning of day (00:00:00.000)
+        const startOfDay = new Date(dateRange.start);
+        startOfDay.setHours(0, 0, 0, 0);
+        params.fromDate = startOfDay.toISOString();
+
+        // Set end date to end of day (23:59:59.999) to include all matches on that day
+        // If no end date is selected, use the start date (single day filter)
+        const endDate = dateRange.end || dateRange.start;
+        const endOfDay = new Date(endDate);
+        endOfDay.setHours(23, 59, 59, 999);
+        params.toDate = endOfDay.toISOString();
       }
 
       const response = await axiosInstance.get(endpoints.friendly.getAll, { params });
@@ -306,18 +312,6 @@ export const FriendlyScreen: React.FC<FriendlyScreenProps> = ({ sport }) => {
     setDateRange({ start, end });
   };
 
-  const toggleDateSection = (dateKey: string) => {
-    setCollapsedDates((prev) => {
-      const next = new Set(prev);
-      if (next.has(dateKey)) {
-        next.delete(dateKey);
-      } else {
-        next.add(dateKey);
-      }
-      return next;
-    });
-  };
-
   const renderEmptyState = () => (
     <View style={styles.emptyContainer}>
       <Ionicons name="calendar-outline" size={64} color="#9CA3AF" />
@@ -331,22 +325,14 @@ export const FriendlyScreen: React.FC<FriendlyScreenProps> = ({ sport }) => {
   );
 
   const renderMatchGroup = (dateKey: string, dateMatches: FriendlyMatch[]) => {
-    const isCollapsed = collapsedDates.has(dateKey);
     return (
       <View key={dateKey} style={styles.dateSection}>
-        <TouchableOpacity
-          style={styles.dateDivider}
-          onPress={() => toggleDateSection(dateKey)}
-          activeOpacity={0.7}
-        >
-          <Ionicons
-            name={isCollapsed ? 'chevron-forward' : 'chevron-down'}
-            size={18}
-            color="#86868B"
-          />
+        <View style={styles.dateDivider}>
+          <View style={styles.dateDividerLine} />
           <Text style={styles.dateLabel}>{dateKey}</Text>
-        </TouchableOpacity>
-        {!isCollapsed && dateMatches.map((match) => (
+          <View style={styles.dateDividerLine} />
+        </View>
+        {dateMatches.map((match) => (
           <FriendlyMatchCard key={match.id} match={match} onPress={handleMatchPress} />
         ))}
       </View>
@@ -535,13 +521,18 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,
-    paddingVertical: 12,
-    gap: 8,
+    paddingVertical: 16,
+    gap: 12,
+  },
+  dateDividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: '#D1D5DB',
   },
   dateLabel: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#86868B',
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#9CA3AF',
   },
   loadingContainer: {
     flex: 1,
