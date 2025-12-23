@@ -108,14 +108,17 @@ export const FilterBottomSheet = forwardRef<FilterBottomSheetRef, FilterBottomSh
   }, [onClose]);
 
   const handleClearAll = () => {
-    setLocalFilters({
+    const clearedFilters = {
       sport: null,
       division: null,
       season: null,
       matchType: null,
       gameType: null,
       status: null,
-    });
+    };
+    setLocalFilters(clearedFilters);
+    onApply(clearedFilters);
+    bottomSheetModalRef.current?.dismiss();
   };
 
   const handleApply = () => {
@@ -136,11 +139,13 @@ export const FilterBottomSheet = forwardRef<FilterBottomSheetRef, FilterBottomSh
   const activeFilterCount = Object.values(localFilters).filter(Boolean).length;
 
   const renderFilterChip = (
+    key: string,
     label: string,
     isActive: boolean,
     onPress: () => void
   ) => (
     <TouchableOpacity
+      key={key}
       style={[
         styles.filterChip,
         isActive && { backgroundColor: sportColor },
@@ -175,13 +180,6 @@ export const FilterBottomSheet = forwardRef<FilterBottomSheetRef, FilterBottomSh
       <BottomSheetView style={styles.contentContainer}>
         {/* Header */}
         <View style={styles.header}>
-          <TouchableOpacity
-            onPress={() => bottomSheetModalRef.current?.dismiss()}
-            style={styles.closeButton}
-          >
-            <Ionicons name="close" size={24} color="#1D1D1F" />
-          </TouchableOpacity>
-          <Text style={styles.title}>Filter Matches</Text>
           {activeFilterCount > 0 ? (
             <TouchableOpacity onPress={handleClearAll} style={styles.clearAllButton}>
               <Text style={[styles.clearAllText, { color: sportColor }]}>Clear All</Text>
@@ -189,6 +187,13 @@ export const FilterBottomSheet = forwardRef<FilterBottomSheetRef, FilterBottomSh
           ) : (
             <View style={styles.placeholder} />
           )}
+          <Text style={styles.title}>Filter Matches</Text>
+          <TouchableOpacity
+            onPress={() => bottomSheetModalRef.current?.dismiss()}
+            style={styles.closeButton}
+          >
+            <Ionicons name="close" size={24} color="#1D1D1F" />
+          </TouchableOpacity>
         </View>
 
         {/* Filter Sections */}
@@ -203,6 +208,7 @@ export const FilterBottomSheet = forwardRef<FilterBottomSheetRef, FilterBottomSh
             <View style={styles.chipsContainer}>
               {MATCH_TYPES.map(({ value, label }) =>
                 renderFilterChip(
+                  value,
                   label,
                   localFilters.matchType === value,
                   () => toggleFilter('matchType', value as 'LEAGUE' | 'FRIENDLY')
@@ -217,6 +223,7 @@ export const FilterBottomSheet = forwardRef<FilterBottomSheetRef, FilterBottomSh
             <View style={styles.chipsContainer}>
               {GAME_TYPES.map(({ value, label }) =>
                 renderFilterChip(
+                  value,
                   label,
                   localFilters.gameType === value,
                   () => toggleFilter('gameType', value as 'SINGLES' | 'DOUBLES')
@@ -232,6 +239,7 @@ export const FilterBottomSheet = forwardRef<FilterBottomSheetRef, FilterBottomSh
               <View style={styles.chipsContainer}>
                 {uniqueSports.map((sport) =>
                   renderFilterChip(
+                    sport,
                     formatSportName(sport),
                     localFilters.sport === sport,
                     () => toggleFilter('sport', sport)
@@ -249,6 +257,7 @@ export const FilterBottomSheet = forwardRef<FilterBottomSheetRef, FilterBottomSh
                 {uniqueDivisions.map((division) =>
                   renderFilterChip(
                     division,
+                    division,
                     localFilters.division === division,
                     () => toggleFilter('division', division)
                   )
@@ -265,6 +274,7 @@ export const FilterBottomSheet = forwardRef<FilterBottomSheetRef, FilterBottomSh
                 {uniqueSeasons.map((season) =>
                   renderFilterChip(
                     season,
+                    season,
                     localFilters.season === season,
                     () => toggleFilter('season', season)
                   )
@@ -279,6 +289,7 @@ export const FilterBottomSheet = forwardRef<FilterBottomSheetRef, FilterBottomSh
             <View style={styles.chipsContainer}>
               {STATUS_OPTIONS.map(({ value, label }) =>
                 renderFilterChip(
+                  value,
                   label,
                   localFilters.status === value,
                   () => toggleFilter('status', value)
@@ -338,15 +349,21 @@ const styles = StyleSheet.create({
   },
   closeButton: {
     padding: 4,
-    marginLeft: -4,
+    marginRight: -4,
+    zIndex: 1,
   },
   title: {
     fontSize: 18,
     fontWeight: '700',
     color: '#1D1D1F',
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    textAlign: 'center',
   },
   clearAllButton: {
     padding: 4,
+    zIndex: 1,
   },
   clearAllText: {
     fontSize: 14,
@@ -354,6 +371,7 @@ const styles = StyleSheet.create({
   },
   placeholder: {
     width: 60,
+    zIndex: 1,
   },
   scrollContent: {
     flex: 1,
@@ -411,11 +429,11 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   resetButton: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 14,
-    paddingHorizontal: 20,
     borderRadius: 12,
     backgroundColor: '#F3F4F6',
     gap: 6,
