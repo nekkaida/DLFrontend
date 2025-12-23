@@ -14,7 +14,11 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { MatchCardSkeleton } from '@/src/components/MatchCardSkeleton';
+
+// Cache key for match summary
+const MATCH_SUMMARY_CACHE_KEY = 'my_matches_summary';
 
 import {
   Match,
@@ -42,9 +46,9 @@ export default function MyGamesScreen({ sport = 'pickleball' }: MyGamesScreenPro
   const sportColors = getSportColors(sportType);
   const filterBottomSheetRef = useRef<FilterBottomSheetRef>(null);
 
-  const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [isInitialLoad, setIsInitialLoad] = useState(true);
+  const [showSkeleton, setShowSkeleton] = useState(false); // Only true when new content detected
+  const hasInitializedRef = useRef(false); // Track if we've done the first load
 
   // Filter states
   const [searchQuery, setSearchQuery] = useState('');
@@ -58,11 +62,70 @@ export default function MyGamesScreen({ sport = 'pickleball' }: MyGamesScreenPro
     status: null,
   });
 
-  const fetchMyMatches = useCallback(async (showSkeleton = false) => {
+  // Check if there's new content by comparing summary with cache
+  const checkForNewContent = useCallback(async (): Promise<boolean> => {
+    if (!session?.user?.id) return false;
+
+    try {
+      const backendUrl = getBackendBaseURL();
+      const response = await fetch(`${backendUrl}/api/match/my/summary`, {
+        headers: { 'x-user-id': session.user.id },
+      });
+
+      if (!response.ok) return true; // If summary fails, assume new content
+
+      const newSummary = await response.json();
+      const cachedSummaryStr = await AsyncStorage.getItem(MATCH_SUMMARY_CACHE_KEY);
+
+      if (!cachedSummaryStr) {
+        // First time - store and show skeleton
+        await AsyncStorage.setItem(MATCH_SUMMARY_CACHE_KEY, JSON.stringify(newSummary));
+        return true;
+      }
+
+      const cachedSummary = JSON.parse(cachedSummaryStr);
+
+      // Check if anything changed
+      const hasNewContent =
+        newSummary.count !== cachedSummary.count ||
+        newSummary.latestUpdatedAt !== cachedSummary.latestUpdatedAt;
+
+      // Update cache with new summary
+      await AsyncStorage.setItem(MATCH_SUMMARY_CACHE_KEY, JSON.stringify(newSummary));
+
+      return hasNewContent;
+    } catch (error) {
+      console.error('Error checking for new content:', error);
+      return true; // On error, assume new content to be safe
+    }
+  }, [session?.user?.id]);
+
+  const fetchMyMatches = useCallback(async (isManualRefresh = false) => {
     if (!session?.user?.id) return;
 
-    const startTime = Date.now();
-    const minDelay = showSkeleton ? 800 : 0; // Minimum 800ms for skeleton visibility
+    // Only show skeleton on very first initialization, not on tab switches
+    if (!hasInitializedRef.current) {
+      // First load ever - check if we have cached data
+      const cachedSummaryStr = await AsyncStorage.getItem(MATCH_SUMMARY_CACHE_KEY);
+      if (!cachedSummaryStr) {
+        // No cache = truly first time, show skeleton
+        setShowSkeleton(true);
+      } else {
+        // Has cache = check for new content
+        const hasNewContent = await checkForNewContent();
+        if (hasNewContent) {
+          setShowSkeleton(true);
+        }
+      }
+      hasInitializedRef.current = true;
+    } else if (!isManualRefresh) {
+      // Subsequent automatic loads - check for new content
+      const hasNewContent = await checkForNewContent();
+      if (hasNewContent) {
+        setShowSkeleton(true);
+      }
+    }
+    // Manual refresh - never show skeleton
 
     try {
       const backendUrl = getBackendBaseURL();
@@ -84,19 +147,10 @@ export default function MyGamesScreen({ sport = 'pickleball' }: MyGamesScreenPro
       console.error('Error fetching my matches:', error);
       setMatches([]);
     } finally {
-      // Ensure minimum delay for skeleton visibility on initial load
-      const elapsed = Date.now() - startTime;
-      const remainingDelay = Math.max(0, minDelay - elapsed);
-
-      setTimeout(() => {
-        setLoading(false);
-        setRefreshing(false);
-        if (showSkeleton) {
-          setIsInitialLoad(false);
-        }
-      }, remainingDelay);
+      setRefreshing(false);
+      setShowSkeleton(false);
     }
-  }, [session?.user?.id]);
+  }, [session?.user?.id, checkForNewContent]);
 
   const fetchPendingInvitations = useCallback(async () => {
     if (!session?.user?.id) return;
@@ -111,13 +165,13 @@ export default function MyGamesScreen({ sport = 'pickleball' }: MyGamesScreenPro
   }, [session?.user?.id]);
 
   useEffect(() => {
-    fetchMyMatches(true); // Show skeleton on initial load
+    fetchMyMatches();
     fetchPendingInvitations();
   }, [fetchMyMatches, fetchPendingInvitations]);
 
   const onRefresh = () => {
     setRefreshing(true);
-    fetchMyMatches();
+    fetchMyMatches(true); // Manual refresh - don't show skeleton
     fetchPendingInvitations();
   };
 
@@ -421,8 +475,8 @@ export default function MyGamesScreen({ sport = 'pickleball' }: MyGamesScreenPro
           </TouchableOpacity>
         </View>
 
-        {/* Skeleton Loading - Only on initial load */}
-        {loading && isInitialLoad ? (
+        {/* Skeleton Loading - Only when new content detected */}
+        {showSkeleton ? (
           <MatchCardSkeleton count={4} />
         ) : activeTab === 'INVITES' ? (
           <FlatList

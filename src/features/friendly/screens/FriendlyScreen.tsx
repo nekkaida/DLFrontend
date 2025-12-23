@@ -8,6 +8,7 @@ import {
   StyleSheet,
   Modal,
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { MatchCardSkeleton } from '@/src/components/MatchCardSkeleton';
 import { Ionicons } from '@expo/vector-icons';
 import { format } from 'date-fns';
@@ -15,10 +16,14 @@ import { toast } from 'sonner-native';
 import { router } from 'expo-router';
 import { useSession } from '@/lib/auth-client';
 import axiosInstance, { endpoints } from '@/lib/endpoints';
+import { getBackendBaseURL } from '@/src/config/network';
 import { getSportColors, SportType } from '@/constants/SportsColor';
 import { FriendlyMatchCard, FriendlyMatch } from '../components/FriendlyMatchCard';
 import { DateRangeFilterModal, DateRangeFilterModalRef } from '../components/DateRangeFilterModal';
 import { CreateFriendlyMatchScreen, FriendlyMatchFormData } from './CreateFriendlyMatchScreen';
+
+// Cache key for friendly match summary
+const FRIENDLY_SUMMARY_CACHE_KEY = 'friendly_matches_summary';
 
 interface FriendlyScreenProps {
   sport: 'pickleball' | 'tennis' | 'padel';
@@ -32,9 +37,9 @@ export const FriendlyScreen: React.FC<FriendlyScreenProps> = ({ sport }) => {
   const sportColors = getSportColors(sportType);
 
   const [matches, setMatches] = useState<FriendlyMatch[]>([]);
-  const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [isInitialLoad, setIsInitialLoad] = useState(true);
+  const [showSkeleton, setShowSkeleton] = useState(false); // Only true when new content detected
+  const hasInitializedRef = useRef(false); // Track if we've done the first load
   const [activeTab, setActiveTab] = useState<FilterTab>('all');
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [dateRange, setDateRange] = useState<{ start: Date | null; end: Date | null }>({
@@ -44,12 +49,73 @@ export const FriendlyScreen: React.FC<FriendlyScreenProps> = ({ sport }) => {
   const [collapsedDates, setCollapsedDates] = useState<Set<string>>(new Set());
   const dateRangeFilterRef = useRef<DateRangeFilterModalRef>(null);
 
-  const fetchFriendlyMatches = useCallback(async (showSkeleton = false) => {
-    const startTime = Date.now();
-    const minDelay = showSkeleton ? 800 : 0; // Minimum 800ms for skeleton visibility
+  // Check if there's new content by comparing summary with cache
+  const checkForNewContent = useCallback(async (): Promise<boolean> => {
+    if (!session?.user?.id) return false;
 
     try {
-      setLoading(true);
+      const backendUrl = getBackendBaseURL();
+      const response = await fetch(`${backendUrl}/api/friendly/summary?sport=${sportType}`, {
+        headers: { 'x-user-id': session.user.id },
+      });
+
+      if (!response.ok) return true; // If summary fails, assume new content
+
+      const newSummary = await response.json();
+      const cacheKey = `${FRIENDLY_SUMMARY_CACHE_KEY}_${sportType}`;
+      const cachedSummaryStr = await AsyncStorage.getItem(cacheKey);
+
+      if (!cachedSummaryStr) {
+        // First time - store and show skeleton
+        await AsyncStorage.setItem(cacheKey, JSON.stringify(newSummary));
+        return true;
+      }
+
+      const cachedSummary = JSON.parse(cachedSummaryStr);
+
+      // Check if anything changed
+      const hasNewContent =
+        newSummary.count !== cachedSummary.count ||
+        newSummary.latestUpdatedAt !== cachedSummary.latestUpdatedAt;
+
+      // Update cache with new summary
+      await AsyncStorage.setItem(cacheKey, JSON.stringify(newSummary));
+
+      return hasNewContent;
+    } catch (error) {
+      console.error('Error checking for new friendly content:', error);
+      return true; // On error, assume new content to be safe
+    }
+  }, [session?.user?.id, sportType]);
+
+  const fetchFriendlyMatches = useCallback(async (isManualRefresh = false) => {
+    // Only show skeleton on very first initialization, not on tab switches
+    const cacheKey = `${FRIENDLY_SUMMARY_CACHE_KEY}_${sportType}`;
+
+    if (!hasInitializedRef.current) {
+      // First load ever - check if we have cached data
+      const cachedSummaryStr = await AsyncStorage.getItem(cacheKey);
+      if (!cachedSummaryStr) {
+        // No cache = truly first time, show skeleton
+        setShowSkeleton(true);
+      } else {
+        // Has cache = check for new content
+        const hasNewContent = await checkForNewContent();
+        if (hasNewContent) {
+          setShowSkeleton(true);
+        }
+      }
+      hasInitializedRef.current = true;
+    } else if (!isManualRefresh) {
+      // Subsequent automatic loads - check for new content
+      const hasNewContent = await checkForNewContent();
+      if (hasNewContent) {
+        setShowSkeleton(true);
+      }
+    }
+    // Manual refresh - never show skeleton
+
+    try {
       const params: any = {
         sport: sportType,
         page: '1',
@@ -73,27 +139,18 @@ export const FriendlyScreen: React.FC<FriendlyScreenProps> = ({ sport }) => {
       toast.error('Failed to load friendly matches');
       setMatches([]);
     } finally {
-      // Ensure minimum delay for skeleton visibility on initial load
-      const elapsed = Date.now() - startTime;
-      const remainingDelay = Math.max(0, minDelay - elapsed);
-
-      setTimeout(() => {
-        setLoading(false);
-        setRefreshing(false);
-        if (showSkeleton) {
-          setIsInitialLoad(false);
-        }
-      }, remainingDelay);
+      setRefreshing(false);
+      setShowSkeleton(false);
     }
-  }, [sportType, dateRange]);
+  }, [sportType, dateRange, checkForNewContent]);
 
   useEffect(() => {
-    fetchFriendlyMatches(true); // Show skeleton on initial load
+    fetchFriendlyMatches();
   }, [fetchFriendlyMatches]);
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
-    fetchFriendlyMatches();
+    fetchFriendlyMatches(true); // Manual refresh - don't show skeleton
   }, [fetchFriendlyMatches]);
 
   // Filter matches based on active tab
@@ -347,7 +404,7 @@ export const FriendlyScreen: React.FC<FriendlyScreenProps> = ({ sport }) => {
         </View>
 
         {/* Matches List */}
-        {loading && isInitialLoad ? (
+        {showSkeleton ? (
           <MatchCardSkeleton count={4} />
         ) : Object.keys(groupedMatches).length === 0 ? (
           renderEmptyState()
