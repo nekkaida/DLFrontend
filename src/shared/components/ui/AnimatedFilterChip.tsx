@@ -67,8 +67,8 @@ export function AnimatedFilterChip({
     const color = `rgb(${Math.round(r.value)}, ${Math.round(g.value)}, ${Math.round(b.value)})`;
     return {
       backgroundColor: isActive ? color : '#FFFFFF',
-      borderColor: color,
-      borderWidth: isActive ? 0 : 1,
+      borderColor: isActive ? color : color,
+      borderWidth: 1,
     };
   });
 

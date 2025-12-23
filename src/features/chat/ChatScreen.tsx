@@ -412,10 +412,11 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
             ]}
             onPress={() => setShowTypeFilterModal(true)}
             activeOpacity={0.7}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           >
             <Ionicons
               name="options-outline"
-              size={18}
+              size={20}
               color={typeFilter !== 'all' ? '#FFFFFF' : SPORT_COLORS[sportFilter] || '#6B7280'}
             />
           </TouchableOpacity>
@@ -573,9 +574,9 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   typeFilterButton: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
     borderColor: '#E5E7EB',
