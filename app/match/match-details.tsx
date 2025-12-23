@@ -775,6 +775,7 @@ export default function JoinMatchScreen() {
     comment?: string;
     isUnfinished?: boolean;
     isCasualPlay?: boolean;
+    isCancelled?: boolean;
     teamAssignments?: { team1: string[]; team2: string[] };
   }) => {
     try {
@@ -784,6 +785,19 @@ export default function JoinMatchScreen() {
         team: p.team,
         mappedTeam: p.team === 'team1' ? 'TEAM_A' : p.team === 'team2' ? 'TEAM_B' : 'TEAM_A'
       })));
+
+      // Handle friendly match cancellation
+      if (isFriendly && data.isCancelled) {
+        await axiosInstance.post(
+          endpoints.friendly.cancel(matchId),
+          { comment: data.comment }
+        );
+        toast.success('Match cancelled');
+        bottomSheetModalRef.current?.dismiss();
+        router.back();
+        return;
+      }
+
       // Use different endpoint for friendly matches (no rating calculation)
       const endpoint = isFriendly
         ? endpoints.friendly.submitResult(matchId)

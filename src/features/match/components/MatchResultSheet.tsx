@@ -81,6 +81,7 @@ interface MatchResultSheetProps {
     comment?: string;
     isUnfinished?: boolean;
     isCasualPlay?: boolean;
+    isCancelled?: boolean;
     teamAssignments?: { team1: string[]; team2: string[] };
   }) => Promise<void>;
   onConfirm?: () => Promise<void>;
@@ -619,6 +620,24 @@ export const MatchResultSheet: React.FC<MatchResultSheetProps> = ({
       return;
     }
 
+    // For friendly matches with "didn't play" toggled, set status to CANCELLED
+    if (isFriendlyMatch && !isCasualPlay && didntPlay) {
+      try {
+        setLoading(true);
+        await onSubmit({
+          comment: comment.trim() || undefined,
+          isCancelled: true,
+        });
+        onClose();
+      } catch (error) {
+        console.error('Error cancelling friendly match:', error);
+        Alert.alert('Error', 'Failed to cancel match');
+      } finally {
+        setLoading(false);
+      }
+      return;
+    }
+
     // For friendly match mode (not casual), validate team assignments for doubles
     if (isFriendlyMatch && !isCasualPlay && matchType === 'DOUBLES') {
       if (!allDropdownsFilled()) {
@@ -805,7 +824,7 @@ export const MatchResultSheet: React.FC<MatchResultSheetProps> = ({
       <View style={styles.header}>
         <View style={styles.headerTitleContainer}>
           <Text style={styles.headerTitle}>
-            {mode === 'disputed' ? 'Disputed Score' : mode === 'view' ? 'Submitted Scores' : mode === 'review' ? 'Review Match Result' : didntPlay ? 'Report Walkover' : isFriendlyMatch ? 'Played your game?' : 'How did the match go?'}
+            {mode === 'disputed' ? 'Disputed Score' : mode === 'view' ? 'Submitted Scores' : mode === 'review' ? 'Review Match Result' : isFriendlyMatch ? 'Played your game?' : didntPlay ? 'Report Walkover' : 'How did the match go?'}
           </Text>
           {mode === 'submit' && !isFriendlyMatch && (
             <Text style={styles.headerSubtitle}>
@@ -995,7 +1014,13 @@ export const MatchResultSheet: React.FC<MatchResultSheetProps> = ({
             </View>
 
             {/* Score Section with Dropdowns */}
-            {matchType === 'DOUBLES' && (
+            <View style={[styles.friendlyScoreSection, didntPlay && styles.friendlyScoreSectionDisabled]}>
+              {didntPlay && (
+                <View style={styles.didntPlayOverlay}>
+                  <Text style={styles.didntPlayOverlayText}>Match is not played</Text>
+                </View>
+              )}
+              {matchType === 'DOUBLES' && (
               <>
                 {/* Sets/Games Header */}
                 <View style={styles.friendlySetsHeader}>
@@ -1467,6 +1492,7 @@ export const MatchResultSheet: React.FC<MatchResultSheetProps> = ({
                 </View>
               </>
             )}
+            </View>
 
             {/* Divider */}
             <View style={styles.friendlyDivider} />
@@ -3619,6 +3645,29 @@ const styles = StyleSheet.create({
     backgroundColor: '#F3F4F6',
     borderColor: '#E5E7EB',
     opacity: 0.5,
+  },
+  friendlyScoreSection: {
+    position: 'relative',
+  },
+  friendlyScoreSectionDisabled: {
+    opacity: 0.4,
+  },
+  didntPlayOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(255, 255, 255, 0.8)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 100,
+    borderRadius: 12,
+  },
+  didntPlayOverlayText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#6B7280',
   },
   friendlyDivider: {
     height: 1,
