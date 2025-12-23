@@ -4,7 +4,7 @@ import axiosInstance, { endpoints } from '@/lib/endpoints';
 import { getBackendBaseURL } from '@/src/config/network';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -25,7 +25,9 @@ import {
   FilterTab,
   MatchCard,
   InvitationCard,
-  FilterModal,
+  FilterBottomSheet,
+  FilterBottomSheetRef,
+  FilterOptions,
   styles,
   formatMatchDate,
   formatMatchTime,
@@ -39,6 +41,7 @@ export default function MyGamesScreen({ sport = 'pickleball' }: MyGamesScreenPro
   const [invitations, setInvitations] = useState<MatchInvitation[]>([]);
 
   const sportColors = getSportColors(sport as SportType);
+  const filterBottomSheetRef = useRef<FilterBottomSheetRef>(null);
 
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -46,10 +49,14 @@ export default function MyGamesScreen({ sport = 'pickleball' }: MyGamesScreenPro
   // Filter states
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState<FilterTab>('ALL');
-  const [showFilterModal, setShowFilterModal] = useState(false);
-  const [selectedSport, setSelectedSport] = useState<string | null>(null);
-  const [selectedDivision, setSelectedDivision] = useState<string | null>(null);
-  const [selectedSeason, setSelectedSeason] = useState<string | null>(null);
+  const [filters, setFilters] = useState<FilterOptions>({
+    sport: null,
+    division: null,
+    season: null,
+    matchType: null,
+    gameType: null,
+    status: null,
+  });
 
   const fetchMyMatches = useCallback(async () => {
     if (!session?.user?.id) return;
@@ -118,6 +125,11 @@ export default function MyGamesScreen({ sport = 'pickleball' }: MyGamesScreenPro
     return Array.from(seasons) as string[];
   }, [matches]);
 
+  const uniqueStatuses = useMemo(() => {
+    const statuses = new Set(matches.map(m => m.status.toUpperCase()).filter(Boolean));
+    return Array.from(statuses) as string[];
+  }, [matches]);
+
   // Filter matches based on all criteria
   const filteredMatches = useMemo(() => {
     let filtered = [...matches];
@@ -159,33 +171,65 @@ export default function MyGamesScreen({ sport = 'pickleball' }: MyGamesScreenPro
       );
     }
 
-    // Filter by sport
-    if (selectedSport) {
+    // Filter by sport (from bottom sheet)
+    if (filters.sport) {
       filtered = filtered.filter(m =>
-        (m.sport || m.division?.league?.sportType) === selectedSport
+        (m.sport || m.division?.league?.sportType) === filters.sport
       );
     }
 
-    // Filter by division
-    if (selectedDivision) {
-      filtered = filtered.filter(m => m.division?.name === selectedDivision);
+    // Filter by division (from bottom sheet)
+    if (filters.division) {
+      filtered = filtered.filter(m => m.division?.name === filters.division);
     }
 
-    // Filter by season
-    if (selectedSeason) {
-      filtered = filtered.filter(m => m.division?.season?.name === selectedSeason);
+    // Filter by season (from bottom sheet)
+    if (filters.season) {
+      filtered = filtered.filter(m => m.division?.season?.name === filters.season);
+    }
+
+    // Filter by match type (League vs Friendly)
+    if (filters.matchType) {
+      if (filters.matchType === 'FRIENDLY') {
+        filtered = filtered.filter(m => m.isFriendly === true);
+      } else if (filters.matchType === 'LEAGUE') {
+        filtered = filtered.filter(m => m.isFriendly !== true);
+      }
+    }
+
+    // Filter by game type (Singles vs Doubles)
+    if (filters.gameType) {
+      filtered = filtered.filter(m => m.matchType?.toUpperCase() === filters.gameType);
+    }
+
+    // Filter by status (from bottom sheet - overrides tab filter if set)
+    if (filters.status) {
+      filtered = filtered.filter(m => m.status.toUpperCase() === filters.status);
     }
 
     return filtered;
-  }, [matches, searchQuery, activeTab, selectedSport, selectedDivision, selectedSeason, session?.user?.id]);
+  }, [matches, searchQuery, activeTab, filters, session?.user?.id]);
 
-  const clearAdvancedFilters = () => {
-    setSelectedSport(null);
-    setSelectedDivision(null);
-    setSelectedSeason(null);
+  const handleApplyFilters = (newFilters: FilterOptions) => {
+    setFilters(newFilters);
   };
 
-  const hasActiveFilters = selectedSport || selectedDivision || selectedSeason;
+  const hasActiveFilters = Object.values(filters).some(Boolean);
+
+  // Get filter button color based on selected sport filter
+  const getFilterButtonColor = (): string => {
+    if (!hasActiveFilters) return '#863A73'; // Default purple when no filters
+
+    if (filters.sport) {
+      const sportType = filters.sport.toUpperCase() as SportType;
+      const colors = getSportColors(sportType);
+      return colors.background;
+    }
+
+    return '#6B7280'; // Grey when filters active but no sport selected
+  };
+
+  const filterButtonColor = getFilterButtonColor();
 
   const handleAcceptInvitation = async (invitationId: string) => {
     try {
@@ -321,8 +365,11 @@ export default function MyGamesScreen({ sport = 'pickleball' }: MyGamesScreenPro
 
           {/* Filter Button */}
           <TouchableOpacity
-            style={[styles.filterButton, hasActiveFilters && styles.filterButtonActive]}
-            onPress={() => setShowFilterModal(true)}
+            style={[
+              styles.filterButton,
+              hasActiveFilters && { ...styles.filterButtonActive, backgroundColor: filterButtonColor }
+            ]}
+            onPress={() => filterBottomSheetRef.current?.present()}
           >
             <Ionicons name="filter" size={20} color={hasActiveFilters ? "#FFFFFF" : "#4B5563"} />
             {hasActiveFilters && <View style={styles.filterBadge} />}
@@ -389,20 +436,17 @@ export default function MyGamesScreen({ sport = 'pickleball' }: MyGamesScreenPro
           />
         )}
 
-        {/* Filter Modal */}
-        <FilterModal
-          visible={showFilterModal}
-          onClose={() => setShowFilterModal(false)}
+        {/* Filter Bottom Sheet */}
+        <FilterBottomSheet
+          ref={filterBottomSheetRef}
+          onClose={() => {}}
+          onApply={handleApplyFilters}
           uniqueSports={uniqueSports}
           uniqueDivisions={uniqueDivisions}
           uniqueSeasons={uniqueSeasons}
-          selectedSport={selectedSport}
-          selectedDivision={selectedDivision}
-          selectedSeason={selectedSeason}
-          onSelectSport={setSelectedSport}
-          onSelectDivision={setSelectedDivision}
-          onSelectSeason={setSelectedSeason}
-          onClearAll={clearAdvancedFilters}
+          uniqueStatuses={uniqueStatuses}
+          currentFilters={filters}
+          sportColor={sportColors.background}
         />
       </View>
     </View>

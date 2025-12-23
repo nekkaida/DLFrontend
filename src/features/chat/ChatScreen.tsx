@@ -963,7 +963,22 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
                         styles.secondaryActionButton,
                         pressed && { opacity: 0.8 }
                       ]}
-                      onPress={handleViewAllMatches}
+                      onPress={() => {
+                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                        router.push({
+                          pathname: '/match/all-matches',
+                          params: {
+                            divisionId: currentThread.metadata?.divisionId || currentThread.division?.id,
+                            sportType: currentThread.sportType || 'PICKLEBALL',
+                            leagueName: currentThread.metadata?.leagueName || currentThread.division?.league?.name || 'League',
+                            seasonName: currentThread.metadata?.seasonName || currentThread.division?.season?.name || 'Season 1',
+                            gameType: currentThread.metadata?.gameType || currentThread.division?.gameType || '',
+                            genderCategory: currentThread.metadata?.genderCategory || currentThread.division?.genderCategory || '',
+                            seasonStartDate: currentThread.division?.season?.startDate,
+                            seasonEndDate: currentThread.division?.season?.endDate,
+                          },
+                        });
+                      }}
                     >
                       <Text style={styles.secondaryActionText}>View All Matches</Text>
                     </Pressable>
