@@ -40,13 +40,14 @@ export const SwipeableMessageBubble: React.FC<SwipeableMessageBubbleProps> = Rea
   onLongPress,
   messageMap,
 }) => {
-  // Memoized sport-specific color for current user messages in group chats
+  // Memoized sport-specific color for current user messages
   const bubbleColor = useMemo(() => {
-    if (!isCurrentUser || !isGroupChat) return '#DCC6FD';
+    if (!isCurrentUser) return '#F3F4F6'; // Gray for received messages
 
+    // Use sport color for sent messages (both group and direct chats)
     const colors = getSportColors(sportType);
-    return colors.messageColor;
-  }, [isCurrentUser, isGroupChat, sportType]);
+    return colors.background;
+  }, [isCurrentUser, sportType]);
   const translateX = useSharedValue(0);
   const replyIconScale = useSharedValue(0);
   const replyIconOpacity = useSharedValue(0);
@@ -428,7 +429,7 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   currentUserText: {
-    color: '#000000ff',
+    color: '#FFFFFF',
   },
   otherUserText: {
     color: '#111827',

@@ -318,10 +318,10 @@ const styles = StyleSheet.create({
   avatarContainer: {
     position: 'relative',
     marginRight: 12,
-    minWidth: 70,
+    minWidth: 48,
     minHeight: 48,
     justifyContent: 'center',
-    alignItems: 'center',
+    alignItems: 'flex-start',
   },
   avatarPlaceholder: {
     width: 48,

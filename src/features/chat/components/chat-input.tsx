@@ -116,19 +116,20 @@ export const MessageInput: React.FC<MessageInputProps> = ({
 
   // Memoized send button color based on sport type and message
   const sendButtonColor = useMemo(() => {
-    if (!isGroupChat || !message.trim()) return message.trim() ? '#863A73' : '#E5E7EB';
+    if (!message.trim()) return '#E5E7EB'; // Gray when no message
 
+    // Use sport color for send button (both group and direct chats)
     switch (sportType) {
       case 'PICKLEBALL':
-        return '#863A73'; // Purple
+        return '#A04DFE'; // Purple
       case 'TENNIS':
         return '#65B741'; // Green
       case 'PADEL':
         return '#3B82F6'; // Blue
       default:
-        return '#863A73'; // Default purple
+        return '#A04DFE'; // Default purple (pickleball)
     }
-  }, [isGroupChat, message, sportType]);
+  }, [message, sportType]);
 
   // Memoized match icon component based on sport type
   const MatchIcon = useMemo(() => {
