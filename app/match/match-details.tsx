@@ -913,14 +913,25 @@ export default function JoinMatchScreen() {
     }
   };
 
-  // Check if match can be cancelled (only SCHEDULED matches, before they start)
+  // Check if match can be cancelled (only SCHEDULED matches)
   const canCancelMatch = () => {
     const status = matchData.status?.toUpperCase() || matchStatus.toUpperCase();
-    // Can only cancel SCHEDULED matches, and user must be a participant
-    if (status !== 'SCHEDULED' || !isUserParticipant) return false;
+    // Can only cancel SCHEDULED matches
+    if (status !== 'SCHEDULED') return false;
 
-    // Don't allow cancellation if match has already started (based on time)
-    return !isMatchTimeReached();
+    const isCreator = matchData.createdById === session?.user?.id;
+
+    // Special case: Allow creator to cancel orphaned matches (time passed but no opponent joined)
+    // This prevents matches from being stuck forever when no one joins
+    if (isMatchTimeReached() && !allSlotsFilled && isCreator) {
+      return true;
+    }
+
+    // Normal case: Don't allow cancellation if match has already started (time reached AND all slots filled)
+    if (isMatchTimeReached() && allSlotsFilled) return false;
+
+    // Allow if user is a participant OR if user is the creator (can cancel their own match)
+    return isUserParticipant || isCreator;
   };
 
   // Determine if current user is the one who SUBMITTED the result
@@ -1543,12 +1554,12 @@ export default function JoinMatchScreen() {
 
       {/* Footer with Action Buttons */}
       <View style={[styles.footer, { paddingBottom: insets.bottom + 16 }]}>
-        {isUserParticipant && allSlotsFilled ? (
-          <View style={styles.buttonGroup}>            
+        {isUserParticipant ? (
+          <View style={styles.buttonGroup}>
             {/* Dynamic button based on user role and match status */}
             {(() => {
               const status = matchData.status?.toUpperCase() || matchStatus.toUpperCase();
-              
+
               // Match COMPLETED - Show "View Scores" to everyone
               if (status === 'COMPLETED' || status === 'FINISHED') {
                 return (
@@ -1560,7 +1571,7 @@ export default function JoinMatchScreen() {
                   </TouchableOpacity>
                 );
               }
-              
+
               // Match ONGOING but DISPUTED - Allow viewing scores with "Under Review" indicator
               if (status === 'ONGOING' && matchData.isDisputed) {
                 return (
@@ -1596,8 +1607,8 @@ export default function JoinMatchScreen() {
                   </TouchableOpacity>
                 );
               }
-              
-              // Match SCHEDULED and time reached - Any participant can submit result
+
+              // Match SCHEDULED and time reached AND all slots filled - Any participant can submit result
               // (For overdue matches, both creator and opponent should be able to submit)
               if (status === 'SCHEDULED' && canStartMatch) {
                 return (
@@ -1610,20 +1621,29 @@ export default function JoinMatchScreen() {
                 );
               }
 
-              // Match not started yet - Only show Cancel Match button if user can cancel
-              if (!canStartMatch) {
-                if (canCancelMatch()) {
+              // Show Cancel Match button if user can cancel
+              // This handles: partially-filled matches, before time, AND orphaned expired matches
+              if (canCancelMatch()) {
                 return (
                   <TouchableOpacity
-                      style={[styles.joinButton, { backgroundColor: "#EF4444" }]}
-                      onPress={() => cancelSheetRef.current?.present()}
+                    style={[styles.joinButton, { backgroundColor: "#EF4444" }]}
+                    onPress={() => cancelSheetRef.current?.present()}
                   >
-                      <Text style={[styles.joinButtonText, { color: "#FFFFFF" }]}>Cancel Match</Text>
+                    <Text style={[styles.joinButtonText, { color: "#FFFFFF" }]}>Cancel Match</Text>
                   </TouchableOpacity>
                 );
-                }
-                // If match hasn't started and user can't cancel, don't show any button
-                return null;
+              }
+
+              // Waiting for opponent - show a disabled "Waiting" state
+              if (status === 'SCHEDULED' && !allSlotsFilled && !isMatchTimeReached()) {
+                return (
+                  <TouchableOpacity
+                    style={[styles.joinButton, { backgroundColor: "#9CA3AF" }]}
+                    disabled={true}
+                  >
+                    <Text style={[styles.joinButtonText, { color: "#FFFFFF" }]}>Waiting for Opponent</Text>
+                  </TouchableOpacity>
+                );
               }
 
               // Default fallback
@@ -1631,11 +1651,11 @@ export default function JoinMatchScreen() {
             })()}
           </View>
         ) : (
-          // Join Match Button (shown to non-participants) 
+          // Join Match Button (shown to non-participants)
           <View style={styles.buttonGroup}>
-            {/* TEST BUTTON - No time check - Remove later */}
+            {/* ⚠️ TEST BUTTON - BYPASSES TIME VALIDATION - REMOVE BEFORE PRODUCTION ⚠️ */}
             <TouchableOpacity
-              style={[styles.joinButton, { backgroundColor: "#10B981" }]}
+              style={[styles.testButton, { backgroundColor: "#8B5CF6", borderColor: "#7C3AED" }]}
               onPress={handleJoinMatch}
               disabled={loading || !canJoin || allSlotsFilled}
             >
@@ -1647,8 +1667,8 @@ export default function JoinMatchScreen() {
                 </Text>
               )}
             </TouchableOpacity>
-            
-            {/* Normal Join Button */}
+
+            {/* Production Join Button - With Time Validation */}
             <TouchableOpacity
               style={[
                 styles.joinButton,

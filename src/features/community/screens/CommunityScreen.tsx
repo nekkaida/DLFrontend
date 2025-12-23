@@ -185,8 +185,8 @@ export default function CommunityScreen({ onTabPress, sport = 'pickleball' }: Co
         {/* Header */}
         <View style={styles.headerSection}>
           <CommunityHeader
-            profileImage={profileData?.image || session?.user?.image}
-            profileName={profileData?.name || session?.user?.name}
+            profileImage={profileData?.image || session?.user?.image || undefined}
+            profileName={profileData?.name || session?.user?.name || undefined}
           />
         </View>
 
@@ -260,7 +260,6 @@ export default function CommunityScreen({ onTabPress, sport = 'pickleball' }: Co
         player={selectedPlayer}
         isFriend={selectedPlayer ? isFriend(selectedPlayer.id) : false}
         onClose={closeModal}
-        onChat={handleChat}
         onSendFriendRequest={handleSendFriendRequest}
       />
 

@@ -336,8 +336,11 @@ const SkillAssessmentScreen = () => {
 
         // Create new responses object without mutation
         const skillMatrixResponse = state.responses[originalKey] || {};
+        const existingMatrix = typeof skillMatrixResponse === 'object' && skillMatrixResponse !== null
+          ? skillMatrixResponse as Record<string, unknown>
+          : {};
         const updatedSkillMatrix = {
-          ...skillMatrixResponse,
+          ...existingMatrix,
           [skillKey]: state.currentPageAnswers[currentQuestion.key]
         };
 
@@ -526,7 +529,7 @@ const SkillAssessmentScreen = () => {
           )
         ) : (
           <SimpleSkillDropdown
-            initialValue={data.skillAssessments?.[sport as SportType] as string}
+            initialValue={data.skillAssessments?.[sport as SportType] as unknown as string}
             onConfirm={handleSimpleConfirm}
           />
         )}

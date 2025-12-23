@@ -24,13 +24,14 @@ export class ProfileDataTransformer {
       skillLevel: getPrimarySkillLevel(profileData.skillRatings), // Calculate from actual skill ratings
       skillRatings: profileData.skillRatings || {}, // Pass through the actual skill ratings for DMR section
       sports: profileData.sports && profileData.sports.length > 0
-        ? profileData.sports.map(sport => sport.charAt(0).toUpperCase() + sport.slice(1))
+        ? profileData.sports.map((sport: string) => sport.charAt(0).toUpperCase() + sport.slice(1))
         : ['No sports yet'],
       activeSports: profileData.sports && profileData.sports.length > 0
-        ? profileData.sports.map(sport => sport.charAt(0).toUpperCase() + sport.slice(1))
+        ? profileData.sports.map((sport: string) => sport.charAt(0).toUpperCase() + sport.slice(1))
         : [],
       profileImage: profileData.image || profileData.profileImage || undefined,
       achievements: achievements || [],
+      leagueStats: profileData.leagueStats || null,
     } : {
       name: 'Loading...',
       username: 'loading',
@@ -43,6 +44,7 @@ export class ProfileDataTransformer {
       activeSports: [],
       profileImage: undefined,
       achievements: [],
+      leagueStats: null,
     };
     return userData;
   }

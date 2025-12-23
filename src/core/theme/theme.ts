@@ -76,11 +76,11 @@ export const theme = {
     },
     
     fontWeight: {
-      regular: '400',
-      medium: '500',
-      semibold: '590',
-      bold: '600',
-      heavy: '700',
+      regular: '400' as const,
+      medium: '500' as const,
+      semibold: '600' as const,
+      bold: '700' as const,
+      heavy: '800' as const,
     },
     
     lineHeight: {

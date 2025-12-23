@@ -100,19 +100,8 @@ export default function SeasonsScreen({
     console.log('Register button pressed for category:', category);
 
     if (isDoublesCategory) {
-      // Check if user already has an active partnership, will fix later
-      if (partnership) {
-        const partnerName = partnership.player1Id === currentUserId
-          ? partnership.player2.name
-          : partnership.player1.name;
-
-        Alert.alert(
-          'Already Paired',
-          `You are already paired with ${partnerName}. You cannot register for another doubles season while in a partnership.`,
-          [{ text: 'OK', style: 'default' }]
-        );
-        return;
-      }
+      // TODO: Check if user already has an active partnership
+      // This feature is not yet implemented - partnership check will be added later
 
       // Navigate to Find Partner screen
       console.log('Doubles category detected - navigating to Find Partner');

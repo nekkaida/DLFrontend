@@ -1,6 +1,6 @@
 import { getSportColors, SportType } from '@/constants/SportsColor';
 import { format } from 'date-fns';
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Image, StyleSheet, Text, View } from 'react-native';
 import { Message } from '../types';
 
@@ -13,7 +13,7 @@ interface MessageBubbleProps {
   sportType?: SportType | null;
 }
 
-export const MessageBubble: React.FC<MessageBubbleProps> = ({
+export const MessageBubble: React.FC<MessageBubbleProps> = React.memo(({
   message,
   isCurrentUser,
   showAvatar,
@@ -21,25 +21,23 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
   isGroupChat = false,
   sportType,
 }) => {
-  const senderName = message.metadata?.sender?.name || 
-                    message.metadata?.sender?.username || 
+  const senderName = message.metadata?.sender?.name ||
+                    message.metadata?.sender?.username ||
                     'Unknown';
-  
+
   // Get sender's avatar/image - check both 'avatar' and 'image' properties
-  const senderAvatar = message.metadata?.sender?.avatar || 
-                       message.metadata?.sender?.image || 
+  const senderAvatar = message.metadata?.sender?.avatar ||
+                       message.metadata?.sender?.image ||
                        null;
   const senderInitial = senderName.charAt(0).toUpperCase();
-  
-  // Get sport-specific color for current user messages in group chats
-  const getSportColor = () => {
+
+  // Memoized sport-specific color for current user messages in group chats
+  const bubbleColor = useMemo(() => {
     if (!isCurrentUser || !isGroupChat) return '#863A73'; // Default purple for DMs or received messages
-    
+
     const colors = getSportColors(sportType);
     return colors.messageColor;
-  };
-  
-  const bubbleColor = getSportColor();
+  }, [isCurrentUser, isGroupChat, sportType]);
   
   return (
     <View style={[
@@ -114,7 +112,9 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
       </View>
     </View>
   );
-};
+});
+
+MessageBubble.displayName = 'MessageBubble';
 
 const styles = StyleSheet.create({
   container: {

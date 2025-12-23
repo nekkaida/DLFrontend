@@ -2,7 +2,7 @@ import PadelMatchIcon from '@/assets/icons/chats/padel-match.svg';
 import PickleballMatchIcon from '@/assets/icons/chats/pickleball-match.svg';
 import TennisMatchIcon from '@/assets/icons/chats/tennis-match.svg';
 import { Ionicons } from '@expo/vector-icons';
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   AppState,
   AppStateStatus,
@@ -45,11 +45,26 @@ export const MessageInput: React.FC<MessageInputProps> = ({
   const [keyboardVisible, setKeyboardVisible] = useState(false);
   const inputRef = useRef<TextInput>(null);
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const sendFocusTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const appStateRef = useRef<AppStateStatus>(AppState.currentState);
   const insets = useSafeAreaInsets();
 
+  // Cleanup all timeouts on unmount
+  useEffect(() => {
+    return () => {
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
+      }
+      if (sendFocusTimeoutRef.current) {
+        clearTimeout(sendFocusTimeoutRef.current);
+      }
+    };
+  }, []);
+
   // Handle app state changes to fix TextInput after backgrounding (Android issue)
   useEffect(() => {
+    let timeoutId: ReturnType<typeof setTimeout> | null = null;
+
     const handleAppStateChange = (nextAppState: AppStateStatus) => {
       if (
         appStateRef.current.match(/inactive|background/) &&
@@ -58,7 +73,7 @@ export const MessageInput: React.FC<MessageInputProps> = ({
         // App has come to foreground - blur and allow re-focus on Android
         if (Platform.OS === 'android' && inputRef.current) {
           // Small delay to let gesture handler state settle
-          setTimeout(() => {
+          timeoutId = setTimeout(() => {
             inputRef.current?.blur();
           }, 100);
         }
@@ -70,6 +85,9 @@ export const MessageInput: React.FC<MessageInputProps> = ({
 
     return () => {
       subscription.remove();
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
     };
   }, []);
 
@@ -96,11 +114,10 @@ export const MessageInput: React.FC<MessageInputProps> = ({
     };
   }, []);
 
-  // TO DO create constant for chat colors 
-  // Get sport-specific color for send button
-  const getSendButtonColor = () => {
+  // Memoized send button color based on sport type and message
+  const sendButtonColor = useMemo(() => {
     if (!isGroupChat || !message.trim()) return message.trim() ? '#863A73' : '#E5E7EB';
-    
+
     switch (sportType) {
       case 'PICKLEBALL':
         return '#863A73'; // Purple
@@ -111,15 +128,15 @@ export const MessageInput: React.FC<MessageInputProps> = ({
       default:
         return '#863A73'; // Default purple
     }
-  };
+  }, [isGroupChat, message, sportType]);
 
-  // Get sport-specific match icon component
-  const getMatchIcon = () => {
+  // Memoized match icon component based on sport type
+  const MatchIcon = useMemo(() => {
     if (!isGroupChat) {
       // For individual chats, return null to use default Ionicons
       return null;
     }
-    
+
     switch (sportType) {
       case 'PICKLEBALL':
         return PickleballMatchIcon;
@@ -130,31 +147,29 @@ export const MessageInput: React.FC<MessageInputProps> = ({
       default:
         return null;
     }
-  };
+  }, [isGroupChat, sportType]);
 
-  const MatchIcon = getMatchIcon();
-
-  const handleTextChange = (text: string) => {
+  const handleTextChange = useCallback((text: string) => {
     setMessage(text);
-    
+
     if (onTyping) {
       if (!isTyping && text.length > 0) {
         setIsTyping(true);
         onTyping(true);
       }
-      
+
       if (typingTimeoutRef.current) {
         clearTimeout(typingTimeoutRef.current);
       }
-      
+
       typingTimeoutRef.current = setTimeout(() => {
         setIsTyping(false);
         onTyping(false);
       }, 1000);
     }
-  };
+  }, [onTyping, isTyping]);
 
-  const handleSend = () => {
+  const handleSend = useCallback(() => {
     if (message.trim()) {
       onSendMessage(message.trim(), replyingTo?.id);
       setMessage('');
@@ -164,18 +179,22 @@ export const MessageInput: React.FC<MessageInputProps> = ({
         clearTimeout(typingTimeoutRef.current);
       }
       // Keep focus on the input after sending so user can continue typing
-      setTimeout(() => {
+      sendFocusTimeoutRef.current = setTimeout(() => {
         inputRef.current?.focus();
       }, 50);
     }
-  };
+  }, [message, onSendMessage, replyingTo?.id, onTyping]);
 
-  const handleMatch = () => {
-    console.log('handleMatch called, onhandleMatch:', onhandleMatch);
+  const handleMatch = useCallback(() => {
     if (onhandleMatch) {
       onhandleMatch();
     }
-  };
+  }, [onhandleMatch]);
+
+  // Memoized handler to focus input
+  const handleInputContainerPress = useCallback(() => {
+    inputRef.current?.focus();
+  }, []);
 
 
   // Simple clamp function for padding
@@ -230,7 +249,7 @@ export const MessageInput: React.FC<MessageInputProps> = ({
         <View style={styles.textInputWrapper}>
           <Pressable
             style={styles.textInputContainer}
-            onPress={() => inputRef.current?.focus()}
+            onPress={handleInputContainerPress}
           >
             <TextInput
               ref={inputRef}
@@ -249,7 +268,7 @@ export const MessageInput: React.FC<MessageInputProps> = ({
         <Pressable
           style={({ pressed }) => [
             styles.sendButton,
-            { backgroundColor: getSendButtonColor() },
+            { backgroundColor: sendButtonColor },
             pressed && { opacity: 0.7 }
           ]}
           onPress={handleSend}
