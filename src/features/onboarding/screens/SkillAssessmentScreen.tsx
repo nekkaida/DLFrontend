@@ -182,6 +182,15 @@ const SkillAssessmentScreen = () => {
       const { questionnaireAdapter } = await import('../services/adapter');
       await questionnaireAdapter.saveQuestionnaireResponse(sportName, responses, session.data.user.id);
       console.log(`Successfully saved ${sportName} responses to backend`);
+
+      // Update onboarding step to SKILL_ASSESSMENT
+      const { questionnaireAPI } = await import('../services/api');
+      try {
+        await questionnaireAPI.updateOnboardingStep(session.data.user.id, 'SKILL_ASSESSMENT');
+        console.log('Onboarding step updated to SKILL_ASSESSMENT');
+      } catch (stepError) {
+        console.error('Error updating onboarding step:', stepError);
+      }
     } catch (error) {
       console.error(`Failed to save ${sportName} responses to backend:`, error);
       throw error;

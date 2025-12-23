@@ -603,17 +603,17 @@ const LocationScreen = () => {
         );
       }
       
-      // Mark basic onboarding as completed (personal info + location)
+      // Update onboarding step to LOCATION (do not complete onboarding here!)
       try {
         if (session?.user?.id) {
-          await questionnaireAPI.completeOnboarding(session.user.id);
-          console.log('Basic onboarding completed (personal info + location)');
+          await questionnaireAPI.updateOnboardingStep(session.user.id, 'LOCATION');
+          console.log('Onboarding step updated to LOCATION');
         }
       } catch (error) {
-        console.error('Error completing basic onboarding:', error);
+        console.error('Error updating onboarding step:', error);
       }
 
-      // Navigate to sport assessment (optional step)
+      // Navigate to sport selection (next step)
       router.push('/onboarding/game-select');
     }
   };

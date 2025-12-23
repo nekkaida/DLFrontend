@@ -12,6 +12,51 @@ const isBlockedAuthPage = (route: string): boolean => {
   return BLOCKED_AUTH_PAGES.some(authPage => route.startsWith(authPage));
 };
 
+// Map onboarding step to the NEXT route the user should go to
+const STEP_TO_NEXT_ROUTE: Record<string, string> = {
+  'PERSONAL_INFO': '/onboarding/location',
+  'LOCATION': '/onboarding/game-select',
+  'GAME_SELECT': '/onboarding/skill-assessment',
+  'SKILL_ASSESSMENT': '/onboarding/assessment-results',
+  'ASSESSMENT_RESULTS': '/onboarding/profile-picture',
+  'PROFILE_PICTURE': '/user-dashboard',
+};
+
+// Get the next route for a user based on their onboarding step
+// For GAME_SELECT and SKILL_ASSESSMENT steps, we need to determine which sport to resume with
+const getNextOnboardingRoute = (
+  step: string | null | undefined,
+  selectedSports?: string[],
+  completedSports?: string[]
+): string => {
+  if (!step) return '/onboarding/personal-info';
+
+  // Special handling for steps that involve sport selection
+  // GAME_SELECT: User has selected sports, needs to start questionnaires
+  // SKILL_ASSESSMENT: User has completed at least one questionnaire, may need to do more
+  if ((step === 'GAME_SELECT' || step === 'SKILL_ASSESSMENT') && selectedSports && selectedSports.length > 0) {
+    // Find the first sport that hasn't been completed yet
+    const nextSportIndex = selectedSports.findIndex(
+      sport => !completedSports?.includes(sport)
+    );
+
+    if (nextSportIndex >= 0) {
+      // Found an incomplete sport - go to its questionnaire introduction
+      const nextSport = selectedSports[nextSportIndex];
+      console.log(`NavigationInterceptor: Resuming at sport ${nextSport} (index ${nextSportIndex})`);
+      return `/onboarding/skill-assessment?sport=${nextSport}&sportIndex=${nextSportIndex}`;
+    } else {
+      // All sports completed - move to assessment results for the last sport
+      const lastSport = selectedSports[selectedSports.length - 1];
+      const lastIndex = selectedSports.length - 1;
+      console.log(`NavigationInterceptor: All sports completed, going to assessment results`);
+      return `/onboarding/assessment-results?sport=${lastSport}&sportIndex=${lastIndex}`;
+    }
+  }
+
+  return STEP_TO_NEXT_ROUTE[step] || '/onboarding/personal-info';
+};
+
 // Pages where back navigation should be prevented (exit app instead)
 const NO_BACK_PAGES = ['/user-dashboard', '/login', '/register', '/'];
 
@@ -33,6 +78,9 @@ export const NavigationInterceptor: React.FC<NavigationInterceptorProps> = ({ ch
   const [onboardingStatus, setOnboardingStatus] = useState<{
     completedOnboarding: boolean;
     hasCompletedAssessment: boolean;
+    onboardingStep?: string | null; // Tracks which step the user completed
+    selectedSports?: string[]; // Sports the user selected
+    completedSports?: string[]; // Sports with completed questionnaires
     timestamp?: number;
     backendError?: boolean; // True when backend is unavailable (not 404)
   } | null>(null);
@@ -90,6 +138,9 @@ export const NavigationInterceptor: React.FC<NavigationInterceptorProps> = ({ ch
         const finalStatus = {
           completedOnboarding: true,
           hasCompletedAssessment: true, // Always true if onboarding is completed
+          onboardingStep: onboardingData.onboardingStep || 'PROFILE_PICTURE',
+          selectedSports: onboardingData.selectedSports || [],
+          completedSports: onboardingData.completedSports || [],
           timestamp: Date.now()
         };
         console.log('NavigationInterceptor: Final status (onboarding completed, assessment considered complete):', finalStatus);
@@ -100,25 +151,28 @@ export const NavigationInterceptor: React.FC<NavigationInterceptorProps> = ({ ch
         // This handles race conditions where the completion API just finished
         console.log('NavigationInterceptor: Onboarding not completed, waiting and retrying...');
         await new Promise(resolve => setTimeout(resolve, 1000));
-        
+
         try {
           const retryResponse = await fetch(`${baseUrl}/api/onboarding/status/${userId}?t=${Date.now()}`, {
             method: 'GET',
-            headers: { 
+            headers: {
               'Content-Type': 'application/json',
               'Cache-Control': 'no-cache',
               'Pragma': 'no-cache'
             },
           });
-          
+
           if (retryResponse.ok) {
             const retryData = await retryResponse.json();
             console.log('NavigationInterceptor: Retry data received:', retryData);
-            
+
             if (retryData?.completedOnboarding) {
               const finalStatus = {
                 completedOnboarding: true,
                 hasCompletedAssessment: true,
+                onboardingStep: retryData.onboardingStep || 'PROFILE_PICTURE',
+                selectedSports: retryData.selectedSports || [],
+                completedSports: retryData.completedSports || [],
                 timestamp: Date.now()
               };
               console.log('NavigationInterceptor: Retry successful - onboarding completed:', finalStatus);
@@ -129,10 +183,14 @@ export const NavigationInterceptor: React.FC<NavigationInterceptorProps> = ({ ch
         } catch (retryError) {
           console.warn('NavigationInterceptor: Retry failed:', retryError);
         }
-        
-        const finalStatus = { 
-          completedOnboarding: false, 
+
+        // Save the step and sport info from original response for resume functionality
+        const finalStatus = {
+          completedOnboarding: false,
           hasCompletedAssessment: false,
+          onboardingStep: onboardingData.onboardingStep || null,
+          selectedSports: onboardingData.selectedSports || [],
+          completedSports: onboardingData.completedSports || [],
           timestamp: Date.now()
         };
         console.log('NavigationInterceptor: Final status (onboarding not completed after retry):', finalStatus);
@@ -220,12 +278,19 @@ export const NavigationInterceptor: React.FC<NavigationInterceptorProps> = ({ ch
         return;
       }
 
-      // IMPORTANT: For users who haven't completed onboarding, let them stay on landing page
-      // They can click "Get Started" to proceed to onboarding when ready
-      // Only redirect users who HAVE completed onboarding to the dashboard
+      // Auto-redirect users to their correct onboarding step or dashboard
       if (!onboardingStatus.completedOnboarding) {
-        // Don't redirect to onboarding - let user stay on landing page and click "Get Started"
-        console.log('NavigationInterceptor: User needs onboarding, staying on landing page (user will click Get Started)');
+        // User hasn't completed onboarding - redirect to the correct step based on their progress
+        const nextRoute = getNextOnboardingRoute(
+          onboardingStatus.onboardingStep,
+          onboardingStatus.selectedSports,
+          onboardingStatus.completedSports
+        );
+        console.log('NavigationInterceptor: User needs to continue onboarding, auto-redirecting to:', nextRoute);
+        console.log('NavigationInterceptor: Last completed step:', onboardingStatus.onboardingStep);
+        console.log('NavigationInterceptor: Selected sports:', onboardingStatus.selectedSports);
+        console.log('NavigationInterceptor: Completed sports:', onboardingStatus.completedSports);
+        setTimeout(() => router.replace(nextRoute), 100);
         return;
       }
 
@@ -276,9 +341,18 @@ export const NavigationInterceptor: React.FC<NavigationInterceptorProps> = ({ ch
           setTimeout(() => router.replace('/'), 100);
           return;
         }
+        // Use step-based routing for resume functionality
+        const nextRoute = getNextOnboardingRoute(
+          onboardingStatus.onboardingStep,
+          onboardingStatus.selectedSports,
+          onboardingStatus.completedSports
+        );
         console.warn('Access to protected route blocked - onboarding incomplete:', currentRoute);
-        console.warn('NavigationInterceptor: Redirecting to personal-info');
-        setTimeout(() => router.replace('/onboarding/personal-info'), 100);
+        console.warn('NavigationInterceptor: Last completed step:', onboardingStatus.onboardingStep);
+        console.warn('NavigationInterceptor: Selected sports:', onboardingStatus.selectedSports);
+        console.warn('NavigationInterceptor: Completed sports:', onboardingStatus.completedSports);
+        console.warn('NavigationInterceptor: Redirecting to:', nextRoute);
+        setTimeout(() => router.replace(nextRoute), 100);
         return;
       }
 
