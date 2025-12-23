@@ -1,9 +1,9 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useRouter, useSegments, Href } from 'expo-router';
 import { BackHandler } from 'react-native';
-import { useSession } from '@/lib/auth-client';
+import { useSession, signOut } from '@/lib/auth-client';
 import { getBackendBaseURL } from '@/src/config/network';
-import { LandingStorage } from '@/src/core/storage';
+import { LandingStorage, OnboardingStorage } from '@/src/core/storage';
 
 // Only block these specific auth pages after login - NOT the home page
 const BLOCKED_AUTH_PAGES = ['/login', '/register', '/resetPassword', '/verifyEmail'];
@@ -112,9 +112,26 @@ export const NavigationInterceptor: React.FC<NavigationInterceptorProps> = ({ ch
 
       if (!onboardingResponse.ok) {
         if (onboardingResponse.status === 404) {
-          // User genuinely not found - they need to complete onboarding
-          console.log('User not found in onboarding system, needs to complete onboarding');
-          setOnboardingStatus({ completedOnboarding: false, hasCompletedAssessment: false, timestamp: Date.now() });
+          // User not found in backend - their account was likely deleted
+          // Sign them out and clear all local data to redirect to landing page
+          console.log('User not found in backend (404) - account may have been deleted, signing out');
+          try {
+            // Clear all local data
+            await Promise.all([
+              OnboardingStorage.clearData(),
+              OnboardingStorage.clearProgress(),
+              LandingStorage.clearLandingSeen(),
+            ]);
+            // Sign out the user
+            await signOut();
+            console.log('User signed out and local data cleared - will redirect to landing page');
+          } catch (signOutError) {
+            console.error('Error during sign out cleanup:', signOutError);
+          }
+          // Set status to trigger redirect - the signOut will cause session to become null
+          // which will reset onboardingStatus via the useEffect on line 237-240
+          setOnboardingStatus(null);
+          return;
         } else {
           // Backend error (5xx, etc.) - don't assume user needs onboarding
           // Keep user on landing page instead of redirecting to onboarding

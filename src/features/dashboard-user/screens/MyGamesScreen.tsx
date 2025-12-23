@@ -155,12 +155,22 @@ export default function MyGamesScreen({ sport = 'pickleball' }: MyGamesScreenPro
     // Filter by search query
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
-      filtered = filtered.filter(match =>
-        match.division?.league?.name?.toLowerCase().includes(query) ||
-        match.location?.toLowerCase().includes(query) ||
-        match.division?.name?.toLowerCase().includes(query) ||
-        match.division?.season?.name?.toLowerCase().includes(query)
-      );
+      filtered = filtered.filter(match => {
+        // Build the match title like the MatchCard does
+        const matchTypeLabel = match.matchType === 'DOUBLES' ? 'doubles' : 'singles';
+        const matchCategoryLabel = match.isFriendly ? 'friendly' : 'league';
+        const matchTitle = `${matchTypeLabel} ${matchCategoryLabel} match`;
+
+        return (
+          matchTitle.includes(query) ||
+          match.division?.league?.name?.toLowerCase().includes(query) ||
+          match.location?.toLowerCase().includes(query) ||
+          match.division?.name?.toLowerCase().includes(query) ||
+          match.division?.season?.name?.toLowerCase().includes(query) ||
+          // Also search participant names
+          match.participants?.some(p => p.user?.name?.toLowerCase().includes(query))
+        );
+      });
     }
 
     // Filter by tab (status)

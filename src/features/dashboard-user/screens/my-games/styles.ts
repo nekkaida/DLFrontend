@@ -33,6 +33,8 @@ export const styles = StyleSheet.create({
     flex: 1,
     fontSize: 13,
     color: '#1F2937',
+    paddingVertical: 0,
+    textAlignVertical: 'center',
   },
   // Controls container
   controlsContainer: {
