@@ -109,11 +109,20 @@ export default function JoinMatchScreen() {
   const matchStatus = (params.status as string) || 'SCHEDULED';
   const isFriendly = params.isFriendly === 'true';
 
-  // Higher snap points for match result sheet to ensure buttons are visible
-  // Start at higher snap point (index 1) so buttons are immediately visible
-  const snapPoints = useMemo(() => ['75%', '85%'], []);
-  const initialSnapIndex = useMemo(() => 1, []);
-  const cancelSnapPoints = useMemo(() => ['70%', '85%'], []);
+  // Snap points for match result sheet
+  const snapPoints = useMemo(() => ['50%', '90%'], []);
+  const initialSnapIndex = useMemo(() => 1, []); 
+  const cancelSnapPoints = useMemo(() => ['50%', '90%'], []);
+
+  // Handler to expand bottom sheet when friendly match tab is selected
+  const handleExpandSheet = useCallback(() => {
+    bottomSheetModalRef.current?.snapToIndex(2); 
+  }, []);
+
+  // Handler to collapse bottom sheet when casual play tab is selected
+  const handleCollapseSheet = useCallback(() => {
+    bottomSheetModalRef.current?.snapToIndex(1); 
+  }, []);
 
   // Debug log only once - remove later
   // console.log('🔍 MATCH DETAILS DEBUG:', { matchId, matchStatus });
@@ -1722,6 +1731,8 @@ export default function JoinMatchScreen() {
           onConfirm={handleConfirmResult}
           onDispute={handleOpenDisputeSheet}
           onWalkover={handleWalkover}
+          onExpandSheet={handleExpandSheet}
+          onCollapseSheet={handleCollapseSheet}
         />
       </BottomSheetModal>
 
