@@ -6,7 +6,6 @@ import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  ActivityIndicator,
   Alert,
   FlatList,
   RefreshControl,
@@ -15,6 +14,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { MatchCardSkeleton } from '@/src/components/MatchCardSkeleton';
 
 import {
   Match,
@@ -44,6 +44,7 @@ export default function MyGamesScreen({ sport = 'pickleball' }: MyGamesScreenPro
 
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
 
   // Filter states
   const [searchQuery, setSearchQuery] = useState('');
@@ -57,8 +58,11 @@ export default function MyGamesScreen({ sport = 'pickleball' }: MyGamesScreenPro
     status: null,
   });
 
-  const fetchMyMatches = useCallback(async () => {
+  const fetchMyMatches = useCallback(async (showSkeleton = false) => {
     if (!session?.user?.id) return;
+
+    const startTime = Date.now();
+    const minDelay = showSkeleton ? 800 : 0; // Minimum 800ms for skeleton visibility
 
     try {
       const backendUrl = getBackendBaseURL();
@@ -80,8 +84,17 @@ export default function MyGamesScreen({ sport = 'pickleball' }: MyGamesScreenPro
       console.error('Error fetching my matches:', error);
       setMatches([]);
     } finally {
-      setLoading(false);
-      setRefreshing(false);
+      // Ensure minimum delay for skeleton visibility on initial load
+      const elapsed = Date.now() - startTime;
+      const remainingDelay = Math.max(0, minDelay - elapsed);
+
+      setTimeout(() => {
+        setLoading(false);
+        setRefreshing(false);
+        if (showSkeleton) {
+          setIsInitialLoad(false);
+        }
+      }, remainingDelay);
     }
   }, [session?.user?.id]);
 
@@ -98,7 +111,7 @@ export default function MyGamesScreen({ sport = 'pickleball' }: MyGamesScreenPro
   }, [session?.user?.id]);
 
   useEffect(() => {
-    fetchMyMatches();
+    fetchMyMatches(true); // Show skeleton on initial load
     fetchPendingInvitations();
   }, [fetchMyMatches, fetchPendingInvitations]);
 
@@ -345,15 +358,6 @@ export default function MyGamesScreen({ sport = 'pickleball' }: MyGamesScreenPro
     </View>
   );
 
-  if (loading) {
-    return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#FEA04D" />
-        <Text style={styles.loadingText}>Loading your matches...</Text>
-      </View>
-    );
-  }
-
   return (
     <View style={styles.container}>
       {/* Content wrapper */}
@@ -417,8 +421,10 @@ export default function MyGamesScreen({ sport = 'pickleball' }: MyGamesScreenPro
           </TouchableOpacity>
         </View>
 
-        {/* Matches/Invitations List */}
-        {activeTab === 'INVITES' ? (
+        {/* Skeleton Loading - Only on initial load */}
+        {loading && isInitialLoad ? (
+          <MatchCardSkeleton count={4} />
+        ) : activeTab === 'INVITES' ? (
           <FlatList
             data={filteredInvitations}
             keyExtractor={(item) => item.id}
@@ -433,7 +439,11 @@ export default function MyGamesScreen({ sport = 'pickleball' }: MyGamesScreenPro
             contentContainerStyle={styles.listContent}
             ListEmptyComponent={renderEmptyInvitationsState}
             refreshControl={
-              <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+              <RefreshControl
+                refreshing={refreshing}
+                onRefresh={onRefresh}
+                tintColor={sportColors.background}
+              />
             }
           />
         ) : (
@@ -446,7 +456,11 @@ export default function MyGamesScreen({ sport = 'pickleball' }: MyGamesScreenPro
             contentContainerStyle={styles.listContent}
             ListEmptyComponent={renderEmptyState}
             refreshControl={
-              <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+              <RefreshControl
+                refreshing={refreshing}
+                onRefresh={onRefresh}
+                tintColor={sportColors.background}
+              />
             }
           />
         )}
