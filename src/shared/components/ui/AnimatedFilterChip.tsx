@@ -4,7 +4,6 @@ import Animated, {
   useSharedValue,
   useAnimatedStyle,
   withTiming,
-  withSpring,
   Easing,
 } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
@@ -50,7 +49,6 @@ export function AnimatedFilterChip({
   const r = useSharedValue(rgb.r);
   const g = useSharedValue(rgb.g);
   const b = useSharedValue(rgb.b);
-  const scale = useSharedValue(1);
 
   // Animate RGB values when color changes
   useEffect(() => {
@@ -71,7 +69,6 @@ export function AnimatedFilterChip({
       backgroundColor: isActive ? color : '#FFFFFF',
       borderColor: color,
       borderWidth: isActive ? 0 : 1,
-      transform: [{ scale: scale.value }],
     };
   });
 
@@ -83,25 +80,13 @@ export function AnimatedFilterChip({
     };
   });
 
-  const handlePressIn = () => {
-    scale.value = withSpring(0.96, { damping: 15, stiffness: 400 });
-  };
-
-  const handlePressOut = () => {
-    scale.value = withSpring(1, { damping: 15, stiffness: 400 });
-  };
-
   const handlePress = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     onPress();
   };
 
   return (
-    <Pressable
-      onPress={handlePress}
-      onPressIn={handlePressIn}
-      onPressOut={handlePressOut}
-    >
+    <Pressable onPress={handlePress}>
       <Animated.View style={[styles.chip, animatedChipStyle, style]}>
         <Animated.Text style={[styles.chipText, animatedTextStyle, textStyle]}>
           {label}

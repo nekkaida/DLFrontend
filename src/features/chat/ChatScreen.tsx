@@ -1,23 +1,26 @@
 import { getBackendBaseURL } from '@/config/network';
 import { authClient, useSession } from '@/lib/auth-client';
 import { NavBar } from '@/shared/components/layout';
+import { AnimatedFilterChip } from '@/shared/components/ui/AnimatedFilterChip';
 import { chatLogger } from '@/utils/logger';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { router } from 'expo-router';
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   AppState,
   AppStateStatus,
   Dimensions,
   Keyboard,
+  Modal,
   Platform,
   Pressable,
   StatusBar,
   StyleSheet,
   Text,
   TextInput,
+  TouchableOpacity,
   View
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -28,6 +31,16 @@ import { ChatService } from './services/ChatService';
 import { useChatStore } from './stores/ChatStore';
 
 import { Thread } from './types';
+
+type SportFilter = 'all' | 'pickleball' | 'tennis' | 'padel';
+type TypeFilter = 'all' | 'personal' | 'league';
+
+const SPORT_COLORS = {
+  all: '#111827',
+  pickleball: '#A04DFE',
+  tennis: '#65B741',
+  padel: '#3B82F6',
+};
 
 // Profile data interface for API response
 interface ProfileData {
@@ -65,10 +78,12 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const { data: session } = useSession();
-  const [filteredThreads, setFilteredThreads] = useState<Thread[]>([]);
   const [profileData, setProfileData] = useState<ProfileData | null>(null);
   const [showNewMessageSheet, setShowNewMessageSheet] = useState(false);
   const [appStateKey, setAppStateKey] = useState(0);
+  const [sportFilter, setSportFilter] = useState<SportFilter>('all');
+  const [typeFilter, setTypeFilter] = useState<TypeFilter>('all');
+  const [showTypeFilterModal, setShowTypeFilterModal] = useState(false);
   const appStateRef = useRef<AppStateStatus>(AppState.currentState);
   const searchInputRef = useRef<TextInput>(null);
   const insets = useSafeAreaInsets();
@@ -156,26 +171,46 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
     setConnectionStatus(true);
   }, [user]);
 
-  useEffect(() => {
-    setFilteredThreads(threads || []);
-  }, [threads]);
+  // Filter threads based on search, sport, and type filters
+  const displayedThreads = useMemo(() => {
+    if (!threads) return [];
 
-  useEffect(() => {
-    if (!threads) return;
+    return threads.filter(thread => {
+      // Search filter
+      if (searchQuery.trim() !== '') {
+        const query = searchQuery.toLowerCase();
+        const matchesSearch =
+          thread.name?.toLowerCase().includes(query) ||
+          thread.participants.some(participant =>
+            participant.name.toLowerCase().includes(query)
+          ) ||
+          thread.lastMessage?.content.toLowerCase().includes(query);
+        if (!matchesSearch) return false;
+      }
 
-    if (searchQuery.trim() === '') {
-      setFilteredThreads(threads);
-    } else {
-      const filtered = threads.filter(thread =>
-        thread.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        thread.participants.some(participant =>
-          participant.name.toLowerCase().includes(searchQuery.toLowerCase())
-        ) ||
-        thread.lastMessage?.content.toLowerCase().includes(searchQuery.toLowerCase())
-      );
-      setFilteredThreads(filtered);
-    }
-  }, [searchQuery, threads]);
+      // Sport filter
+      if (sportFilter !== 'all') {
+        const threadSport = thread.sportType?.toLowerCase();
+        if (threadSport !== sportFilter) {
+          // For direct chats without sport type, include them in 'all' only
+          if (!threadSport && thread.type === 'direct') {
+            return false;
+          }
+          if (threadSport && threadSport !== sportFilter) {
+            return false;
+          }
+        }
+      }
+
+      // Type filter
+      if (typeFilter !== 'all') {
+        if (typeFilter === 'personal' && thread.type !== 'direct') return false;
+        if (typeFilter === 'league' && thread.type !== 'group') return false;
+      }
+
+      return true;
+    });
+  }, [threads, searchQuery, sportFilter, typeFilter]);
 
   // Handle keyboard hide to blur search input on Android
   useEffect(() => {
@@ -328,7 +363,6 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
               value={searchQuery}
               onChangeText={setSearchQuery}
               returnKeyType="search"
-              blurOnSubmit={true}
             />
             {searchQuery.length > 0 && (
               <Pressable onPress={clearSearch}>
@@ -337,9 +371,59 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
             )}
           </View>
         </View>
+
+        {/* Filter chips */}
+        <View style={styles.filterContainer}>
+          <View style={styles.filterChips}>
+            <AnimatedFilterChip
+              label="All"
+              isActive={sportFilter === 'all'}
+              activeColor={SPORT_COLORS.all}
+              onPress={() => setSportFilter('all')}
+            />
+            <AnimatedFilterChip
+              label="Pickleball"
+              isActive={sportFilter === 'pickleball'}
+              activeColor={SPORT_COLORS.pickleball}
+              onPress={() => setSportFilter('pickleball')}
+            />
+            <AnimatedFilterChip
+              label="Tennis"
+              isActive={sportFilter === 'tennis'}
+              activeColor={SPORT_COLORS.tennis}
+              onPress={() => setSportFilter('tennis')}
+            />
+            <AnimatedFilterChip
+              label="Padel"
+              isActive={sportFilter === 'padel'}
+              activeColor={SPORT_COLORS.padel}
+              onPress={() => setSportFilter('padel')}
+            />
+          </View>
+
+          {/* Type filter button */}
+          <TouchableOpacity
+            style={[
+              styles.typeFilterButton,
+              typeFilter !== 'all' && {
+                backgroundColor: SPORT_COLORS[sportFilter] || SPORT_COLORS.all,
+                borderColor: SPORT_COLORS[sportFilter] || SPORT_COLORS.all
+              }
+            ]}
+            onPress={() => setShowTypeFilterModal(true)}
+            activeOpacity={0.7}
+          >
+            <Ionicons
+              name="options-outline"
+              size={18}
+              color={typeFilter !== 'all' ? '#FFFFFF' : SPORT_COLORS[sportFilter] || '#6B7280'}
+            />
+          </TouchableOpacity>
+        </View>
         <ThreadList
           key={`thread-list-${appStateKey}`}
           onThreadSelect={handleThreadSelect}
+          threads={displayedThreads}
         />
         {onTabPress && (
           <NavBar
@@ -359,6 +443,42 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
           onSelectUser={handleSelectUser}
         />
       )}
+
+      {/* Type Filter Dropdown */}
+      <Modal
+        visible={showTypeFilterModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowTypeFilterModal(false)}
+      >
+        <Pressable
+          style={styles.modalOverlay}
+          onPress={() => setShowTypeFilterModal(false)}
+        >
+          <View style={styles.typeFilterDropdown}>
+            {(['all', 'personal', 'league'] as TypeFilter[]).map((type) => (
+              <TouchableOpacity
+                key={type}
+                style={styles.typeFilterOption}
+                onPress={() => {
+                  setTypeFilter(type);
+                  setShowTypeFilterModal(false);
+                }}
+              >
+                <Text style={[
+                  styles.typeFilterOptionText,
+                  typeFilter === type && styles.typeFilterOptionTextActive
+                ]}>
+                  {type === 'all' ? 'All' : type === 'personal' ? 'Personal' : 'League'}
+                </Text>
+                {typeFilter === type && (
+                  <Ionicons name="checkmark" size={18} color={SPORT_COLORS[sportFilter]} />
+                )}
+              </TouchableOpacity>
+            ))}
+          </View>
+        </Pressable>
+      </Modal>
     </View>
   );
 };
@@ -439,5 +559,62 @@ const styles = StyleSheet.create({
     fontSize: isSmallScreen ? 14 : isTablet ? 18 : 16,
     fontWeight: '600',
     color: '#FEA04D',
+  },
+  filterContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingBottom: 12,
+    gap: 8,
+  },
+  filterChips: {
+    flex: 1,
+    flexDirection: 'row',
+    gap: 8,
+  },
+  typeFilterButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.3)',
+    justifyContent: 'flex-start',
+    alignItems: 'flex-end',
+    paddingTop: 180,
+    paddingRight: 16,
+  },
+  typeFilterDropdown: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    paddingVertical: 6,
+    minWidth: 140,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  typeFilterOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    gap: 16,
+  },
+  typeFilterOptionText: {
+    fontSize: 15,
+    color: '#374151',
+  },
+  typeFilterOptionTextActive: {
+    fontWeight: '600',
+    color: '#111827',
   },
 });
