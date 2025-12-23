@@ -261,7 +261,6 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
                   });
                 }
               }}
-              onSkip={question.optional ? () => onAnswer(question.key, '') : undefined}
               onSkipAndProceed={question.optional ? onSkipAndProceed : undefined}
               minValue={question.min_value}
               maxValue={question.max_value}
