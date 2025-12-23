@@ -14,8 +14,7 @@ interface NumberInputProps extends Omit<TextInputProps, 'value' | 'onChangeText'
   value: string;
   onChangeText: (text: string) => void;
   onSubmit: () => void;
-  onSkip?: () => void;
-  onSkipAndProceed?: () => void; // Called after skip to navigate to next question
+  onSkipAndProceed?: () => void; // Called when skipping - handles both setting skip value and navigation
   label?: string;
   helpText?: string;
   error?: string;
@@ -29,7 +28,6 @@ const NumberInput: React.FC<NumberInputProps> = ({
   value,
   onChangeText,
   onSubmit,
-  onSkip,
   onSkipAndProceed,
   label,
   helpText,
@@ -92,7 +90,7 @@ const NumberInput: React.FC<NumberInputProps> = ({
           <TouchableOpacity
             style={styles.skipButton}
             onPress={() => {
-              onSkip?.();
+              // Only call onSkipAndProceed - it handles both setting skip value and navigation
               onSkipAndProceed?.();
             }}
           >
