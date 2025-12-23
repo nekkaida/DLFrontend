@@ -301,14 +301,16 @@ const LocationScreen = () => {
 
         setLocation(formattedAddress);
         setShowSuggestions(false);
+        setUseCurrentLocation(true);
       } else {
         console.log('⚠️ Expo-location also returned no address, using coordinates');
         setCurrentLocationData({
           latitude,
           longitude,
         });
-        
+
         setLocation(`${latitude.toFixed(4)}, ${longitude.toFixed(4)}`);
+        setUseCurrentLocation(true);
       }
     } catch (fallbackError) {
       console.log('⚠️ Expo-location fallback also failed, using coordinates:', fallbackError);
@@ -316,8 +318,9 @@ const LocationScreen = () => {
         latitude,
         longitude,
       });
-      
+
       setLocation(`${latitude.toFixed(4)}, ${longitude.toFixed(4)}`);
+      setUseCurrentLocation(true);
     }
   };
 
