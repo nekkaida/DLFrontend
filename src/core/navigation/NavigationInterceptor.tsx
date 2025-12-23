@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { useRouter, useSegments } from 'expo-router';
+import { useRouter, useSegments, Href } from 'expo-router';
 import { BackHandler } from 'react-native';
 import { useSession } from '@/lib/auth-client';
 import { getBackendBaseURL } from '@/src/config/network';
@@ -28,7 +28,7 @@ const getNextOnboardingRoute = (
   step: string | null | undefined,
   selectedSports?: string[],
   completedSports?: string[]
-): string => {
+): Href => {
   if (!step) return '/onboarding/personal-info';
 
   // Special handling for steps that involve sport selection
@@ -44,17 +44,17 @@ const getNextOnboardingRoute = (
       // Found an incomplete sport - go to its questionnaire introduction
       const nextSport = selectedSports[nextSportIndex];
       console.log(`NavigationInterceptor: Resuming at sport ${nextSport} (index ${nextSportIndex})`);
-      return `/onboarding/skill-assessment?sport=${nextSport}&sportIndex=${nextSportIndex}`;
+      return `/onboarding/skill-assessment?sport=${nextSport}&sportIndex=${nextSportIndex}` as Href;
     } else {
       // All sports completed - move to assessment results for the last sport
       const lastSport = selectedSports[selectedSports.length - 1];
       const lastIndex = selectedSports.length - 1;
       console.log(`NavigationInterceptor: All sports completed, going to assessment results`);
-      return `/onboarding/assessment-results?sport=${lastSport}&sportIndex=${lastIndex}`;
+      return `/onboarding/assessment-results?sport=${lastSport}&sportIndex=${lastIndex}` as Href;
     }
   }
 
-  return STEP_TO_NEXT_ROUTE[step] || '/onboarding/personal-info';
+  return (STEP_TO_NEXT_ROUTE[step] || '/onboarding/personal-info') as Href;
 };
 
 // Pages where back navigation should be prevented (exit app instead)
