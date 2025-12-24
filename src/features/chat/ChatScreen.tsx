@@ -27,6 +27,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { toast } from 'sonner-native';
 import { ThreadList } from './components/chat-list';
 import { NewMessageBottomSheet } from './components/NewMessageBottomSheet';
+import { useChatSocketEvents } from './hooks/useChatSocketEvents';
 import { ChatService } from './services/ChatService';
 import { useChatStore } from './stores/ChatStore';
 
@@ -78,6 +79,11 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const { data: session } = useSession();
+  const user = session?.user;
+
+  // Register socket event listeners for real-time chat list updates
+  useChatSocketEvents(null, user?.id || '');
+
   const [profileData, setProfileData] = useState<ProfileData | null>(null);
   const [showNewMessageSheet, setShowNewMessageSheet] = useState(false);
   const [appStateKey, setAppStateKey] = useState(0);
@@ -88,7 +94,6 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
   const searchInputRef = useRef<TextInput>(null);
   const insets = useSafeAreaInsets();
 
-  const user = session?.user;
   const STATUS_BAR_HEIGHT = insets.top;
 
   const {

@@ -2,7 +2,7 @@ import { getSportColors, SportType } from '@/constants/SportsColor';
 import { Ionicons } from '@expo/vector-icons';
 import { format } from 'date-fns';
 import * as Haptics from 'expo-haptics';
-import React, { useCallback, useEffect, useMemo } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef } from 'react';
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
@@ -30,7 +30,7 @@ interface SwipeableMessageBubbleProps {
   sportType?: SportType | null;
   onReply: (message: Message) => void;
   onDelete: (messageId: string) => void;
-  onLongPress?: (message: Message) => void;
+  onLongPress?: (message: Message, position?: { x: number; y: number; width: number; height: number }) => void;
   messageMap?: Map<string, Message>; // Efficient O(1) lookup for replied messages
   isHighlighted?: boolean; // Whether this message should be highlighted (after scroll-to)
   onReplyPreviewPress?: (messageId: string) => void; // Callback when reply preview is tapped
@@ -174,10 +174,16 @@ export const SwipeableMessageBubble: React.FC<SwipeableMessageBubbleProps> = Rea
       replyIconOpacity.value = withTiming(0, { duration: 200 });
     });
 
+  // Ref to capture message position
+  const bubbleRef = useRef<View>(null);
+
   // Callbacks wrapped for gesture handler compatibility
   const handleLongPress = useCallback(() => {
     if (onLongPress) {
-      onLongPress(message);
+      // Measure the bubble position and pass it to the handler
+      bubbleRef.current?.measureInWindow((x, y, width, height) => {
+        onLongPress(message, { x, y, width, height });
+      });
     }
   }, [message, onLongPress]);
 
@@ -258,6 +264,7 @@ export const SwipeableMessageBubble: React.FC<SwipeableMessageBubbleProps> = Rea
         <GestureDetector gesture={composedGesture}>
           <Animated.View style={[styles.messageContainer, animatedStyle]}>
             <View
+              ref={bubbleRef}
               style={[
                 styles.bubble,
                 isCurrentUser ? styles.currentUserBubble : styles.otherUserBubble,
@@ -362,8 +369,8 @@ export const SwipeableMessageBubble: React.FC<SwipeableMessageBubbleProps> = Rea
               </View> */}
             </View>
 
-            {/* Bubble tail - only show on last message in group */}
-            {isLastInGroup && (
+            {/* Bubble tail - only show on last message in group, hide for deleted messages */}
+            {isLastInGroup && !message.metadata?.isDeleted && (
               <View style={[
                 styles.bubbleTail,
                 isCurrentUser ? styles.bubbleTailRight : styles.bubbleTailLeft,
@@ -385,6 +392,7 @@ export const SwipeableMessageBubble: React.FC<SwipeableMessageBubbleProps> = Rea
                 </Svg>
               </View>
             )}
+
           </Animated.View>
         </GestureDetector>
       </View>

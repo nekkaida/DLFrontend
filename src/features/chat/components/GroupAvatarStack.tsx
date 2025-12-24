@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 import { Image, Platform, StyleSheet, Text, View, ViewStyle } from 'react-native';
-import { User } from '../types';
+import { filterOutAdmins, User } from '../types';
 
 interface GroupAvatarStackProps {
   participants: User[];
@@ -90,12 +90,15 @@ export const GroupAvatarStack: React.FC<GroupAvatarStackProps> = React.memo(({
   sportColor,
   size = 40,
 }) => {
+  // Filter out admin users from display
+  const visibleParticipants = useMemo(() => filterOutAdmins(participants), [participants]);
+
   // Memoize derived values
   const { count, displayParticipants, remainingCount } = useMemo(() => ({
-    count: participants.length,
-    displayParticipants: participants.slice(0, 3),
-    remainingCount: participants.length > 3 ? participants.length - 3 : 0,
-  }), [participants]);
+    count: visibleParticipants.length,
+    displayParticipants: visibleParticipants.slice(0, 3),
+    remainingCount: visibleParticipants.length > 3 ? visibleParticipants.length - 3 : 0,
+  }), [visibleParticipants]);
 
   // Size scaling based on CSS: Avatar 1 (32px), Avatar 2 (22px smallest), Avatar 3 (34px biggest)
   // Ratio from CSS: size1=32/34=0.94, size2=22/34=0.65, size3=34/34=1.0
