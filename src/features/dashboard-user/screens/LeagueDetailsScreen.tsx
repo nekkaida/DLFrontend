@@ -14,7 +14,7 @@ import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import React from 'react';
-import { ActivityIndicator, Animated, Dimensions, Image, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Animated, Dimensions, Image, RefreshControl, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { toast } from 'sonner-native';
 import { PaymentOptionsBottomSheet } from '../components';
@@ -49,6 +49,7 @@ export default function LeagueDetailsScreen({
   const [selectedSeason, setSelectedSeason] = React.useState<Season | null>(null);
   const [profileData, setProfileData] = React.useState<any>(null);
   const [selectedSport, setSelectedSport] = React.useState<'pickleball' | 'tennis' | 'padel'>('pickleball');
+  const [isRefreshing, setIsRefreshing] = React.useState(false);
   const insets = useSafeAreaInsets();
   const STATUS_BAR_HEIGHT = insets.top;
 
@@ -811,6 +812,21 @@ export default function LeagueDetailsScreen({
     setSelectedSport(sport);
   }, [sport]);
 
+  // Pull-to-refresh handler
+  const onRefresh = React.useCallback(async () => {
+    setIsRefreshing(true);
+    try {
+      await Promise.all([
+        fetchAllData(),
+        fetchProfileData()
+      ]);
+    } catch (error) {
+      console.error('Error refreshing data:', error);
+    } finally {
+      setIsRefreshing(false);
+    }
+  }, [fetchAllData, fetchProfileData]);
+
   // Animated styles for collapsing header
   // Only start collapsing after COLLAPSE_START_THRESHOLD
   const headerHeight = scrollY.interpolate({
@@ -1038,6 +1054,14 @@ export default function LeagueDetailsScreen({
               showsVerticalScrollIndicator={false}
               scrollEventThrottle={16}
               onScroll={handleScroll}
+              refreshControl={
+                <RefreshControl
+                  refreshing={isRefreshing}
+                  onRefresh={onRefresh}
+                  tintColor={sportConfig.color}
+                  colors={[sportConfig.color]}
+                />
+              }
             >
             <View style={styles.scrollTopSpacer} />
             {/* League Info Card */}

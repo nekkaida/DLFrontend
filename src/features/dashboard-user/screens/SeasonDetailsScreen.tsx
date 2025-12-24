@@ -53,7 +53,7 @@ export default function SeasonDetailsScreen({
   
   // Constants for header animation
   const TOP_HEADER_HEIGHT = STATUS_BAR_HEIGHT + (isSmallScreen ? 36 : isTablet ? 44 : 40);
-  const HEADER_MAX_HEIGHT = 180; // Full header height
+  const HEADER_MAX_HEIGHT = isSmallScreen ? 210 : isTablet ? 240 : 220; // Responsive height to fit profile pictures
   const HEADER_MIN_HEIGHT = 80; // Collapsed header height
   const HEADER_SCROLL_DISTANCE = HEADER_MAX_HEIGHT - HEADER_MIN_HEIGHT;
   const COLLAPSE_START_THRESHOLD = 40; // Start collapsing after scrolling 40px
@@ -871,7 +871,7 @@ const styles = StyleSheet.create({
     borderRadius: 0,
     padding: 20,
     paddingTop: 24,
-    paddingBottom: 32,
+    paddingBottom: 16,
   },
   seasonHeaderContent: {
     gap: 12,
@@ -986,6 +986,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     flexWrap: 'wrap',
+    overflow: 'visible',
+    paddingBottom: 8,
   },
   headerProfilePicture: {
     width: 48,
