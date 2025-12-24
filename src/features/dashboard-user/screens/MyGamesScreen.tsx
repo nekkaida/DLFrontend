@@ -395,8 +395,8 @@ export default function MyGamesScreen({ sport = 'pickleball' }: MyGamesScreenPro
 
   const renderEmptyState = () => (
     <View style={styles.emptyContainer}>
-      <Ionicons name="calendar-outline" size={64} color="#D1D5DB" />
-      <Text style={styles.emptyTitle}>No Matches Yet</Text>
+      <Ionicons name="calendar-outline" size={64} color="#9CA3AF" />
+      <Text style={styles.emptyTitle}>No matches found</Text>
       <Text style={styles.emptyText}>
         You haven't joined any matches yet. Start by browsing available matches or create your own!
       </Text>
@@ -405,8 +405,8 @@ export default function MyGamesScreen({ sport = 'pickleball' }: MyGamesScreenPro
 
   const renderEmptyInvitationsState = () => (
     <View style={styles.emptyContainer}>
-      <Ionicons name="mail-outline" size={64} color="#D1D5DB" />
-      <Text style={styles.emptyTitle}>No Pending Invitations</Text>
+      <Ionicons name="mail-outline" size={64} color="#9CA3AF" />
+      <Text style={styles.emptyTitle}>No pending invitations</Text>
       <Text style={styles.emptyText}>
         You don't have any pending match invitations at the moment.
       </Text>

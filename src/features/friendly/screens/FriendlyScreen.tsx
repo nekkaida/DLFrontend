@@ -503,6 +503,7 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
   },
   listContent: {
+    flexGrow: 1,
     paddingBottom: 100,
   },
   dateSection: {
@@ -540,6 +541,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 32,
+    paddingBottom: 80,
     gap: 12,
   },
   emptyTitle: {
