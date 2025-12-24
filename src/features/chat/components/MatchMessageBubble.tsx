@@ -7,10 +7,14 @@ import { format } from 'date-fns';
 import { router } from 'expo-router';
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import Animated, { Layout } from 'react-native-reanimated';
 import { toast } from 'sonner-native';
 import { Message } from '../types';
 import { MatchInfoModal } from './MatchInfoModal';
 import { useChatStore } from '../stores/ChatStore';
+
+// Smooth layout transition for when messages are added/removed
+const layoutTransition = Layout.duration(150);
 
 // Match participant type
 interface MatchParticipant {
@@ -477,7 +481,7 @@ export const MatchMessageBubble: React.FC<MatchMessageBubbleProps> = ({
   }, []);
 
   return (
-    <View style={styles.container}>
+    <Animated.View layout={layoutTransition} style={styles.container}>
       {/* Header with sender name and timestamp - outside card */}
       <View style={styles.headerRow}>
         <View style={styles.senderRow}>
@@ -714,7 +718,7 @@ export const MatchMessageBubble: React.FC<MatchMessageBubbleProps> = ({
         formattedTime={formattedStartTime}
         formattedEndTime={formattedEndTime}
       />
-    </View>
+    </Animated.View>
   );
 };
 

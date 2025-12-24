@@ -86,29 +86,28 @@ export const styles = StyleSheet.create({
   },
   // List styles
   listContent: {
+    flexGrow: 1,
     padding: isSmallScreen ? 16 : 20,
     paddingBottom: 100,
   },
   // Empty state styles
   emptyContainer: {
     flex: 1,
-    alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 64,
+    alignItems: 'center',
     paddingHorizontal: 32,
+    paddingBottom: 80,
+    gap: 12,
   },
   emptyTitle: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: '700',
-    color: '#1A1C1E',
-    marginTop: 16,
-    marginBottom: 8,
+    color: '#111827',
   },
   emptyText: {
     fontSize: 14,
     color: '#6B7280',
     textAlign: 'center',
-    lineHeight: 20,
   },
 });
 

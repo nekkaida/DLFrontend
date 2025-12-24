@@ -195,13 +195,13 @@ export default function SeasonDetailsScreen({
     setShowPaymentOptions(false);
   };
 
-  const handlePayNow = () => {
+  const handlePayNow = (season: Season) => {
     if (!season) return;
     console.log('Pay Now pressed for season:', season.id);
     toast.info('Payment gateway coming soon!');
   };
 
-  const handlePayLater = async () => {
+  const handlePayLater = async (season: Season) => {
     if (!userId || !season) {
       toast.error('You must be logged in to register');
       return;
@@ -806,6 +806,7 @@ export default function SeasonDetailsScreen({
         season={season}
         onPayNow={handlePayNow}
         onPayLater={handlePayLater}
+        sport={sport}
       />
     </View>
   );

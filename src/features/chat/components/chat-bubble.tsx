@@ -31,13 +31,14 @@ export const MessageBubble: React.FC<MessageBubbleProps> = React.memo(({
                        null;
   const senderInitial = senderName.charAt(0).toUpperCase();
 
-  // Memoized sport-specific color for current user messages in group chats
+  // Memoized sport-specific color for current user messages
   const bubbleColor = useMemo(() => {
-    if (!isCurrentUser || !isGroupChat) return '#863A73'; // Default purple for DMs or received messages
+    if (!isCurrentUser) return '#F3F4F6'; // Gray for received messages
 
+    // Use sport color for sent messages (both group and direct chats)
     const colors = getSportColors(sportType);
-    return colors.messageColor;
-  }, [isCurrentUser, isGroupChat, sportType]);
+    return colors.background;
+  }, [isCurrentUser, sportType]);
   
   return (
     <View style={[

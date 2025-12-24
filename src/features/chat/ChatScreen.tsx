@@ -1,10 +1,9 @@
 import { getBackendBaseURL } from '@/config/network';
-import { getSportColors } from '@/constants/SportsColor';
 import { authClient, useSession } from '@/lib/auth-client';
 import { NavBar } from '@/shared/components/layout';
+import { AnimatedFilterChip } from '@/shared/components/ui/AnimatedFilterChip';
 import { chatLogger } from '@/utils/logger';
 import { Ionicons } from '@expo/vector-icons';
-import * as Clipboard from 'expo-clipboard';
 import * as Haptics from 'expo-haptics';
 import { router } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -12,34 +11,36 @@ import {
   ActivityIndicator,
   AppState,
   AppStateStatus,
-  BackHandler,
   Dimensions,
-  Image,
   Keyboard,
-  KeyboardAvoidingView,
+  Modal,
   Platform,
   Pressable,
   StatusBar,
   StyleSheet,
   Text,
   TextInput,
+  TouchableOpacity,
   View
 } from 'react-native';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { toast } from 'sonner-native';
-import { MessageInput } from './components/chat-input';
 import { ThreadList } from './components/chat-list';
-import { MessageWindow } from './components/chat-window';
-import { MatchFormData } from './components/CreateMatchScreen';
-import { GroupAvatarStack } from './components/GroupAvatarStack';
-import { MessageActionBar } from './components/MessageActionBar';
 import { NewMessageBottomSheet } from './components/NewMessageBottomSheet';
-import { useChatSocketEvents } from './hooks/useChatSocketEvents';
 import { ChatService } from './services/ChatService';
 import { useChatStore } from './stores/ChatStore';
-import { useCreateMatchStore } from './stores/CreateMatchStore';
 
-import { Message, Thread, User } from './types';
+import { Thread } from './types';
+
+type SportFilter = 'all' | 'pickleball' | 'tennis' | 'padel';
+type TypeFilter = 'all' | 'personal' | 'league';
+
+const SPORT_COLORS = {
+  all: '#111827',
+  pickleball: '#A04DFE',
+  tennis: '#65B741',
+  padel: '#3B82F6',
+};
 
 // Profile data interface for API response
 interface ProfileData {
@@ -56,19 +57,6 @@ interface AuthResponse {
   data?: {
     data?: ProfileData;
   } & ProfileData;
-}
-
-// Match participant interface
-interface MatchParticipant {
-  id: string;
-  playerId: string;
-  matchId: string;
-  invitationStatus: 'PENDING' | 'ACCEPTED' | 'DECLINED';
-  player?: {
-    id: string;
-    name?: string;
-    username?: string;
-  };
 }
 
 const { width } = Dimensions.get('window');
@@ -89,55 +77,31 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
   chatUnreadCount = 0,
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
-  const { data: session} = useSession();
-  const [filteredThreads, setFilteredThreads] = useState<Thread[]>([]);
+  const { data: session } = useSession();
   const [profileData, setProfileData] = useState<ProfileData | null>(null);
-  const [refreshKey, setRefreshKey] = useState(0);
-  const [selectedMessage, setSelectedMessage] = useState<Message | null>(null);
-  const [showActionBar, setShowActionBar] = useState(false);
   const [showNewMessageSheet, setShowNewMessageSheet] = useState(false);
-  const [appStateKey, setAppStateKey] = useState(0); // Force re-render on app resume
+  const [appStateKey, setAppStateKey] = useState(0);
+  const [sportFilter, setSportFilter] = useState<SportFilter>('all');
+  const [typeFilter, setTypeFilter] = useState<TypeFilter>('all');
+  const [showTypeFilterModal, setShowTypeFilterModal] = useState(false);
   const appStateRef = useRef<AppStateStatus>(AppState.currentState);
   const searchInputRef = useRef<TextInput>(null);
   const insets = useSafeAreaInsets();
-  const { setThreadMetadata, pendingMatchData, clearPendingMatch } = useCreateMatchStore();
-  
+
   const user = session?.user;
   const STATUS_BAR_HEIGHT = insets.top;
-  
+
   const {
-    currentThread,
-    messages,
     threads,
     isLoading,
     error,
-    replyingTo,
     setCurrentThread,
-    loadMessages,
     loadThreads,
-    sendMessage,
-    addMessage,
     setConnectionStatus,
     updateThread,
-    setReplyingTo,
-    handleDeleteMessage: deleteMessageFromStore,
   } = useChatStore();
 
-  // Setup Socket.IO event listeners for real-time chat
-  const { isConnected: socketConnected } = useChatSocketEvents(
-    currentThread?.id || null,
-    user?.id || ''
-  );
-
-  // Force re-render when messages change
-  useEffect(() => {
-    if (currentThread?.id && messages[currentThread.id]) {
-      setRefreshKey(prev => prev + 1);
-    }
-  }, [messages, currentThread?.id]);
-
   // Handle app state changes to fix touch issues after backgrounding
-  // This forces a re-render which helps reset any stuck gesture handler state
   useEffect(() => {
     let timeoutId: ReturnType<typeof setTimeout> | null = null;
 
@@ -146,7 +110,6 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
         appStateRef.current.match(/inactive|background/) &&
         nextAppState === 'active'
       ) {
-        // Small delay to let gesture handler state settle
         timeoutId = setTimeout(() => {
           setAppStateKey(prev => prev + 1);
         }, 100);
@@ -163,14 +126,6 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
       }
     };
   }, []);
-
-  // Handle pending match data when returning from create-match page
-  useEffect(() => {
-    if (pendingMatchData && currentThread) {
-      handleCreateMatch(pendingMatchData);
-      clearPendingMatch();
-    }
-  }, [pendingMatchData, currentThread]);
 
   // Fetch profile data when component mounts
   useEffect(() => {
@@ -216,53 +171,52 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
     setConnectionStatus(true);
   }, [user]);
 
-  useEffect(() => {
-    setFilteredThreads(threads || []);
-  }, [threads]);
+  // Filter threads based on search, sport, and type filters
+  const displayedThreads = useMemo(() => {
+    if (!threads) return [];
 
-  useEffect(() => {
-    if (currentThread) {
-      loadMessages(currentThread.id);
-    }
-  }, [currentThread]);
-
-  useEffect(() => {
-    if (!threads) return;
-
-    if (searchQuery.trim() === '') {
-      setFilteredThreads(threads);
-    } else {
-      const filtered = threads.filter(thread =>
-        thread.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        thread.participants.some(participant =>
-          participant.name.toLowerCase().includes(searchQuery.toLowerCase())
-        ) ||
-        thread.lastMessage?.content.toLowerCase().includes(searchQuery.toLowerCase())
-      );
-      setFilteredThreads(filtered);
-    }
-  }, [searchQuery, threads]);
-
-  // Handle Android back button to go back from chat to thread list
-  useEffect(() => {
-    const backHandler = BackHandler.addEventListener('hardwareBackPress', () => {
-      if (currentThread) {
-        handleBackToThreads();
-        return true; // Prevent default back behavior
+    return threads.filter(thread => {
+      // Search filter
+      if (searchQuery.trim() !== '') {
+        const query = searchQuery.toLowerCase();
+        const matchesSearch =
+          thread.name?.toLowerCase().includes(query) ||
+          thread.participants.some(participant =>
+            participant.name.toLowerCase().includes(query)
+          ) ||
+          thread.lastMessage?.content.toLowerCase().includes(query);
+        if (!matchesSearch) return false;
       }
-      return false; // Let default back behavior happen (exit app or go back in navigation)
-    });
 
-    return () => backHandler.remove();
-  }, [currentThread]);
+      // Sport filter
+      if (sportFilter !== 'all') {
+        const threadSport = thread.sportType?.toLowerCase();
+        if (threadSport !== sportFilter) {
+          // For direct chats without sport type, include them in 'all' only
+          if (!threadSport && thread.type === 'direct') {
+            return false;
+          }
+          if (threadSport && threadSport !== sportFilter) {
+            return false;
+          }
+        }
+      }
+
+      // Type filter
+      if (typeFilter !== 'all') {
+        if (typeFilter === 'personal' && thread.type !== 'direct') return false;
+        if (typeFilter === 'league' && thread.type !== 'group') return false;
+      }
+
+      return true;
+    });
+  }, [threads, searchQuery, sportFilter, typeFilter]);
 
   // Handle keyboard hide to blur search input on Android
-  // This ensures the focus state matches the keyboard state
   useEffect(() => {
     const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
 
     const keyboardHideListener = Keyboard.addListener(hideEvent, () => {
-      // Blur search input when keyboard hides (e.g., Android back button)
       if (Platform.OS === 'android') {
         searchInputRef.current?.blur();
       }
@@ -275,6 +229,8 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
 
   const handleThreadSelect = useCallback(async (thread: Thread) => {
     chatLogger.debug('Thread selected:', thread.name);
+
+    // Store thread in store for the chat screen to access
     setCurrentThread(thread);
 
     // Mark thread as read when opening it
@@ -291,471 +247,17 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
         chatLogger.error('Error marking thread as read:', error);
       }
     }
+
+    // Navigate to chat thread using native navigation
+    router.push({
+      pathname: '/chat/[threadId]',
+      params: { threadId: thread.id }
+    });
   }, [user?.id, setCurrentThread, updateThread]);
-
-  const handleSendMessage = useCallback((content: string, replyToId?: string) => {
-    if (!currentThread || !user?.id) return;
-
-    chatLogger.debug('Sending message:', { threadId: currentThread.id, senderId: user.id });
-
-    sendMessage(currentThread.id, user.id, content, replyToId);
-
-    if (replyingTo) {
-      setReplyingTo(null);
-    }
-  }, [currentThread, user?.id, sendMessage, replyingTo, setReplyingTo]);
-
-  const handleBackToThreads = useCallback(() => {
-    setCurrentThread(null);
-    setSearchQuery('');
-  }, [setCurrentThread]);
 
   const clearSearch = useCallback(() => {
     setSearchQuery('');
   }, []);
-
-  const handleMatch = useCallback(() => {
-    chatLogger.debug('Create match button pressed');
-    if (!currentThread || !user) return;
-
-    // Check if this is a direct chat (1-on-1)
-    if (currentThread.type === 'direct') {
-      // Find the recipient (other participant)
-      const recipient = currentThread.participants.find(p => p.id !== user.id);
-
-      if (!recipient) {
-        chatLogger.error('Cannot find recipient for friendly match request');
-        return;
-      }
-
-      // Navigate to friendly match creation screen with request params
-      router.push({
-        pathname: '/friendly/create',
-        params: {
-          isRequest: 'true',
-          recipientId: recipient.id,
-          threadId: currentThread.id,
-          sportType: currentThread.sportType || 'PICKLEBALL',
-        },
-      });
-    } else {
-      // Group chat - use existing league match flow
-      // Store thread metadata for the create match screen
-      setThreadMetadata({
-        threadId: currentThread.id,
-        threadName: currentThread.name || 'League Chat',
-        divisionId: currentThread.metadata?.divisionId,
-        sportType: currentThread.sportType || 'PICKLEBALL',
-      });
-
-      // Navigate to the create match page
-      router.push({
-        pathname: '/match/create-match',
-        params: {
-          leagueName: currentThread.metadata?.leagueName || currentThread.division?.league?.name || 'League',
-          season: currentThread.metadata?.seasonName || 'Season 1',
-          division: currentThread.metadata?.divisionName || 'Division I',
-          sportType: currentThread.sportType || 'PICKLEBALL',
-          divisionId: currentThread.metadata?.divisionId || '',
-          threadId: currentThread.id,
-        },
-      });
-    }
-  }, [currentThread, user, setThreadMetadata]);
-
-  const handleCreateMatch = async (matchData: MatchFormData) => {
-    chatLogger.debug('Match created:', matchData);
-
-    if (!currentThread || !user) {
-      chatLogger.error('Cannot create match: missing thread or user');
-      toast.error('Cannot create match: missing information');
-      return;
-    }
-
-    try {
-      const backendUrl = getBackendBaseURL();
-      const isDoubles = matchData.numberOfPlayers === 4;
-      
-      // Fetch division to check gameType and seasonId
-      let partnerId: string | undefined;
-      let divisionGameType: string | undefined;
-      let seasonId: string | undefined;
-      
-      if (currentThread.metadata?.divisionId) {
-        chatLogger.debug('Fetching division data for match creation...');
-
-        try {
-          const divisionResponse = await fetch(
-            `${backendUrl}/api/division/${currentThread.metadata.divisionId}`,
-            {
-              method: 'GET',
-              headers: { 'x-user-id': user.id }
-            }
-          );
-
-          if (!divisionResponse.ok) {
-            throw new Error(`Failed to fetch division: ${divisionResponse.status}`);
-          }
-
-          const divisionResult = await divisionResponse.json();
-          const divisionData = divisionResult.data || divisionResult;
-
-          divisionGameType = divisionData.gameType?.toUpperCase();
-          seasonId = divisionData.seasonId || divisionData.season?.id;
-
-          chatLogger.debug('Division info:', {
-            divisionId: divisionData.id,
-            gameType: divisionGameType,
-            seasonId: seasonId,
-          });
-        } catch (error) {
-          chatLogger.error('Failed to fetch division:', error);
-          toast.error('Failed to fetch division details');
-          return;
-        }
-      }
-      
-      if (divisionGameType === 'DOUBLES' && seasonId) {
-        chatLogger.debug('Division is DOUBLES type, fetching partnership...');
-
-        try {
-          const partnershipResponse = await fetch(
-            `${backendUrl}/api/pairing/partnership/active/${seasonId}`,
-            {
-              method: 'GET',
-              headers: { 'x-user-id': user.id }
-            }
-          );
-
-          if (!partnershipResponse.ok) {
-            throw new Error(`No active partnership found for this season`);
-          }
-
-          const partnershipResult = await partnershipResponse.json();
-          const partnership = partnershipResult?.data;
-
-          if (!partnership || !partnership.id) {
-            toast.warning('No partner found', {
-              description: 'You need to pair up with a partner for doubles divisions',
-            });
-            return;
-          }
-
-          // Determine partner ID based on whether user is captain or partner
-          partnerId = partnership.captainId === user.id
-            ? partnership.partnerId
-            : partnership.captainId;
-
-          chatLogger.debug('Partner found:', {
-            userId: user.id,
-            partnerId,
-            isCaptain: partnership.captainId === user.id,
-          });
-
-        } catch (error) {
-          chatLogger.error('Failed to fetch partnership:', error);
-          toast.error('Partner required', {
-            description: error instanceof Error ? error.message : 'You must have an active partnership for doubles divisions',
-          });
-          return;
-        }
-      }
-    
-      // Extract start time from range (e.g., "2:00 PM - 4:00 PM" -> "2:00 PM")
-      const extractStartTime = (timeRange: string): string => {
-        if (timeRange.includes(' - ')) {
-          return timeRange.split(' - ')[0].trim();
-        }
-        return timeRange.trim();
-      };
-
-      const convertTo24Hour = (time12h: string): string => {
-        const [time, modifier] = time12h.split(' ');
-        let [hours, minutes] = time.split(':');
-        
-        if (hours === '12') {
-          hours = modifier === 'AM' ? '00' : '12';
-        } else {
-          hours = modifier === 'PM' ? String(parseInt(hours, 10) + 12) : hours.padStart(2, '0');
-        }
-        
-        return `${hours}:${minutes}`;
-      };
-
-      const startTime = extractStartTime(matchData.time);
-      const time24 = convertTo24Hour(startTime);
-      
-      // TIMEZONE HANDLING:
-      // User selects time in their local timezone using device picker
-      // We send the time + device timezone to backend
-      // Backend converts from device timezone → Malaysia timezone → UTC for storage
-      const dateTimeString = `${matchData.date}T${time24}:00`;
-      const deviceTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-    
-  
-      interface MatchPayload {
-        divisionId?: string;
-        matchType: string;
-        format: string;
-        matchDate: string;
-        deviceTimezone: string;
-        location: string;
-        notes?: string;
-        duration: number;
-        courtBooked: boolean;
-        fee: string;
-        feeAmount?: number;
-        partnerId?: string;
-      }
-
-      const matchPayload: MatchPayload = {
-        divisionId: currentThread.metadata?.divisionId,
-        matchType: divisionGameType || (isDoubles ? 'DOUBLES' : 'SINGLES'),
-        format: 'STANDARD',
-        matchDate: dateTimeString,
-        deviceTimezone,
-        location: matchData.location || 'TBD',
-        notes: matchData.description,
-        duration: matchData.duration || 2,
-        courtBooked: matchData.courtBooked || false,
-        fee: matchData.fee || 'FREE',
-        feeAmount: matchData.fee !== 'FREE' ? parseFloat(matchData.feeAmount || '0') : undefined,
-      };
-
-      // Add partnerId only for DOUBLES divisions
-      if (divisionGameType === 'DOUBLES' && partnerId) {
-        matchPayload.partnerId = partnerId;
-        chatLogger.debug('Added partnerId to payload:', partnerId);
-      }
-      
-      // console.log('📤 Creating match with payload:', {
-      //   payload: matchPayload,
-      //   payloadString: JSON.stringify(matchPayload, null, 2),
-      //   endpoint: `${backendUrl}/api/match/create`,
-      //   userId: user.id,
-      //   isDoubles,
-      //   hasPartnerId: !!partnerId
-      // });
-      
-      const matchResponse = await fetch(`${backendUrl}/api/match/create`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-user-id': user.id,
-        },
-        body: JSON.stringify(matchPayload),
-      });
-
-      if (!matchResponse.ok) {
-        const errorData = await matchResponse.json();
-        chatLogger.error('Match creation failed:', {
-          status: matchResponse.status,
-          errorData,
-        });
-        throw new Error(errorData.error || 'Failed to create match');
-      }
-
-      const matchResult = await matchResponse.json();
-      chatLogger.debug('Match created successfully:', { matchId: matchResult.id });
-
-      // Filter participants to only include ACCEPTED (not PENDING invitations)
-      const acceptedParticipants = (matchResult.participants as MatchParticipant[] || []).filter(
-        (p: MatchParticipant) => p.invitationStatus === 'ACCEPTED'
-      );
-
-      chatLogger.debug('Filtered participants:', {
-        total: matchResult.participants?.length,
-        accepted: acceptedParticipants.length,
-      });
-
-      // Send a message to the thread with match data for UI display
-      const messageContent = `📅 Match scheduled for ${matchData.date} at ${matchData.time}`;
-      const messagePayload = {
-        senderId: user.id,
-        content: messageContent,
-        messageType: 'MATCH',
-        matchId: matchResult.id,
-        matchData: {
-          matchId: matchResult.id,
-          matchType: matchResult.matchType || divisionGameType || (String(matchData.numberOfPlayers) === '4' ? 'DOUBLES' : 'SINGLES'),
-          date: matchData.date,
-          time: matchData.time,
-          duration: matchData.duration || 2,
-          numberOfPlayers: matchData.numberOfPlayers,
-          location: matchData.location || 'TBD',
-          fee: matchData.fee || 'FREE',
-          feeAmount: matchData.feeAmount || '0.00',
-          description: matchData.description,
-          sportType: currentThread.sportType || 'PICKLEBALL',
-          leagueName: currentThread.name || 'Match',
-          courtBooked: matchData.courtBooked || false,
-          status: 'SCHEDULED',
-          participants: acceptedParticipants,
-        },
-      };
-
-      const messageResponse = await fetch(`${backendUrl}/api/chat/threads/${currentThread.id}/messages`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-user-id': user.id,
-        },
-        body: JSON.stringify(messagePayload),
-      });
-
-      if (!messageResponse.ok) {
-        const errorData = await messageResponse.json();
-        throw new Error(errorData.error || 'Failed to send match message');
-      }
-
-      chatLogger.debug('Match message sent to thread');
-      toast.success('Match created successfully!');
-    } catch (error) {
-      chatLogger.error('Error creating match:', error);
-      toast.error(error instanceof Error ? error.message : 'Failed to create match');
-    }
-  };
-
-  const handleReply = useCallback((message: Message) => {
-    setReplyingTo(message);
-  }, [setReplyingTo]);
-
-  const handleCancelReply = useCallback(() => {
-    setReplyingTo(null);
-  }, [setReplyingTo]);
-
-  const handleLongPress = useCallback((message: Message) => {
-    chatLogger.debug('Long press on message:', message.id);
-    setSelectedMessage(message);
-    setShowActionBar(true);
-  }, []);
-
-  const handleCloseActionBar = useCallback(() => {
-    setShowActionBar(false);
-    setSelectedMessage(null);
-  }, []);
-
-  const handleActionBarReply = useCallback(() => {
-    if (selectedMessage) {
-      setReplyingTo(selectedMessage);
-    }
-  }, [selectedMessage, setReplyingTo]);
-
-  const handleActionBarCopy = useCallback(async () => {
-    if (selectedMessage?.content && !selectedMessage.metadata?.isDeleted) {
-      try {
-        await Clipboard.setStringAsync(selectedMessage.content);
-        toast.success('Message copied to clipboard');
-      } catch (error) {
-        chatLogger.error('Failed to copy:', error);
-        toast.error('Failed to copy message');
-      }
-    }
-  }, [selectedMessage]);
-
-  const handleActionBarDelete = useCallback(async () => {
-    if (selectedMessage) {
-      // Show confirmation toast
-      toast('Delete this message?', {
-        action: {
-          label: 'Delete',
-          onClick: async () => {
-            try {
-              await deleteMessageFromStore(selectedMessage.id, currentThread?.id || '');
-              toast.success('Message deleted');
-            } catch (error) {
-              chatLogger.error('Failed to delete:', error);
-              toast.error('Failed to delete message');
-            }
-          },
-        },
-        cancel: {
-          label: 'Cancel',
-          onClick: () => {},
-        },
-      });
-    }
-  }, [selectedMessage, currentThread?.id, deleteMessageFromStore]);
-
-  const handleDeleteMessageAction = useCallback(async (messageId: string) => {
-    if (!currentThread) {
-      return;
-    }
-    try {
-      await deleteMessageFromStore(messageId, currentThread.id);
-      chatLogger.debug('Message deleted successfully');
-    } catch (error) {
-      chatLogger.error('Failed to delete message:', error);
-      toast.error('Failed to delete message. Please try again.');
-    }
-  }, [currentThread, deleteMessageFromStore]);
-
-  // Memoize header content to avoid recalculating on every render
-  const headerContent = useMemo(() => {
-    if (!currentThread || !user?.id) return { title: 'Chat', subtitle: null, sportType: null, season: null, avatar: null, participantName: 'Unknown User' };
-
-    if (currentThread.type === 'group') {
-      // Group chat: show group name and participant count
-      // Get season name from thread metadata
-      const seasonName = currentThread.metadata?.seasonName ||
-                        currentThread.division?.season?.name ||
-                        null;
-
-      return {
-        title: currentThread.name || 'Group Chat',
-        subtitle: seasonName,
-        sportType: currentThread.sportType,
-        avatar: null,
-        participantName: 'Group Chat'
-      };
-    } else {
-      // Direct chat: show other participant's name and username
-      const otherParticipant = currentThread.participants.find(
-        participant => participant.id !== user.id
-      );
-
-      if (otherParticipant) {
-        return {
-          title: otherParticipant.name || otherParticipant.username || 'Unknown User',
-          subtitle: otherParticipant.username ? `@${otherParticipant.username}` : null,
-          sportType: null,
-          avatar: otherParticipant.avatar || null,
-          participantName: otherParticipant.name || 'Unknown User'
-        };
-      } else {
-        return {
-          title: 'Chat',
-          subtitle: null,
-          sportType: null,
-          avatar: null,
-          participantName: 'Unknown User'
-        };
-      }
-    }
-  }, [currentThread, user?.id]);
-
-  const sportColors = useMemo(() => getSportColors(headerContent.sportType), [headerContent.sportType]);
-
-  // Memoize participant preview text for group chats
-  const participantPreview = useMemo(() => {
-    if (!currentThread || currentThread.type !== 'group') return '';
-
-    const participantNames = currentThread.participants
-      .slice(0, 5) // Show first 5 participants
-      .map(p => {
-        // Get first name only
-        const firstName = p.name?.split(' ')[0] || p.username || 'Unknown';
-        // Shorten long names
-        return firstName.length > 10 ? firstName.substring(0, 8) + '.' : firstName;
-      });
-
-    // Add ellipsis if there are more participants
-    if (currentThread.participants.length > 5) {
-      return participantNames.join(', ') + '...';
-    }
-
-    return participantNames.join(', ');
-  }, [currentThread]);
 
   // Memoize handlers for NewMessageBottomSheet
   const handleCloseNewMessageSheet = useCallback(() => {
@@ -783,54 +285,23 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
       // Close the bottom sheet
       setShowNewMessageSheet(false);
 
-      // Set the thread as current to navigate to the chat
+      // Set the thread as current
       setCurrentThread(thread);
-
-      // Load messages for the thread
-      loadMessages(thread.id);
 
       // Refresh the threads list to include the new thread
       loadThreads(user.id);
+
+      // Navigate to the chat thread using native navigation
+      router.push({
+        pathname: '/chat/[threadId]',
+        params: { threadId: thread.id }
+      });
 
     } catch (error) {
       chatLogger.error('Error creating thread:', error);
       toast.error('Failed to start conversation. Please try again.');
     }
-  }, [user?.id, setCurrentThread, loadMessages, loadThreads]);
-
-  // Memoize navigation handlers for group chat header
-  const handleViewStandings = useCallback(() => {
-    if (!currentThread) return;
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    router.push({
-      pathname: '/match/divisionstandings',
-      params: {
-        divisionId: currentThread.metadata?.divisionId || currentThread.division?.id,
-        divisionName: currentThread.metadata?.divisionName || currentThread.division?.name || 'Division 1',
-        sportType: currentThread.sportType || 'PICKLEBALL',
-        leagueName: currentThread.metadata?.leagueName || currentThread.division?.league?.name || 'League',
-        seasonName: currentThread.metadata?.seasonName || currentThread.division?.season?.name || 'Season 1',
-        gameType: currentThread.metadata?.gameType || currentThread.division?.gameType || 'Singles',
-        genderCategory: currentThread.metadata?.genderCategory || currentThread.division?.genderCategory || '',
-        seasonStartDate: currentThread.division?.season?.startDate,
-        seasonEndDate: currentThread.division?.season?.endDate,
-      },
-    });
-  }, [currentThread]);
-
-  const handleViewAllMatches = useCallback(() => {
-    if (!currentThread) return;
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    router.push({
-      pathname: '/match/all-matches',
-      params: {
-        divisionId: currentThread.metadata?.divisionId || currentThread.division?.id,
-        sportType: currentThread.sportType || 'PICKLEBALL',
-        leagueName: currentThread.metadata?.leagueName || currentThread.division?.league?.name || 'League',
-        seasonName: currentThread.metadata?.seasonName || currentThread.division?.season?.name || 'Season 1',
-      },
-    });
-  }, [currentThread]);
+  }, [user?.id, setCurrentThread, loadThreads]);
 
   const handleOpenNewMessage = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -838,22 +309,10 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
     searchInputRef.current?.blur();
     Keyboard.dismiss();
     // Small delay to let keyboard fully dismiss before opening bottom sheet
-    // This prevents gesture handler conflicts
     setTimeout(() => {
       setShowNewMessageSheet(true);
     }, 100);
   }, []);
-
-  // Memoize menu button handler (placeholder for future implementation)
-  const handleGroupMenuPress = useCallback(() => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    // TODO: Show menu options
-  }, []);
-
-  // Memoize image error handler
-  const handleAvatarError = useCallback(() => {
-    chatLogger.debug('Profile image failed to load:', headerContent.avatar);
-  }, [headerContent.avatar]);
 
   if (isLoading && (!threads || threads.length === 0)) {
     return (
@@ -880,230 +339,102 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
   return (
     <View style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
-      
-      {/* Uncomment to see socket debug info */}
-      {/* <SocketDebugPanel /> */}
-      
-      {currentThread ? (
-        <SafeAreaView style={styles.chatContainer} edges={['bottom']}>
-          <KeyboardAvoidingView
-            style={styles.chatContainerInner}
-            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-            keyboardVerticalOffset={0}
+
+      <View style={styles.threadsContainer}>
+        {/* Header with Chats title and New Message button */}
+        <View style={[styles.chatsHeaderContainer, { paddingTop: STATUS_BAR_HEIGHT }]}>
+          <Text style={styles.chatsTitle}>Chats</Text>
+          <Pressable
+            onPress={handleOpenNewMessage}
+            style={({ pressed }) => pressed && { opacity: 0.7 }}
           >
-          {/* Message Action Bar */}
-          <MessageActionBar
-            visible={showActionBar}
-            isCurrentUser={selectedMessage?.senderId === user?.id}
-            onReply={handleActionBarReply}
-            onCopy={handleActionBarCopy}
-            onDelete={handleActionBarDelete}
-            onClose={handleCloseActionBar}
-          />
+            <Text style={styles.newMessageButton}>New Message</Text>
+          </Pressable>
+        </View>
 
-          <View style={[styles.chatHeader, { paddingTop: STATUS_BAR_HEIGHT + 12 }]}>
-            <Pressable
-              style={({ pressed }) => [styles.backButton, pressed && { opacity: 0.7 }]}
-              onPress={handleBackToThreads}
-            >
-              <Ionicons name="arrow-back" size={24} color="#111827" />
-            </Pressable>
-            
-            {currentThread?.type === 'group' ? (
-              // Group chat header with stacked avatars
-              <View style={styles.groupHeaderWrapper}>
-                {/* Left section: Avatar with sport badge */}
-                <View style={styles.groupHeaderAvatar}>
-                  {/* Sport badge above avatar */}
-                  {sportColors.label && (
-                    <View style={[
-                      styles.sportBadgeAboveAvatar,
-                      { borderColor: sportColors.badgeColor }
-                    ]}>
-                      <Text style={[
-                        styles.sportBadgeAboveAvatarText,
-                        { color: sportColors.badgeColor }
-                      ]}>{sportColors.label}</Text>
-                    </View>
-                  )}
-                  <GroupAvatarStack
-                    participants={currentThread.participants}
-                    sportColor={sportColors.background}
-                    size={38}
-                  />
-                </View>
-
-                {/* Center section: Title, participants, action buttons */}
-                <View style={styles.groupHeaderContent}>
-                  <View style={styles.groupHeaderTopRow}>
-                    <Text style={styles.groupHeaderTitle} numberOfLines={1}>
-                      {headerContent.title}
-                    </Text>
-                  </View>
-                  <Text style={styles.groupHeaderParticipants} numberOfLines={1}>
-                    {participantPreview}
-                  </Text>
-
-                  {/* Action buttons */}
-                  <View style={styles.groupActionButtons}>
-                    <Pressable
-                      style={({ pressed }) => [
-                        styles.actionButton,
-                        styles.primaryActionButton,
-                        { backgroundColor: sportColors.background },
-                        pressed && { opacity: 0.8 }
-                      ]}
-                      onPress={handleViewStandings}
-                    >
-                      <Text style={styles.primaryActionText}>View Standings</Text>
-                    </Pressable>
-                    <Pressable
-                      style={({ pressed }) => [
-                        styles.actionButton,
-                        styles.secondaryActionButton,
-                        pressed && { opacity: 0.8 }
-                      ]}
-                      onPress={() => {
-                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                        router.push({
-                          pathname: '/match/all-matches',
-                          params: {
-                            divisionId: currentThread.metadata?.divisionId || currentThread.division?.id,
-                            sportType: currentThread.sportType || 'PICKLEBALL',
-                            leagueName: currentThread.metadata?.leagueName || currentThread.division?.league?.name || 'League',
-                            seasonName: currentThread.metadata?.seasonName || currentThread.division?.season?.name || 'Season 1',
-                            gameType: currentThread.metadata?.gameType || currentThread.division?.gameType || '',
-                            genderCategory: currentThread.metadata?.genderCategory || currentThread.division?.genderCategory || '',
-                            seasonStartDate: currentThread.division?.season?.startDate,
-                            seasonEndDate: currentThread.division?.season?.endDate,
-                          },
-                        });
-                      }}
-                    >
-                      <Text style={styles.secondaryActionText}>View All Matches</Text>
-                    </Pressable>
-                  </View>
-                </View>
-
-                {/* Right section: 3-dot menu */}
-                <Pressable
-                  style={({ pressed }) => [styles.groupHeaderMenuButton, pressed && { opacity: 0.7 }]}
-                  onPress={handleGroupMenuPress}
-                >
-                  <Ionicons name="ellipsis-vertical" size={20} color="#6B7280" />
-                </Pressable>
-              </View>
-            ) : (
-              // Direct chat header (original design)
-              <>
-                {/* Profile Picture */}
-                <View style={styles.chatHeaderAvatar}>
-                  {headerContent.avatar ? (
-                    <Image
-                      source={{ uri: headerContent.avatar }}
-                      style={styles.chatHeaderAvatarImage}
-                      onError={handleAvatarError}
-                    />
-                  ) : (
-                    <View style={styles.defaultChatHeaderAvatarContainer}>
-                      <Text style={styles.defaultChatHeaderAvatarText}>
-                        {headerContent.participantName?.charAt(0)?.toUpperCase() || 'U'}
-                      </Text>
-                    </View>
-                  )}
-                </View>
-                <View style={styles.chatHeaderContent}>
-                  <View style={styles.chatHeaderTitleRow}>
-                    <Text style={styles.chatHeaderTitle} numberOfLines={1}>
-                      {headerContent.title}
-                    </Text>
-                  </View>
-                  {headerContent.subtitle && (
-                    <Text style={styles.chatHeaderSubtitle} numberOfLines={1}>
-                      {headerContent.subtitle}
-                    </Text>
-                  )}
-                </View>
-              </>
-            )}
-
-            {/* Only show headerAction for direct chats (group chats have their own menu button) */}
-            {currentThread.type !== 'group' && (
-              <Pressable style={({ pressed }) => [styles.headerAction, pressed && { opacity: 0.7 }]}>
-                <Ionicons name="ellipsis-vertical" size={20} color="#6B7280" />
+        <View style={styles.searchContainer}>
+          <View style={styles.searchBar}>
+            <Ionicons name="search-outline" size={18} color="#9CA3AF" style={styles.searchIcon} />
+            <TextInput
+              ref={searchInputRef}
+              style={styles.searchInput}
+              placeholder="Search chats..."
+              placeholderTextColor="#9CA3AF"
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              returnKeyType="search"
+            />
+            {searchQuery.length > 0 && (
+              <Pressable onPress={clearSearch}>
+                <Ionicons name="close-circle" size={18} color="#9CA3AF" />
               </Pressable>
             )}
           </View>
-          
-          <MessageWindow
-            key={refreshKey}
-            messages={messages[currentThread.id] || []}
-            threadId={currentThread.id}
-            isGroupChat={currentThread.type === 'group'}
-            sportType={currentThread.sportType}
-            onReply={handleReply}
-            onDeleteMessage={handleDeleteMessageAction}
-            onLongPress={handleLongPress}
-          />
-          
-          <MessageInput 
-            onSendMessage={handleSendMessage}
-            onhandleMatch={handleMatch}
-            replyingTo={replyingTo}
-            onCancelReply={handleCancelReply}
-            sportType={currentThread.sportType}
-            isGroupChat={currentThread.type === 'group'}
-          />
-          </KeyboardAvoidingView>
-        </SafeAreaView>
-      ) : (
-        <View style={styles.threadsContainer}>
-          {/* Header with Chats title and New Message button */}
-          <View style={[styles.chatsHeaderContainer, { paddingTop: STATUS_BAR_HEIGHT }]}>
-            <Text style={styles.chatsTitle}>Chats</Text>
-            <Pressable
-              onPress={handleOpenNewMessage}
-              style={({ pressed }) => pressed && { opacity: 0.7 }}
-            >
-              <Text style={styles.newMessageButton}>New Message</Text>
-            </Pressable>
-          </View>
-
-          <View style={styles.searchContainer}>
-            <View style={styles.searchBar}>
-              <Ionicons name="search-outline" size={18} color="#9CA3AF" style={styles.searchIcon} />
-              <TextInput
-                ref={searchInputRef}
-                style={styles.searchInput}
-                placeholder="Search chats..."
-                placeholderTextColor="#9CA3AF"
-                value={searchQuery}
-                onChangeText={setSearchQuery}
-                returnKeyType="search"
-                blurOnSubmit={true}
-              />
-              {searchQuery.length > 0 && (
-                <Pressable onPress={clearSearch}>
-                  <Ionicons name="close-circle" size={18} color="#9CA3AF" />
-                </Pressable>
-              )}
-            </View>
-          </View>
-           <ThreadList
-            key={`thread-list-${appStateKey}`}
-            onThreadSelect={handleThreadSelect}
-          />
-          {onTabPress && (
-            <NavBar
-              activeTab={activeTab}
-              onTabPress={onTabPress}
-              sport={sport}
-              badgeCounts={{ chat: chatUnreadCount }}
-            />
-          )}
         </View>
-      )}
 
+        {/* Filter chips */}
+        <View style={styles.filterContainer}>
+          <View style={styles.filterChips}>
+            <AnimatedFilterChip
+              label="All"
+              isActive={sportFilter === 'all'}
+              activeColor={SPORT_COLORS.all}
+              onPress={() => setSportFilter('all')}
+            />
+            <AnimatedFilterChip
+              label="Pickleball"
+              isActive={sportFilter === 'pickleball'}
+              activeColor={SPORT_COLORS.pickleball}
+              onPress={() => setSportFilter('pickleball')}
+            />
+            <AnimatedFilterChip
+              label="Tennis"
+              isActive={sportFilter === 'tennis'}
+              activeColor={SPORT_COLORS.tennis}
+              onPress={() => setSportFilter('tennis')}
+            />
+            <AnimatedFilterChip
+              label="Padel"
+              isActive={sportFilter === 'padel'}
+              activeColor={SPORT_COLORS.padel}
+              onPress={() => setSportFilter('padel')}
+            />
+          </View>
+
+          {/* Type filter button */}
+          <TouchableOpacity
+            style={[
+              styles.typeFilterButton,
+              typeFilter !== 'all' && {
+                backgroundColor: SPORT_COLORS[sportFilter] || SPORT_COLORS.all,
+                borderColor: SPORT_COLORS[sportFilter] || SPORT_COLORS.all
+              }
+            ]}
+            onPress={() => setShowTypeFilterModal(true)}
+            activeOpacity={0.7}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
+            <Ionicons
+              name="options-outline"
+              size={20}
+              color={typeFilter !== 'all' ? '#FFFFFF' : SPORT_COLORS[sportFilter] || '#6B7280'}
+            />
+          </TouchableOpacity>
+        </View>
+        <ThreadList
+          key={`thread-list-${appStateKey}`}
+          onThreadSelect={handleThreadSelect}
+          threads={displayedThreads}
+        />
+        {onTabPress && (
+          <NavBar
+            activeTab={activeTab}
+            onTabPress={onTabPress}
+            sport={sport}
+            badgeCounts={{ chat: chatUnreadCount }}
+          />
+        )}
+      </View>
 
       {/* New Message Bottom Sheet - Only render when needed to prevent touch blocking */}
       {showNewMessageSheet && (
@@ -1113,6 +444,42 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
           onSelectUser={handleSelectUser}
         />
       )}
+
+      {/* Type Filter Dropdown */}
+      <Modal
+        visible={showTypeFilterModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowTypeFilterModal(false)}
+      >
+        <Pressable
+          style={styles.modalOverlay}
+          onPress={() => setShowTypeFilterModal(false)}
+        >
+          <View style={styles.typeFilterDropdown}>
+            {(['all', 'personal', 'league'] as TypeFilter[]).map((type) => (
+              <TouchableOpacity
+                key={type}
+                style={styles.typeFilterOption}
+                onPress={() => {
+                  setTypeFilter(type);
+                  setShowTypeFilterModal(false);
+                }}
+              >
+                <Text style={[
+                  styles.typeFilterOptionText,
+                  typeFilter === type && styles.typeFilterOptionTextActive
+                ]}>
+                  {type === 'all' ? 'All' : type === 'personal' ? 'Personal' : 'League'}
+                </Text>
+                {typeFilter === type && (
+                  <Ionicons name="checkmark" size={18} color={SPORT_COLORS[sportFilter]} />
+                )}
+              </TouchableOpacity>
+            ))}
+          </View>
+        </Pressable>
+      </Modal>
     </View>
   );
 };
@@ -1122,26 +489,14 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#FFFFFF',
   },
-  chatContainer: {
-    flex: 1,
-  },
-  chatContainerInner: {
-    flex: 1,
-  },
   threadsContainer: {
     flex: 1,
-    backgroundColor: '#F6FAFC',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    borderWidth: 1,
-    borderColor: '#D5D5D5',
-    borderBottomWidth: 0,
-    overflow: 'hidden',
+    backgroundColor: '#FFFFFF',
   },
   searchContainer: {
     paddingHorizontal: 16,
     marginBottom: 10,
-    backgroundColor: '#F6FAFC',
+    backgroundColor: '#FFFFFF',
   },
   searchBar: {
     flexDirection: 'row',
@@ -1162,223 +517,6 @@ const styles = StyleSheet.create({
     color: '#1F2937',
     paddingVertical: 0,
     textAlignVertical: 'center',
-  },
-  chatHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: isSmallScreen ? 12 : isTablet ? 24 : 16,
-    paddingBottom: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
-    backgroundColor: '#FFFFFF',
-    minHeight: 60,
-    width: '100%',
-  },
-  backButton: {
-    marginRight: 12,
-    padding: 4,
-  },
-  chatHeaderAvatar: {
-    width: isSmallScreen ? 40 : isTablet ? 48 : 44,
-    height: isSmallScreen ? 40 : isTablet ? 48 : 44,
-    borderRadius: isSmallScreen ? 20 : isTablet ? 24 : 22,
-    overflow: 'hidden',
-    marginRight: 12,
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: {
-          width: 0,
-          height: 2,
-        },
-        shadowOpacity: 0.1,
-        shadowRadius: 4,
-      },
-      android: {
-        elevation: 3,
-      },
-    }),
-  },
-  chatHeaderAvatarImage: {
-    width: '100%',
-    height: '100%',
-  },
-  defaultChatHeaderAvatarContainer: {
-    width: '100%',
-    height: '100%',
-    backgroundColor: '#6de9a0',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  defaultChatHeaderAvatarText: {
-    color: '#FFFFFF',
-    fontSize: isSmallScreen ? 16 : isTablet ? 20 : 18,
-    fontWeight: 'bold',
-    fontFamily: 'System',
-  },
-  chatHeaderContent: {
-    flex: 1,
-    justifyContent: 'center',
-  },
-  chatHeaderTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  chatHeaderTitle: {
-    fontSize: isSmallScreen ? 16 : isTablet ? 20 : 18,
-    fontWeight: '600',
-    color: '#111827',
-    lineHeight: isSmallScreen ? 20 : isTablet ? 24 : 22,
-    flexShrink: 1,
-  },
-  sportBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 10,
-    alignSelf: 'flex-start',
-    backgroundColor: 'transparent',
-  },
-  sportBadgeText: {
-    fontSize: 9,
-    fontWeight: '600',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  chatHeaderSubtitle: {
-    fontSize: isSmallScreen ? 12 : isTablet ? 16 : 14,
-    color: '#6B7280',
-    marginTop: 2,
-    lineHeight: isSmallScreen ? 14 : isTablet ? 18 : 16,
-  },
-  headerAction: {
-    padding: 4,
-  },
-  // Group chat header styles
-  groupHeaderWrapper: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-  },
-  groupHeaderAvatar: {
-    marginRight: 12,
-    alignItems: 'center',
-  },
-  groupHeaderMenuButton: {
-    padding: 8,
-    marginLeft: 4,
-    alignSelf: 'flex-start',
-  },
-  sportBadgeAboveAvatar: {
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 8,
-    borderWidth: 1.5,
-    backgroundColor: 'transparent',
-    marginBottom: 4,
-  },
-  sportBadgeAboveAvatarText: {
-    fontSize: 9,
-    fontWeight: '600',
-  },
-  groupBadgeOverlay: {
-    position: 'absolute',
-    bottom: -2,
-    right: -2,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderWidth: 2,
-    borderColor: '#FFFFFF',
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: {
-          width: 0,
-          height: 1,
-        },
-        shadowOpacity: 0.2,
-        shadowRadius: 2,
-      },
-      android: {
-        elevation: 3,
-      },
-    }),
-  },
-  groupBadgeNumber: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#111827',
-  },
-  groupHeaderContent: {
-    flex: 1,
-    justifyContent: 'center',
-  },
-  groupHeaderTopRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    marginBottom: 2,
-  },
-  sportBadgeHeader: {
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 8,
-    backgroundColor: 'transparent',
-  },
-  sportBadgeHeaderText: {
-    fontSize: 8,
-    fontWeight: '600',
-    textTransform: 'uppercase',
-    letterSpacing: 0.3,
-  },
-  groupHeaderTitle: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#111827',
-    flexShrink: 1,
-  },
-  groupHeaderSubtitle: {
-    fontSize: 13,
-    fontWeight: '500',
-    color: '#6B7280',
-    marginBottom: 2,
-  },
-  groupHeaderParticipants: {
-    fontSize: 12,
-    color: '#6B7280',
-    marginBottom: 8,
-    fontWeight: '500',
-  },
-  groupActionButtons: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  actionButton: {
-    paddingHorizontal: 16,
-    paddingVertical: 7,
-    borderRadius: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  primaryActionButton: {
-    backgroundColor: '#863A73',
-  },
-  secondaryActionButton: {
-    backgroundColor: 'transparent',
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-  },
-  primaryActionText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#FFFFFF',
-  },
-  secondaryActionText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#6B7280',
   },
   centerContainer: {
     flex: 1,
@@ -1402,16 +540,6 @@ const styles = StyleSheet.create({
     color: '#9CA3AF',
     textAlign: 'center',
   },
-  headerContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    width: '100%',
-    backgroundColor: '#FFFFFF',
-    paddingHorizontal: isSmallScreen ? 16 : isTablet ? 24 : 20,
-    paddingVertical: isSmallScreen ? 4 : isTablet ? 8 : 6,
-    minHeight: isSmallScreen ? 36 : isTablet ? 44 : 40,
-  },
   chatsHeaderContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -1419,7 +547,9 @@ const styles = StyleSheet.create({
     width: '100%',
     backgroundColor: '#FFFFFF',
     paddingHorizontal: isSmallScreen ? 16 : isTablet ? 24 : 20,
-    paddingVertical: 12,
+    paddingTop: 12,
+    paddingBottom: 16,
+    marginBottom: 4,
   },
   chatsTitle: {
     fontSize: isSmallScreen ? 28 : isTablet ? 36 : 32,
@@ -1431,46 +561,61 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#FEA04D',
   },
-  headerProfilePicture: {
-    width: isSmallScreen ? 40 : isTablet ? 56 : 48,
-    height: isSmallScreen ? 40 : isTablet ? 56 : 48,
-    borderRadius: isSmallScreen ? 20 : isTablet ? 28 : 24,
-    overflow: 'hidden',
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: {
-          width: 0,
-          height: 2,
-        },
-        shadowOpacity: 0.1,
-        shadowRadius: 4,
-      },
-      android: {
-        elevation: 3,
-      },
-    }),
+  filterContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingBottom: 12,
+    gap: 8,
   },
-  headerProfileImage: {
-    width: '100%',
-    height: '100%',
+  filterChips: {
+    flex: 1,
+    flexDirection: 'row',
+    gap: 8,
   },
-  defaultHeaderAvatarContainer: {
-    width: '100%',
-    height: '100%',
-    backgroundColor: '#6de9a0',
+  typeFilterButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
     justifyContent: 'center',
     alignItems: 'center',
   },
-  defaultHeaderAvatarText: {
-    color: '#FFFFFF',
-    fontSize: isSmallScreen ? 16 : isTablet ? 22 : 18,
-    fontWeight: 'bold',
-    fontFamily: 'System',
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.3)',
+    justifyContent: 'flex-start',
+    alignItems: 'flex-end',
+    paddingTop: 180,
+    paddingRight: 16,
   },
-  headerRight: {
-    width: isSmallScreen ? 40 : isTablet ? 56 : 48,
+  typeFilterDropdown: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    paddingVertical: 6,
+    minWidth: 140,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  typeFilterOption: {
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    gap: 16,
+  },
+  typeFilterOptionText: {
+    fontSize: 15,
+    color: '#374151',
+  },
+  typeFilterOptionTextActive: {
+    fontWeight: '600',
+    color: '#111827',
   },
 });

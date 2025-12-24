@@ -3,10 +3,11 @@ import { useSession } from '@/lib/auth-client';
 import { MatchComment } from '@/app/match/components/types';
 import { Ionicons } from '@expo/vector-icons';
 import { BottomSheetScrollView } from '@gorhom/bottom-sheet';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Animated,
   Image,
   Pressable,
   StyleSheet,
@@ -80,11 +81,14 @@ interface MatchResultSheetProps {
     comment?: string;
     isUnfinished?: boolean;
     isCasualPlay?: boolean;
+    isCancelled?: boolean;
     teamAssignments?: { team1: string[]; team2: string[] };
   }) => Promise<void>;
   onConfirm?: () => Promise<void>;
   onDispute?: () => Promise<void>;
   onWalkover?: (data: { defaultingUserId: string; reason: WalkoverReason; reasonDetail?: string }) => Promise<void>;
+  onExpandSheet?: () => void; // Callback to expand the bottom sheet when friendly match tab is selected
+  onCollapseSheet?: () => void; // Callback to collapse the bottom sheet when casual play tab is selected
 }
 
 export const MatchResultSheet: React.FC<MatchResultSheetProps> = ({
@@ -106,6 +110,8 @@ export const MatchResultSheet: React.FC<MatchResultSheetProps> = ({
   onConfirm,
   onDispute,
   onWalkover,
+  onExpandSheet,
+  onCollapseSheet,
 }) => {
   const { data: session } = useSession();
   const [loading, setLoading] = useState(false);
@@ -132,6 +138,27 @@ export const MatchResultSheet: React.FC<MatchResultSheetProps> = ({
 
   // Casual Play / Friendly Match state (only for friendly matches)
   const [isCasualPlay, setIsCasualPlay] = useState(true); // Defaults to casual play for friendly matches
+  const slideAnim = useRef(new Animated.Value(0)).current; // 0 = casual play, 1 = friendly match
+  const [toggleWidth, setToggleWidth] = useState(0);
+
+  // Animate the toggle slider
+  const handleToggleSwitch = (toCasualPlay: boolean) => {
+    setIsCasualPlay(toCasualPlay);
+    Animated.spring(slideAnim, {
+      toValue: toCasualPlay ? 0 : 1,
+      useNativeDriver: true,
+      tension: 60,
+      friction: 8,
+    }).start();
+    // Expand/collapse the bottom sheet based on selected tab
+    if (!toCasualPlay && onExpandSheet) {
+      // Expand when switching to Friendly Match tab (has more UI elements)
+      onExpandSheet();
+    } else if (toCasualPlay && onCollapseSheet) {
+      // Collapse when switching back to Casual Play tab
+      onCollapseSheet();
+    }
+  };
   const [teamAssignments, setTeamAssignments] = useState<{ team1: string[]; team2: string[] }>({
     team1: [],
     team2: [],
@@ -593,6 +620,24 @@ export const MatchResultSheet: React.FC<MatchResultSheetProps> = ({
       return;
     }
 
+    // For friendly matches with "didn't play" toggled, set status to CANCELLED
+    if (isFriendlyMatch && !isCasualPlay && didntPlay) {
+      try {
+        setLoading(true);
+        await onSubmit({
+          comment: comment.trim() || undefined,
+          isCancelled: true,
+        });
+        onClose();
+      } catch (error) {
+        console.error('Error cancelling friendly match:', error);
+        Alert.alert('Error', 'Failed to cancel match');
+      } finally {
+        setLoading(false);
+      }
+      return;
+    }
+
     // For friendly match mode (not casual), validate team assignments for doubles
     if (isFriendlyMatch && !isCasualPlay && matchType === 'DOUBLES') {
       if (!allDropdownsFilled()) {
@@ -779,11 +824,16 @@ export const MatchResultSheet: React.FC<MatchResultSheetProps> = ({
       <View style={styles.header}>
         <View style={styles.headerTitleContainer}>
           <Text style={styles.headerTitle}>
-            {mode === 'disputed' ? 'Disputed Score' : mode === 'view' ? 'Submitted Scores' : mode === 'review' ? 'Review Match Result' : didntPlay ? 'Report Walkover' : isFriendlyMatch ? 'Played your game?' : 'How did the match go?'}
+            {mode === 'disputed' ? 'Disputed Score' : mode === 'view' ? 'Submitted Scores' : mode === 'review' ? 'Review Match Result' : isFriendlyMatch ? 'Played your game?' : didntPlay ? 'Report Walkover' : 'How did the match go?'}
           </Text>
           {mode === 'submit' && !isFriendlyMatch && (
             <Text style={styles.headerSubtitle}>
               {didntPlay ? 'Select who forfeited and why.' : 'Submit the scores below.'}
+            </Text>
+          )}
+          {mode === 'submit' && isFriendlyMatch && (
+            <Text style={styles.headerSubtitle}>
+              Toggle Friendly Match to record your scores if any (optional).
             </Text>
           )}
         </View>
@@ -795,35 +845,46 @@ export const MatchResultSheet: React.FC<MatchResultSheetProps> = ({
       {/* Casual Play / Friendly Match Toggle - Only for friendly matches */}
       {isFriendlyMatch && mode === 'submit' && (
         <View style={styles.casualPlayToggleSection}>
-          <View style={styles.pillToggleContainer}>
-            <TouchableOpacity
+          <View
+            style={styles.pillToggleContainer}
+            onLayout={(e) => setToggleWidth(e.nativeEvent.layout.width - 8)} // subtract padding
+          >
+            {/* Animated sliding background */}
+            <Animated.View
               style={[
-                styles.pillToggleButton,
-                isCasualPlay && styles.pillToggleButtonActive,
+                styles.pillToggleSlider,
+                {
+                  width: toggleWidth / 2,
+                  transform: [
+                    {
+                      translateX: slideAnim.interpolate({
+                        inputRange: [0, 1],
+                        outputRange: [0, toggleWidth / 2],
+                      }),
+                    },
+                  ],
+                },
               ]}
-              onPress={() => setIsCasualPlay(true)}
+            />
+            <TouchableOpacity
+              style={styles.pillToggleButton}
+              onPress={() => handleToggleSwitch(true)}
             >
               <Text style={[
                 styles.pillToggleText,
                 isCasualPlay && styles.pillToggleTextActive,
-              ]}>CASUAL{'\n'}PLAY</Text>
+              ]}>CASUAL PLAY</Text>
             </TouchableOpacity>
             <TouchableOpacity
-              style={[
-                styles.pillToggleButton,
-                !isCasualPlay && styles.pillToggleButtonActive,
-              ]}
-              onPress={() => setIsCasualPlay(false)}
+              style={styles.pillToggleButton}
+              onPress={() => handleToggleSwitch(false)}
             >
               <Text style={[
                 styles.pillToggleText,
                 !isCasualPlay && styles.pillToggleTextActive,
-              ]}>FRIENDLY{'\n'}MATCH</Text>
+              ]}>FRIENDLY MATCH</Text>
             </TouchableOpacity>
           </View>
-          <Text style={styles.casualPlayHint}>
-            Toggle Friendly Match to record your scores if any (optional).
-          </Text>
         </View>
       )}
 
@@ -953,7 +1014,13 @@ export const MatchResultSheet: React.FC<MatchResultSheetProps> = ({
             </View>
 
             {/* Score Section with Dropdowns */}
-            {matchType === 'DOUBLES' && (
+            <View style={[styles.friendlyScoreSection, didntPlay && styles.friendlyScoreSectionDisabled]}>
+              {didntPlay && (
+                <View style={styles.didntPlayOverlay}>
+                  <Text style={styles.didntPlayOverlayText}>Match is not played</Text>
+                </View>
+              )}
+              {matchType === 'DOUBLES' && (
               <>
                 {/* Sets/Games Header */}
                 <View style={styles.friendlySetsHeader}>
@@ -1425,6 +1492,7 @@ export const MatchResultSheet: React.FC<MatchResultSheetProps> = ({
                 </View>
               </>
             )}
+            </View>
 
             {/* Divider */}
             <View style={styles.friendlyDivider} />
@@ -1457,9 +1525,6 @@ export const MatchResultSheet: React.FC<MatchResultSheetProps> = ({
                 numberOfLines={3}
                 textAlignVertical="top"
               />
-              <TouchableOpacity style={styles.sendIconButton}>
-                <Ionicons name="send" size={24} color="#FEA04D" />
-              </TouchableOpacity>
             </View>
 
             {/* Confirm Button */}
@@ -2256,7 +2321,7 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
   },
   headerSubtitle: {
-    fontSize: 16,
+    fontSize: 14,
     color: '#6B7280',
     marginTop: 8,
   },
@@ -3116,23 +3181,30 @@ const styles = StyleSheet.create({
     backgroundColor: '#F3F4F6',
     borderRadius: 25,
     padding: 4,
+    position: 'relative',
+  },
+  pillToggleSlider: {
+    position: 'absolute',
+    top: 4,
+    left: 4,
+    bottom: 4,
+    backgroundColor: '#FEA04D',
+    borderRadius: 20,
   },
   pillToggleButton: {
-    paddingVertical: 8,
+    flex: 1,
+    paddingVertical: 14,
     paddingHorizontal: 16,
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: 20,
-  },
-  pillToggleButtonActive: {
-    backgroundColor: '#FEA04D',
+    zIndex: 1,
   },
   pillToggleText: {
-    fontSize: 10,
+    fontSize: 11,
     fontWeight: '700',
     color: '#9CA3AF',
     textAlign: 'center',
-    lineHeight: 12,
   },
   pillToggleTextActive: {
     color: '#FFFFFF',
@@ -3573,6 +3645,29 @@ const styles = StyleSheet.create({
     backgroundColor: '#F3F4F6',
     borderColor: '#E5E7EB',
     opacity: 0.5,
+  },
+  friendlyScoreSection: {
+    position: 'relative',
+  },
+  friendlyScoreSectionDisabled: {
+    opacity: 0.4,
+  },
+  didntPlayOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(255, 255, 255, 0.8)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 100,
+    borderRadius: 12,
+  },
+  didntPlayOverlayText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#6B7280',
   },
   friendlyDivider: {
     height: 1,

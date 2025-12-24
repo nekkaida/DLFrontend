@@ -2,6 +2,7 @@ import { getSportColors, SportType } from '@/constants/SportsColor';
 import { useSession } from '@/lib/auth-client';
 import axiosInstance, { endpoints } from '@/lib/endpoints';
 import { getBackendBaseURL } from '@/src/config/network';
+import { AnimatedFilterChip } from '@/src/shared/components/ui/AnimatedFilterChip';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -394,8 +395,8 @@ export default function MyGamesScreen({ sport = 'pickleball' }: MyGamesScreenPro
 
   const renderEmptyState = () => (
     <View style={styles.emptyContainer}>
-      <Ionicons name="calendar-outline" size={64} color="#D1D5DB" />
-      <Text style={styles.emptyTitle}>No Matches Yet</Text>
+      <Ionicons name="calendar-outline" size={64} color="#9CA3AF" />
+      <Text style={styles.emptyTitle}>No matches found</Text>
       <Text style={styles.emptyText}>
         You haven't joined any matches yet. Start by browsing available matches or create your own!
       </Text>
@@ -404,8 +405,8 @@ export default function MyGamesScreen({ sport = 'pickleball' }: MyGamesScreenPro
 
   const renderEmptyInvitationsState = () => (
     <View style={styles.emptyContainer}>
-      <Ionicons name="mail-outline" size={64} color="#D1D5DB" />
-      <Text style={styles.emptyTitle}>No Pending Invitations</Text>
+      <Ionicons name="mail-outline" size={64} color="#9CA3AF" />
+      <Text style={styles.emptyTitle}>No pending invitations</Text>
       <Text style={styles.emptyText}>
         You don't have any pending match invitations at the moment.
       </Text>
@@ -437,29 +438,21 @@ export default function MyGamesScreen({ sport = 'pickleball' }: MyGamesScreenPro
 
         {/* Filter Controls */}
         <View style={styles.controlsContainer}>
-          {/* Filter Chips */}
+          {/* Filter Chips with animated color transitions */}
           <View style={styles.chipsContainer}>
             {(['ALL', 'UPCOMING', 'PAST', 'INVITES'] as FilterTab[]).map((tab) => (
-              <TouchableOpacity
+              <AnimatedFilterChip
                 key={tab}
-                style={[
-                  styles.chip,
-                  activeTab === tab
-                    ? { backgroundColor: sportColors.background }
-                    : { backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: sportColors.background }
-                ]}
+                label={
+                  tab === 'ALL' ? 'All' :
+                  tab === 'UPCOMING' ? 'Upcoming' :
+                  tab === 'PAST' ? 'Past' :
+                  `Invites${filteredInvitations.length > 0 ? ` (${filteredInvitations.length})` : ''}`
+                }
+                isActive={activeTab === tab}
+                activeColor={sportColors.background}
                 onPress={() => setActiveTab(tab)}
-              >
-                <Text style={[
-                  styles.chipText,
-                  activeTab === tab ? { color: '#FFFFFF' } : { color: sportColors.background }
-                ]}>
-                  {tab === 'ALL' ? 'All' :
-                    tab === 'UPCOMING' ? 'Upcoming' :
-                      tab === 'PAST' ? 'Past' :
-                        `Invites${filteredInvitations.length > 0 ? ` (${filteredInvitations.length})` : ''}`}
-                </Text>
-              </TouchableOpacity>
+              />
             ))}
           </View>
 

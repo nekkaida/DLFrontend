@@ -1136,6 +1136,7 @@ export default function LeagueDetailsScreen({
         season={selectedSeason}
         onPayNow={handlePayNow}
         onPayLater={handlePayLater}
+        sport={sport}
       />
     </View>
   );

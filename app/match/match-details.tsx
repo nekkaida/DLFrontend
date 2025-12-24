@@ -109,11 +109,20 @@ export default function JoinMatchScreen() {
   const matchStatus = (params.status as string) || 'SCHEDULED';
   const isFriendly = params.isFriendly === 'true';
 
-  // Higher snap points for match result sheet to ensure buttons are visible
-  // Start at higher snap point (index 1) so buttons are immediately visible
-  const snapPoints = useMemo(() => ['75%', '85%'], []);
-  const initialSnapIndex = useMemo(() => 1, []);
-  const cancelSnapPoints = useMemo(() => ['70%', '85%'], []);
+  // Snap points for match result sheet
+  const snapPoints = useMemo(() => ['50%', '90%'], []);
+  const initialSnapIndex = useMemo(() => 1, []); 
+  const cancelSnapPoints = useMemo(() => ['50%', '90%'], []);
+
+  // Handler to expand bottom sheet when friendly match tab is selected
+  const handleExpandSheet = useCallback(() => {
+    bottomSheetModalRef.current?.snapToIndex(2); 
+  }, []);
+
+  // Handler to collapse bottom sheet when casual play tab is selected
+  const handleCollapseSheet = useCallback(() => {
+    bottomSheetModalRef.current?.snapToIndex(1); 
+  }, []);
 
   // Debug log only once - remove later
   // console.log('🔍 MATCH DETAILS DEBUG:', { matchId, matchStatus });
@@ -766,6 +775,7 @@ export default function JoinMatchScreen() {
     comment?: string;
     isUnfinished?: boolean;
     isCasualPlay?: boolean;
+    isCancelled?: boolean;
     teamAssignments?: { team1: string[]; team2: string[] };
   }) => {
     try {
@@ -775,6 +785,19 @@ export default function JoinMatchScreen() {
         team: p.team,
         mappedTeam: p.team === 'team1' ? 'TEAM_A' : p.team === 'team2' ? 'TEAM_B' : 'TEAM_A'
       })));
+
+      // Handle friendly match cancellation
+      if (isFriendly && data.isCancelled) {
+        await axiosInstance.post(
+          endpoints.friendly.cancel(matchId),
+          { comment: data.comment }
+        );
+        toast.success('Match cancelled');
+        bottomSheetModalRef.current?.dismiss();
+        router.back();
+        return;
+      }
+
       // Use different endpoint for friendly matches (no rating calculation)
       const endpoint = isFriendly
         ? endpoints.friendly.submitResult(matchId)
@@ -1722,6 +1745,8 @@ export default function JoinMatchScreen() {
           onConfirm={handleConfirmResult}
           onDispute={handleOpenDisputeSheet}
           onWalkover={handleWalkover}
+          onExpandSheet={handleExpandSheet}
+          onCollapseSheet={handleCollapseSheet}
         />
       </BottomSheetModal>
 

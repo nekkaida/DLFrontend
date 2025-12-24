@@ -24,6 +24,7 @@ import {
 
 interface ThreadListProps {
   onThreadSelect: (thread: Thread) => void;
+  threads?: Thread[];
 }
 
 // Memoized thread item component for better performance
@@ -205,8 +206,11 @@ const EmptyList = React.memo(() => (
 
 EmptyList.displayName = 'EmptyList';
 
-export const ThreadList: React.FC<ThreadListProps> = ({ onThreadSelect }) => {
-  const { threads, loadThreads, isLoading } = useChatStore();
+export const ThreadList: React.FC<ThreadListProps> = ({ onThreadSelect, threads: filteredThreads }) => {
+  const { threads: storeThreads, loadThreads, isLoading } = useChatStore();
+
+  // Use filtered threads if provided, otherwise fall back to store threads
+  const threads = filteredThreads ?? storeThreads;
   const { data: session } = useSession();
   const userId = session?.user?.id;
 
@@ -318,10 +322,10 @@ const styles = StyleSheet.create({
   avatarContainer: {
     position: 'relative',
     marginRight: 12,
-    minWidth: 70,
+    minWidth: 48,
     minHeight: 48,
     justifyContent: 'center',
-    alignItems: 'center',
+    alignItems: 'flex-start',
   },
   avatarPlaceholder: {
     width: 48,
