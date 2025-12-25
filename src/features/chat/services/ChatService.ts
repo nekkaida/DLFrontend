@@ -160,7 +160,7 @@ export class ChatService {
 
       const members = Array.isArray(response.data?.data)
         ? response.data.data.map((member: BackendThreadMember) =>
-            this.transformBackendUser(member.user)
+            this.transformBackendThreadMember(member)
           )
         : [];
 
@@ -252,7 +252,7 @@ export class ChatService {
       type: backendThread.isGroup ? "group" : "direct",
       participants:
         backendThread.members?.map((member: BackendThreadMember) =>
-          this.transformBackendUser(member.user)
+          this.transformBackendThreadMember(member)
         ) || [],
       lastMessage: lastMessage
         ? this.transformBackendMessage(lastMessage)
@@ -333,6 +333,18 @@ export class ChatService {
       isOnline: false,
       username: backendUser.username,
       email: backendUser.email,
+    };
+  }
+
+  private static transformBackendThreadMember(member: BackendThreadMember): User {
+    return {
+      id: member.user.id,
+      name: member.user.name || member.user.username || "Unknown User",
+      avatar: member.user.image,
+      isOnline: false,
+      username: member.user.username,
+      email: member.user.email,
+      role: member.role,
     };
   }
 

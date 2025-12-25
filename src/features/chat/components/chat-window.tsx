@@ -30,7 +30,7 @@ interface MessageWindowProps {
   sportType?: string | null;
   onReply?: (message: Message) => void;
   onDeleteMessage?: (messageId: string) => void;
-  onLongPress?: (message: Message) => void;
+  onLongPress?: (message: Message, position?: { x: number; y: number; width: number; height: number }) => void;
 }
 
 const { width } = require('react-native').Dimensions.get('window');

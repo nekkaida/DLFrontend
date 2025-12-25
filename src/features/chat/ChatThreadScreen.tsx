@@ -27,13 +27,14 @@ import { MessageInput, MessageInputRef } from './components/chat-input';
 import { MessageWindow } from './components/chat-window';
 import { MatchFormData } from './components/CreateMatchScreen';
 import { GroupAvatarStack } from './components/GroupAvatarStack';
-import { MessageActionBar } from './components/MessageActionBar';
+import { DeleteMessageSheet } from './components/DeleteMessageSheet';
+import { MessageContextMenu } from './components/MessageContextMenu';
 import { useChatSocketEvents } from './hooks/useChatSocketEvents';
 import { ChatService } from './services/ChatService';
 import { useChatStore } from './stores/ChatStore';
 import { useCreateMatchStore } from './stores/CreateMatchStore';
 
-import { Message, Thread } from './types';
+import { filterOutAdmins, Message, Thread } from './types';
 
 // Match participant interface
 interface MatchParticipant {
@@ -60,7 +61,9 @@ export const ChatThreadScreen: React.FC<ChatThreadScreenProps> = ({ threadId }) 
   const { data: session } = useSession();
   const [refreshKey, setRefreshKey] = useState(0);
   const [selectedMessage, setSelectedMessage] = useState<Message | null>(null);
-  const [showActionBar, setShowActionBar] = useState(false);
+  const [showContextMenu, setShowContextMenu] = useState(false);
+  const [showDeleteSheet, setShowDeleteSheet] = useState(false);
+  const [messagePosition, setMessagePosition] = useState<{ x: number; y: number; width: number; height: number } | undefined>(undefined);
   const [isLoadingThread, setIsLoadingThread] = useState(true);
   const appStateRef = useRef<AppStateStatus>(AppState.currentState);
   const messageInputRef = useRef<MessageInputRef>(null);
@@ -469,15 +472,17 @@ export const ChatThreadScreen: React.FC<ChatThreadScreenProps> = ({ threadId }) 
     setReplyingTo(null);
   }, [setReplyingTo]);
 
-  const handleLongPress = useCallback((message: Message) => {
+  const handleLongPress = useCallback((message: Message, position?: { x: number; y: number; width: number; height: number }) => {
     chatLogger.debug('Long press on message:', message.id);
     setSelectedMessage(message);
-    setShowActionBar(true);
+    setMessagePosition(position);
+    setShowContextMenu(true);
   }, []);
 
-  const handleCloseActionBar = useCallback(() => {
-    setShowActionBar(false);
+  const handleCloseContextMenu = useCallback(() => {
+    setShowContextMenu(false);
     setSelectedMessage(null);
+    setMessagePosition(undefined);
   }, []);
 
   const handleActionBarReply = useCallback(() => {
@@ -502,28 +507,34 @@ export const ChatThreadScreen: React.FC<ChatThreadScreenProps> = ({ threadId }) 
     }
   }, [selectedMessage]);
 
-  const handleActionBarDelete = useCallback(async () => {
+  // Handle delete button press from context menu - opens the bottom sheet
+  // Note: We close the context menu but keep selectedMessage so the delete sheet knows which message to delete
+  const handleDeletePress = useCallback(() => {
+    setShowContextMenu(false);
+    setShowDeleteSheet(true);
+  }, []);
+
+  // Handle confirmed delete from the delete sheet
+  const handleConfirmDelete = useCallback(async () => {
     if (selectedMessage) {
-      toast('Delete this message?', {
-        action: {
-          label: 'Delete',
-          onClick: async () => {
-            try {
-              await deleteMessageFromStore(selectedMessage.id, threadId);
-              toast.success('Message deleted');
-            } catch (error) {
-              chatLogger.error('Failed to delete:', error);
-              toast.error('Failed to delete message');
-            }
-          },
-        },
-        cancel: {
-          label: 'Cancel',
-          onClick: () => {},
-        },
-      });
+      try {
+        await deleteMessageFromStore(selectedMessage.id, threadId);
+        toast.success('Message deleted');
+        setShowDeleteSheet(false);
+        setSelectedMessage(null);
+      } catch (error) {
+        chatLogger.error('Failed to delete:', error);
+        toast.error('Failed to delete message');
+      }
     }
   }, [selectedMessage, threadId, deleteMessageFromStore]);
+
+  // Handle closing the delete sheet
+  const handleCloseDeleteSheet = useCallback(() => {
+    setShowDeleteSheet(false);
+    setSelectedMessage(null);
+    setMessagePosition(undefined);
+  }, []);
 
   const handleDeleteMessageAction = useCallback(async (messageId: string) => {
     if (!currentThread) {
@@ -581,18 +592,21 @@ export const ChatThreadScreen: React.FC<ChatThreadScreenProps> = ({ threadId }) 
 
   const sportColors = useMemo(() => getSportColors(headerContent.sportType), [headerContent.sportType]);
 
-  // Memoize participant preview text for group chats
+  // Memoize participant preview text for group chats (excluding admins)
   const participantPreview = useMemo(() => {
     if (!currentThread || currentThread.type !== 'group') return '';
 
-    const participantNames = currentThread.participants
+    // Filter out admin users from the preview
+    const visibleParticipants = filterOutAdmins(currentThread.participants);
+
+    const participantNames = visibleParticipants
       .slice(0, 5)
       .map(p => {
         const firstName = p.name?.split(' ')[0] || p.username || 'Unknown';
         return firstName.length > 10 ? firstName.substring(0, 8) + '.' : firstName;
       });
 
-    if (currentThread.participants.length > 5) {
+    if (visibleParticipants.length > 5) {
       return participantNames.join(', ') + '...';
     }
 
@@ -665,16 +679,6 @@ export const ChatThreadScreen: React.FC<ChatThreadScreenProps> = ({ threadId }) 
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           keyboardVerticalOffset={0}
         >
-          {/* Message Action Bar */}
-          <MessageActionBar
-            visible={showActionBar}
-            isCurrentUser={selectedMessage?.senderId === user?.id}
-            onReply={handleActionBarReply}
-            onCopy={handleActionBarCopy}
-            onDelete={handleActionBarDelete}
-            onClose={handleCloseActionBar}
-          />
-
           <View style={[styles.chatHeader, { paddingTop: STATUS_BAR_HEIGHT + 12 }]}>
             <Pressable
               style={({ pressed }) => [styles.backButton, pressed && { opacity: 0.7 }]}
@@ -831,6 +835,26 @@ export const ChatThreadScreen: React.FC<ChatThreadScreenProps> = ({ threadId }) 
           />
         </KeyboardAvoidingView>
       </SafeAreaView>
+
+      {/* Message Context Menu - rendered outside SafeAreaView to overlay entire screen */}
+      <MessageContextMenu
+        visible={showContextMenu}
+        message={selectedMessage}
+        isCurrentUser={selectedMessage?.senderId === user?.id}
+        messagePosition={messagePosition}
+        sportType={currentThread?.sportType}
+        onReply={handleActionBarReply}
+        onCopy={handleActionBarCopy}
+        onDeletePress={handleDeletePress}
+        onClose={handleCloseContextMenu}
+      />
+
+      {/* Delete Message Bottom Sheet */}
+      <DeleteMessageSheet
+        visible={showDeleteSheet}
+        onClose={handleCloseDeleteSheet}
+        onConfirmDelete={handleConfirmDelete}
+      />
     </View>
   );
 };

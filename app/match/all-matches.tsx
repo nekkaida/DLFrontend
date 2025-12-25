@@ -518,7 +518,7 @@ const styles = StyleSheet.create({
   leagueTitle: {
     fontSize: 15,
     fontWeight: '600',
-    color: '#595757',
+    color: 'rgba(255, 255, 255, 0.9)',
     marginBottom: 10,
     textAlign: 'center',
   },

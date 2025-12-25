@@ -6,7 +6,19 @@ export interface User {
   username?: string;
   email?: string;
   lastSeen?: Date;
+  role?: string;
 }
+
+// Helper to check if a user is an admin (should be hidden from UI)
+export const isAdminUser = (user: User): boolean => {
+  const role = user.role?.toUpperCase();
+  return role === 'ADMIN' || role === 'SUPER_ADMIN' || role === 'SUPERADMIN';
+};
+
+// Filter out admin users from a participants array
+export const filterOutAdmins = (participants: User[]): User[] => {
+  return participants.filter(p => !isAdminUser(p));
+};
 
 // Sender info attached to messages
 export interface MessageSender {
@@ -14,6 +26,14 @@ export interface MessageSender {
   name?: string;
   username?: string;
   image?: string;
+}
+
+// Message reaction (emoji reaction from a user)
+export interface MessageReaction {
+  emoji: string;
+  userId: string;
+  userName?: string;
+  timestamp: Date;
 }
 
 // Read receipt for messages
@@ -149,6 +169,7 @@ export interface Message {
     readBy?: ReadReceipt[];
     updatedAt?: string;
   };
+  reactions?: MessageReaction[];
 }
 
 export interface Thread {

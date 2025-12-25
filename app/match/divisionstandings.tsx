@@ -1,3 +1,6 @@
+import PickleballIcon from '@/assets/images/045-PICKLEBALL.svg';
+import PadelIcon from '@/assets/images/padel-icon.svg';
+import TennisIcon from '@/assets/images/tennis-icon.svg';
 import { getSportColors, SportType } from '@/constants/SportsColor';
 import { endpoints } from '@/lib/endpoints';
 import axiosInstance from '@/lib/endpoints';
@@ -126,6 +129,8 @@ export default function DivisionStandingsScreen() {
   const seasonName = (params.seasonName as string) || 'Season 1 (2025)';
   const seasonStartDate = params.seasonStartDate as string;
   const seasonEndDate = params.seasonEndDate as string;
+  const gameType = (params.gameType as string) || '';
+  const genderCategory = (params.genderCategory as string) || '';
 
   // Format dates
   const formatDate = (dateString: string | null | undefined, fallback: string) => {
@@ -139,6 +144,40 @@ export default function DivisionStandingsScreen() {
 
   const startDate = formatDate(seasonStartDate, '');
   const endDate = formatDate(seasonEndDate, '');
+
+  // Get sport-specific icon
+  const getSportIcon = () => {
+    const sport = sportType?.toUpperCase();
+    if (sport?.includes('TENNIS')) return TennisIcon;
+    if (sport?.includes('PADEL')) return PadelIcon;
+    if (sport?.includes('PICKLEBALL')) return PickleballIcon;
+    return PickleballIcon;
+  };
+
+  // Get game type label with gender category
+  const getGameTypeLabel = (): string => {
+    if (!gameType) return '';
+
+    const gameTypeUpper = gameType?.toUpperCase();
+    const genderCategoryUpper = genderCategory?.toUpperCase();
+
+    let genderPrefix = '';
+    if (genderCategoryUpper === 'MALE') {
+      genderPrefix = "Men's ";
+    } else if (genderCategoryUpper === 'FEMALE') {
+      genderPrefix = "Women's ";
+    } else if (genderCategoryUpper === 'MIXED') {
+      genderPrefix = 'Mixed ';
+    }
+
+    if (gameTypeUpper === 'SINGLES') {
+      return `${genderPrefix}Singles`;
+    } else if (gameTypeUpper === 'DOUBLES') {
+      return `${genderPrefix}Doubles`;
+    }
+
+    return '';
+  };
 
   // Format game type badge text with gender category
   const formatGenderCategory = (gender: string) => {
@@ -1044,6 +1083,9 @@ export default function DivisionStandingsScreen() {
     );
   };
 
+  const SportIcon = getSportIcon();
+  const categoryLabel = getGameTypeLabel();
+
   return (
     <View style={styles.container}>
       {/* Header */}
@@ -1053,15 +1095,36 @@ export default function DivisionStandingsScreen() {
           onPress={() => router.back()}
           activeOpacity={0.7}
         >
-          <Ionicons name="chevron-back" size={28} color="#000000ff" />
+          <Ionicons name="chevron-back" size={24} color="#111827" />
         </TouchableOpacity>
 
         <View style={styles.headerContent}>
-          <Text style={styles.seasonTitle}>{seasonName}</Text>
+          {/* Category title - big and black, aligned with back button */}
+          {categoryLabel ? (
+            <Text style={styles.categoryTitle}>{categoryLabel}</Text>
+          ) : null}
+
+          {/* League name - smaller, gray */}
           <Text style={styles.leagueTitle}>{leagueName}</Text>
-          <View style={styles.dateRange}>
-            <Text style={styles.dateText}>Start date: {startDate}</Text>
-            <Text style={styles.dateText}>End date: {endDate}</Text>
+
+          {/* Season info box - compact */}
+          <View style={[styles.seasonInfoBox, { backgroundColor: sportColors.buttonColor, borderColor: sportColors.badgeColor }]}>
+            {/* Sport icon on the left */}
+            <View style={styles.seasonInfoIcon}>
+              <SportIcon width={40} height={40} fill="#FFFFFF" />
+            </View>
+
+            {/* Season details in the middle */}
+            <View style={styles.seasonInfoDetails}>
+              <Text style={styles.seasonInfoTitle}>{seasonName}</Text>
+              <Text style={styles.seasonInfoDate}>Start date: {startDate}</Text>
+              <Text style={styles.seasonInfoDate}>End date: {endDate}</Text>
+            </View>
+
+            {/* Info button on the right */}
+            <TouchableOpacity style={styles.seasonInfoButton} activeOpacity={0.7}>
+              <Text style={[styles.seasonInfoButtonText, { color: sportColors.buttonColor }]}>Info</Text>
+            </TouchableOpacity>
           </View>
         </View>
       </View>
@@ -1099,7 +1162,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#F6FAFC',
   },
   header: {
-    paddingHorizontal: 20,
+    paddingHorizontal: 16,
     paddingBottom: 20,
     alignItems: 'center',
     position: 'relative',
@@ -1114,41 +1177,62 @@ const styles = StyleSheet.create({
   },
   headerContent: {
     alignItems: 'center',
+    width: '100%',
+    paddingHorizontal: 24,
   },
-  seasonTitle: {
-    fontSize: 26,
+  categoryTitle: {
+    fontSize: 24,
     fontWeight: '700',
-    color: '#000000',
-    marginBottom: 4,
+    color: '#0E0E10',
+    marginBottom: 2,
+    textAlign: 'center',
+    alignSelf: 'center',
   },
   leagueTitle: {
-    fontSize: 16,
-    fontWeight: '500',
-    color: '#FFFFFF',
-    marginBottom: 8,
+    fontSize: 15,
+    fontWeight: '600',
+    color: 'rgba(255, 255, 255, 0.9)',
+    marginBottom: 10,
     textAlign: 'center',
   },
-  sportBadge: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
-    marginBottom: 12,
-  },
-  sportBadgeText: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: '#FFFFFF',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  dateRange: {
+  seasonInfoBox: {
     flexDirection: 'row',
-    gap: 28,
-    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: 20,
+    paddingVertical: 10,
+    paddingLeft: 12,
+    paddingRight: 12,
+    width: '100%',
+    borderWidth: 3,
   },
-  dateText: {
-    fontSize: 12,
-    color: '#000000',
+  seasonInfoIcon: {
+    marginRight: 12,
+  },
+  seasonInfoDetails: {
+    flex: 1,
+  },
+  seasonInfoTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    marginBottom: 1,
+  },
+  seasonInfoDate: {
+    fontSize: 11,
+    color: 'rgba(255, 255, 255, 0.9)',
+    fontWeight: '500',
+    lineHeight: 15,
+  },
+  seasonInfoButton: {
+    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 22,
+    marginLeft: 8,
+  },
+  seasonInfoButtonText: {
+    fontSize: 14,
+    fontWeight: '700',
   },
   scrollView: {
     flex: 1,
