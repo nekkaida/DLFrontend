@@ -28,6 +28,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { toast } from 'sonner-native';
 import { FriendlyBadge } from '@/src/features/friendly/components/FriendlyBadge';
 import { useChatStore } from '@/src/features/chat/stores/ChatStore';
+import { useMyGamesStore } from '@/src/features/dashboard-user/stores/MyGamesStore';
 
 interface ParticipantWithDetails {
   userId: string;
@@ -781,6 +782,8 @@ export default function JoinMatchScreen() {
         }
       }
 
+      // Trigger My Games refresh so the joined match is shown
+      useMyGamesStore.getState().triggerRefresh();
       toast.success('Successfully joined match!');
       router.back();
     } catch (error: any) {
@@ -823,6 +826,8 @@ export default function JoinMatchScreen() {
           endpoints.friendly.cancel(matchId),
           { comment: data.comment }
         );
+        // Trigger My Games refresh so the cancelled match is updated
+        useMyGamesStore.getState().triggerRefresh();
         toast.success('Match cancelled');
         bottomSheetModalRef.current?.dismiss();
         router.back();
@@ -845,6 +850,8 @@ export default function JoinMatchScreen() {
       } else if (data.isUnfinished) {
         successMessage = 'Match marked as incomplete!';
       }
+      // Trigger My Games refresh so the updated match status is shown
+      useMyGamesStore.getState().triggerRefresh();
       toast.success(successMessage);
       bottomSheetModalRef.current?.dismiss();
       router.back();
@@ -867,14 +874,16 @@ export default function JoinMatchScreen() {
   const handleConfirmResult = async () => {
     try {
       // Use different endpoint for friendly matches (no rating calculation)
-      const endpoint = isFriendly 
+      const endpoint = isFriendly
         ? endpoints.friendly.confirmResult(matchId)
         : endpoints.match.confirmResult(matchId);
       const response = await axiosInstance.post(
         endpoint,
         { confirmed: true }
       );
-      
+
+      // Trigger My Games refresh so the confirmed match status is shown
+      useMyGamesStore.getState().triggerRefresh();
       toast.success('Match result confirmed!');
       bottomSheetModalRef.current?.dismiss();
       router.back();
@@ -901,6 +910,8 @@ export default function JoinMatchScreen() {
         }
       );
 
+      // Trigger My Games refresh so the walkover status is shown
+      useMyGamesStore.getState().triggerRefresh();
       toast.success('Walkover recorded successfully');
       bottomSheetModalRef.current?.dismiss();
       router.back();
@@ -953,6 +964,8 @@ export default function JoinMatchScreen() {
         }
       );
 
+      // Trigger My Games refresh so the cancelled match is shown
+      useMyGamesStore.getState().triggerRefresh();
       toast.success('Match cancelled successfully');
       cancelSheetRef.current?.dismiss();
       router.back();
