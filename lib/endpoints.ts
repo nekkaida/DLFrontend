@@ -161,6 +161,7 @@ export const endpoints = {
     getMy: "/api/match/my",
     getAvailable: (divisionId: string) => `/api/match/available/${divisionId}`,
     getById: (id: string) => `/api/match/${id}`,
+    getDetails: (id: string) => `/api/match/${id}/details`, // Full match details for UI display
     update: (id: string) => `/api/match/${id}`,
     delete: (id: string) => `/api/match/delete/${id}`,
     
@@ -205,6 +206,7 @@ export const endpoints = {
   friendly: {
     getAll: "/api/friendly",
     getById: (id: string) => `/api/friendly/${id}`,
+    getDetails: (id: string) => `/api/friendly/${id}/details`, // Full match details for UI display
     create: "/api/friendly/create",
     join: (id: string) => `/api/friendly/${id}/join`,
     submitResult: (id: string) => `/api/friendly/${id}/result`,
@@ -239,6 +241,7 @@ export const endpoints = {
   chat: {
     createThread: "/api/chat/threads/",
     getThreads: (userId: string) => `/api/chat/threads/${userId}`,
+    getThread: (threadId: string) => `/api/chat/thread/${threadId}`,
     getThreadMembers: (threadId: string) => `/api/chat/threads/${threadId}/members`,
     sendMessage: (threadId: string) => `/api/chat/threads/${threadId}/messages`,
     getMessages: (threadId: string) => `/api/chat/threads/${threadId}/messages`,

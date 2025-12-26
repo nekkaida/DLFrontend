@@ -46,6 +46,23 @@ export class ChatService {
     }
   }
 
+  static async getThread(threadId: string): Promise<Thread | null> {
+    chatLogger.debug("getThread called for thread:", threadId);
+    try {
+      const response: AxiosResponse = await axiosInstance.get(
+        endpoints.chat.getThread(threadId)
+      );
+
+      if (response.data?.data) {
+        return this.transformBackendThread(response.data.data);
+      }
+      return null;
+    } catch (error) {
+      chatLogger.error("Error fetching thread:", error);
+      throw error;
+    }
+  }
+
   static async getMessages(
     threadId: string,
     page: number = 1,

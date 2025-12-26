@@ -149,12 +149,19 @@ export default function RootLayout() {
             gestureEnabled: true,
           }} 
         />
-        <Stack.Screen 
-          name="match-history" 
-          options={{ 
+        <Stack.Screen
+          name="match-history"
+          options={{
             headerShown: false,
             gestureEnabled: true,
-          }} 
+          }}
+        />
+        <Stack.Screen
+          name="notifications"
+          options={{
+            headerShown: false,
+            gestureEnabled: true,
+          }}
         />
         <Stack.Screen name="+not-found" />
         </Stack>

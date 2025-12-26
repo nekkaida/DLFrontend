@@ -44,6 +44,7 @@ export default function JoinMatchScreen() {
   const params = useLocalSearchParams();
   const { data: session } = useSession();
   const [loading, setLoading] = useState(false);
+  const [isLoadingMatchDetails, setIsLoadingMatchDetails] = useState(false);
   const [participantsWithDetails, setParticipantsWithDetails] = useState<ParticipantWithDetails[]>([]);
   const [partnerInfo, setPartnerInfo] = useState<{
     hasPartner: boolean;
@@ -51,6 +52,28 @@ export default function JoinMatchScreen() {
     partnerImage?: string;
     partnerId?: string;
   }>({ hasPartner: false });
+
+  // State for fetched match details (when navigating from notifications with only matchId)
+  const [fetchedMatchDetails, setFetchedMatchDetails] = useState<{
+    date?: string;
+    time?: string;
+    location?: string;
+    sportType?: string;
+    leagueName?: string;
+    season?: string;
+    division?: string;
+    divisionId?: string;
+    seasonId?: string;
+    courtBooked?: boolean;
+    fee?: string;
+    feeAmount?: string;
+    description?: string;
+    duration?: string;
+    matchType?: string;
+    participants?: any[];
+    status?: string;
+    isFriendly?: boolean;
+  } | null>(null);
   
   // Match data for result submission logic
   const [matchData, setMatchData] = useState<{
@@ -86,29 +109,132 @@ export default function JoinMatchScreen() {
   const bottomSheetModalRef = useRef<BottomSheetModal>(null);
   const cancelSheetRef = useRef<BottomSheetModal>(null);
 
-  // Parse params
+  // Parse params - use fetched data as fallback when navigating from notifications
   const matchId = params.matchId as string;
-  const matchType = (params.matchType as string) || 'SINGLES';
-  const date = params.date as string;
-  const time = params.time as string;
-  const location = params.location as string;
-  const sportType = params.sportType as string;
-  const leagueName = params.leagueName as string;
-  const season = params.season as string;
-  const division = params.division as string;
-  const courtBooked = params.courtBooked === 'true';
-  const fee = params.fee as string;
-  const feeAmount = params.feeAmount as string;
-  const description = params.description as string;
-  const duration = params.duration as string;
-  const divisionId = params.divisionId as string;
-  const seasonId = params.seasonId as string;
-  const participants = params.participants ? JSON.parse(params.participants as string) : [];
-  const matchStatus = (params.status as string) || 'SCHEDULED';
-  const isFriendly = params.isFriendly === 'true';
+  const matchType = (params.matchType as string) || fetchedMatchDetails?.matchType || 'SINGLES';
+  const date = (params.date as string) || fetchedMatchDetails?.date || '';
+  const time = (params.time as string) || fetchedMatchDetails?.time || '';
+  const location = (params.location as string) || fetchedMatchDetails?.location || '';
+  const sportType = (params.sportType as string) || fetchedMatchDetails?.sportType || '';
+  const leagueName = (params.leagueName as string) || fetchedMatchDetails?.leagueName || '';
+  const season = (params.season as string) || fetchedMatchDetails?.season || '';
+  const division = (params.division as string) || fetchedMatchDetails?.division || '';
+  const courtBooked = params.courtBooked === 'true' || fetchedMatchDetails?.courtBooked || false;
+  const fee = (params.fee as string) || fetchedMatchDetails?.fee || 'FREE';
+  const feeAmount = (params.feeAmount as string) || fetchedMatchDetails?.feeAmount || '0';
+  const description = (params.description as string) || fetchedMatchDetails?.description || '';
+  const duration = (params.duration as string) || fetchedMatchDetails?.duration || '2';
+  const divisionId = (params.divisionId as string) || fetchedMatchDetails?.divisionId || '';
+  const seasonId = (params.seasonId as string) || fetchedMatchDetails?.seasonId || '';
+  const participants = params.participants
+    ? JSON.parse(params.participants as string)
+    : (fetchedMatchDetails?.participants || []);
+  const matchStatus = (params.status as string) || fetchedMatchDetails?.status || 'SCHEDULED';
+  const isFriendly = params.isFriendly === 'true' || fetchedMatchDetails?.isFriendly || false;
   // Chat message params - used to update the message bubble after joining
   const chatMessageId = params.messageId as string | undefined;
   const chatThreadId = params.threadId as string | undefined;
+
+  // Fetch full match details when navigating with only matchId (from notifications)
+  useEffect(() => {
+    const fetchFullMatchDetails = async () => {
+      // Only fetch if we have matchId but missing essential display data
+      if (!matchId || !session?.user?.id) return;
+
+      // Check if we already have the essential params from URL
+      const hasEssentialParams = params.date && params.time && params.participants;
+      if (hasEssentialParams) return;
+
+      setIsLoadingMatchDetails(true);
+      try {
+        let data = null;
+
+        // If we know it's a friendly match from params, try that first
+        if (params.isFriendly === 'true') {
+          try {
+            const response = await axiosInstance.get(endpoints.friendly.getDetails(matchId));
+            data = response.data?.data;
+          } catch (friendlyError) {
+            console.log('Not a friendly match, trying league endpoint');
+          }
+        }
+
+        // Try league match endpoint if friendly didn't work or wasn't specified
+        if (!data) {
+          try {
+            const response = await axiosInstance.get(endpoints.match.getDetails(matchId));
+            data = response.data?.data;
+          } catch (leagueError) {
+            // If league fails, try friendly as fallback
+            try {
+              const response = await axiosInstance.get(endpoints.friendly.getDetails(matchId));
+              data = response.data?.data;
+            } catch (friendlyError) {
+              // Both failed, throw the original error
+              throw leagueError;
+            }
+          }
+        }
+
+        if (data) {
+          setFetchedMatchDetails({
+            date: data.date,
+            time: data.time,
+            location: data.location,
+            sportType: data.sportType,
+            leagueName: data.leagueName,
+            season: data.season,
+            division: data.division,
+            divisionId: data.divisionId,
+            seasonId: data.seasonId,
+            courtBooked: data.courtBooked,
+            fee: data.fee,
+            feeAmount: data.feeAmount,
+            description: data.description,
+            duration: data.duration?.toString(),
+            matchType: data.matchType,
+            participants: data.participants,
+            status: data.status,
+            isFriendly: data.isFriendly,
+          });
+
+          // Also set the participants with details since we have user info
+          if (data.participants && data.participants.length > 0) {
+            setParticipantsWithDetails(data.participants.map((p: any) => ({
+              userId: p.userId,
+              name: p.name,
+              image: p.image,
+              role: p.role,
+              team: p.team,
+              invitationStatus: p.invitationStatus,
+            })));
+          }
+
+          // Set additional match data for result submission logic
+          setMatchData(prev => ({
+            ...prev,
+            createdById: data.createdById || null,
+            resultSubmittedById: data.resultSubmittedById || null,
+            resultSubmittedAt: data.resultSubmittedAt || null,
+            status: data.status || 'SCHEDULED',
+            team1Score: data.team1Score ?? null,
+            team2Score: data.team2Score ?? null,
+            isDisputed: data.isDisputed || false,
+            matchDate: data.matchDate || null,
+            genderRestriction: data.genderRestriction || null,
+            skillLevels: data.skillLevels || [],
+          }));
+        }
+      } catch (error) {
+        console.error('Error fetching match details:', error);
+        toast.error('Failed to load match details');
+      } finally {
+        setIsLoadingMatchDetails(false);
+      }
+    };
+
+    fetchFullMatchDetails();
+  }, [matchId, session?.user?.id, params.date, params.time, params.participants, params.isFriendly]);
 
   // Snap points for match result sheet
   const snapPoints = useMemo(() => ['75%', '90%'], []);
@@ -1129,6 +1255,14 @@ export default function JoinMatchScreen() {
         keyboardDismissMode="interactive"
         bottomOffset={16}
       >
+        {/* Loading indicator when fetching match details from notifications */}
+        {isLoadingMatchDetails && (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color={themeColor} />
+            <Text style={styles.loadingText}>Loading match details...</Text>
+          </View>
+        )}
+
         {/* Participants Section */}
         <View style={styles.participantsSection}>
           <View style={styles.playersRow}>
@@ -2299,5 +2433,16 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 60,
+  },
+  loadingText: {
+    marginTop: 12,
+    fontSize: 14,
+    color: '#6B7280',
   },
 });

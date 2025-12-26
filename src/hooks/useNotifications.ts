@@ -5,7 +5,7 @@ import {
     Notification,
     NotificationFilter
 } from '@/src/shared/types/notification';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 interface UseNotificationsReturn {
   notifications: Notification[];
@@ -38,6 +38,12 @@ export function useNotifications(
   const [isConnected, setIsConnected] = useState(false);
   
   const filterRef = useRef(initialFilter);
+  const notificationsRef = useRef<Notification[]>([]);
+
+  // Keep ref in sync with state for socket handlers
+  useEffect(() => {
+    notificationsRef.current = notifications;
+  }, [notifications]);
 
   // Fetch notifications
   const fetchNotifications = useCallback(async (page: number = 1, append: boolean = false) => {
@@ -180,26 +186,33 @@ export function useNotifications(
     // Handle notification marked as read
     const handleNotificationRead = (data: { notificationId: string }) => {
       console.log('👁️ Notification marked as read:', data.notificationId);
-      
+
+      // Check if notification exists and is currently unread before decrementing
+      const notification = notificationsRef.current.find(n => n.id === data.notificationId);
+      const wasUnread = notification && !notification.read;
+
       setNotifications(prev =>
-        prev.map(n => 
-          n.id === data.notificationId 
-            ? { ...n, read: true, readAt: new Date().toISOString() } 
+        prev.map(n =>
+          n.id === data.notificationId
+            ? { ...n, read: true, readAt: new Date().toISOString() }
             : n
         )
       );
-      
-      setUnreadCount(prev => Math.max(0, prev - 1));
+
+      // Only decrement if the notification was actually unread
+      if (wasUnread) {
+        setUnreadCount(prev => Math.max(0, prev - 1));
+      }
     };
 
     // Handle notification deleted
     const handleNotificationDeleted = (data: { notificationId: string }) => {
       console.log('🗑️ Notification deleted:', data.notificationId);
-      
-      const notification = notifications.find(n => n.id === data.notificationId);
-      
+
+      const notification = notificationsRef.current.find(n => n.id === data.notificationId);
+
       setNotifications(prev => prev.filter(n => n.id !== data.notificationId));
-      
+
       if (notification && !notification.read) {
         setUnreadCount(prev => Math.max(0, prev - 1));
       }
@@ -220,7 +233,7 @@ export function useNotifications(
       socketService.off('notification_deleted', handleNotificationDeleted);
       setIsConnected(false);
     };
-  }, [userId, notifications]);
+  }, [userId]); // Removed notifications dependency - using notificationsRef instead
 
   return {
     notifications,
