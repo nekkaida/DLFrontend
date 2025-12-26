@@ -17,16 +17,13 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   ActivityIndicator,
   Image,
-  Keyboard,
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
   StatusBar,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from 'react-native';
+import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { toast } from 'sonner-native';
 import { FriendlyBadge } from '@/src/features/friendly/components/FriendlyBadge';
@@ -86,7 +83,6 @@ export default function JoinMatchScreen() {
   
   const bottomSheetModalRef = useRef<BottomSheetModal>(null);
   const cancelSheetRef = useRef<BottomSheetModal>(null);
-  const scrollViewRef = useRef<ScrollView>(null);
 
   // Parse params
   const matchId = params.matchId as string;
@@ -110,9 +106,9 @@ export default function JoinMatchScreen() {
   const isFriendly = params.isFriendly === 'true';
 
   // Snap points for match result sheet
-  const snapPoints = useMemo(() => ['50%', '90%'], []);
+  const snapPoints = useMemo(() => ['75%', '90%'], []);
   const initialSnapIndex = useMemo(() => 1, []); 
-  const cancelSnapPoints = useMemo(() => ['50%', '90%'], []);
+  const cancelSnapPoints = useMemo(() => ['75%', '90%'], []);
 
   // Handler to expand bottom sheet when friendly match tab is selected
   const handleExpandSheet = useCallback(() => {
@@ -1039,20 +1035,8 @@ export default function JoinMatchScreen() {
 
   const resultSheetMode = getResultSheetMode();
 
-  // Handle scrolling to end when comment input is focused
-  const handleCommentInputFocus = useCallback(() => {
-    // Small delay to let keyboard animation start
-    setTimeout(() => {
-      scrollViewRef.current?.scrollToEnd({ animated: true });
-    }, 100);
-  }, []);
-
   return (
-    <KeyboardAvoidingView
-      style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      keyboardVerticalOffset={0}
-    >
+    <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor={themeColor} />
 
       {/* Custom Header */}
@@ -1089,12 +1073,13 @@ export default function JoinMatchScreen() {
         </View>
       </View>
 
-      <ScrollView
-        ref={scrollViewRef}
+      <KeyboardAwareScrollView
         style={styles.scrollContent}
         contentContainerStyle={styles.scrollContentContainer}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="interactive"
+        bottomOffset={16}
       >
         {/* Participants Section */}
         <View style={styles.participantsSection}>
@@ -1566,14 +1551,13 @@ export default function JoinMatchScreen() {
           onUpdateComment={handleUpdateComment}
           onDeleteComment={handleDeleteComment}
           isLoading={isLoadingComments}
-          onInputFocus={handleCommentInputFocus}
         />
 
         {/* Report Section  - Waiting on updates from clients */}
         <TouchableOpacity style={styles.reportButton}>
           <Text style={styles.reportButtonText}>Report a problem</Text>
         </TouchableOpacity>
-      </ScrollView>
+      </KeyboardAwareScrollView>
 
       {/* Footer with Action Buttons */}
       <View style={[styles.footer, { paddingBottom: insets.bottom + 16 }]}>
@@ -1766,7 +1750,7 @@ export default function JoinMatchScreen() {
           onCancel={handleCancelMatch}
         />
       </BottomSheetModal>
-    </KeyboardAvoidingView>
+    </View>
   );
 }
 
