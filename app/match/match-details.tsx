@@ -27,6 +27,7 @@ import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { toast } from 'sonner-native';
 import { FriendlyBadge } from '@/src/features/friendly/components/FriendlyBadge';
+import { useChatStore } from '@/src/features/chat/stores/ChatStore';
 
 interface ParticipantWithDetails {
   userId: string;
@@ -104,6 +105,9 @@ export default function JoinMatchScreen() {
   const participants = params.participants ? JSON.parse(params.participants as string) : [];
   const matchStatus = (params.status as string) || 'SCHEDULED';
   const isFriendly = params.isFriendly === 'true';
+  // Chat message params - used to update the message bubble after joining
+  const chatMessageId = params.messageId as string | undefined;
+  const chatThreadId = params.threadId as string | undefined;
 
   // Snap points for match result sheet
   const snapPoints = useMemo(() => ['75%', '90%'], []);
@@ -744,6 +748,37 @@ export default function JoinMatchScreen() {
           return;
         }
         throw new Error(errorData.error || 'Failed to join match');
+      }
+
+      const result = await response.json();
+
+      // Update the chat message to reflect joined status
+      // This ensures MatchMessageBubble shows "Joined" when navigating back
+      if (chatMessageId && chatThreadId) {
+        const { updateMessage, messages } = useChatStore.getState();
+        const threadMessages = messages[chatThreadId];
+        const existingMessage = threadMessages?.find(m => m.id === chatMessageId);
+
+        if (existingMessage?.matchData) {
+          // Create new participant entry for the current user
+          const newParticipant = {
+            userId: session.user.id,
+            invitationStatus: 'ACCEPTED',
+          };
+
+          // Merge existing participants with new ones from response or add current user
+          const updatedParticipants = result.participants || [
+            ...(existingMessage.matchData.participants || []),
+            newParticipant,
+          ];
+
+          updateMessage(chatMessageId, {
+            matchData: {
+              ...existingMessage.matchData,
+              participants: updatedParticipants,
+            },
+          });
+        }
       }
 
       toast.success('Successfully joined match!');
