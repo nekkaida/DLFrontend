@@ -1,6 +1,9 @@
 import type { GameData, UserData, SetDetail } from '../types';
 import { getPrimarySkillLevel } from '../utils/skillLevelUtils';
 
+// Preferred order for sports tabs display
+const SPORT_ORDER = ['Pickleball', 'Tennis', 'Padel'];
+
 // API response type for rating history
 interface RatingHistoryApiEntry {
   id: string;
@@ -51,10 +54,26 @@ export class ProfileDataTransformer {
       skillLevel: getPrimarySkillLevel(profileData.skillRatings), // Calculate from actual skill ratings
       skillRatings: profileData.skillRatings || {}, // Pass through the actual skill ratings for DMR section
       sports: profileData.sports && profileData.sports.length > 0
-        ? profileData.sports.map((sport: string) => sport.charAt(0).toUpperCase() + sport.slice(1))
+        ? profileData.sports
+            .map((sport: string) => sport.charAt(0).toUpperCase() + sport.slice(1))
+            .sort((a: string, b: string) => {
+              const indexA = SPORT_ORDER.indexOf(a);
+              const indexB = SPORT_ORDER.indexOf(b);
+              if (indexA === -1) return 1;
+              if (indexB === -1) return -1;
+              return indexA - indexB;
+            })
         : ['No sports yet'],
       activeSports: profileData.sports && profileData.sports.length > 0
-        ? profileData.sports.map((sport: string) => sport.charAt(0).toUpperCase() + sport.slice(1))
+        ? profileData.sports
+            .map((sport: string) => sport.charAt(0).toUpperCase() + sport.slice(1))
+            .sort((a: string, b: string) => {
+              const indexA = SPORT_ORDER.indexOf(a);
+              const indexB = SPORT_ORDER.indexOf(b);
+              if (indexA === -1) return 1;
+              if (indexB === -1) return -1;
+              return indexA - indexB;
+            })
         : [],
       profileImage: profileData.image || profileData.profileImage || undefined,
       achievements: achievements || [],

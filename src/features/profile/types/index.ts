@@ -53,7 +53,7 @@ export interface MatchDetailsModalProps {
 
 export interface EloProgressGraphProps {
   data: GameData[];
-  onPointPress: (game: GameData) => void;
+  onPointPress: (game: GameData, index: number) => void;
   selectedIndex?: number | null;
 }
 

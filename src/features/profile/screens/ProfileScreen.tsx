@@ -48,6 +48,7 @@ export default function ProfileScreen() {
   const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [selectedImageUri, setSelectedImageUri] = useState<string | null>(null);
   const [showCropper, setShowCropper] = useState(false);
+  const [selectedGraphIndex, setSelectedGraphIndex] = useState<number | null>(null);
   const hasInitializedSport = useRef(false);
 
   // Profile state and handlers
@@ -77,14 +78,15 @@ export default function ProfileScreen() {
 
   const { navigateTo } = useNavigationManager();
 
-  // Fetch rating history for the selected game type
-  const fetchRatingHistory = useCallback(async (gameType: 'singles' | 'doubles') => {
+  // Fetch rating history for the selected game type and sport
+  const fetchRatingHistory = useCallback(async (gameType: 'singles' | 'doubles', sport: string) => {
     try {
       if (!session?.user?.id) return;
 
       const backendUrl = getBackendBaseURL();
+      const sportParam = sport.toUpperCase();
       const response = await authClient.$fetch(
-        `${backendUrl}/api/ratings/me/history?gameType=${gameType.toUpperCase()}&limit=20`,
+        `${backendUrl}/api/ratings/me/history?gameType=${gameType.toUpperCase()}&sport=${sportParam}&limit=20`,
         { method: 'GET' }
       );
 
@@ -163,12 +165,26 @@ export default function ProfileScreen() {
     fetchProfileData();
   }, [fetchProfileData]);
 
-  // Fetch rating history when game type or profile data changes
+  // Fetch rating history when game type, sport, or profile data changes
   useEffect(() => {
-    if (profileData && selectedGameType) {
-      fetchRatingHistory(selectedGameType.toLowerCase() as 'singles' | 'doubles');
+    if (profileData && selectedGameType && activeTab) {
+      fetchRatingHistory(selectedGameType.toLowerCase() as 'singles' | 'doubles', activeTab);
     }
-  }, [selectedGameType, profileData, fetchRatingHistory]);
+  }, [selectedGameType, activeTab, profileData, fetchRatingHistory]);
+
+  // Auto-select the most recent match when rating history updates and a match was previously selected
+  useEffect(() => {
+    if (selectedMatch && ratingHistory.length > 0) {
+      // Select the most recent match (first in array = most recent)
+      // The graph reverses the data, so index 0 in ratingHistory becomes the last point on graph
+      // We want to select the "current" point which is the last in the reversed array
+      const mostRecentMatch = ratingHistory[0];
+      setSelectedGame(mostRecentMatch);
+      // In the graph, data is reversed, so the most recent (index 0) becomes the last point
+      // The selectedIndex in graph corresponds to the reversed array position
+      setSelectedGraphIndex(ratingHistory.length - 1);
+    }
+  }, [ratingHistory]);
 
   useFocusEffect(
     useCallback(() => {
@@ -180,11 +196,11 @@ export default function ProfileScreen() {
     setRefreshing(true);
     await fetchProfileData();
     // Also refresh rating history
-    if (selectedGameType) {
-      await fetchRatingHistory(selectedGameType.toLowerCase() as 'singles' | 'doubles');
+    if (selectedGameType && activeTab) {
+      await fetchRatingHistory(selectedGameType.toLowerCase() as 'singles' | 'doubles', activeTab);
     }
     setRefreshing(false);
-  }, [fetchProfileData, fetchRatingHistory, selectedGameType]);
+  }, [fetchProfileData, fetchRatingHistory, selectedGameType, activeTab]);
 
   // Transform profile data for display
   const userData = ProfileDataTransformer.transformProfileToUserData(profileData, achievements);
@@ -527,8 +543,12 @@ export default function ProfileScreen() {
             onGameTypeSelect={handleGameTypeSelect}
             getRatingForType={getRatingForType}
             eloData={eloData}
-            onPointPress={handleGamePointPress}
+            onPointPress={(game, index) => {
+              handleGamePointPress(game);
+              setSelectedGraphIndex(index);
+            }}
             selectedMatch={selectedMatch}
+            selectedGraphIndex={selectedGraphIndex}
             profileData={profileData}
           />
 

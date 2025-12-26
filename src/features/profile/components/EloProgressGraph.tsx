@@ -182,7 +182,7 @@ export const EloProgressGraph: React.FC<EloProgressGraphProps> = ({
   const handlePointPress = (point: any, index: number) => {
     setInternalSelectedIndex(index);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    onPointPress(point);
+    onPointPress(point, index);
   };
 
   return (
