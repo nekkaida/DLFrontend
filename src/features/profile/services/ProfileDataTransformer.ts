@@ -1,5 +1,32 @@
-import type { GameData, UserData } from '../types';
+import type { GameData, UserData, SetDetail } from '../types';
 import { getPrimarySkillLevel } from '../utils/skillLevelUtils';
+
+// API response type for rating history
+interface RatingHistoryApiEntry {
+  id: string;
+  matchId: string | null;
+  ratingBefore: number;
+  ratingAfter: number;
+  delta: number;
+  rdBefore: number | null;
+  rdAfter: number | null;
+  reason: string;
+  notes: string | null;
+  createdAt: string;
+  matchDate: string | null;
+  adversary: string | null;
+  adversaryImage: string | null;
+  result: 'W' | 'L' | null;
+  setScores: Array<{
+    setNumber: number;
+    userGames: number;
+    opponentGames: number;
+    userWonSet: boolean;
+    hasTiebreak: boolean;
+    userTiebreak: number | null;
+    opponentTiebreak: number | null;
+  }>;
+}
 
 // ProfileDataTransformer - Handles data transformation logic
 
@@ -96,6 +123,7 @@ export class ProfileDataTransformer {
         date: 'No matches yet',
         time: '',
         rating: 1400,
+        ratingBefore: 1400,
         opponent: 'No data available',
         result: 'W' as const,
         score: '-',
@@ -111,6 +139,81 @@ export class ProfileDataTransformer {
         status: 'completed' as const,
       }
     ];
+  }
+
+  /**
+   * Transform rating history API response to GameData format
+   */
+  static transformRatingHistoryToGameData(
+    entries: RatingHistoryApiEntry[],
+    userName: string
+  ): GameData[] {
+    return entries
+      .filter(entry => entry.matchId !== null) // Only include entries with matches
+      .map(entry => {
+        // Format date
+        const matchDate = entry.matchDate ? new Date(entry.matchDate) : new Date(entry.createdAt);
+        const formattedDate = matchDate.toLocaleDateString('en-US', {
+          month: 'short',
+          day: 'numeric',
+          year: 'numeric'
+        });
+        const formattedTime = matchDate.toLocaleTimeString('en-US', {
+          hour: 'numeric',
+          minute: '2-digit',
+          hour12: true
+        });
+
+        // Build score string from set scores
+        const scoreString = entry.setScores
+          .map(s => `${s.userGames}-${s.opponentGames}`)
+          .join(', ');
+
+        // Transform set scores to the legacy format for backward compatibility
+        const scores = {
+          set1: entry.setScores[0]
+            ? { player1: entry.setScores[0].userGames, player2: entry.setScores[0].opponentGames }
+            : { player1: null, player2: null },
+          set2: entry.setScores[1]
+            ? { player1: entry.setScores[1].userGames, player2: entry.setScores[1].opponentGames }
+            : { player1: null, player2: null },
+          set3: entry.setScores[2]
+            ? { player1: entry.setScores[2].userGames, player2: entry.setScores[2].opponentGames }
+            : { player1: null, player2: null },
+        };
+
+        // Transform setScores to SetDetail format
+        const setDetails: SetDetail[] = entry.setScores.map(s => ({
+          setNumber: s.setNumber,
+          userGames: s.userGames,
+          opponentGames: s.opponentGames,
+          userWonSet: s.userWonSet,
+          hasTiebreak: s.hasTiebreak,
+          userTiebreak: s.userTiebreak,
+          opponentTiebreak: s.opponentTiebreak,
+        }));
+
+        return {
+          date: formattedDate,
+          time: formattedTime,
+          rating: entry.ratingAfter,
+          ratingBefore: entry.ratingBefore,
+          rdBefore: entry.rdBefore ?? undefined,
+          rdAfter: entry.rdAfter ?? undefined,
+          opponent: entry.adversary || 'Unknown',
+          opponentImage: entry.adversaryImage ?? undefined,
+          result: entry.result || (entry.delta > 0 ? 'W' : 'L'),
+          score: scoreString || '-',
+          ratingChange: entry.delta,
+          league: '',
+          player1: userName,
+          player2: entry.adversary || 'Unknown',
+          matchId: entry.matchId ?? undefined,
+          scores,
+          setDetails,
+          status: 'completed' as const,
+        };
+      });
   }
 
   /**
