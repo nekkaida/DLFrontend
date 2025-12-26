@@ -15,8 +15,8 @@ import NotificationBell from "@/src/shared/components/NotificationBell";
 import MyGamesScreen from "./MyGamesScreen";
 import { FriendlyScreen } from "@/src/features/friendly/screens";
 import * as Haptics from "expo-haptics";
-import { router, useLocalSearchParams } from "expo-router";
-import { default as React, useEffect } from "react";
+import { router, useLocalSearchParams, useFocusEffect } from "expo-router";
+import { default as React, useCallback, useEffect } from "react";
 import {
   Animated,
   BackHandler,
@@ -80,7 +80,14 @@ export default function DashboardScreen() {
  
   
   // Notification hook
-  const { unreadCount } = useNotifications();
+  const { unreadCount, refreshUnreadCount } = useNotifications();
+
+  // Refresh unread count when dashboard gains focus (e.g., after returning from notifications page)
+  useFocusEffect(
+    useCallback(() => {
+      refreshUnreadCount();
+    }, [refreshUnreadCount])
+  );
   
   // Chat unread count hook
   const chatUnreadCount = useUnreadCount();

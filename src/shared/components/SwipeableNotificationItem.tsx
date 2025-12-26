@@ -53,7 +53,7 @@ export const SwipeableNotificationItem: React.FC<NotificationItemProps> = React.
       ]}
     >
       {/* Unread indicator bar */}
-      {!notification.read && <View style={[styles.unreadBar, { backgroundColor: iconColor }]} />}
+      {!notification.read && <View style={[styles.unreadBar, { backgroundColor: '#EF4444' }]} />}
 
       {/* Icon */}
       <View style={[styles.iconContainer, { backgroundColor: iconColor }]}>
@@ -67,14 +67,19 @@ export const SwipeableNotificationItem: React.FC<NotificationItemProps> = React.
       {/* Content */}
       <View style={styles.content}>
         {notification.title && (
-          <Text style={styles.title} numberOfLines={1}>
+          <Text style={[styles.title, !notification.read && styles.titleUnread]} numberOfLines={1}>
             {notification.title}
           </Text>
         )}
-        <Text style={styles.message} numberOfLines={2}>
+        <Text style={[styles.message, !notification.read && styles.messageUnread]} numberOfLines={3}>
           {notification.message}
         </Text>
-        <Text style={styles.time}>{formattedTime}</Text>
+        <View style={styles.timeRow}>
+          <Text style={styles.time}>{formattedTime}</Text>
+          {!notification.read && (
+            <View style={[styles.unreadDot, { backgroundColor: '#EF4444' }]} />
+          )}
+        </View>
       </View>
 
       {/* Chevron for navigation hint */}
@@ -95,10 +100,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingLeft: 16,
     backgroundColor: '#FFFFFF',
-    minHeight: 72,
+    minHeight: 88,
   },
   containerUnread: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#F8F9FF',
   },
   unreadBar: {
     position: 'absolute',
@@ -127,16 +132,34 @@ const styles = StyleSheet.create({
     color: '#1C1C1E',
     marginBottom: 2,
   },
+  titleUnread: {
+    fontWeight: '700',
+    color: '#000000',
+  },
   message: {
     fontSize: 14,
     color: '#3C3C43',
     lineHeight: 18,
     opacity: 0.6,
   },
+  messageUnread: {
+    opacity: 0.8,
+    color: '#1C1C1E',
+  },
+  timeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 4,
+    gap: 6,
+  },
   time: {
     fontSize: 12,
     color: '#8E8E93',
-    marginTop: 4,
+  },
+  unreadDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
   },
   chevronContainer: {
     marginLeft: 8,

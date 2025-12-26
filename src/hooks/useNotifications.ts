@@ -17,6 +17,7 @@ interface UseNotificationsReturn {
   markAllAsRead: () => Promise<void>;
   deleteNotification: (id: string) => Promise<void>;
   refresh: () => Promise<void>;
+  refreshUnreadCount: () => Promise<void>;
   loadMore: () => Promise<void>;
   hasMore: boolean;
   isConnected: boolean;
@@ -245,6 +246,7 @@ export function useNotifications(
     markAllAsRead,
     deleteNotification,
     refresh,
+    refreshUnreadCount: fetchUnreadCount,
     loadMore,
     hasMore,
     isConnected,
