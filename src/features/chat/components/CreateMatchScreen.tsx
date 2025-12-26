@@ -1,13 +1,11 @@
 import { Ionicons } from '@expo/vector-icons';
 import Slider from '@react-native-community/slider';
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
-import React, { useState, useRef, useMemo, useCallback, memo } from 'react';
+import React, { useState, useMemo, useCallback, memo } from 'react';
 import {
-  KeyboardAvoidingView,
   Modal,
   Platform,
   Pressable,
-  ScrollView,
   StatusBar,
   StyleSheet,
   Switch,
@@ -16,6 +14,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { format, addDays, startOfWeek, isSameDay, startOfMonth, endOfMonth, addMonths, subMonths } from 'date-fns';
 import { toast } from 'sonner-native';
@@ -79,11 +78,6 @@ export const CreateMatchScreen: React.FC<CreateMatchScreenProps> = memo(({
   const [currentWeekStart, setCurrentWeekStart] = useState<Date>(startOfWeek(new Date(), { weekStartsOn: 1 }));
   const [isMonthView, setIsMonthView] = useState(false);
   const [currentMonth, setCurrentMonth] = useState<Date>(startOfMonth(new Date()));
-  const scrollViewRef = useRef<ScrollView>(null);
-  const descriptionSectionRef = useRef<View>(null);
-  const locationSectionRef = useRef<View>(null);
-  const [locationY, setLocationY] = useState(0);
-  const [descriptionY, setDescriptionY] = useState(0);
 
   // Memoized sport-specific colors
   const sportColors = useMemo(() => {
@@ -253,10 +247,6 @@ export const CreateMatchScreen: React.FC<CreateMatchScreenProps> = memo(({
 
     if (!formData.location || formData.location.trim() === '') {
       toast.error('Please enter a location');
-      // Optionally scroll to location field
-      if (locationY > 0) {
-        scrollViewRef.current?.scrollTo({ y: locationY - 100, animated: true });
-      }
       return;
     }
 
@@ -322,19 +312,14 @@ export const CreateMatchScreen: React.FC<CreateMatchScreenProps> = memo(({
       </View>
 
       <View style={styles.keyboardView}>
-        <KeyboardAvoidingView
-          style={styles.keyboardAvoidingView}
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
-        >
           <View style={styles.contentWrapper}>
-          <ScrollView
-            ref={scrollViewRef}
+          <KeyboardAwareScrollView
             style={styles.content}
-            contentContainerStyle={[styles.scrollContent, { paddingBottom: 200 }]}
+            contentContainerStyle={styles.scrollContent}
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
             keyboardDismissMode="interactive"
+            bottomOffset={16}
           >
           {/* Date Selection */}
           <View style={styles.section}>
@@ -495,14 +480,7 @@ export const CreateMatchScreen: React.FC<CreateMatchScreenProps> = memo(({
           </View>
 
           {/* Location Input */}
-          <View 
-            ref={locationSectionRef} 
-            style={styles.section}
-            onLayout={(event) => {
-              const { y } = event.nativeEvent.layout;
-              setLocationY(y);
-            }}
-          >
+          <View style={styles.section}>
             <Text style={styles.sectionLabel}>Location <Text style={styles.requiredAsterisk}>*</Text></Text>
             <View style={styles.locationCard}>
               <View style={styles.locationInputRow}>
@@ -513,12 +491,6 @@ export const CreateMatchScreen: React.FC<CreateMatchScreenProps> = memo(({
                   onChangeText={(text) => setFormData({ ...formData, location: text })}
                   placeholder="Select location"
                   placeholderTextColor="#BABABA"
-                  onFocus={() => {
-                    // Scroll to location field when focused, positioning it above keyboard
-                    setTimeout(() => {
-                      scrollViewRef.current?.scrollTo({ y: locationY - 20, animated: true });
-                    }, 300);
-                  }}
                 />
               </View>
               
@@ -658,17 +630,10 @@ export const CreateMatchScreen: React.FC<CreateMatchScreenProps> = memo(({
           </View>
 
           {/* Description Input */}
-          <View 
-            ref={descriptionSectionRef} 
-            style={styles.section}
-            onLayout={(event) => {
-              const { y } = event.nativeEvent.layout;
-              setDescriptionY(y);
-            }}
-          >
+          <View style={styles.section}>
             <View style={styles.descriptionHeader}>
-              <Text style={styles.sectionLabel}>Description</Text>
-              <Text style={styles.optionalLabel}>Optional</Text>
+              <Text style={styles.descriptionLabel}>Description</Text>
+              <Text style={styles.optionalLabel}>(Optional)</Text>
             </View>
             <View style={styles.descriptionCard}>
               <Ionicons name="create-outline" size={20} color="#BABABA" style={styles.descriptionIcon} />
@@ -681,18 +646,11 @@ export const CreateMatchScreen: React.FC<CreateMatchScreenProps> = memo(({
                 multiline
                 numberOfLines={3}
                 textAlignVertical="top"
-                onFocus={() => {
-                  // Scroll to description field when focused, positioning it above keyboard
-                  setTimeout(() => {
-                    scrollViewRef.current?.scrollTo({ y: descriptionY - 20, animated: true });
-                  }, 300);
-                }}
               />
             </View>
           </View>
-          </ScrollView>
+          </KeyboardAwareScrollView>
           </View>
-        </KeyboardAvoidingView>
 
         {/* Create Button - Fixed at bottom */}
         <View style={[styles.footer, { paddingBottom: insets.bottom + 16 }]}>
@@ -840,9 +798,6 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
   keyboardView: {
-    flex: 1,
-  },
-  keyboardAvoidingView: {
     flex: 1,
   },
   contentWrapper: {
@@ -1182,11 +1137,17 @@ const styles = StyleSheet.create({
   },
   descriptionHeader: {
     flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
+    alignItems: 'baseline',
+    gap: 6,
+    marginBottom: 10,
+  },
+  descriptionLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#1D1D1F',
   },
   optionalLabel: {
-    fontSize: 10,
+    fontSize: 12,
     fontWeight: '400',
     color: '#BABABA',
   },
@@ -1194,23 +1155,24 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-start',
     backgroundColor: '#FFFFFF',
-    borderRadius: 10,
+    borderRadius: 12,
     borderWidth: 1,
     borderColor: '#EAEAEA',
-    paddingHorizontal: 14,
-    paddingVertical: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
     gap: 12,
   },
   descriptionIcon: {
-    marginTop: 2,
+    marginTop: 4,
   },
   descriptionInput: {
     flex: 1,
-    fontSize: 12,
-    fontWeight: '500',
+    fontSize: 16,
+    fontWeight: '400',
     color: '#1D1D1F',
-    minHeight: 60,
+    minHeight: 80,
     padding: 0,
+    lineHeight: 22,
   },
   footer: {
     paddingHorizontal: 20,
