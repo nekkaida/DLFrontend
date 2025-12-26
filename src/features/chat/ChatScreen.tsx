@@ -254,11 +254,12 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
     }
 
     // Navigate to chat thread using native navigation
+    // Pass the dashboard's selected sport so it can be used for friendly match requests
     router.push({
       pathname: '/chat/[threadId]',
-      params: { threadId: thread.id }
+      params: { threadId: thread.id, sport }
     });
-  }, [user?.id, setCurrentThread, updateThread]);
+  }, [user?.id, setCurrentThread, updateThread, sport]);
 
   const clearSearch = useCallback(() => {
     setSearchQuery('');
