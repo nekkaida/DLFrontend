@@ -260,4 +260,23 @@ export const endpoints = {
     getMyStanding: "/api/standings/me",
     getPlayerStanding: (userId: string, divisionId: string) => `/api/standings/${userId}/division/${divisionId}`,
   },
+
+  bug: {
+    // Initialize DL Mobile app (auto-creates if not exists, returns appId)
+    initApp: "/api/bug/init/dlm",
+    // Get modules for a specific app
+    getModules: (appId: string) => `/api/bug/apps/${appId}/modules`,
+    // Create bug report/feedback (uses optionalAuth - works without login)
+    createReport: "/api/bug/reports",
+    // Get current user's bug reports
+    getMyReports: "/api/bug/reports/my",
+    // Get specific bug report
+    getReport: (id: string) => `/api/bug/reports/${id}`,
+    // Add comment to bug report
+    addComment: (id: string) => `/api/bug/reports/${id}/comments`,
+    // Upload screenshot file (multipart form)
+    uploadScreenshot: "/api/bug/screenshots/upload",
+    // Sync bug report to Google Sheets
+    syncReport: (id: string) => `/api/bug/reports/${id}/sync`,
+  },
 };
