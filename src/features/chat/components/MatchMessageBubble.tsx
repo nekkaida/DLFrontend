@@ -439,6 +439,7 @@ export const MatchMessageBubble: React.FC<MatchMessageBubbleProps> = ({
       }
       
       // Navigate to join match page with all the match data
+      // Pass messageId and threadId so match-details can update the chat store after joining
       router.push({
         pathname: '/match/match-details',
         params: {
@@ -459,6 +460,8 @@ export const MatchMessageBubble: React.FC<MatchMessageBubbleProps> = ({
           divisionId,
           seasonId,
           participants: JSON.stringify(matchData.participants || []),
+          messageId: latestMessage.id,
+          threadId: currentThreadId,
         },
       });
     } catch (error) {

@@ -2,7 +2,7 @@ import { getBackendBaseURL } from '@/config/network';
 import { useSession } from '@/lib/auth-client';
 import { MatchComment } from '@/app/match/components/types';
 import { Ionicons } from '@expo/vector-icons';
-import { BottomSheetScrollView } from '@gorhom/bottom-sheet';
+import { BottomSheetScrollView, BottomSheetTextInput } from '@gorhom/bottom-sheet';
 import React, { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -13,7 +13,6 @@ import {
   StyleSheet,
   Switch,
   Text,
-  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
@@ -127,6 +126,7 @@ export const MatchResultSheet: React.FC<MatchResultSheetProps> = ({
   const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
   const [editCommentText, setEditCommentText] = useState('');
   const [openCommentMenuId, setOpenCommentMenuId] = useState<string | null>(null);
+  const [commentsExpanded, setCommentsExpanded] = useState(false);
 
   const [setScores, setSetScores] = useState<SetScore[]>([
     { setNumber: 1, team1Games: 0, team2Games: 0 },
@@ -927,7 +927,11 @@ export const MatchResultSheet: React.FC<MatchResultSheetProps> = ({
         </View>
       )}
 
-      <BottomSheetScrollView showsVerticalScrollIndicator={false}>
+      <BottomSheetScrollView
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="interactive"
+      >
         {/* Casual Play UI - shown when friendly match and casual play mode */}
         {isFriendlyMatch && isCasualPlay && mode === 'submit' ? (
           <View style={styles.casualPlayContainer}>
@@ -949,7 +953,7 @@ export const MatchResultSheet: React.FC<MatchResultSheetProps> = ({
 
             {/* Comment Input */}
             <View style={styles.casualCommentInputContainer}>
-              <TextInput
+              <BottomSheetTextInput
                 style={styles.casualCommentInput}
                 placeholder="e.g. A great game with Serena, with plenty of good rallies and close points. I really got lucky there in the final set!"
                 placeholderTextColor="#9CA3AF"
@@ -1195,7 +1199,7 @@ export const MatchResultSheet: React.FC<MatchResultSheetProps> = ({
                     {[0, 1, 2].map((setIdx) => {
                       const setDisabled = isSetDisabled(setIdx);
                       return (
-                        <TextInput
+                        <BottomSheetTextInput
                           key={`T1-${setIdx}`}
                           style={[
                             styles.friendlyScoreInput,
@@ -1375,7 +1379,7 @@ export const MatchResultSheet: React.FC<MatchResultSheetProps> = ({
                     {[0, 1, 2].map((setIdx) => {
                       const setDisabled = isSetDisabled(setIdx);
                       return (
-                        <TextInput
+                        <BottomSheetTextInput
                           key={`T2-${setIdx}`}
                           style={[
                             styles.friendlyScoreInput,
@@ -1434,7 +1438,7 @@ export const MatchResultSheet: React.FC<MatchResultSheetProps> = ({
                       const setDisabled = isSetDisabled(setIdx);
                       return (
                         <View key={`A-${setIdx}`} style={styles.scoreInputWrapper}>
-                          <TextInput
+                          <BottomSheetTextInput
                             style={[
                               styles.scoreInput,
                               setDisabled && styles.scoreInputDisabled
@@ -1474,7 +1478,7 @@ export const MatchResultSheet: React.FC<MatchResultSheetProps> = ({
                       const setDisabled = isSetDisabled(setIdx);
                       return (
                         <View key={`B-${setIdx}`} style={styles.scoreInputWrapper}>
-                          <TextInput
+                          <BottomSheetTextInput
                             style={[
                               styles.scoreInput,
                               setDisabled && styles.scoreInputDisabled
@@ -1515,7 +1519,7 @@ export const MatchResultSheet: React.FC<MatchResultSheetProps> = ({
 
             {/* Comment Input */}
             <View style={styles.casualCommentInputContainer}>
-              <TextInput
+              <BottomSheetTextInput
                 style={styles.casualCommentInput}
                 placeholder="e.g. A great game with Serena, with plenty of good rallies and close points. I really got lucky there in the final set!"
                 placeholderTextColor="#9CA3AF"
@@ -1698,7 +1702,7 @@ export const MatchResultSheet: React.FC<MatchResultSheetProps> = ({
               <Text style={styles.walkoverSectionTitle}>
                 Additional details {walkoverReason === 'OTHER' ? '(required)' : '(optional)'}
               </Text>
-              <TextInput
+              <BottomSheetTextInput
                 style={styles.walkoverDetailInput}
                 multiline
                 numberOfLines={3}
@@ -1800,7 +1804,7 @@ export const MatchResultSheet: React.FC<MatchResultSheetProps> = ({
               const showTiebreak = needsTiebreak(setIdx);
               return (
                 <View key={`A-${setIdx}`} style={styles.scoreInputWrapper}>
-                  <TextInput
+                  <BottomSheetTextInput
                     style={[
                       styles.scoreInput,
                       (!isCaptain || mode !== 'submit' || setDisabled) && styles.scoreInputDisabled
@@ -1815,7 +1819,7 @@ export const MatchResultSheet: React.FC<MatchResultSheetProps> = ({
                   />
                   {showTiebreak && (
                     <View style={styles.tiebreakOverlay}>
-                      <TextInput
+                      <BottomSheetTextInput
                         style={[
                           styles.tiebreakOverlayInput,
                           (!isCaptain || mode !== 'submit' || setDisabled) && styles.tiebreakInputDisabled
@@ -1895,7 +1899,7 @@ export const MatchResultSheet: React.FC<MatchResultSheetProps> = ({
               const showTiebreak = needsTiebreak(setIdx);
               return (
                 <View key={`B-${setIdx}`} style={styles.scoreInputWrapper}>
-                  <TextInput
+                  <BottomSheetTextInput
                     style={[
                       styles.scoreInput,
                       (!isCaptain || mode !== 'submit' || setDisabled) && styles.scoreInputDisabled
@@ -1910,7 +1914,7 @@ export const MatchResultSheet: React.FC<MatchResultSheetProps> = ({
                   />
                   {showTiebreak && (
                     <View style={styles.tiebreakOverlay}>
-                      <TextInput
+                      <BottomSheetTextInput
                         style={[
                           styles.tiebreakOverlayInput,
                           (!isCaptain || mode !== 'submit' || setDisabled) && styles.tiebreakInputDisabled
@@ -1937,7 +1941,7 @@ export const MatchResultSheet: React.FC<MatchResultSheetProps> = ({
         <View style={styles.summarySection}>
           <Text style={styles.summaryTitle}>Game Summary</Text>
           {mode === 'submit' ? (
-            <TextInput
+            <BottomSheetTextInput
               style={[styles.summaryInput, (!isCaptain || mode !== 'submit') && styles.scoreInputDisabled]}
               multiline
               numberOfLines={3}
@@ -1957,21 +1961,25 @@ export const MatchResultSheet: React.FC<MatchResultSheetProps> = ({
                 </View>
               ) : (
                 <View style={styles.reviewCommentsListContainer}>
-                  {matchComments.map((commentItem) => {
+                  {(commentsExpanded ? matchComments : matchComments.slice(0, 2)).map((commentItem) => {
                     const isOwner = commentItem.userId === currentUserId;
                     const isEditing = editingCommentId === commentItem.id;
                     const isMenuOpen = openCommentMenuId === commentItem.id;
 
                     return (
                       <View key={commentItem.id} style={styles.reviewCommentItemContainer}>
-                        <Image
-                          source={
-                            commentItem.user.image
-                              ? { uri: commentItem.user.image }
-                              : require('@/assets/images/profile-avatar.png')
-                          }
-                          style={styles.reviewCommentAvatar}
-                        />
+                        {commentItem.user.image ? (
+                          <Image
+                            source={{ uri: commentItem.user.image }}
+                            style={styles.reviewCommentAvatar}
+                          />
+                        ) : (
+                          <View style={[styles.reviewCommentAvatar, styles.reviewCommentDefaultAvatar]}>
+                            <Text style={styles.reviewCommentDefaultAvatarText}>
+                              {commentItem.user.name?.charAt(0)?.toUpperCase() || '?'}
+                            </Text>
+                          </View>
+                        )}
                         <View style={styles.reviewCommentContentContainer}>
                           <View style={styles.reviewCommentHeaderRow}>
                             <View style={styles.reviewCommentHeaderInfo}>
@@ -2018,7 +2026,7 @@ export const MatchResultSheet: React.FC<MatchResultSheetProps> = ({
 
                           {isEditing ? (
                             <View style={styles.reviewEditCommentContainer}>
-                              <TextInput
+                              <BottomSheetTextInput
                                 style={styles.reviewEditCommentInput}
                                 value={editCommentText}
                                 onChangeText={setEditCommentText}
@@ -2061,6 +2069,21 @@ export const MatchResultSheet: React.FC<MatchResultSheetProps> = ({
                       </View>
                     );
                   })}
+                  {matchComments.length > 2 && (
+                    <TouchableOpacity
+                      style={styles.viewMoreCommentsButton}
+                      onPress={() => setCommentsExpanded(!commentsExpanded)}
+                    >
+                      <Text style={styles.viewMoreCommentsText}>
+                        {commentsExpanded ? 'View Less' : `View More (${matchComments.length - 2})`}
+                      </Text>
+                      <Ionicons
+                        name={commentsExpanded ? 'chevron-up' : 'chevron-down'}
+                        size={16}
+                        color="#FEA04D"
+                      />
+                    </TouchableOpacity>
+                  )}
                 </View>
               )}
 
@@ -2068,7 +2091,7 @@ export const MatchResultSheet: React.FC<MatchResultSheetProps> = ({
               {(mode === 'review' || mode === 'view') && onCreateComment && (
                 <View style={styles.reviewCommentInputWrapper}>
                   <View style={styles.reviewCommentInputContainer}>
-                    <TextInput
+                    <BottomSheetTextInput
                       style={styles.reviewCommentInput}
                       value={newMatchComment}
                       onChangeText={setNewMatchComment}
@@ -2190,15 +2213,6 @@ export const MatchResultSheet: React.FC<MatchResultSheetProps> = ({
               </Text>
             </View>
           )
-        )}
-
-        {/* Red Disclaimer for Submit Mode */}
-        {mode === 'submit' && (
-          <View style={styles.disclaimerContainer}>
-            <Text style={styles.disclaimerText}>
-              Only team captains need to submit the scores.
-            </Text>
-          </View>
         )}
 
         {/* Action Buttons */}
@@ -2349,16 +2363,16 @@ const styles = StyleSheet.create({
     marginRight: 8,
   },
   singleAvatarContainer: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    marginRight: 8,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    marginRight: 12,
     overflow: 'hidden',
   },
   singleAvatarImage: {
     width: '100%',
     height: '100%',
-    borderRadius: 18,
+    borderRadius: 24,
   },
   singleAvatarDefault: {
     width: '100%',
@@ -2366,10 +2380,10 @@ const styles = StyleSheet.create({
     backgroundColor: '#E5E7EB',
     justifyContent: 'center',
     alignItems: 'center',
-    borderRadius: 18,
+    borderRadius: 24,
   },
   singleAvatarText: {
-    fontSize: 14,
+    fontSize: 18,
     fontWeight: '600',
     color: '#6B7280',
   },
@@ -2401,13 +2415,13 @@ const styles = StyleSheet.create({
   stackedNames: {
     flex: 1,
     justifyContent: 'center',
-    marginRight: 8,
+    marginRight: 12,
   },
   stackedNameText: {
-    fontSize: 14,
+    fontSize: 16,
     fontWeight: '600',
     color: '#111827',
-    lineHeight: 18,
+    lineHeight: 22,
   },
   tiebreakOverlay: {
     position: 'absolute',
@@ -2730,6 +2744,18 @@ const styles = StyleSheet.create({
   reviewCommentsListContainer: {
     marginBottom: 12,
   },
+  viewMoreCommentsButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    gap: 4,
+  },
+  viewMoreCommentsText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#FEA04D',
+  },
   reviewCommentItemContainer: {
     flexDirection: 'row',
     paddingVertical: 10,
@@ -2741,6 +2767,15 @@ const styles = StyleSheet.create({
     height: 32,
     borderRadius: 16,
     backgroundColor: '#E5E7EB',
+  },
+  reviewCommentDefaultAvatar: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  reviewCommentDefaultAvatarText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#6B7280',
   },
   reviewCommentContentContainer: {
     flex: 1,

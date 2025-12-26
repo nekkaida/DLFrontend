@@ -55,9 +55,10 @@ const isTablet = width > 768;
 
 interface ChatThreadScreenProps {
   threadId: string;
+  dashboardSport?: string;
 }
 
-export const ChatThreadScreen: React.FC<ChatThreadScreenProps> = ({ threadId }) => {
+export const ChatThreadScreen: React.FC<ChatThreadScreenProps> = ({ threadId, dashboardSport }) => {
   const { data: session } = useSession();
   const [refreshKey, setRefreshKey] = useState(0);
   const [selectedMessage, setSelectedMessage] = useState<Message | null>(null);
@@ -186,6 +187,10 @@ export const ChatThreadScreen: React.FC<ChatThreadScreenProps> = ({ threadId }) 
         return;
       }
 
+      // For direct chats, use the dashboard's selected sport (passed from the main dashboard)
+      // This ensures the friendly match request uses the sport selected in the header tabs
+      const sportToUse = dashboardSport?.toUpperCase() || 'PICKLEBALL';
+
       // Navigate to friendly match creation screen with request params
       router.push({
         pathname: '/friendly/create',
@@ -193,7 +198,7 @@ export const ChatThreadScreen: React.FC<ChatThreadScreenProps> = ({ threadId }) 
           isRequest: 'true',
           recipientId: recipient.id,
           threadId: currentThread.id,
-          sportType: currentThread.sportType || 'PICKLEBALL',
+          sportType: sportToUse,
         },
       });
     } else {
@@ -219,7 +224,7 @@ export const ChatThreadScreen: React.FC<ChatThreadScreenProps> = ({ threadId }) 
         },
       });
     }
-  }, [currentThread, user, setThreadMetadata]);
+  }, [currentThread, user, setThreadMetadata, dashboardSport]);
 
   const handleCreateMatch = async (matchData: MatchFormData) => {
     chatLogger.debug('Match created:', matchData);

@@ -3,11 +3,11 @@ import { useLocalSearchParams } from 'expo-router';
 import React from 'react';
 
 export default function ChatThread() {
-  const { threadId } = useLocalSearchParams<{ threadId: string }>();
+  const { threadId, sport } = useLocalSearchParams<{ threadId: string; sport?: string }>();
 
   if (!threadId) {
     return null;
   }
 
-  return <ChatThreadScreen threadId={threadId} />;
+  return <ChatThreadScreen threadId={threadId} dashboardSport={sport} />;
 }

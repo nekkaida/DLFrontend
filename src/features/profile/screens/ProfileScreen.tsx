@@ -8,9 +8,7 @@ import React, { useCallback, useEffect, useState, useRef } from 'react';
 import {
   Alert,
   Dimensions,
-  Image,
   Platform,
-  Pressable,
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -19,8 +17,6 @@ import {
 } from 'react-native';
 import { CircularImageCropper } from '../../onboarding/components';
 import {
-  EloProgressGraph,
-  InlineDropdown,
   MatchHistoryButton,
   PlayerDivisionStandings,
   ProfileAchievementsCard,
@@ -38,6 +34,7 @@ import { toast } from 'sonner-native';
 import { useProfileHandlers } from '../hooks/useProfileHandlers';
 import { useProfileState } from '../hooks/useProfileState';
 import { ProfileDataTransformer } from '../services/ProfileDataTransformer';
+import type { GameData } from '../types';
 
 const { width } = Dimensions.get('window');
 
@@ -47,9 +44,11 @@ export default function ProfileScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [profileData, setProfileData] = useState<any>(null);
   const [achievements, setAchievements] = useState<any[]>([]);
+  const [ratingHistory, setRatingHistory] = useState<GameData[]>([]);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [selectedImageUri, setSelectedImageUri] = useState<string | null>(null);
   const [showCropper, setShowCropper] = useState(false);
+  const [selectedGraphIndex, setSelectedGraphIndex] = useState<number | null>(null);
   const hasInitializedSport = useRef(false);
 
   // Profile state and handlers
@@ -78,6 +77,50 @@ export default function ProfileScreen() {
   });
 
   const { navigateTo } = useNavigationManager();
+
+  // Fetch rating history for the selected game type and sport
+  const fetchRatingHistory = useCallback(async (gameType: 'singles' | 'doubles', sport: string) => {
+    try {
+      if (!session?.user?.id) return;
+
+      const backendUrl = getBackendBaseURL();
+      const sportParam = sport.toUpperCase();
+      const response = await authClient.$fetch(
+        `${backendUrl}/api/ratings/me/history?gameType=${gameType.toUpperCase()}&sport=${sportParam}&limit=20`,
+        { method: 'GET' }
+      );
+
+      // API returns { success: true, data: [...] }
+      // authClient.$fetch wraps it in { data: { success, data } }
+      let historyData: any[] = [];
+
+      if (response && (response as any).data) {
+        const responseData = (response as any).data;
+        // Check if it's the nested structure from authClient
+        if (responseData.data && Array.isArray(responseData.data)) {
+          historyData = responseData.data;
+        } else if (Array.isArray(responseData)) {
+          historyData = responseData;
+        }
+      }
+
+      if (historyData.length > 0) {
+        // Transform the API response to GameData format
+        const userName = profileData?.name || session?.user?.name || 'You';
+        const transformedData = ProfileDataTransformer.transformRatingHistoryToGameData(
+          historyData,
+          userName
+        );
+        setRatingHistory(transformedData);
+      } else {
+        setRatingHistory([]);
+      }
+    } catch (error) {
+      console.error('Error fetching rating history:', error);
+      // Don't show error toast for rating history - it's not critical
+      setRatingHistory([]);
+    }
+  }, [session, profileData?.name]);
 
   // Fetch profile data
   const fetchProfileData = useCallback(async () => {
@@ -122,6 +165,27 @@ export default function ProfileScreen() {
     fetchProfileData();
   }, [fetchProfileData]);
 
+  // Fetch rating history when game type, sport, or profile data changes
+  useEffect(() => {
+    if (profileData && selectedGameType && activeTab) {
+      fetchRatingHistory(selectedGameType.toLowerCase() as 'singles' | 'doubles', activeTab);
+    }
+  }, [selectedGameType, activeTab, profileData, fetchRatingHistory]);
+
+  // Auto-select the most recent match when rating history updates and a match was previously selected
+  useEffect(() => {
+    if (selectedMatch && ratingHistory.length > 0) {
+      // Select the most recent match (first in array = most recent)
+      // The graph reverses the data, so index 0 in ratingHistory becomes the last point on graph
+      // We want to select the "current" point which is the last in the reversed array
+      const mostRecentMatch = ratingHistory[0];
+      setSelectedGame(mostRecentMatch);
+      // In the graph, data is reversed, so the most recent (index 0) becomes the last point
+      // The selectedIndex in graph corresponds to the reversed array position
+      setSelectedGraphIndex(ratingHistory.length - 1);
+    }
+  }, [ratingHistory]);
+
   useFocusEffect(
     useCallback(() => {
       fetchProfileData();
@@ -131,8 +195,12 @@ export default function ProfileScreen() {
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     await fetchProfileData();
+    // Also refresh rating history
+    if (selectedGameType && activeTab) {
+      await fetchRatingHistory(selectedGameType.toLowerCase() as 'singles' | 'doubles', activeTab);
+    }
     setRefreshing(false);
-  }, [fetchProfileData]);
+  }, [fetchProfileData, fetchRatingHistory, selectedGameType, activeTab]);
 
   // Transform profile data for display
   const userData = ProfileDataTransformer.transformProfileToUserData(profileData, achievements);
@@ -361,7 +429,13 @@ export default function ProfileScreen() {
     return Math.round((stats.wins / stats.totalMatches) * 100);
   };
 
-  const createEloData = () => {
+  // Get ELO data - use real rating history if available, otherwise show placeholder
+  const getEloData = (): GameData[] => {
+    if (ratingHistory.length > 0) {
+      return ratingHistory;
+    }
+
+    // Fallback: show current rating as a single point
     const currentSport = activeTab || userData.sports?.[0] || 'pickleball';
     const currentGameType = selectedGameType.toLowerCase();
     const currentRating = getRatingForType(currentSport, currentGameType as 'singles' | 'doubles');
@@ -370,8 +444,9 @@ export default function ProfileScreen() {
       date: 'Current Rating',
       time: '',
       rating: currentRating || 1400,
+      ratingBefore: currentRating || 1400,
       opponent: 'No matches played',
-      result: '-' as any,
+      result: 'W' as const,
       score: '-',
       ratingChange: 0,
       league: `${currentSport} ${currentGameType}`,
@@ -386,7 +461,7 @@ export default function ProfileScreen() {
     }];
   };
 
-  const mockEloData = createEloData();
+  const eloData = getEloData();
 
   if (isLoading) {
     return (
@@ -467,9 +542,13 @@ export default function ProfileScreen() {
             gameTypeOptions={gameTypeOptions}
             onGameTypeSelect={handleGameTypeSelect}
             getRatingForType={getRatingForType}
-            eloData={mockEloData}
-            onPointPress={handleGamePointPress}
+            eloData={eloData}
+            onPointPress={(game, index) => {
+              handleGamePointPress(game);
+              setSelectedGraphIndex(index);
+            }}
             selectedMatch={selectedMatch}
+            selectedGraphIndex={selectedGraphIndex}
             profileData={profileData}
           />
 
