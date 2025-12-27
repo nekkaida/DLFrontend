@@ -631,6 +631,9 @@ export default function JoinMatchScreen() {
   const requiredParticipants = matchType === 'DOUBLES' ? 4 : 2;
   const allSlotsFilled = participants.length >= requiredParticipants;
 
+  // Check if ALL participants have accepted their invitations
+  const allParticipantsAccepted = participants.length > 0 && participants.every((p: any) => p.invitationStatus === 'ACCEPTED');
+
   // Check if match time has been reached (allows result submission)
   // For SCHEDULED matches: can submit from match start time onwards (no upper limit for overdue)
   const isMatchTimeReached = () => {
@@ -710,7 +713,7 @@ export default function JoinMatchScreen() {
     }
   };
 
-  const canStartMatch = allSlotsFilled && isMatchTimeReached();
+  const canStartMatch = allSlotsFilled && isMatchTimeReached() && allParticipantsAccepted;
 
   // Helper to format walkover reason for display
   const formatWalkoverReason = (reason?: string): string => {
@@ -960,6 +963,15 @@ export default function JoinMatchScreen() {
 
   // Check if current user is a participant
   const isUserParticipant = participants.some((p: any) => p.userId === session?.user?.id);
+
+  // Check current user's invitation status
+  const currentUserParticipant = participants.find((p: any) => p.userId === session?.user?.id);
+  const isUserPendingInvite = currentUserParticipant?.invitationStatus === 'PENDING';
+
+  // Handler to navigate to My Games Invites tab
+  const handleGoToInvites = () => {
+    router.push('/user-dashboard?view=myGames&tab=INVITES');
+  };
 
   // Handler for submitting match result
   const handleSubmitResult = async (data: {
@@ -1297,6 +1309,15 @@ export default function JoinMatchScreen() {
         )}
 
         {/* Participants Section */}
+        {(() => {
+          // Sort participants by team for doubles matches
+          const team1Players = participantsWithDetails.filter(p => p.team === 'team1');
+          const team2Players = participantsWithDetails.filter(p => p.team === 'team2');
+          // Pad arrays to ensure 2 slots per team (null = empty slot)
+          const team1Slots = [...team1Players, null, null].slice(0, 2) as (typeof participantsWithDetails[0] | null)[];
+          const team2Slots = [...team2Players, null, null].slice(0, 2) as (typeof participantsWithDetails[0] | null)[];
+
+          return (
         <View style={styles.participantsSection}>
           <View style={styles.playersRow}>
             {matchType === 'DOUBLES' ? (
@@ -1307,13 +1328,13 @@ export default function JoinMatchScreen() {
                     <View style={styles.doublesPlayerContainer}>
                       <View style={styles.playerAvatarWrapper}>
                         <View style={styles.playerAvatar}>
-                          {participantsWithDetails[0] ? (
-                            participantsWithDetails[0].image ? (
-                              <Image source={{ uri: participantsWithDetails[0].image }} style={styles.avatarImage} />
+                          {team1Slots[0] ? (
+                            team1Slots[0].image ? (
+                              <Image source={{ uri: team1Slots[0].image }} style={styles.avatarImage} />
                             ) : (
                               <View style={styles.defaultAvatar}>
                                 <Text style={styles.defaultAvatarText}>
-                                  {participantsWithDetails[0].name?.charAt(0)?.toUpperCase() || '?'}
+                                  {team1Slots[0].name?.charAt(0)?.toUpperCase() || '?'}
                                 </Text>
                               </View>
                             )
@@ -1323,31 +1344,31 @@ export default function JoinMatchScreen() {
                             </View>
                           )}
                         </View>
-                        {participantsWithDetails[0]?.invitationStatus === 'PENDING' && (
+                        {team1Slots[0]?.invitationStatus === 'PENDING' && (
                           <View style={styles.pendingBadge}>
                             <Ionicons name="time-outline" size={14} color="#F59E0B" />
                           </View>
                         )}
-                        {participantsWithDetails[0]?.invitationStatus === 'ACCEPTED' && (
+                        {team1Slots[0]?.invitationStatus === 'ACCEPTED' && (
                           <View style={styles.acceptedBadge}>
                             <Ionicons name="checkmark-circle" size={16} color="#22C55E" />
                           </View>
                         )}
                       </View>
                       <Text style={styles.playerName} numberOfLines={1}>
-                        {participantsWithDetails[0]?.name || 'Open slot'}
+                        {team1Slots[0]?.name || 'Open slot'}
                       </Text>
                     </View>
                     <View style={styles.doublesPlayerContainer}>
                       <View style={styles.playerAvatarWrapper}>
                         <View style={styles.playerAvatar}>
-                          {participantsWithDetails[1] ? (
-                            participantsWithDetails[1].image ? (
-                              <Image source={{ uri: participantsWithDetails[1].image }} style={styles.avatarImage} />
+                          {team1Slots[1] ? (
+                            team1Slots[1].image ? (
+                              <Image source={{ uri: team1Slots[1].image }} style={styles.avatarImage} />
                             ) : (
                               <View style={styles.defaultAvatar}>
                                 <Text style={styles.defaultAvatarText}>
-                                  {participantsWithDetails[1].name?.charAt(0)?.toUpperCase() || '?'}
+                                  {team1Slots[1].name?.charAt(0)?.toUpperCase() || '?'}
                                 </Text>
                               </View>
                             )
@@ -1357,19 +1378,19 @@ export default function JoinMatchScreen() {
                             </View>
                           )}
                         </View>
-                        {participantsWithDetails[1]?.invitationStatus === 'PENDING' && (
+                        {team1Slots[1]?.invitationStatus === 'PENDING' && (
                           <View style={styles.pendingBadge}>
                             <Ionicons name="time-outline" size={14} color="#F59E0B" />
                           </View>
                         )}
-                        {participantsWithDetails[1]?.invitationStatus === 'ACCEPTED' && (
+                        {team1Slots[1]?.invitationStatus === 'ACCEPTED' && (
                           <View style={styles.acceptedBadge}>
                             <Ionicons name="checkmark-circle" size={16} color="#22C55E" />
                           </View>
                         )}
                       </View>
                       <Text style={styles.playerName} numberOfLines={1}>
-                        {participantsWithDetails[1]?.name || 'Open slot'}
+                        {team1Slots[1]?.name || 'Open slot'}
                       </Text>
                     </View>
                   </View>
@@ -1384,13 +1405,13 @@ export default function JoinMatchScreen() {
                     <View style={styles.doublesPlayerContainer}>
                       <View style={styles.playerAvatarWrapper}>
                         <View style={styles.playerAvatar}>
-                          {participantsWithDetails[2] ? (
-                            participantsWithDetails[2].image ? (
-                              <Image source={{ uri: participantsWithDetails[2].image }} style={styles.avatarImage} />
+                          {team2Slots[0] ? (
+                            team2Slots[0].image ? (
+                              <Image source={{ uri: team2Slots[0].image }} style={styles.avatarImage} />
                             ) : (
                               <View style={styles.defaultAvatar}>
                                 <Text style={styles.defaultAvatarText}>
-                                  {participantsWithDetails[2].name?.charAt(0)?.toUpperCase() || '?'}
+                                  {team2Slots[0].name?.charAt(0)?.toUpperCase() || '?'}
                                 </Text>
                               </View>
                             )
@@ -1400,31 +1421,31 @@ export default function JoinMatchScreen() {
                             </View>
                           )}
                         </View>
-                        {participantsWithDetails[2]?.invitationStatus === 'PENDING' && (
+                        {team2Slots[0]?.invitationStatus === 'PENDING' && (
                           <View style={styles.pendingBadge}>
                             <Ionicons name="time-outline" size={14} color="#F59E0B" />
                           </View>
                         )}
-                        {participantsWithDetails[2]?.invitationStatus === 'ACCEPTED' && (
+                        {team2Slots[0]?.invitationStatus === 'ACCEPTED' && (
                           <View style={styles.acceptedBadge}>
                             <Ionicons name="checkmark-circle" size={16} color="#22C55E" />
                           </View>
                         )}
                       </View>
                       <Text style={styles.playerName} numberOfLines={1}>
-                        {participantsWithDetails[2]?.name || 'Open slot'}
+                        {team2Slots[0]?.name || 'Open slot'}
                       </Text>
                     </View>
                     <View style={styles.doublesPlayerContainer}>
                       <View style={styles.playerAvatarWrapper}>
                         <View style={styles.playerAvatar}>
-                          {participantsWithDetails[3] ? (
-                            participantsWithDetails[3].image ? (
-                              <Image source={{ uri: participantsWithDetails[3].image }} style={styles.avatarImage} />
+                          {team2Slots[1] ? (
+                            team2Slots[1].image ? (
+                              <Image source={{ uri: team2Slots[1].image }} style={styles.avatarImage} />
                             ) : (
                               <View style={styles.defaultAvatar}>
                                 <Text style={styles.defaultAvatarText}>
-                                  {participantsWithDetails[3].name?.charAt(0)?.toUpperCase() || '?'}
+                                  {team2Slots[1].name?.charAt(0)?.toUpperCase() || '?'}
                                 </Text>
                               </View>
                             )
@@ -1434,19 +1455,19 @@ export default function JoinMatchScreen() {
                             </View>
                           )}
                         </View>
-                        {participantsWithDetails[3]?.invitationStatus === 'PENDING' && (
+                        {team2Slots[1]?.invitationStatus === 'PENDING' && (
                           <View style={styles.pendingBadge}>
                             <Ionicons name="time-outline" size={14} color="#F59E0B" />
                           </View>
                         )}
-                        {participantsWithDetails[3]?.invitationStatus === 'ACCEPTED' && (
+                        {team2Slots[1]?.invitationStatus === 'ACCEPTED' && (
                           <View style={styles.acceptedBadge}>
                             <Ionicons name="checkmark-circle" size={16} color="#22C55E" />
                           </View>
                         )}
                       </View>
                       <Text style={styles.playerName} numberOfLines={1}>
-                        {participantsWithDetails[3]?.name || 'Open slot'}
+                        {team2Slots[1]?.name || 'Open slot'}
                       </Text>
                     </View>
                   </View>
@@ -1534,6 +1555,8 @@ export default function JoinMatchScreen() {
             )}
           </View>
         </View>
+          );
+        })()}
 
         <View style={styles.divider} />
 
@@ -1797,6 +1820,19 @@ export default function JoinMatchScreen() {
             {(() => {
               const status = matchData.status?.toUpperCase() || matchStatus.toUpperCase();
 
+              // Priority 1: User has pending invite - show Accept Invite button
+              if (isUserPendingInvite) {
+                return (
+                  <TouchableOpacity
+                    style={[styles.joinButton, { backgroundColor: sportColors.background }]}
+                    onPress={handleGoToInvites}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={styles.joinButtonText}>Accept Invite</Text>
+                  </TouchableOpacity>
+                );
+              }
+
               // Match COMPLETED - Show "View Scores" to everyone
               if (status === 'COMPLETED' || status === 'FINISHED') {
                 return (
@@ -1845,8 +1881,7 @@ export default function JoinMatchScreen() {
                 );
               }
 
-              // Match SCHEDULED and time reached AND all slots filled - Any participant can submit result
-              // (For overdue matches, both creator and opponent should be able to submit)
+              // Match SCHEDULED and time reached AND all slots filled AND all accepted - Any participant can submit result
               if (status === 'SCHEDULED' && canStartMatch) {
                 return (
                   <TouchableOpacity
@@ -1867,6 +1902,18 @@ export default function JoinMatchScreen() {
                     onPress={() => cancelSheetRef.current?.present()}
                   >
                     <Text style={[styles.joinButtonText, { color: "#FFFFFF" }]}>Cancel Match</Text>
+                  </TouchableOpacity>
+                );
+              }
+
+              // Waiting for confirmations - all slots filled but not all accepted
+              if (status === 'SCHEDULED' && allSlotsFilled && !allParticipantsAccepted) {
+                return (
+                  <TouchableOpacity
+                    style={[styles.joinButton, { backgroundColor: "#9CA3AF" }]}
+                    disabled={true}
+                  >
+                    <Text style={[styles.joinButtonText, { color: "#FFFFFF" }]}>Waiting for Confirmations</Text>
                   </TouchableOpacity>
                 );
               }

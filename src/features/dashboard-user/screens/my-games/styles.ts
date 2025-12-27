@@ -131,7 +131,7 @@ export const matchCardStyles = StyleSheet.create({
   playersRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    gap: 12,
+    gap: 8,
     flex: 1,
   },
   playerColumn: {
@@ -284,6 +284,13 @@ export const matchCardStyles = StyleSheet.create({
     alignItems: 'center',
     borderWidth: 2,
     borderColor: '#FFFFFF',
+  },
+  // Team divider for doubles matches
+  teamDivider: {
+    width: 1,
+    height: 72,
+    backgroundColor: '#E5E7EB',
+    marginHorizontal: 4,
   },
 });
 

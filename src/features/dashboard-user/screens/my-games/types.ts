@@ -38,6 +38,7 @@ export interface Match {
   participants: Array<{
     userId: string;
     role: string;
+    team?: string;
     invitationStatus: string;
     user: {
       id: string;
