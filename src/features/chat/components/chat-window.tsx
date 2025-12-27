@@ -255,7 +255,7 @@ export const MessageWindow: React.FC<MessageWindowProps> = ({
         try {
           matchDataParsed = JSON.parse(matchDataParsed);
         } catch {
-          matchDataParsed = null;
+          matchDataParsed = undefined;
         }
       }
 

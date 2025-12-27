@@ -54,7 +54,7 @@ export class ChatService {
       );
 
       if (response.data?.data) {
-        return this.transformBackendThread(response.data.data);
+        return this.transformBackendThread(response.data.data, '');
       }
       return null;
     } catch (error) {
@@ -280,7 +280,7 @@ export class ChatService {
       updatedAt: new Date(backendThread.updatedAt),
       sportType: (backendThread.sportType || backendThread.division?.league?.sportType || null) as Thread['sportType'],
       recentSportContext: backendThread.recentSportContext ? {
-        sportType: backendThread.recentSportContext.sportType as Thread['sportType'],
+        sportType: (backendThread.recentSportContext.sportType ?? null) as 'PICKLEBALL' | 'TENNIS' | 'PADEL' | null,
         lastInteractionAt: backendThread.recentSportContext.lastInteractionAt
           ? new Date(backendThread.recentSportContext.lastInteractionAt)
           : null,

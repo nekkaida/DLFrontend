@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { useRouter } from 'expo-router';
+import { useRouter, type Href } from 'expo-router';
 import { useSession } from '@/lib/auth-client';
 import { LoadingScreen, SplashScreen } from '@/src/features/auth';
 import { Animated } from 'react-native';
@@ -22,7 +22,7 @@ const getNextOnboardingRoute = (
   step: string | null | undefined,
   selectedSports?: string[],
   completedSports?: string[]
-): string => {
+): Href => {
   if (!step) return '/onboarding/personal-info';
 
   // Special handling for steps that involve sport selection
@@ -48,7 +48,7 @@ const getNextOnboardingRoute = (
     }
   }
 
-  return STEP_TO_NEXT_ROUTE[step] || '/onboarding/personal-info';
+  return (STEP_TO_NEXT_ROUTE[step] || '/onboarding/personal-info') as Href;
 };
 
 export default function HomeRoute() {

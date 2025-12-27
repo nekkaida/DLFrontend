@@ -19,9 +19,10 @@ const mockChatService = ChatService as jest.Mocked<typeof ChatService>;
 const mockThread = {
   id: 'thread-1',
   name: 'Test Thread',
-  type: 'DIRECT' as const,
+  type: 'direct' as const,
   participants: [],
   unreadCount: 0,
+  isActive: true,
   createdAt: new Date('2024-01-01'),
   updatedAt: new Date('2024-01-01'),
 };
@@ -31,9 +32,10 @@ const mockMessage = {
   threadId: 'thread-1',
   senderId: 'user-1',
   content: 'Hello World',
-  type: 'TEXT' as const,
-  createdAt: new Date('2024-01-01'),
+  type: 'text' as const,
+  timestamp: new Date('2024-01-01'),
   isRead: false,
+  isDelivered: true,
   metadata: {},
 };
 
@@ -162,7 +164,7 @@ describe('ChatStore', () => {
       });
 
       const messages = useChatStore.getState().messages['thread-1'];
-      expect(messages[0].isDeleted).toBe(true);
+      expect(messages[0].metadata?.isDeleted).toBe(true);
       expect(messages[0].content).toBe('This message has been deleted');
     });
   });
@@ -180,7 +182,7 @@ describe('ChatStore', () => {
       const messages = useChatStore.getState().messages['thread-1'];
       expect(messages[0].isRead).toBe(true);
       expect(messages[0].metadata?.readBy).toHaveLength(1);
-      expect(messages[0].metadata?.readBy[0].userId).toBe('reader-1');
+      expect(messages[0]?.metadata?.readBy?.[0]?.userId).toBe('reader-1');
     });
 
     it('should not add duplicate read receipts', () => {
@@ -382,7 +384,7 @@ describe('ChatStore', () => {
 
       expect(mockChatService.deleteMessage).toHaveBeenCalledWith('msg-1');
       const messages = useChatStore.getState().messages['thread-1'];
-      expect(messages[0].isDeleted).toBe(true);
+      expect(messages[0].metadata?.isDeleted).toBe(true);
     });
   });
 

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { View, StyleSheet, SafeAreaView } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useOnboarding } from '../OnboardingContext';
@@ -38,6 +38,9 @@ const SkillAssessmentScreen = () => {
   // Loading state
   const [isSubmittingAssessment, setIsSubmittingAssessment] = useState(false);
   const [loadingMessage, setLoadingMessage] = useState('Processing...');
+
+  // Ref to store pending answers for synchronous access (avoids race condition with reducer)
+  const pendingAnswersRef = useRef<Record<string, any>>({});
 
   // Determine if comprehensive questionnaire
   const isComprehensive = sport === 'pickleball' || sport === 'tennis' || sport === 'padel';
@@ -308,6 +311,9 @@ const SkillAssessmentScreen = () => {
 
   // Handle back button
   const handleBack = useCallback(() => {
+    // Clear pending answers when navigating back
+    pendingAnswersRef.current = {};
+
     if (isComprehensive) {
       if (state.currentPageIndex > 0) {
         actions.goBackHistory();
@@ -336,7 +342,10 @@ const SkillAssessmentScreen = () => {
   const proceedToNextQuestion = useCallback(async () => {
     if (isComprehensive) {
       const currentQuestion = state.questions[state.currentQuestionIndex];
-      let finalPageAnswers = { ...state.currentPageAnswers };
+      // Merge state with pending answers from ref (fixes race condition with skip button)
+      let finalPageAnswers = { ...state.currentPageAnswers, ...pendingAnswersRef.current };
+      // Clear the ref after reading
+      pendingAnswersRef.current = {};
 
       // Check if this is a skill question (has originalKey and skillKey)
       if (currentQuestion && 'originalKey' in currentQuestion && 'skillKey' in currentQuestion) {
@@ -432,6 +441,8 @@ const SkillAssessmentScreen = () => {
     (key: string, value: any) => {
       actions.removeResponse(key);
       actions.addPageAnswers({ [key]: value });
+      // Store in ref for immediate synchronous access (avoids race condition)
+      pendingAnswersRef.current[key] = value;
     },
     [actions]
   );

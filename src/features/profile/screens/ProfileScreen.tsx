@@ -1,11 +1,10 @@
 import { useNavigationManager } from '@core/navigation';
 import { theme } from '@core/theme/theme';
 import * as Haptics from 'expo-haptics';
-import { manipulateAsync, SaveFormat } from 'expo-image-manipulator';
-import * as ImagePicker from 'expo-image-picker';
 import { router, useFocusEffect } from 'expo-router';
 import React, { useCallback, useEffect, useState, useRef } from 'react';
 import {
+  ActionSheetIOS,
   Alert,
   Dimensions,
   Platform,
@@ -34,6 +33,7 @@ import { toast } from 'sonner-native';
 import { useProfileHandlers } from '../hooks/useProfileHandlers';
 import { useProfileState } from '../hooks/useProfileState';
 import { ProfileDataTransformer } from '../services/ProfileDataTransformer';
+import { useProfileImageUpload } from '@/src/shared/hooks/useProfileImageUpload';
 import type { GameData } from '../types';
 
 const { width } = Dimensions.get('window');
@@ -45,11 +45,28 @@ export default function ProfileScreen() {
   const [profileData, setProfileData] = useState<any>(null);
   const [achievements, setAchievements] = useState<any[]>([]);
   const [ratingHistory, setRatingHistory] = useState<GameData[]>([]);
-  const [isUploadingImage, setIsUploadingImage] = useState(false);
-  const [selectedImageUri, setSelectedImageUri] = useState<string | null>(null);
-  const [showCropper, setShowCropper] = useState(false);
   const [selectedGraphIndex, setSelectedGraphIndex] = useState<number | null>(null);
   const hasInitializedSport = useRef(false);
+
+  // Use shared profile image upload hook
+  const {
+    isUploadingImage,
+    showCropper,
+    selectedImageUri,
+    pickImageFromLibrary,
+    openCamera,
+    handleCropComplete,
+    handleCropCancel,
+  } = useProfileImageUpload({
+    userId: session?.user?.id,
+    onUploadSuccess: (imageUrl) => {
+      // Update local profile data with new image URL
+      setProfileData((prev: any) => ({
+        ...prev,
+        image: imageUrl,
+      }));
+    },
+  });
 
   // Profile state and handlers
   const {
@@ -217,198 +234,36 @@ export default function ProfileScreen() {
     }
   }, [userData?.sports, activeTab, setActiveTab]);
 
-  // Image handling functions
-  const handleCropComplete = async (croppedImageUri: string) => {
-    setSelectedImageUri(null);
-    setShowCropper(false);
-    await uploadProfilePicture(croppedImageUri);
-  };
+  // Show action sheet for choosing camera or library
+  const pickImage = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
 
-  const handleCropCancel = () => {
-    setSelectedImageUri(null);
-    setShowCropper(false);
-  };
-
-  const uploadProfilePicture = async (imageUri: string) => {
-    try {
-      setIsUploadingImage(true);
-      const backendUrl = getBackendBaseURL();
-
-      const formData = new FormData();
-      const imageFile: any = {
-        uri: Platform.OS === 'ios' ? imageUri.replace('file://', '') : imageUri,
-        type: 'image/jpeg',
-        name: 'profile-picture.jpg',
-      };
-      formData.append('image', imageFile);
-
-      // Get session token for authentication
-      const sessionData = await authClient.getSession();
-      const token = sessionData?.data?.session?.token;
-      const userId = session?.user?.id || sessionData?.data?.user?.id;
-
-      if (!token && !userId) {
-        throw new Error('No authentication token available. Please sign in again.');
-      }
-
-      // Use correct endpoint and proper headers
-      const headers: Record<string, string> = {};
-      
-      // Add authorization token if available
-      if (token) {
-        headers['Authorization'] = `Bearer ${token}`;
-      }
-      
-      // Add user ID header for mobile compatibility
-      if (userId) {
-        headers['x-user-id'] = userId;
-      }
-
-      const response = await fetch(`${backendUrl}/api/player/profile/upload-image`, {
-        method: 'POST',
-        body: formData,
-        headers,
-      });
-
-      if (!response.ok) {
-        let errorMessage = `Upload failed with status ${response.status}`;
-        try {
-          const errorText = await response.text();
-          const errorJson = errorText ? JSON.parse(errorText) : null;
-          errorMessage = errorJson?.message || errorJson?.error || errorText || errorMessage;
-        } catch {
-          // If response is not JSON, use status text
-          errorMessage = `Upload failed: ${response.status} ${response.statusText}`;
+    if (Platform.OS === 'ios') {
+      ActionSheetIOS.showActionSheetWithOptions(
+        {
+          options: ['Cancel', 'Take Photo', 'Choose from Library'],
+          cancelButtonIndex: 0,
+        },
+        (buttonIndex) => {
+          if (buttonIndex === 1) {
+            openCamera();
+          } else if (buttonIndex === 2) {
+            pickImageFromLibrary();
+          }
         }
-        console.error('Upload failed:', response.status, errorMessage);
-        throw new Error(errorMessage);
-      }
-
-      const result = await response.json();
-
-      // Backend returns: { success: true, data: { user: {...}, imageUrl: "url" }, message: "..." }
-      let imageUrl: string | null = null;
-
-      if (result?.success && result?.data) {
-        // Backend structure: result.data.imageUrl
-        imageUrl = result.data.imageUrl || null;
-      }
-
-      if (!imageUrl) {
-        throw new Error('Upload successful but no image URL received from server');
-      }
-
-      setProfileData((prev: any) => ({
-        ...prev,
-        image: imageUrl,
-      }));
-      
-      toast.success('Success', {
-        description: 'Profile picture updated successfully!',
-      });
-    } catch (error) {
-      console.error('Error uploading profile image:', error);
-      toast.error('Error', {
-        description: 'Failed to upload profile picture. Please try again.',
-      });
-    } finally {
-      setIsUploadingImage(false);
-    }
-  };
-
-  const pickImage = async () => {
-    try {
-      const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
-
-      if (permissionResult.granted === false) {
-        Alert.alert(
-          'Permission Required',
-          'Please grant permission to access your photo library to upload a profile picture.',
-          [{ text: 'OK' }]
-        );
-        return;
-      }
-
-      Alert.alert(
-        'Select Profile Picture',
-        'Choose how you want to select your profile picture',
-        [
-          {
-            text: 'Camera',
-            onPress: () => openCamera(),
-          },
-          {
-            text: 'Photo Library',
-            onPress: () => openImageLibrary(),
-          },
-          {
-            text: 'Cancel',
-            style: 'cancel',
-          },
-        ]
       );
-    } catch (error) {
-      console.error('Error picking image:', error);
-      toast.error('Error', {
-        description: 'Failed to open image picker. Please try again.',
-      });
-    }
-  };
-
-  const openCamera = async () => {
-    try {
-      const permissionResult = await ImagePicker.requestCameraPermissionsAsync();
-
-      if (permissionResult.granted === false) {
-        Alert.alert(
-          'Permission Required',
-          'Please grant permission to access your camera to take a profile picture.',
-          [{ text: 'OK' }]
-        );
-        return;
-      }
-
-      const result = await ImagePicker.launchCameraAsync({
-        mediaTypes: ['images'],
-        allowsEditing: false,
-        quality: 1.0,
-        exif: false,
-      });
-
-      if (!result.canceled && result.assets[0]) {
-        const normalized = await manipulateAsync(
-          result.assets[0].uri,
-          [],
-          { compress: 1, format: SaveFormat.JPEG }
-        );
-        setSelectedImageUri(normalized.uri);
-        setShowCropper(true);
-      }
-    } catch (error) {
-      console.error('Error opening camera:', error);
-      toast.error('Error', {
-        description: 'Failed to open camera. Please try again.',
-      });
-    }
-  };
-
-  const openImageLibrary = async () => {
-    try {
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ['images'],
-        allowsEditing: false,
-        quality: 1.0,
-      });
-
-      if (!result.canceled && result.assets[0]) {
-        setSelectedImageUri(result.assets[0].uri);
-        setShowCropper(true);
-      }
-    } catch (error) {
-      console.error('Error opening image library:', error);
-      toast.error('Error', {
-        description: 'Failed to open image library. Please try again.',
-      });
+    } else {
+      // Android: Use Alert
+      Alert.alert(
+        'Profile Picture',
+        'Choose an option',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Take Photo', onPress: () => openCamera() },
+          { text: 'Choose from Library', onPress: () => pickImageFromLibrary() },
+        ],
+        { cancelable: true }
+      );
     }
   };
 
