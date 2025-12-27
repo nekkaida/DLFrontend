@@ -237,7 +237,7 @@ export const ThreadList: React.FC<ThreadListProps> = ({ onThreadSelect, threads:
 
   // Memoized getItemLayout for fixed height items
   const getItemLayout = useCallback(
-    (_: Thread[] | null | undefined, index: number) => ({
+    (_: ArrayLike<Thread> | null | undefined, index: number) => ({
       length: FLATLIST_CONFIG.THREAD_ITEM_HEIGHT,
       offset: FLATLIST_CONFIG.THREAD_ITEM_HEIGHT * index,
       index,
