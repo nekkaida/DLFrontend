@@ -8,6 +8,7 @@ import { NavBar } from "@/shared/components/layout";
 import { SportSwitcher } from "@/shared/components/ui/SportSwitcher";
 import { ChatScreen } from "@/src/features/chat/ChatScreen";
 import { useUnreadCount } from "@/src/features/chat/hooks/useUnreadCount";
+import { useChatSocketEvents } from "@/src/features/chat/hooks/useChatSocketEvents";
 import CommunityScreen from "@/src/features/community/screens/CommunityScreen";
 import { LeagueCard, LeagueGrid, useLeagues, useUserActiveLeagues, ActiveLeaguesCarousel } from "@/src/features/leagues";
 import { useNotifications } from "@/src/hooks/useNotifications";
@@ -91,6 +92,10 @@ export default function DashboardScreen() {
   
   // Chat unread count hook
   const chatUnreadCount = useUnreadCount();
+
+  // Register socket event listeners at dashboard level for real-time updates
+  // This ensures unread counts update even when not on the chat tab
+  useChatSocketEvents(null, session?.user?.id || '');
   
   // Use safe area insets for proper status bar handling across platforms
   const STATUS_BAR_HEIGHT = insets.top;  // Helper function to get available sports for SportSwitcher
