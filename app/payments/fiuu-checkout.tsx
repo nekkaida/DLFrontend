@@ -29,6 +29,7 @@ export default function FiuuCheckoutScreen() {
   const params = useLocalSearchParams<{ payload?: string }>();
   const [payload, setPayload] = useState<CheckoutPayload | null>(null);
   const [status, setStatus] = useState<PaymentStatus>('processing');
+  const [pageLoaded, setPageLoaded] = useState<boolean>(false);
   const [statusMessage, setStatusMessage] = useState<string>('Connecting to payment gateway...');
 
   useEffect(() => {
@@ -38,6 +39,7 @@ export default function FiuuCheckoutScreen() {
         const parsed = JSON.parse(decoded) as CheckoutPayload;
         setPayload(parsed);
         setStatus('processing');
+        setPageLoaded(false);
         setStatusMessage('Loading FIUU secure payment page...');
       } catch (error) {
         console.error('Failed to parse payment payload', error);
@@ -116,6 +118,8 @@ export default function FiuuCheckoutScreen() {
   };
 
   const renderStatus = () => {
+    if (status === 'idle' && pageLoaded) return null;
+
     const headline =
       status === 'completed'
         ? 'Payment Confirmed'
@@ -164,6 +168,26 @@ export default function FiuuCheckoutScreen() {
               originWhitelist={['*']}
               source={{ html: htmlSource, baseUrl: payload.checkout.paymentUrl }}
               onMessage={onMessage}
+              onLoadEnd={() => {
+                setPageLoaded(true);
+                if (status === 'processing') setStatus('idle');
+              }}
+              injectedJavaScript={`
+                (function() {
+                  var meta = document.querySelector('meta[name=viewport]');
+                  if (!meta) {
+                    meta = document.createElement('meta');
+                    meta.name = 'viewport';
+                    document.head.appendChild(meta);
+                  }
+                  meta.content = 'width=device-width, initial-scale=1.05, maximum-scale=1.05, user-scalable=0';
+                  var style = document.createElement('style');
+                  style.innerHTML = 'html,body{width:100vw !important;max-width:100vw !important;overflow-x:hidden !important;} body{transform:scale(1.08); transform-origin: top center;}';
+                  document.head.appendChild(style);
+                })();
+                true;
+              `}
+              contentMode="mobile"
               javaScriptEnabled
               startInLoadingState
               renderLoading={() => (
