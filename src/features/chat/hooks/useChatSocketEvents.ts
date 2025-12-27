@@ -197,7 +197,7 @@ export const useChatSocketEvents = (threadId: string | null, currentUserId: stri
       const members = thread.members || [];
       const isMember = members.some((m: BackendThreadMember) => m.userId === currentUserIdRef.current);
       if (isMember && thread.id) {
-        addThread(thread as Parameters<typeof addThread>[0]);
+        addThread(thread as unknown as Parameters<typeof addThread>[0]);
       }
     };
 
