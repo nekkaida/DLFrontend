@@ -879,9 +879,9 @@ const styles = StyleSheet.create({
     borderTopColor: '#F3F4F6',
   },
   infoButton: {
-    paddingVertical: 6,
+    paddingVertical: 10,
     paddingHorizontal: 14,
-    borderRadius: 14,
+    borderRadius: 18,
     borderWidth: 1,
     borderColor: '#E5E7EB',
     alignItems: 'center',
@@ -893,9 +893,9 @@ const styles = StyleSheet.create({
     color: '#602E98',
   },
   joinButton: {
-    paddingVertical: 6,
+    paddingVertical: 10,
     paddingHorizontal: 14,
-    borderRadius: 14,
+    borderRadius: 16,
     alignItems: 'center',
   },
   joinButtonText: {
@@ -956,9 +956,9 @@ const styles = StyleSheet.create({
     color: '#DC2626',
   },
   declineButton: {
-    paddingVertical: 6,
+    paddingVertical: 10,
     paddingHorizontal: 14,
-    borderRadius: 14,
+    borderRadius: 16,
     alignItems: 'center',
     backgroundColor: '#FEF2F2',
     borderWidth: 1,
