@@ -46,6 +46,23 @@ export class ChatService {
     }
   }
 
+  static async getThread(threadId: string): Promise<Thread | null> {
+    chatLogger.debug("getThread called for thread:", threadId);
+    try {
+      const response: AxiosResponse = await axiosInstance.get(
+        `/chat/threads/${threadId}`
+      );
+
+      if (response.data?.data) {
+        return this.transformBackendThread(response.data.data, '');
+      }
+      return null;
+    } catch (error) {
+      chatLogger.error("Error fetching thread:", error);
+      throw error;
+    }
+  }
+
   static async getMessages(
     threadId: string,
     page: number = 1,
@@ -263,7 +280,7 @@ export class ChatService {
       updatedAt: new Date(backendThread.updatedAt),
       sportType: (backendThread.sportType || backendThread.division?.league?.sportType || null) as Thread['sportType'],
       recentSportContext: backendThread.recentSportContext ? {
-        sportType: backendThread.recentSportContext.sportType as Thread['sportType'],
+        sportType: (backendThread.recentSportContext.sportType ?? null) as 'PICKLEBALL' | 'TENNIS' | 'PADEL' | null,
         lastInteractionAt: backendThread.recentSportContext.lastInteractionAt
           ? new Date(backendThread.recentSportContext.lastInteractionAt)
           : null,
