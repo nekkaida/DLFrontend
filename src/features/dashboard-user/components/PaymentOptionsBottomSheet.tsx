@@ -9,6 +9,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
 import React, { useCallback, useEffect, useMemo, useRef } from 'react';
 import {
+  ActivityIndicator,
   Dimensions,
   Platform,
   StyleSheet,
@@ -29,6 +30,7 @@ interface PaymentOptionsBottomSheetProps {
   onPayNow: (season: Season) => void;
   onPayLater: (season: Season) => void;
   sport?: 'pickleball' | 'tennis' | 'padel';
+  isProcessingPayment?: boolean;
 }
 
 // Sport-specific color configurations
@@ -66,6 +68,7 @@ export const PaymentOptionsBottomSheet: React.FC<PaymentOptionsBottomSheetProps>
   onPayNow,
   onPayLater,
   sport = 'pickleball',
+  isProcessingPayment = false,
 }) => {
   const bottomSheetModalRef = useRef<BottomSheetModal>(null);
   const insets = useSafeAreaInsets();
@@ -114,7 +117,7 @@ export const PaymentOptionsBottomSheet: React.FC<PaymentOptionsBottomSheetProps>
 
   const handlePayNow = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    if (season) {
+    if (season && !isProcessingPayment) {
       onPayNow(season);
       onClose();
     }
@@ -184,17 +187,27 @@ export const PaymentOptionsBottomSheet: React.FC<PaymentOptionsBottomSheetProps>
           <TouchableOpacity
             style={styles.payNowButtonContainer}
             onPress={handlePayNow}
+            disabled={isProcessingPayment}
             activeOpacity={0.8}
           >
             <LinearGradient
               colors={sportColors.buttonGradient}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
-              style={styles.payNowButton}
+              style={[
+                styles.payNowButton,
+                isProcessingPayment && styles.payNowButtonDisabled,
+              ]}
             >
               <View style={styles.buttonContent}>
-                <Ionicons name="card" size={20} color="#FFFFFF" />
-                <Text style={styles.payNowButtonText}>Pay Now</Text>
+                {isProcessingPayment ? (
+                  <ActivityIndicator size="small" color="#FFFFFF" />
+                ) : (
+                  <Ionicons name="card" size={20} color="#FFFFFF" />
+                )}
+                <Text style={styles.payNowButtonText}>
+                  {isProcessingPayment ? 'Opening Gateway…' : 'Pay Now'}
+                </Text>
               </View>
               <Text style={styles.buttonSubtext}>Complete registration with payment</Text>
             </LinearGradient>
@@ -324,6 +337,9 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     paddingHorizontal: 20,
     alignItems: 'center',
+  },
+  payNowButtonDisabled: {
+    opacity: 0.85,
   },
   payLaterButton: {
     backgroundColor: '#FFFFFF',

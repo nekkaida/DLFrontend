@@ -11,6 +11,7 @@ import * as Haptics from 'expo-haptics';
 import { SeasonService, Season } from '@/src/features/dashboard-user/services/SeasonService';
 import { LeagueService } from '@/src/features/leagues/services/LeagueService';
 import { PaymentOptionsBottomSheet } from '../components';
+import { FiuuPaymentService } from '@/src/features/payments/services/FiuuPaymentService';
 import { toast } from 'sonner-native';
 import LeagueInfoIcon from '@/assets/icons/league-info.svg';
 import BackButtonIcon from '@/assets/icons/back-button.svg';
@@ -43,6 +44,7 @@ export default function SeasonDetailsScreen({
   const [profileData, setProfileData] = React.useState<any>(null);
   const [selectedSport, setSelectedSport] = React.useState<'pickleball' | 'tennis' | 'padel'>('pickleball');
   const [showPaymentOptions, setShowPaymentOptions] = React.useState(false);
+  const [isProcessingPayment, setIsProcessingPayment] = React.useState(false);
   const insets = useSafeAreaInsets();
   const STATUS_BAR_HEIGHT = insets.top;
 
@@ -102,6 +104,12 @@ export default function SeasonDetailsScreen({
   React.useEffect(() => {
     setSelectedSport(sport);
   }, [sport]);
+
+  React.useEffect(() => {
+    if (!showPaymentOptions) {
+      setIsProcessingPayment(false);
+    }
+  }, [showPaymentOptions]);
 
   const fetchSeasonData = async () => {
     if (!seasonId) {
@@ -195,10 +203,33 @@ export default function SeasonDetailsScreen({
     setShowPaymentOptions(false);
   };
 
-  const handlePayNow = (season: Season) => {
+  const handlePayNow = async (season: Season) => {
     if (!season) return;
-    console.log('Pay Now pressed for season:', season.id);
-    toast.info('Payment gateway coming soon!');
+    if (!userId) {
+      toast.error('You must be logged in to continue');
+      return;
+    }
+
+    if (isProcessingPayment) return;
+
+    try {
+      setIsProcessingPayment(true);
+      console.log('Starting FIUU payment for season:', season.id);
+
+      const checkout = await FiuuPaymentService.createCheckout(season.id, userId);
+      const payload = encodeURIComponent(JSON.stringify(checkout));
+
+      router.push({
+        pathname: '/payments/fiuu-checkout',
+        params: { payload },
+      });
+    } catch (error: any) {
+      console.error('Error launching FIUU payment:', error);
+      const message = error?.message || 'Unable to start payment. Please try again.';
+      toast.error(message);
+    } finally {
+      setIsProcessingPayment(false);
+    }
   };
 
   const handlePayLater = async (season: Season) => {
@@ -806,6 +837,8 @@ export default function SeasonDetailsScreen({
         season={season}
         onPayNow={handlePayNow}
         onPayLater={handlePayLater}
+        isProcessingPayment={isProcessingPayment}
+        sport={sport}
         sport={sport}
       />
     </View>
