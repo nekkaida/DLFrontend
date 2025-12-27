@@ -11,6 +11,7 @@ const STORAGE_KEYS = {
   ONBOARDING_DATA: '@onboarding_data',
   ONBOARDING_PROGRESS: '@onboarding_progress',
   USER_PREFERENCES: '@user_preferences',
+  HAS_SEEN_LANDING: '@has_seen_landing',
 } as const;
 
 /**
@@ -156,6 +157,32 @@ export const OnboardingStorage = {
    */
   async clearProgress(): Promise<void> {
     return storageService.remove(STORAGE_KEYS.ONBOARDING_PROGRESS);
+  },
+};
+
+/**
+ * Landing page storage methods
+ */
+export const LandingStorage = {
+  /**
+   * Check if user has seen the landing page
+   */
+  async hasSeenLanding(): Promise<boolean> {
+    return storageService.exists(STORAGE_KEYS.HAS_SEEN_LANDING);
+  },
+
+  /**
+   * Mark that user has seen the landing page
+   */
+  async markLandingSeen(): Promise<void> {
+    return storageService.save(STORAGE_KEYS.HAS_SEEN_LANDING, true);
+  },
+
+  /**
+   * Clear landing seen flag (useful for testing or logout)
+   */
+  async clearLandingSeen(): Promise<void> {
+    return storageService.remove(STORAGE_KEYS.HAS_SEEN_LANDING);
   },
 };
 

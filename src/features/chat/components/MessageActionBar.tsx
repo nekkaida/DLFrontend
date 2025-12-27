@@ -1,11 +1,11 @@
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
-import React, { useEffect } from 'react';
+import React, { useCallback, useEffect } from 'react';
 import {
     Platform,
+    Pressable,
     StyleSheet,
     Text,
-    TouchableOpacity,
     View,
 } from 'react-native';
 import Animated, {
@@ -26,7 +26,7 @@ interface MessageActionBarProps {
   messageCount?: number;
 }
 
-export const MessageActionBar: React.FC<MessageActionBarProps> = ({
+export const MessageActionBar: React.FC<MessageActionBarProps> = React.memo(({
   visible,
   isCurrentUser,
   onReply,
@@ -57,22 +57,38 @@ export const MessageActionBar: React.FC<MessageActionBarProps> = ({
     opacity: opacity.value,
   }));
 
-  if (!visible) return null;
-
-  const handleAction = (action: () => void) => {
+  // Memoized action handlers
+  const handleReplyAction = useCallback(() => {
     if (Platform.OS !== 'web') {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     }
-    action();
+    onReply();
     onClose();
-  };
+  }, [onReply, onClose]);
+
+  const handleCopyAction = useCallback(() => {
+    if (Platform.OS !== 'web') {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }
+    onCopy();
+    onClose();
+  }, [onCopy, onClose]);
+
+  const handleDeleteAction = useCallback(() => {
+    if (Platform.OS !== 'web') {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }
+    onDelete();
+    onClose();
+  }, [onDelete, onClose]);
+
+  if (!visible) return null;
 
   return (
     <>
       {/* Backdrop */}
-      <TouchableOpacity
+      <Pressable
         style={styles.backdrop}
-        activeOpacity={1}
         onPress={onClose}
       />
 
@@ -81,52 +97,50 @@ export const MessageActionBar: React.FC<MessageActionBarProps> = ({
         <View style={styles.content}>
           {/* Left side - Message count */}
           <View style={styles.leftSection}>
-            <TouchableOpacity
-              style={styles.closeButton}
+            <Pressable
+              style={({ pressed }) => [styles.closeButton, pressed && { opacity: 0.7 }]}
               onPress={onClose}
-              activeOpacity={0.7}
             >
               <Ionicons name="close" size={24} color="#111827" />
-            </TouchableOpacity>
+            </Pressable>
             <Text style={styles.messageCount}>{messageCount}</Text>
           </View>
 
           {/* Right side - Action buttons */}
           <View style={styles.rightSection}>
-            <TouchableOpacity
-              style={styles.actionButton}
-              onPress={() => handleAction(onReply)}
-              activeOpacity={0.7}
+            <Pressable
+              style={({ pressed }) => [styles.actionButton, pressed && { opacity: 0.7 }]}
+              onPress={handleReplyAction}
             >
               <Ionicons name="arrow-undo-outline" size={24} color="#111827" />
               <Text style={styles.actionLabel}>Reply</Text>
-            </TouchableOpacity>
+            </Pressable>
 
-            <TouchableOpacity
-              style={styles.actionButton}
-              onPress={() => handleAction(onCopy)}
-              activeOpacity={0.7}
+            <Pressable
+              style={({ pressed }) => [styles.actionButton, pressed && { opacity: 0.7 }]}
+              onPress={handleCopyAction}
             >
               <Ionicons name="copy-outline" size={24} color="#111827" />
               <Text style={styles.actionLabel}>Copy</Text>
-            </TouchableOpacity>
+            </Pressable>
 
             {isCurrentUser && (
-              <TouchableOpacity
-                style={styles.actionButton}
-                onPress={() => handleAction(onDelete)}
-                activeOpacity={0.7}
+              <Pressable
+                style={({ pressed }) => [styles.actionButton, pressed && { opacity: 0.7 }]}
+                onPress={handleDeleteAction}
               >
                 <Ionicons name="trash-outline" size={24} color="#DC2626" />
                 <Text style={[styles.actionLabel, styles.deleteLabel]}>Delete</Text>
-              </TouchableOpacity>
+              </Pressable>
             )}
           </View>
         </View>
       </Animated.View>
     </>
   );
-};
+});
+
+MessageActionBar.displayName = 'MessageActionBar';
 
 const styles = StyleSheet.create({
   backdrop: {

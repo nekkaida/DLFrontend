@@ -36,7 +36,7 @@ export const ProfileDMRSection: React.FC<Props> = ({
               <Text style={styles.dmrTypeLabel}>Singles</Text>
               <View style={styles.ratingCircleSmall}>
                 <Text style={styles.ratingTextSmall}>
-                  {getRatingForType(activeTab || userData.sports?.[0] || 'pickleball', 'singles') || 'N/A'}
+                  {getRatingForType(activeTab || userData.sports?.[0] || 'pickleball', 'Singles') || 'N/A'}
                 </Text>
               </View>
             </View>
@@ -44,7 +44,7 @@ export const ProfileDMRSection: React.FC<Props> = ({
               <Text style={styles.dmrTypeLabel}>Doubles</Text>
               <View style={styles.ratingCircleSmall}>
                 <Text style={styles.ratingTextSmall}>
-                  {getRatingForType(activeTab || userData.sports?.[0] || 'pickleball', 'doubles') || 'N/A'}
+                  {getRatingForType(activeTab || userData.sports?.[0] || 'pickleball', 'Doubles') || 'N/A'}
                 </Text>
               </View>
             </View>
@@ -57,7 +57,6 @@ export const ProfileDMRSection: React.FC<Props> = ({
             options={gameTypeOptions}
             selectedValue={selectedGameType}
             onSelect={onGameTypeSelect}
-            placeholder="Game Type"
           />
         </View>
 

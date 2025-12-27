@@ -7,16 +7,13 @@ import {
   StyleSheet,
   TouchableOpacity,
   Image,
-  Alert,
   ActivityIndicator,
   ScrollView,
   Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import * as ImagePicker from 'expo-image-picker';
-import { manipulateAsync, SaveFormat } from 'expo-image-manipulator';
 import { Svg, Path, G, Circle, Rect, Defs, ClipPath } from 'react-native-svg';
-import { BackgroundGradient, DeuceLogo, ConfirmButton, CircularImageCropper } from '../components';
+import { CircularImageCropper } from '../components';
 import { LinearGradient } from 'expo-linear-gradient';
 import { toast } from 'sonner-native';
 import { useSession, authClient } from '@/lib/auth-client';
@@ -29,10 +26,10 @@ import {
   verticalScale,
   moderateScale,
   responsivePadding,
-  responsiveHeight,
   responsiveWidth,
   getResponsiveValue,
 } from '@/core/utils/responsive';
+import { useProfileImageUpload } from '@/src/shared/hooks/useProfileImageUpload';
 
 const DefaultProfileIcon = ({ size }: { size: number }) => (
   <Svg width={size} height={size} viewBox="0 0 296 296" fill="none">
@@ -53,15 +50,29 @@ const DefaultProfileIcon = ({ size }: { size: number }) => (
 );
 
 const ProfilePictureScreen = () => {
-  const [profileImage, setProfileImage] = useState<string | null>(null);
-  const [originalLocalImage, setOriginalLocalImage] = useState<string | null>(null); // Keep original local URI for re-cropping
   const [hadUploadedImage, setHadUploadedImage] = useState(false); // Track if user uploaded an image before skip
-  const [isUploadingImage, setIsUploadingImage] = useState(false);
-  const [showCropper, setShowCropper] = useState(false);
-  const [selectedImageUri, setSelectedImageUri] = useState<string | null>(null);
   const [isSkipSelected, setIsSkipSelected] = useState(false);
   const router = useRouter();
   const { data: session } = useSession();
+
+  // Use shared profile image upload hook
+  const {
+    profileImage,
+    isUploadingImage,
+    showCropper,
+    selectedImageUri,
+    setProfileImage,
+    pickImageFromLibrary,
+    openCamera,
+    handleCropComplete,
+    handleCropCancel,
+    handleEditImage,
+  } = useProfileImageUpload({
+    userId: session?.user?.id,
+    onUploadSuccess: () => {
+      setHadUploadedImage(true); // Mark that user has uploaded an image
+    },
+  });
 
   // Responsive sizes
   const imageSize = getResponsiveValue({
@@ -72,251 +83,21 @@ const ProfilePictureScreen = () => {
     default: 260,
   });
 
-  // Image upload functions
-  const uploadProfileImage = async (imageUri: string, retryCount = 0) => {
-    const MAX_RETRIES = 2;
-
-    try {
-      setIsUploadingImage(true);
-
-      const backendUrl = getBackendBaseURL();
-      const formData = new FormData();
-
-      // Get file extension from URI
-      const fileExtension = imageUri.split('.').pop()?.toLowerCase() || 'jpg';
-      const mimeTypes: { [key: string]: string } = {
-        'jpg': 'image/jpeg',
-        'jpeg': 'image/jpeg',
-        'png': 'image/png',
-        'gif': 'image/gif',
-        'webp': 'image/webp',
-      };
-      const mimeType = mimeTypes[fileExtension] || 'image/jpeg';
-
-      // Create file object for upload with correct extension
-      const file = {
-        uri: imageUri,
-        type: mimeType,
-        name: `profile-${Date.now()}.${fileExtension}`,
-      } as any;
-
-      formData.append('image', file);
-
-      console.log('Uploading profile image:', imageUri);
-      console.log('Backend URL:', backendUrl);
-      console.log('Attempt:', retryCount + 1);
-
-      const response = await authClient.$fetch(`${backendUrl}/api/player/profile/upload-image`, {
-        method: 'POST',
-        body: formData,
-        // Don't set Content-Type header - let the browser set it with proper boundary
-      });
-
-      console.log('Upload response:', response);
-
-      // Handle different possible response structures
-      let imageUrl = null;
-
-      if (response && (response as any).data) {
-        const responseData = (response as any).data;
-        // Try different possible paths for the image URL
-        // Check nested data.data.imageUrl first (current backend structure)
-        imageUrl = responseData.data?.imageUrl || responseData.imageUrl || responseData.image || responseData.url || responseData.data?.image;
-      }
-
-      if (imageUrl) {
-        console.log('Image URL received:', imageUrl);
-        console.log('Setting profileImage state to:', imageUrl);
-
-        // Update local state with new image URL
-        setProfileImage(imageUrl);
-        setHadUploadedImage(true); // Mark that user has uploaded an image
-
-        console.log('profileImage state updated, hadUploadedImage set to true');
-
-        toast.success('Success', {
-          description: 'Profile picture updated successfully!',
-        });
-      } else {
-        console.error('No image URL found in response:', response);
-        toast.error('Error', {
-          description: 'Upload successful but no image URL received.',
-        });
-      }
-    } catch (error) {
-      console.error('Error uploading profile image:', error);
-
-      // Retry logic for network errors
-      if (retryCount < MAX_RETRIES && error instanceof Error && error.message.includes('Network request failed')) {
-        console.log(`Retrying upload (attempt ${retryCount + 2} of ${MAX_RETRIES + 1})...`);
-        // Wait a bit before retrying
-        await new Promise(resolve => setTimeout(resolve, 1000 * (retryCount + 1)));
-        setIsUploadingImage(false);
-        return uploadProfileImage(imageUri, retryCount + 1);
-      }
-
-      toast.error('Error', {
-        description: 'Failed to upload profile picture. Please try again.',
-      });
-    } finally {
-      setIsUploadingImage(false);
-    }
+  // Wrapper functions to clear skip selection when uploading
+  const handlePickImageFromLibrary = async () => {
+    setIsSkipSelected(false);
+    await pickImageFromLibrary();
   };
 
-  const pickImageFromLibrary = async () => {
-    try {
-      // Request permission
-      const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
-
-      if (permissionResult.granted === false) {
-        Alert.alert(
-          'Permission Required',
-          'Please grant permission to access your photo library to upload a profile picture.',
-          [{ text: 'OK' }]
-        );
-        return;
-      }
-
-      await openImageLibrary();
-    } catch (error) {
-      console.error('Error picking image:', error);
-      toast.error('Error', {
-        description: 'Failed to open image picker. Please try again.',
-      });
-    }
+  const handleOpenCamera = async () => {
+    setIsSkipSelected(false);
+    await openCamera();
   };
 
-  const normalizeImageOrientation = async (imageUri: string) => {
-    try {
-      console.log('=== NORMALIZING CAMERA IMAGE (ProfilePictureScreen) ===');
-      console.log('Original URI:', imageUri);
-
-      // Get original dimensions before normalization
-      return new Promise((resolve) => {
-        Image.getSize(imageUri, async (width, height) => {
-          console.log('Original dimensions:', { width, height });
-          console.log('Original aspect ratio:', width / height);
-
-          // Use manipulateAsync with no operations to normalize EXIF orientation
-          const normalized = await manipulateAsync(
-            imageUri,
-            [], // No operations, just normalize
-            { compress: 1.0, format: SaveFormat.JPEG }
-          );
-
-          console.log('Normalized URI:', normalized.uri);
-
-          // Get dimensions after normalization
-          Image.getSize(normalized.uri, (normWidth, normHeight) => {
-            console.log('Normalized dimensions:', { width: normWidth, height: normHeight });
-            console.log('Normalized aspect ratio:', normWidth / normHeight);
-            console.log('Dimensions changed:', normWidth !== width || normHeight !== height);
-            console.log('========================================================');
-            resolve(normalized.uri);
-          });
-        }, (error) => {
-          console.error('Error getting image size:', error);
-          resolve(imageUri);
-        });
-      });
-    } catch (error) {
-      console.error('Error normalizing image orientation:', error);
-      return imageUri;
-    }
-  };
-
-  const openCamera = async () => {
-    try {
-      const permissionResult = await ImagePicker.requestCameraPermissionsAsync();
-
-      if (permissionResult.granted === false) {
-        Alert.alert(
-          'Permission Required',
-          'Please grant permission to access your camera to take a profile picture.',
-          [{ text: 'OK' }]
-        );
-        return;
-      }
-
-      const result = await ImagePicker.launchCameraAsync({
-        mediaTypes: ['images'],
-        allowsEditing: false, // Disable native editing, we'll use custom crop
-        quality: 1.0, // Max quality before cropping
-        exif: false, // Don't include EXIF to avoid rotation issues
-      });
-
-      if (!result.canceled && result.assets[0]) {
-        console.log('=== CAMERA PHOTO TAKEN (ProfilePictureScreen) ===');
-        console.log('Raw camera URI:', result.assets[0].uri);
-        console.log('Camera result width:', result.assets[0].width);
-        console.log('Camera result height:', result.assets[0].height);
-        console.log('Has EXIF:', result.assets[0].exif !== undefined);
-        console.log('=================================================');
-
-        // Cancel skip selection when taking a photo
-        setIsSkipSelected(false);
-
-        // Normalize EXIF rotation BEFORE showing cropper
-        // This ensures the displayed image matches what will be cropped
-        console.log('Normalizing camera image before cropper...');
-        const normalized = await manipulateAsync(
-          result.assets[0].uri,
-          [],
-          { compress: 1, format: SaveFormat.JPEG }
-        );
-        console.log('Normalized URI for cropper:', normalized.uri);
-
-        setOriginalLocalImage(normalized.uri); // Save original for re-cropping
-        setSelectedImageUri(normalized.uri);
-        setShowCropper(true);
-      }
-    } catch (error) {
-      console.error('Error opening camera:', error);
-      toast.error('Error', {
-        description: 'Failed to open camera. Please try again.',
-      });
-    }
-  };
-
-  const openImageLibrary = async () => {
-    try {
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ['images'],
-        allowsEditing: false, // Disable native editing, we'll use custom crop
-        quality: 1.0, // Max quality before cropping
-      });
-
-      if (!result.canceled && result.assets[0]) {
-        console.log('=== PHOTO LIBRARY IMAGE SELECTED (ProfilePictureScreen) ===');
-        console.log('Library image URI:', result.assets[0].uri);
-        console.log('Library result width:', result.assets[0].width);
-        console.log('Library result height:', result.assets[0].height);
-        console.log('Has EXIF:', result.assets[0].exif !== undefined);
-        console.log('============================================================');
-
-        // Cancel skip selection when uploading a photo
-        setIsSkipSelected(false);
-
-        // Normalize EXIF rotation BEFORE showing cropper
-        // This ensures the displayed image matches what will be cropped
-        console.log('Normalizing library image before cropper...');
-        const normalized = await manipulateAsync(
-          result.assets[0].uri,
-          [],
-          { compress: 1, format: SaveFormat.JPEG }
-        );
-        console.log('Normalized URI for cropper:', normalized.uri);
-
-        setOriginalLocalImage(normalized.uri); // Save original for re-cropping
-        setSelectedImageUri(normalized.uri);
-        setShowCropper(true);
-      }
-    } catch (error) {
-      console.error('Error opening image library:', error);
-      toast.error('Error', {
-        description: 'Failed to open photo library. Please try again.',
-      });
-    }
+  // Custom crop complete handler for onboarding (handles skip state)
+  const onCropComplete = async (croppedUri: string) => {
+    setIsSkipSelected(false);
+    await handleCropComplete(croppedUri);
   };
 
   const handleComplete = async () => {
@@ -379,8 +160,16 @@ const ProfilePictureScreen = () => {
           console.log('No image to delete - hadUploadedImage:', hadUploadedImage, 'session?.user?.id:', session?.user?.id);
         }
 
-        // Mark onboarding as completed
+        // Update step and mark onboarding as completed
         if (session?.user?.id) {
+          // First update the step to PROFILE_PICTURE
+          try {
+            await questionnaireAPI.updateOnboardingStep(session.user.id, 'PROFILE_PICTURE');
+            console.log('ProfilePictureScreen: Onboarding step updated to PROFILE_PICTURE (skip)');
+          } catch (stepError) {
+            console.error('Error updating onboarding step:', stepError);
+          }
+
           console.log('ProfilePictureScreen: Calling completeOnboarding API (skip)...');
           const result = await questionnaireAPI.completeOnboarding(session.user.id);
           console.log('ProfilePictureScreen: Onboarding completion result (skip):', result);
@@ -404,13 +193,21 @@ const ProfilePictureScreen = () => {
       }
       
       // Otherwise, complete normally with profile picture
-      // Mark onboarding as completed
+      // Update step and mark onboarding as completed
       if (session?.user?.id) {
+        // First update the step to PROFILE_PICTURE
+        try {
+          await questionnaireAPI.updateOnboardingStep(session.user.id, 'PROFILE_PICTURE');
+          console.log('ProfilePictureScreen: Onboarding step updated to PROFILE_PICTURE');
+        } catch (stepError) {
+          console.error('Error updating onboarding step:', stepError);
+        }
+
         console.log('ProfilePictureScreen: Calling completeOnboarding API...');
         const result = await questionnaireAPI.completeOnboarding(session.user.id);
         console.log('ProfilePictureScreen: Onboarding completion result:', result);
         console.log('ProfilePictureScreen: Onboarding marked as completed');
-        
+
         // Wait longer for the backend to process the completion and database to update
         await new Promise(resolve => setTimeout(resolve, 1500));
         console.log('ProfilePictureScreen: Waited for backend processing');
@@ -433,34 +230,6 @@ const ProfilePictureScreen = () => {
     }
   };
 
-  const handleEditImage = () => {
-    if (!profileImage) return;
-
-    // Use the original local image for re-cropping, not the uploaded URL
-    if (originalLocalImage) {
-      console.log('Re-cropping original local image:', originalLocalImage);
-      setSelectedImageUri(originalLocalImage);
-      setShowCropper(true);
-    } else {
-      toast.info('Replace Image', {
-        description: 'To change your photo, please upload or take a new one.',
-      });
-    }
-  };
-
-  const handleCropComplete = async (croppedUri: string) => {
-    setShowCropper(false);
-    setSelectedImageUri(null);
-    // Cancel skip selection when cropping completes
-    setIsSkipSelected(false);
-    await uploadProfileImage(croppedUri);
-  };
-
-  const handleCropCancel = () => {
-    setShowCropper(false);
-    setSelectedImageUri(null);
-  };
-
   const handleSkip = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
 
@@ -478,9 +247,8 @@ const ProfilePictureScreen = () => {
 
     // Clear profile image display when skip is selected
     if (newSkipState) {
-      console.log('Clearing profileImage and originalLocalImage because skip is selected');
+      console.log('Clearing profileImage because skip is selected');
       setProfileImage(null);
-      setOriginalLocalImage(null);
     } else {
       // If user un-toggles skip, reset the hadUploadedImage flag
       console.log('User un-toggled skip - resetting hadUploadedImage flag');
@@ -576,7 +344,7 @@ const ProfilePictureScreen = () => {
         <TouchableOpacity
           onPress={() => {
             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-            pickImageFromLibrary();
+            handlePickImageFromLibrary();
           }}
           disabled={isUploadingImage}
           style={styles.buttonTouchableContainer}
@@ -598,7 +366,7 @@ const ProfilePictureScreen = () => {
         <TouchableOpacity
           onPress={() => {
             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-            openCamera();
+            handleOpenCamera();
           }}
           disabled={isUploadingImage}
           style={styles.buttonTouchableContainer}
@@ -645,7 +413,7 @@ const ProfilePictureScreen = () => {
         <CircularImageCropper
           visible={showCropper}
           imageUri={selectedImageUri}
-          onCropComplete={handleCropComplete}
+          onCropComplete={onCropComplete}
           onCancel={handleCropCancel}
         />
       )}

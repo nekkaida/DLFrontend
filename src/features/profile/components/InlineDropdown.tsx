@@ -5,6 +5,8 @@ import {
   Pressable,
   StyleSheet,
   Platform,
+  ViewStyle,
+  TextStyle,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { theme } from '@core/theme/theme';
@@ -34,23 +36,23 @@ export const InlineDropdown: React.FC<InlineDropdownProps> = ({
   };
 
   return (
-    <View style={[styles.container, style]}>
+    <View style={[styles.container, style] as unknown as ViewStyle}>
       {/* Dropdown Button */}
-      <Pressable 
-        style={styles.dropdownButton}
+      <Pressable
+        style={styles.dropdownButton as ViewStyle}
         onPress={toggleDropdown}
       >
-        <Text style={styles.dropdownText}>{selectedValue}</Text>
-        <Ionicons 
-          name={isOpen ? "chevron-up" : "chevron-down"} 
-          size={16} 
-          color={theme.colors.neutral.gray[600]} 
+        <Text style={styles.dropdownText as TextStyle}>{selectedValue}</Text>
+        <Ionicons
+          name={isOpen ? "chevron-up" : "chevron-down"}
+          size={16}
+          color={theme.colors.neutral.gray[600]}
         />
       </Pressable>
-      
+
       {/* Dropdown Options */}
       {isOpen && (
-        <View style={styles.dropdownOptions}>
+        <View style={styles.dropdownOptions as ViewStyle}>
           {options.map((option, index) => (
             <Pressable
               key={index}
@@ -59,13 +61,13 @@ export const InlineDropdown: React.FC<InlineDropdownProps> = ({
                 option === selectedValue && styles.dropdownOptionSelected,
                 index === 0 && styles.dropdownOptionFirst,
                 index === options.length - 1 && styles.dropdownOptionLast,
-              ]}
+              ] as unknown as ViewStyle}
               onPress={() => handleSelect(option)}
             >
               <Text style={[
                 styles.dropdownOptionText,
                 option === selectedValue && styles.dropdownOptionTextSelected
-              ]}>
+              ] as unknown as TextStyle}>
                 {option}
               </Text>
               {option === selectedValue && (
@@ -144,11 +146,11 @@ const styles = StyleSheet.create({
   dropdownOptionText: {
     fontSize: theme.typography.fontSize.sm,
     color: theme.colors.neutral.gray[700],
-    fontWeight: theme.typography.fontWeight.medium,
+    fontWeight: theme.typography.fontWeight.medium as any,
     fontFamily: theme.typography.fontFamily.primary,
   },
   dropdownOptionTextSelected: {
     color: theme.colors.primary,
-    fontWeight: theme.typography.fontWeight.semibold,
+    fontWeight: theme.typography.fontWeight.semibold as any,
   },
 });

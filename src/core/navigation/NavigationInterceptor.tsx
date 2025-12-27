@@ -1,14 +1,60 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { useRouter, useSegments } from 'expo-router';
+import { useRouter, useSegments, Href } from 'expo-router';
 import { BackHandler } from 'react-native';
-import { useSession } from '@/lib/auth-client';
+import { useSession, signOut } from '@/lib/auth-client';
 import { getBackendBaseURL } from '@/src/config/network';
+import { LandingStorage, OnboardingStorage } from '@/src/core/storage';
 
 // Only block these specific auth pages after login - NOT the home page
 const BLOCKED_AUTH_PAGES = ['/login', '/register', '/resetPassword', '/verifyEmail'];
 
 const isBlockedAuthPage = (route: string): boolean => {
   return BLOCKED_AUTH_PAGES.some(authPage => route.startsWith(authPage));
+};
+
+// Map onboarding step to the NEXT route the user should go to
+const STEP_TO_NEXT_ROUTE: Record<string, string> = {
+  'PERSONAL_INFO': '/onboarding/location',
+  'LOCATION': '/onboarding/game-select',
+  'GAME_SELECT': '/onboarding/skill-assessment',
+  'SKILL_ASSESSMENT': '/onboarding/assessment-results',
+  'ASSESSMENT_RESULTS': '/onboarding/profile-picture',
+  'PROFILE_PICTURE': '/user-dashboard',
+};
+
+// Get the next route for a user based on their onboarding step
+// For GAME_SELECT and SKILL_ASSESSMENT steps, we need to determine which sport to resume with
+const getNextOnboardingRoute = (
+  step: string | null | undefined,
+  selectedSports?: string[],
+  completedSports?: string[]
+): Href => {
+  if (!step) return '/onboarding/personal-info';
+
+  // Special handling for steps that involve sport selection
+  // GAME_SELECT: User has selected sports, needs to start questionnaires
+  // SKILL_ASSESSMENT: User has completed at least one questionnaire, may need to do more
+  if ((step === 'GAME_SELECT' || step === 'SKILL_ASSESSMENT') && selectedSports && selectedSports.length > 0) {
+    // Find the first sport that hasn't been completed yet
+    const nextSportIndex = selectedSports.findIndex(
+      sport => !completedSports?.includes(sport)
+    );
+
+    if (nextSportIndex >= 0) {
+      // Found an incomplete sport - go to its questionnaire introduction
+      const nextSport = selectedSports[nextSportIndex];
+      console.log(`NavigationInterceptor: Resuming at sport ${nextSport} (index ${nextSportIndex})`);
+      return `/onboarding/skill-assessment?sport=${nextSport}&sportIndex=${nextSportIndex}` as Href;
+    } else {
+      // All sports completed - move to assessment results for the last sport
+      const lastSport = selectedSports[selectedSports.length - 1];
+      const lastIndex = selectedSports.length - 1;
+      console.log(`NavigationInterceptor: All sports completed, going to assessment results`);
+      return `/onboarding/assessment-results?sport=${lastSport}&sportIndex=${lastIndex}` as Href;
+    }
+  }
+
+  return (STEP_TO_NEXT_ROUTE[step] || '/onboarding/personal-info') as Href;
 };
 
 // Pages where back navigation should be prevented (exit app instead)
@@ -32,9 +78,14 @@ export const NavigationInterceptor: React.FC<NavigationInterceptorProps> = ({ ch
   const [onboardingStatus, setOnboardingStatus] = useState<{
     completedOnboarding: boolean;
     hasCompletedAssessment: boolean;
+    onboardingStep?: string | null; // Tracks which step the user completed
+    selectedSports?: string[]; // Sports the user selected
+    completedSports?: string[]; // Sports with completed questionnaires
     timestamp?: number;
+    backendError?: boolean; // True when backend is unavailable (not 404)
   } | null>(null);
   const [isCheckingOnboarding, setIsCheckingOnboarding] = useState(false);
+  const [hasSeenLanding, setHasSeenLanding] = useState<boolean | null>(null); // null = checking, true/false = result
 
   // Check onboarding completion status from backend (using existing APIs)
   const checkOnboardingStatus = async (userId: string, forceRefresh: boolean = false) => {
@@ -61,11 +112,37 @@ export const NavigationInterceptor: React.FC<NavigationInterceptorProps> = ({ ch
 
       if (!onboardingResponse.ok) {
         if (onboardingResponse.status === 404) {
-          console.log('User not found in onboarding system, needs to complete onboarding');
+          // User not found in backend - their account was likely deleted
+          // Sign them out and clear all local data to redirect to landing page
+          console.log('User not found in backend (404) - account may have been deleted, signing out');
+          try {
+            // Clear all local data
+            await Promise.all([
+              OnboardingStorage.clearData(),
+              OnboardingStorage.clearProgress(),
+              LandingStorage.clearLandingSeen(),
+            ]);
+            // Sign out the user
+            await signOut();
+            console.log('User signed out and local data cleared - will redirect to landing page');
+          } catch (signOutError) {
+            console.error('Error during sign out cleanup:', signOutError);
+          }
+          // Set status to trigger redirect - the signOut will cause session to become null
+          // which will reset onboardingStatus via the useEffect on line 237-240
+          setOnboardingStatus(null);
+          return;
         } else {
-          console.warn(`Onboarding API error (${onboardingResponse.status}), assuming user needs onboarding`);
+          // Backend error (5xx, etc.) - don't assume user needs onboarding
+          // Keep user on landing page instead of redirecting to onboarding
+          console.warn(`Onboarding API error (${onboardingResponse.status}), backend unavailable`);
+          setOnboardingStatus({
+            completedOnboarding: false,
+            hasCompletedAssessment: false,
+            timestamp: Date.now(),
+            backendError: true
+          });
         }
-        setOnboardingStatus({ completedOnboarding: false, hasCompletedAssessment: false });
         return;
       }
 
@@ -78,6 +155,9 @@ export const NavigationInterceptor: React.FC<NavigationInterceptorProps> = ({ ch
         const finalStatus = {
           completedOnboarding: true,
           hasCompletedAssessment: true, // Always true if onboarding is completed
+          onboardingStep: onboardingData.onboardingStep || 'PROFILE_PICTURE',
+          selectedSports: onboardingData.selectedSports || [],
+          completedSports: onboardingData.completedSports || [],
           timestamp: Date.now()
         };
         console.log('NavigationInterceptor: Final status (onboarding completed, assessment considered complete):', finalStatus);
@@ -88,25 +168,28 @@ export const NavigationInterceptor: React.FC<NavigationInterceptorProps> = ({ ch
         // This handles race conditions where the completion API just finished
         console.log('NavigationInterceptor: Onboarding not completed, waiting and retrying...');
         await new Promise(resolve => setTimeout(resolve, 1000));
-        
+
         try {
           const retryResponse = await fetch(`${baseUrl}/api/onboarding/status/${userId}?t=${Date.now()}`, {
             method: 'GET',
-            headers: { 
+            headers: {
               'Content-Type': 'application/json',
               'Cache-Control': 'no-cache',
               'Pragma': 'no-cache'
             },
           });
-          
+
           if (retryResponse.ok) {
             const retryData = await retryResponse.json();
             console.log('NavigationInterceptor: Retry data received:', retryData);
-            
+
             if (retryData?.completedOnboarding) {
               const finalStatus = {
                 completedOnboarding: true,
                 hasCompletedAssessment: true,
+                onboardingStep: retryData.onboardingStep || 'PROFILE_PICTURE',
+                selectedSports: retryData.selectedSports || [],
+                completedSports: retryData.completedSports || [],
                 timestamp: Date.now()
               };
               console.log('NavigationInterceptor: Retry successful - onboarding completed:', finalStatus);
@@ -117,10 +200,14 @@ export const NavigationInterceptor: React.FC<NavigationInterceptorProps> = ({ ch
         } catch (retryError) {
           console.warn('NavigationInterceptor: Retry failed:', retryError);
         }
-        
-        const finalStatus = { 
-          completedOnboarding: false, 
+
+        // Save the step and sport info from original response for resume functionality
+        const finalStatus = {
+          completedOnboarding: false,
           hasCompletedAssessment: false,
+          onboardingStep: onboardingData.onboardingStep || null,
+          selectedSports: onboardingData.selectedSports || [],
+          completedSports: onboardingData.completedSports || [],
           timestamp: Date.now()
         };
         console.log('NavigationInterceptor: Final status (onboarding not completed after retry):', finalStatus);
@@ -128,12 +215,14 @@ export const NavigationInterceptor: React.FC<NavigationInterceptorProps> = ({ ch
         setOnboardingStatus(finalStatus);
       }
     } catch (error) {
-      console.warn('Onboarding check failed, defaulting to incomplete for safety:', error);
-      // Default to incomplete on error to be safe - this ensures onboarding flow works
-      setOnboardingStatus({ 
-        completedOnboarding: false, 
+      // Network error or backend unavailable - don't redirect to onboarding
+      // Keep user on landing page so they can retry when backend is available
+      console.warn('Onboarding check failed (network/backend error), staying on landing page:', error);
+      setOnboardingStatus({
+        completedOnboarding: false,
         hasCompletedAssessment: false,
-        timestamp: Date.now()
+        timestamp: Date.now(),
+        backendError: true
       });
     } finally {
       setIsCheckingOnboarding(false);
@@ -148,6 +237,16 @@ export const NavigationInterceptor: React.FC<NavigationInterceptorProps> = ({ ch
     }
   };
 
+  // Check if user has seen the landing page on app start
+  useEffect(() => {
+    const checkLandingSeen = async () => {
+      const seen = await LandingStorage.hasSeenLanding();
+      console.log('NavigationInterceptor: Has seen landing:', seen);
+      setHasSeenLanding(seen);
+    };
+    checkLandingSeen();
+  }, []);
+
   // Check onboarding status when user session changes
   useEffect(() => {
     if (session?.user?.id && !onboardingStatus) {
@@ -160,9 +259,14 @@ export const NavigationInterceptor: React.FC<NavigationInterceptorProps> = ({ ch
 
   // Track navigation stack and block auth pages for authenticated users
   useEffect(() => {
-    // Don't do anything while auth is loading
+    // Don't do anything while auth is loading or checking landing status
     if (isPending) {
       console.log('NavigationInterceptor: Auth pending, waiting...');
+      return;
+    }
+
+    if (hasSeenLanding === null) {
+      console.log('NavigationInterceptor: Checking if user has seen landing...');
       return;
     }
 
@@ -177,16 +281,33 @@ export const NavigationInterceptor: React.FC<NavigationInterceptorProps> = ({ ch
         return;
       }
 
-      // Authenticated users - check onboarding status
+      // IMPORTANT: If user hasn't seen the landing page yet, let them see it first
+      // This ensures first-time TestFlight users see "Ready? Start Now" before any redirects
+      if (!hasSeenLanding) {
+        console.log('NavigationInterceptor: User has not seen landing page yet, staying here');
+        return;
+      }
+
+      // Authenticated users who have seen landing - check onboarding status
       if (isCheckingOnboarding || !onboardingStatus) {
         // Still checking onboarding status, don't redirect yet
         console.log('NavigationInterceptor: Checking onboarding status...');
         return;
       }
 
+      // Auto-redirect users to their correct onboarding step or dashboard
       if (!onboardingStatus.completedOnboarding) {
-        console.log('NavigationInterceptor: User needs onboarding, redirecting to personal-info');
-        setTimeout(() => router.replace('/onboarding/personal-info'), 100);
+        // User hasn't completed onboarding - redirect to the correct step based on their progress
+        const nextRoute = getNextOnboardingRoute(
+          onboardingStatus.onboardingStep,
+          onboardingStatus.selectedSports,
+          onboardingStatus.completedSports
+        );
+        console.log('NavigationInterceptor: User needs to continue onboarding, auto-redirecting to:', nextRoute);
+        console.log('NavigationInterceptor: Last completed step:', onboardingStatus.onboardingStep);
+        console.log('NavigationInterceptor: Selected sports:', onboardingStatus.selectedSports);
+        console.log('NavigationInterceptor: Completed sports:', onboardingStatus.completedSports);
+        setTimeout(() => router.replace(nextRoute), 100);
         return;
       }
 
@@ -231,9 +352,24 @@ export const NavigationInterceptor: React.FC<NavigationInterceptorProps> = ({ ch
       }
       
       if (!onboardingStatus.completedOnboarding) {
+        // Don't redirect to onboarding if backend is unavailable - redirect to landing page instead
+        if (onboardingStatus.backendError) {
+          console.warn('Access to protected route blocked - backend unavailable, redirecting to landing page');
+          setTimeout(() => router.replace('/'), 100);
+          return;
+        }
+        // Use step-based routing for resume functionality
+        const nextRoute = getNextOnboardingRoute(
+          onboardingStatus.onboardingStep,
+          onboardingStatus.selectedSports,
+          onboardingStatus.completedSports
+        );
         console.warn('Access to protected route blocked - onboarding incomplete:', currentRoute);
-        console.warn('NavigationInterceptor: Redirecting to personal-info');
-        setTimeout(() => router.replace('/onboarding/personal-info'), 100);
+        console.warn('NavigationInterceptor: Last completed step:', onboardingStatus.onboardingStep);
+        console.warn('NavigationInterceptor: Selected sports:', onboardingStatus.selectedSports);
+        console.warn('NavigationInterceptor: Completed sports:', onboardingStatus.completedSports);
+        console.warn('NavigationInterceptor: Redirecting to:', nextRoute);
+        setTimeout(() => router.replace(nextRoute), 100);
         return;
       }
 
@@ -248,7 +384,14 @@ export const NavigationInterceptor: React.FC<NavigationInterceptorProps> = ({ ch
     }
 
     // Block authenticated users from auth pages and redirect based on onboarding status
+    // BUT allow access to auth pages when backend is unavailable (so they can re-login)
     if (session?.user && isBlockedAuthPage(currentRoute)) {
+      // If backend is unavailable, allow access to auth pages - user may need to re-authenticate
+      if (onboardingStatus?.backendError) {
+        console.log('NavigationInterceptor: Backend unavailable, allowing access to auth page:', currentRoute);
+        return;
+      }
+
       console.warn('Navigation to auth page blocked for authenticated user:', currentRoute);
 
       if (!onboardingStatus) {
@@ -261,6 +404,9 @@ export const NavigationInterceptor: React.FC<NavigationInterceptorProps> = ({ ch
         setTimeout(() => router.replace('/user-dashboard'), 100);
       } else if (onboardingStatus.completedOnboarding) {
         setTimeout(() => router.replace('/onboarding/game-select'), 100);
+      } else if (onboardingStatus.backendError) {
+        // Backend unavailable - redirect to landing page instead of onboarding
+        setTimeout(() => router.replace('/'), 100);
       } else {
         setTimeout(() => router.replace('/onboarding/personal-info'), 100);
       }
@@ -286,7 +432,7 @@ export const NavigationInterceptor: React.FC<NavigationInterceptorProps> = ({ ch
         refreshOnboardingStatus();
       }
     }
-  }, [segments, router, session, onboardingStatus, isCheckingOnboarding, isPending]);
+  }, [segments, router, session, onboardingStatus, isCheckingOnboarding, isPending, hasSeenLanding]);
 
   // Handle Android back button
   useEffect(() => {

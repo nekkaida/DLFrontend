@@ -67,7 +67,7 @@ export const fetcher = async (args: unknown) => {
 
 export const endpoints = {
   user: {
-    trackLogin: "/api/admin/activity/tracklogin",
+    trackLogin: "/api/player/track-login",
   },
 
   admin: {
@@ -155,11 +155,71 @@ export const endpoints = {
   },
 
   match: {
+    // Match CRUD
     create: "/api/match/create",
     getAll: "/api/match",
+    getMy: "/api/match/my",
+    getAvailable: (divisionId: string) => `/api/match/available/${divisionId}`,
     getById: (id: string) => `/api/match/${id}`,
+    getDetails: (id: string) => `/api/match/${id}/details`, // Full match details for UI display
     update: (id: string) => `/api/match/${id}`,
     delete: (id: string) => `/api/match/delete/${id}`,
+    
+    // Join match
+    join: (id: string) => `/api/match/${id}/join`,
+    
+    // Time slots
+    proposeTimeSlot: (id: string) => `/api/match/${id}/timeslots`,
+    voteForTimeSlot: (id: string) => `/api/match/timeslots/${id}/vote`,
+    confirmTimeSlot: (id: string) => `/api/match/timeslots/${id}/confirm`,
+    
+    // Invitations
+    getPendingInvitations: "/api/match/invitations/pending",
+    getInvitationById: (id: string) => `/api/match/invitations/${id}`,
+    respondToInvitation: (id: string) => `/api/match/invitations/${id}/respond`,
+    
+    // Results
+    getResult: (id: string) => `/api/match/${id}/result`,
+    submitResult: (id: string) => `/api/match/${id}/result`,
+    confirmResult: (id: string) => `/api/match/${id}/confirm`,
+    submitWalkover: (id: string) => `/api/match/${id}/walkover`,
+    getDivisionResults: (divisionId: string) => `/api/match/division/${divisionId}/results`,
+    
+    // Cancel/Reschedule
+    cancel: (id: string) => `/api/match/${id}/cancel`,
+    requestReschedule: (id: string) => `/api/match/${id}/reschedule`,
+    
+    // History and Statistics
+    getHistory: "/api/match/history",
+    getStats: "/api/match/stats",
+    getUpcoming: "/api/match/upcoming",
+    getRecent: "/api/match/recent",
+    getHeadToHead: (opponentId: string) => `/api/match/head-to-head/${opponentId}`,
+
+    // Comments
+    getComments: (id: string) => `/api/match/${id}/comments`,
+    createComment: (id: string) => `/api/match/${id}/comment`,
+    updateComment: (id: string, commentId: string) => `/api/match/${id}/comment/${commentId}`,
+    deleteComment: (id: string, commentId: string) => `/api/match/${id}/comment/${commentId}`,
+  },
+
+  friendly: {
+    getAll: "/api/friendly",
+    getById: (id: string) => `/api/friendly/${id}`,
+    getDetails: (id: string) => `/api/friendly/${id}/details`, // Full match details for UI display
+    create: "/api/friendly/create",
+    join: (id: string) => `/api/friendly/${id}/join`,
+    submitResult: (id: string) => `/api/friendly/${id}/result`,
+    confirmResult: (id: string) => `/api/friendly/${id}/confirm`,
+    accept: (id: string) => `/api/friendly/${id}/accept`,
+    decline: (id: string) => `/api/friendly/${id}/decline`,
+    cancel: (id: string) => `/api/friendly/${id}/cancel`,
+
+    // Comments
+    getComments: (id: string) => `/api/friendly/${id}/comments`,
+    createComment: (id: string) => `/api/friendly/${id}/comment`,
+    updateComment: (id: string, commentId: string) => `/api/friendly/${id}/comment/${commentId}`,
+    deleteComment: (id: string, commentId: string) => `/api/friendly/${id}/comment/${commentId}`,
   },
 
   notifications: {
@@ -167,16 +227,21 @@ export const endpoints = {
     unreadCount: "/api/notifications/unread-count",
     markRead: (id: string) => `/api/notifications/${id}/read`,
     markAllRead: "/api/notifications/mark-all-read",
-    delete: (id: string) => `/api/notifications/${id}`, 
+    delete: (id: string) => `/api/notifications/${id}`,
     stats: "/api/notifications/stats",
     byCategory: (category: string) => `/api/notifications/category/${category}`,
     testNotification: "/api/notifications/test",
     cleanup: "/api/notifications/cleanup",
+    // Push token management
+    registerPushToken: "/api/notifications/push-token",
+    unregisterPushToken: "/api/notifications/push-token",
+    getPushTokens: "/api/notifications/push-tokens",
   },
 
   chat: {
     createThread: "/api/chat/threads/",
     getThreads: (userId: string) => `/api/chat/threads/${userId}`,
+    getThread: (threadId: string) => `/api/chat/thread/${threadId}`,
     getThreadMembers: (threadId: string) => `/api/chat/threads/${threadId}/members`,
     sendMessage: (threadId: string) => `/api/chat/threads/${threadId}/messages`,
     getMessages: (threadId: string) => `/api/chat/threads/${threadId}/messages`,
@@ -191,5 +256,30 @@ export const endpoints = {
     // Add contacts endpoints
     getContacts: (userId: string) => `/api/users/${userId}/contacts`,
     getAllUsers: "/api/users",
+  },
+
+  standings: {
+    getDivisionStandings: (divisionId: string) => `/api/standings/division/${divisionId}`,
+    getMyStanding: "/api/standings/me",
+    getPlayerStanding: (userId: string, divisionId: string) => `/api/standings/${userId}/division/${divisionId}`,
+  },
+
+  bug: {
+    // Initialize DL Mobile app (auto-creates if not exists, returns appId)
+    initApp: "/api/bug/init/dlm",
+    // Get modules for a specific app
+    getModules: (appId: string) => `/api/bug/apps/${appId}/modules`,
+    // Create bug report/feedback (uses optionalAuth - works without login)
+    createReport: "/api/bug/reports",
+    // Get current user's bug reports
+    getMyReports: "/api/bug/reports/my",
+    // Get specific bug report
+    getReport: (id: string) => `/api/bug/reports/${id}`,
+    // Add comment to bug report
+    addComment: (id: string) => `/api/bug/reports/${id}/comments`,
+    // Upload screenshot file (multipart form)
+    uploadScreenshot: "/api/bug/screenshots/upload",
+    // Sync bug report to Google Sheets
+    syncReport: (id: string) => `/api/bug/reports/${id}/sync`,
   },
 };

@@ -1,7 +1,8 @@
 import SearchIcon from "@/assets/icons/search-icon.svg";
 import { NavBar } from "@/shared/components/layout";
-import { LeagueCard, useLeagues } from "@/src/features/leagues";
+import { LeagueCard, LeagueGrid, useLeagues } from "@/src/features/leagues";
 import { SportDropdownHeader } from "@/src/shared/components/ui/SportDropdownHeader";
+import { LeagueSkeletonLoader } from "@/src/components/LeagueCardSkeleton";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
 import React from "react";
@@ -101,7 +102,7 @@ export default function DashboardScreen() {
 
           {/* Featured League Card */}
           {isLoading ? (
-            <View style={styles.featuredSkeleton} />
+            <LeagueSkeletonLoader />
           ) : error ? (
             <View style={styles.errorContainer}>
               <Text style={styles.errorText}>Failed to load leagues</Text>
@@ -174,14 +175,10 @@ export default function DashboardScreen() {
                 </View>
               </View>
 
-              {leagues.slice(1).map((league) => (
-                <LeagueCard
-                  key={league.id}
-                  league={league}
-                  variant="regular"
-                  onJoinPress={handleJoinLeague}
-                />
-              ))}
+              <LeagueGrid
+                leagues={leagues.slice(1)}
+                onJoinPress={handleJoinLeague}
+              />
             </>
           )}
         </Animated.ScrollView>

@@ -55,7 +55,7 @@ export default function SeasonDetailsScreen({
   
   // Constants for header animation
   const TOP_HEADER_HEIGHT = STATUS_BAR_HEIGHT + (isSmallScreen ? 36 : isTablet ? 44 : 40);
-  const HEADER_MAX_HEIGHT = 180; // Full header height
+  const HEADER_MAX_HEIGHT = isSmallScreen ? 210 : isTablet ? 240 : 220; // Responsive height to fit profile pictures
   const HEADER_MIN_HEIGHT = 80; // Collapsed header height
   const HEADER_SCROLL_DISTANCE = HEADER_MAX_HEIGHT - HEADER_MIN_HEIGHT;
   const COLLAPSE_START_THRESHOLD = 40; // Start collapsing after scrolling 40px
@@ -203,7 +203,7 @@ export default function SeasonDetailsScreen({
     setShowPaymentOptions(false);
   };
 
-  const handlePayNow = async () => {
+  const handlePayNow = async (season: Season) => {
     if (!season) return;
     if (!userId) {
       toast.error('You must be logged in to continue');
@@ -232,7 +232,7 @@ export default function SeasonDetailsScreen({
     }
   };
 
-  const handlePayLater = async () => {
+  const handlePayLater = async (season: Season) => {
     if (!userId || !season) {
       toast.error('You must be logged in to register');
       return;
@@ -256,10 +256,43 @@ export default function SeasonDetailsScreen({
     }
   };
 
+  // Helper to convert Date | string | undefined to string for router params
+  const dateToParamString = (date: string | Date | undefined): string | undefined => {
+    if (!date) return undefined;
+    return typeof date === 'string' ? date : date.toISOString();
+  };
+
   const handleViewStandingsPress = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     console.log('View Standings button pressed');
-    toast.info('Standings feature coming soon!');
+    
+    if (!season) {
+      toast.info('Season data not available');
+      return;
+    }
+    
+    // Get category info for display
+    const category = (season as any).category;
+    const categories = (season as any).categories || (category ? [category] : []);
+    const normalizedCategories = Array.isArray(categories) ? categories : [categories].filter(Boolean);
+    const seasonCategory = normalizedCategories && normalizedCategories.length > 0 
+      ? normalizedCategories[0] 
+      : null;
+    const categoryDisplayName = seasonCategory ? seasonCategory.name || '' : '';
+    
+    router.push({
+      pathname: '/standings' as any,
+      params: {
+        seasonId: season.id,
+        seasonName: season.name,
+        leagueId: leagueId || '',
+        leagueName: league?.name || '',
+        categoryName: categoryDisplayName,
+        sportType: selectedSport?.toUpperCase() || sport?.toUpperCase() || 'PICKLEBALL',
+        startDate: dateToParamString(season.startDate),
+        endDate: dateToParamString(season.endDate),
+      }
+    });
   };
 
   const handleJoinWaitlistPress = () => {
@@ -805,6 +838,8 @@ export default function SeasonDetailsScreen({
         onPayNow={handlePayNow}
         onPayLater={handlePayLater}
         isProcessingPayment={isProcessingPayment}
+        sport={sport}
+        sport={sport}
       />
     </View>
   );
@@ -869,7 +904,7 @@ const styles = StyleSheet.create({
     borderRadius: 0,
     padding: 20,
     paddingTop: 24,
-    paddingBottom: 32,
+    paddingBottom: 16,
   },
   seasonHeaderContent: {
     gap: 12,
@@ -984,6 +1019,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     flexWrap: 'wrap',
+    overflow: 'visible',
+    paddingBottom: 8,
   },
   headerProfilePicture: {
     width: 48,

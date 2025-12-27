@@ -1,5 +1,5 @@
 import React from 'react';
-import { ScrollView, Text, View, StyleSheet, Dimensions, Platform, Image, TouchableOpacity, ImageBackground, Animated, ActivityIndicator, TextInput } from 'react-native';
+import { ScrollView, Text, View, StyleSheet, Dimensions, Platform, Image, TouchableOpacity, ImageBackground, Animated, TextInput } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useDashboard } from '../DashboardContext';
@@ -7,8 +7,9 @@ import { NavBar } from '@/shared/components/layout';
 import * as Haptics from 'expo-haptics';
 import { router } from 'expo-router';
 import { SportDropdownHeader } from '@/src/shared/components/ui/SportDropdownHeader';
-import { useLeagues, LeagueCard } from '@/src/features/leagues';
+import { useLeagues, LeagueCard, LeagueGrid } from '@/src/features/leagues';
 import SearchIcon from '@/assets/icons/search-icon.svg';
+import { LeagueSkeletonLoader } from '@/src/components/LeagueCardSkeleton';
 
 const { width, height } = Dimensions.get('window');
 
@@ -151,7 +152,7 @@ export default function DashboardScreen() {
 
             {/* Featured League Card */}
             {isLoading ? (
-              <View style={styles.featuredSkeleton} />
+              <LeagueSkeletonLoader />
             ) : error ? (
               <View style={styles.errorContainer}>
                 <Text style={styles.errorText}>Failed to load leagues</Text>
@@ -199,14 +200,14 @@ export default function DashboardScreen() {
                   </View>
                 </View>
 
-                {leagues.slice(1).map((league) => (
-                  <LeagueCard
-                    key={league.id}
-                    league={league}
-                    variant="regular"
-                    onJoinPress={handleJoinLeague}
-                  />
-                ))}
+{(() => {
+                  console.log('📐 Dashboard: About to render LeagueGrid with', leagues.slice(1).length, 'leagues');
+                  return null;
+                })()}
+                <LeagueGrid
+                  leagues={leagues.slice(1)}
+                  onJoinPress={handleJoinLeague}
+                />
               </>
             )}
 

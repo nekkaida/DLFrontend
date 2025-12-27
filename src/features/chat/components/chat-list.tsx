@@ -1,47 +1,163 @@
 import { useSession } from "@/lib/auth-client";
 import { Ionicons } from "@expo/vector-icons";
-import React from "react";
+import React, { useCallback, useMemo } from "react";
 import {
   ActivityIndicator,
   FlatList,
+  Image,
+  ListRenderItemInfo,
+  Pressable,
   StyleSheet,
   Text,
-  TouchableOpacity,
   View,
 } from "react-native";
 import { useChatStore } from "../stores/ChatStore";
 import { Thread } from "../types";
+import { GroupAvatarStack } from "./GroupAvatarStack";
+import { FriendlyMatchRequestAttachment } from "./FriendlyMatchRequestAttachment";
+import { LeagueMatchAttachment } from "./LeagueMatchAttachment";
+import {
+  FLATLIST_CONFIG,
+  getSportChatColors,
+  UI_DIMENSIONS
+} from "../constants";
 
 interface ThreadListProps {
   onThreadSelect: (thread: Thread) => void;
+  threads?: Thread[];
 }
 
-export const ThreadList: React.FC<ThreadListProps> = ({ onThreadSelect }) => {
-  const { threads, loadThreads, isLoading } = useChatStore();
-  const { data: session } = useSession();
-  const userId = session?.user?.id;
+// Memoized thread item component for better performance
+const ThreadItem = React.memo<{
+  item: Thread;
+  userId: string | undefined;
+  onSelect: (thread: Thread) => void;
+}>(({ item, userId, onSelect }) => {
+  const sportColors = getSportChatColors(item.sportType);
+  const isGroupChat = item.type === 'group';
 
-  const renderThread = ({ item }: { item: Thread }) => (
-    <TouchableOpacity
-      style={styles.threadItem}
-      onPress={() => {
-        onThreadSelect(item);
-      }}
-      activeOpacity={0.7}
+  // For direct chats, find the other participant
+  const otherParticipant = !isGroupChat
+    ? item.participants?.find((p) => p.id !== userId)
+    : null;
+
+  const avatarImage = otherParticipant?.avatar || (otherParticipant as { image?: string })?.image || null;
+  const avatarInitial = isGroupChat
+    ? item.name?.charAt(0) || 'G'
+    : otherParticipant?.name?.charAt(0) || item.name?.charAt(0) || '?';
+
+  // Get unread badge color based on sport context
+  const getUnreadBadgeColor = (): string => {
+    if (item.unreadCount === 0) return '#DC2626';
+    if (item.type === 'direct' && item.recentSportContext?.isValid) {
+      return sportColors.badge || '#A855F7';
+    }
+    return '#DEE0E2';
+  };
+
+  const getUnreadTextColor = (): string => {
+    if (item.type === 'direct' && item.recentSportContext?.isValid) {
+      return '#FFFFFF';
+    }
+    return '#1D1D1F';
+  };
+
+  // Parse match data safely
+  const renderLastMessage = () => {
+    if (!item.lastMessage) {
+      return (
+        <Text style={styles.emptyMessage} numberOfLines={1}>
+          No messages yet
+        </Text>
+      );
+    }
+
+    const isMatchMessage =
+      (item.lastMessage as { messageType?: string }).messageType === 'MATCH' ||
+      item.lastMessage.type === 'match';
+
+    let matchData = item.lastMessage.matchData;
+
+    if (isMatchMessage && matchData) {
+      if (typeof matchData === 'string') {
+        try {
+          matchData = JSON.parse(matchData);
+        } catch {
+          // Silent fail - render as text message
+        }
+      }
+
+      if (matchData) {
+        const isFriendlyRequest = matchData?.isFriendlyRequest === true;
+        const isFromCurrentUser = item.lastMessage.senderId === userId;
+        const sportType = matchData?.sportType || item.sportType || null;
+
+        if (isFriendlyRequest) {
+          return (
+            <FriendlyMatchRequestAttachment
+              isFromCurrentUser={isFromCurrentUser}
+              sportType={sportType}
+            />
+          );
+        }
+        return (
+          <LeagueMatchAttachment
+            isFromCurrentUser={isFromCurrentUser}
+            sportType={sportType}
+          />
+        );
+      }
+    }
+
+    return (
+      <Text
+        style={[
+          styles.lastMessage,
+          item.lastMessage.metadata?.isDeleted && styles.deletedMessage
+        ]}
+        numberOfLines={2}
+      >
+        {item.lastMessage.metadata?.isDeleted
+          ? "This message was deleted"
+          : item.lastMessage.content || "No message content"}
+      </Text>
+    );
+  };
+
+  return (
+    <Pressable
+      style={({ pressed }) => [
+        styles.threadItem,
+        pressed && styles.threadItemPressed
+      ]}
+      onPress={() => onSelect(item)}
     >
       <View style={styles.avatarContainer}>
-        <View style={styles.avatarPlaceholder}>
-          <Text style={styles.avatarText}>{item.name?.charAt(0) || "?"}</Text>
-        </View>
-        {item.unreadCount > 0 && (
-          <View style={styles.unreadBadge}>
-            <Text style={styles.unreadText}>{item.unreadCount}</Text>
+        {isGroupChat ? (
+          <GroupAvatarStack
+            participants={item.participants}
+            sportColor={sportColors.primary}
+            size={38}
+          />
+        ) : avatarImage ? (
+          <Image source={{ uri: avatarImage }} style={styles.avatarImage} />
+        ) : (
+          <View style={styles.avatarPlaceholder}>
+            <Text style={styles.avatarText}>{avatarInitial}</Text>
           </View>
         )}
       </View>
 
       <View style={styles.threadContent}>
-        <View style={styles.threadHeader}>
+        {isGroupChat && sportColors.label && (
+          <View style={[styles.sportBadge, { borderColor: sportColors.badge }]}>
+            <Text style={[styles.sportBadgeText, { color: sportColors.badge }]}>
+              {sportColors.label}
+            </Text>
+          </View>
+        )}
+
+        <View style={styles.nameRow}>
           <Text style={styles.threadName} numberOfLines={1}>
             {item.name || "Chat"}
           </Text>
@@ -55,49 +171,84 @@ export const ThreadList: React.FC<ThreadListProps> = ({ onThreadSelect }) => {
           </Text>
         </View>
 
-        <View style={styles.messageContainer}>
-          {item.lastMessage ? (
-            <View style={styles.messageRow}>
-              {item.type === "group" && item.lastMessage.metadata?.sender && (
-                <Text style={styles.senderName} numberOfLines={1}>
-                  {item.lastMessage.metadata.sender.name || 
-                   item.lastMessage.metadata.sender.username || 
-                   "Unknown"}: 
-                </Text>
-              )}
-              <Text 
-                style={[
-                  styles.lastMessage,
-                  item.lastMessage.metadata?.isDeleted && styles.deletedMessage
-                ]} 
-                numberOfLines={2}
-              >
-                {item.lastMessage.metadata?.isDeleted 
-                  ? "This message was deleted" 
-                  : item.lastMessage.content || "No message content"}
+        <View style={styles.messageRow}>
+          <View style={styles.messageContainer}>
+            {renderLastMessage()}
+          </View>
+          {item.unreadCount > 0 && (
+            <View style={[styles.unreadBadge, { backgroundColor: getUnreadBadgeColor() }]}>
+              <Text style={[styles.unreadText, { color: getUnreadTextColor() }]}>
+                {item.unreadCount}
               </Text>
             </View>
-          ) : (
-            <Text style={styles.emptyMessage} numberOfLines={1}>
-              No messages yet
-            </Text>
           )}
         </View>
       </View>
-    </TouchableOpacity>
+    </Pressable>
   );
+});
 
-  const renderEmpty = () => (
-    <View style={styles.emptyContainer}>
-       <Ionicons
-      name="chatbubble-outline" 
+ThreadItem.displayName = 'ThreadItem';
+
+// Empty component - memoized
+const EmptyList = React.memo(() => (
+  <View style={styles.emptyContainer}>
+    <Ionicons
+      name="chatbubble-outline"
       size={56}
       color="#888"
       style={styles.emptyIcon}
     />
-      <Text style={styles.emptyText}>No chats yet</Text>
-      <Text style={styles.emptySubtext}>Start a conversation!</Text>
-    </View>
+    <Text style={styles.emptyText}>No chats yet</Text>
+    <Text style={styles.emptySubtext}>Start a conversation!</Text>
+  </View>
+));
+
+EmptyList.displayName = 'EmptyList';
+
+export const ThreadList: React.FC<ThreadListProps> = ({ onThreadSelect, threads: filteredThreads }) => {
+  const { threads: storeThreads, loadThreads, isLoading } = useChatStore();
+
+  // Use filtered threads if provided, otherwise fall back to store threads
+  const threads = filteredThreads ?? storeThreads;
+  const { data: session } = useSession();
+  const userId = session?.user?.id;
+
+  // Memoized render function
+  const renderThread = useCallback(
+    ({ item }: ListRenderItemInfo<Thread>) => (
+      <ThreadItem item={item} userId={userId} onSelect={onThreadSelect} />
+    ),
+    [userId, onThreadSelect]
+  );
+
+  // Memoized key extractor
+  const keyExtractor = useCallback(
+    (item: Thread) => item?.id || `null-thread-${Math.random()}`,
+    []
+  );
+
+  // Memoized refresh handler
+  const handleRefresh = useCallback(() => {
+    if (userId) {
+      loadThreads(userId);
+    }
+  }, [userId, loadThreads]);
+
+  // Memoized getItemLayout for fixed height items
+  const getItemLayout = useCallback(
+    (_: ArrayLike<Thread> | null | undefined, index: number) => ({
+      length: FLATLIST_CONFIG.THREAD_ITEM_HEIGHT,
+      offset: FLATLIST_CONFIG.THREAD_ITEM_HEIGHT * index,
+      index,
+    }),
+    []
+  );
+
+  // Memoized content container style
+  const contentContainerStyle = useMemo(
+    () => (!threads || threads.length === 0 ? styles.emptyListContainer : styles.listContainer),
+    [threads]
   );
 
   if (isLoading) {
@@ -113,25 +264,22 @@ export const ThreadList: React.FC<ThreadListProps> = ({ onThreadSelect }) => {
     <FlatList
       data={threads || []}
       renderItem={renderThread}
-      keyExtractor={(item) => {
-        if (!item || !item.id) return `null-thread-${Math.random()}`;
-        // Use thread ID as key since it's guaranteed to be unique
-        return item.id;
-      }}
-      extraData={threads}
+      keyExtractor={keyExtractor}
+      getItemLayout={getItemLayout}
       style={styles.container}
-      contentContainerStyle={
-        !threads || threads.length === 0 ? styles.emptyContainer : undefined
-      }
-      ListEmptyComponent={renderEmpty}
+      contentContainerStyle={contentContainerStyle}
+      ListEmptyComponent={EmptyList}
       refreshing={isLoading}
-      onRefresh={() => {
-        console.log('🔄 Refreshing threads for user:', userId);
-        if (userId) {
-          loadThreads(userId);
-        }
-      }}
+      onRefresh={handleRefresh}
       showsVerticalScrollIndicator={false}
+      bounces={true}
+      scrollEnabled={true}
+      // Performance optimizations
+      initialNumToRender={FLATLIST_CONFIG.INITIAL_NUM_TO_RENDER}
+      maxToRenderPerBatch={FLATLIST_CONFIG.MAX_TO_RENDER_PER_BATCH}
+      windowSize={FLATLIST_CONFIG.WINDOW_SIZE}
+      updateCellsBatchingPeriod={50}
+      removeClippedSubviews={true}
     />
   );
 };
@@ -140,6 +288,15 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: "#FFFFFF",
+  },
+  listContainer: {
+    flexGrow: 1,
+    paddingBottom: UI_DIMENSIONS.NAV_BAR_HEIGHT + 17,
+  },
+  emptyListContainer: {
+    flexGrow: 1,
+    justifyContent: "center",
+    alignItems: "center",
   },
   loadingContainer: {
     flex: 1,
@@ -159,19 +316,31 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     alignItems: 'center',
   },
+  threadItemPressed: {
+    opacity: 0.7,
+  },
   avatarContainer: {
     position: 'relative',
     marginRight: 12,
+    minWidth: 48,
+    minHeight: 48,
+    justifyContent: 'center',
+    alignItems: 'flex-start',
   },
   avatarPlaceholder: {
-    width: 48, 
+    width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: '#863A73', 
+    backgroundColor: '#6de9a0',
     justifyContent: 'center',
     alignItems: 'center',
   },
-   emptyIcon: {
+  avatarImage: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+  },
+  emptyIcon: {
     marginBottom: 12,
   },
   avatarText: {
@@ -180,15 +349,13 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   unreadBadge: {
-    position: "absolute",
-    top: -5,
-    right: -5,
     backgroundColor: "#DC2626",
     borderRadius: 10,
     minWidth: 20,
     height: 20,
     justifyContent: "center",
     alignItems: "center",
+    paddingHorizontal: 6,
   },
   unreadText: {
     color: "#FFFFFF",
@@ -198,46 +365,53 @@ const styles = StyleSheet.create({
   threadContent: {
     flex: 1,
     justifyContent: 'center',
+    marginRight: 12,
   },
-  threadHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 6,
+  nameRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 4,
   },
   threadName: {
-    flex: 1,
     fontSize: 16,
     fontWeight: "600",
     color: "#111827",
+    flex: 1,
     marginRight: 8,
+  },
+  sportBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 10,
+    backgroundColor: 'transparent',
+    borderWidth: 1.5,
+    alignSelf: 'flex-start',
+    marginBottom: 4,
+  },
+  sportBadgeText: {
+    fontSize: 10,
+    fontWeight: '600',
+    textTransform: 'uppercase',
   },
   timestamp: {
     fontSize: 12,
-    color: "#6B7280",
+    color: "#86868B",
     fontWeight: '500',
-    flexShrink: 0,
-  },
-  messageContainer: {
-    marginTop: 2,
   },
   messageRow: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
-    flex: 1,
+    alignItems: 'center',
+    marginTop: 2,
   },
-  senderName: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#111827",
-    marginRight: 4,
-    flexShrink: 0,
+  messageContainer: {
+    flex: 1,
+    marginRight: 8,
   },
   lastMessage: {
     fontSize: 14,
     color: "#6B7280",
     lineHeight: 20,
-    flex: 1,
   },
   deletedMessage: {
     fontStyle: 'italic',
@@ -249,7 +423,6 @@ const styles = StyleSheet.create({
     fontStyle: 'italic',
   },
   emptyContainer: {
-    flex: 1,
     justifyContent: "center",
     alignItems: "center",
     paddingVertical: 60,

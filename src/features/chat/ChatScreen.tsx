@@ -1,16 +1,21 @@
 import { getBackendBaseURL } from '@/config/network';
 import { authClient, useSession } from '@/lib/auth-client';
+import { NavBar } from '@/shared/components/layout';
+import { AnimatedFilterChip } from '@/shared/components/ui/AnimatedFilterChip';
+import { chatLogger } from '@/utils/logger';
 import { Ionicons } from '@expo/vector-icons';
-import * as Clipboard from 'expo-clipboard';
 import * as Haptics from 'expo-haptics';
 import { router } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  AppState,
+  AppStateStatus,
   Dimensions,
-  Image,
-  KeyboardAvoidingView,
+  Keyboard,
+  Modal,
   Platform,
+  Pressable,
   StatusBar,
   StyleSheet,
   Text,
@@ -20,63 +25,112 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { toast } from 'sonner-native';
-import { MessageInput } from './components/chat-input';
 import { ThreadList } from './components/chat-list';
-import { MessageWindow } from './components/chat-window';
-import { MessageActionBar } from './components/MessageActionBar';
+import { NewMessageBottomSheet } from './components/NewMessageBottomSheet';
 import { useChatSocketEvents } from './hooks/useChatSocketEvents';
 import { ChatService } from './services/ChatService';
 import { useChatStore } from './stores/ChatStore';
+
 import { Thread } from './types';
+
+type SportFilter = 'all' | 'pickleball' | 'tennis' | 'padel';
+type TypeFilter = 'all' | 'personal' | 'league';
+
+const SPORT_COLORS = {
+  all: '#111827',
+  pickleball: '#A04DFE',
+  tennis: '#65B741',
+  padel: '#3B82F6',
+};
+
+// Profile data interface for API response
+interface ProfileData {
+  id: string;
+  name?: string;
+  username?: string;
+  email?: string;
+  image?: string;
+  [key: string]: unknown;
+}
+
+// Auth response interface
+interface AuthResponse {
+  data?: {
+    data?: ProfileData;
+  } & ProfileData;
+}
 
 const { width } = Dimensions.get('window');
 const isSmallScreen = width < 375;
 const isTablet = width > 768;
 
-export const ChatScreen: React.FC = () => {
+interface ChatScreenProps {
+  activeTab?: number;
+  onTabPress?: (tabIndex: number) => void;
+  sport?: 'pickleball' | 'tennis' | 'padel';
+  chatUnreadCount?: number;
+}
+
+export const ChatScreen: React.FC<ChatScreenProps> = ({
+  activeTab = 4,
+  onTabPress,
+  sport = 'pickleball',
+  chatUnreadCount = 0,
+}) => {
   const [searchQuery, setSearchQuery] = useState('');
-  const { data: session} = useSession();
-  const [filteredThreads, setFilteredThreads] = useState<Thread[]>([]);
-  const [profileData, setProfileData] = useState<any>(null);
-  const [refreshKey, setRefreshKey] = useState(0);
-  const [selectedMessage, setSelectedMessage] = useState<any>(null);
-  const [showActionBar, setShowActionBar] = useState(false);
-  const insets = useSafeAreaInsets();
-  
+  const { data: session } = useSession();
   const user = session?.user;
+
+  // Register socket event listeners for real-time chat list updates
+  useChatSocketEvents(null, user?.id || '');
+
+  const [profileData, setProfileData] = useState<ProfileData | null>(null);
+  const [showNewMessageSheet, setShowNewMessageSheet] = useState(false);
+  const [appStateKey, setAppStateKey] = useState(0);
+  const [sportFilter, setSportFilter] = useState<SportFilter>('all');
+  const [typeFilter, setTypeFilter] = useState<TypeFilter>('all');
+  const [showTypeFilterModal, setShowTypeFilterModal] = useState(false);
+  const appStateRef = useRef<AppStateStatus>(AppState.currentState);
+  const searchInputRef = useRef<TextInput>(null);
+  const insets = useSafeAreaInsets();
+
   const STATUS_BAR_HEIGHT = insets.top;
-  
+
   const {
-    currentThread,
-    messages,
     threads,
     isLoading,
     error,
-    replyingTo,
     setCurrentThread,
-    loadMessages,
     loadThreads,
-    sendMessage,
-    addMessage,
     setConnectionStatus,
     updateThread,
-    setReplyingTo,
-    handleDeleteMessage: deleteMessageFromStore,
   } = useChatStore();
 
-  // Setup Socket.IO event listeners for real-time chat
-  const { isConnected: socketConnected } = useChatSocketEvents(
-    currentThread?.id || null,
-    user?.id || ''
-  );
-
-  // Force re-render when messages change
+  // Handle app state changes to fix touch issues after backgrounding
   useEffect(() => {
-    if (currentThread?.id && messages[currentThread.id]) {
-      console.log('💬 Messages updated for current thread:', messages[currentThread.id].length);
-      setRefreshKey(prev => prev + 1);
-    }
-  }, [messages, currentThread?.id]);
+    let timeoutId: ReturnType<typeof setTimeout> | null = null;
+
+    const handleAppStateChange = (nextAppState: AppStateStatus) => {
+      if (
+        appStateRef.current.match(/inactive|background/) &&
+        nextAppState === 'active'
+      ) {
+        timeoutId = setTimeout(() => {
+          setAppStateKey(prev => prev + 1);
+        }, 100);
+      }
+      appStateRef.current = nextAppState;
+    };
+
+    const subscription = AppState.addEventListener('change', handleAppStateChange);
+
+    return () => {
+      subscription.remove();
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
+    };
+  }, []);
 
   // Fetch profile data when component mounts
   useEffect(() => {
@@ -88,48 +142,31 @@ export const ChatScreen: React.FC = () => {
   const fetchProfileData = async () => {
     try {
       if (!session?.user?.id) {
-        console.log(
-          "ChatScreen: No session user ID available for profile data"
-        );
+        chatLogger.debug("No session user ID available for profile data");
         return;
       }
 
       const backendUrl = getBackendBaseURL();
-      console.log(
-        "ChatScreen: Fetching profile data from:",
-        `${backendUrl}/api/player/profile/me`
-      );
+      chatLogger.debug("Fetching profile data from:", `${backendUrl}/api/player/profile/me`);
 
       const authResponse = await authClient.$fetch(
         `${backendUrl}/api/player/profile/me`,
         {
           method: "GET",
         }
-      );
+      ) as AuthResponse | null;
 
-      if (
-        authResponse &&
-        (authResponse as any).data &&
-        (authResponse as any).data.data
-      ) {
-        console.log(
-          "ChatScreen: Setting profile data:",
-          (authResponse as any).data.data
-        );
-        setProfileData((authResponse as any).data.data);
-      } else if (authResponse && (authResponse as any).data) {
-        console.log(
-          "ChatScreen: Setting profile data (direct):",
-          (authResponse as any).data
-        );
-        setProfileData((authResponse as any).data);
+      if (authResponse?.data?.data) {
+        chatLogger.debug("Setting profile data:", authResponse.data.data);
+        setProfileData(authResponse.data.data);
+      } else if (authResponse?.data) {
+        chatLogger.debug("Setting profile data (direct):", authResponse.data);
+        setProfileData(authResponse.data as ProfileData);
       } else {
-        console.error(
-          "ChatScreen: No profile data received from authClient"
-        );
+        chatLogger.error("No profile data received from authClient");
       }
     } catch (error) {
-      console.error("ChatScreen: Error fetching profile data:", error);
+      chatLogger.error("Error fetching profile data:", error);
     }
   };
 
@@ -139,193 +176,149 @@ export const ChatScreen: React.FC = () => {
     setConnectionStatus(true);
   }, [user]);
 
-  useEffect(() => {
-    setFilteredThreads(threads || []);
-  }, [threads]);
+  // Filter threads based on search, sport, and type filters
+  const displayedThreads = useMemo(() => {
+    if (!threads) return [];
 
-  useEffect(() => {
-    if (currentThread) {
-      loadMessages(currentThread.id);
-    }
-  }, [currentThread]);
+    return threads.filter(thread => {
+      // Search filter
+      if (searchQuery.trim() !== '') {
+        const query = searchQuery.toLowerCase();
+        const matchesSearch =
+          thread.name?.toLowerCase().includes(query) ||
+          thread.participants.some(participant =>
+            participant.name.toLowerCase().includes(query)
+          ) ||
+          thread.lastMessage?.content.toLowerCase().includes(query);
+        if (!matchesSearch) return false;
+      }
 
-  useEffect(() => {
-    if (!threads) return;
-    
-    if (searchQuery.trim() === '') {
-      setFilteredThreads(threads);
-    } else {
-      const filtered = threads.filter(thread =>
-        thread.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        thread.participants.some(participant =>
-          participant.name.toLowerCase().includes(searchQuery.toLowerCase())
-        ) ||
-        thread.lastMessage?.content.toLowerCase().includes(searchQuery.toLowerCase())
-      );
-      setFilteredThreads(filtered);
-    }
-  }, [searchQuery, threads]);
+      // Sport filter
+      if (sportFilter !== 'all') {
+        const threadSport = thread.sportType?.toLowerCase();
+        if (threadSport !== sportFilter) {
+          // For direct chats without sport type, include them in 'all' only
+          if (!threadSport && thread.type === 'direct') {
+            return false;
+          }
+          if (threadSport && threadSport !== sportFilter) {
+            return false;
+          }
+        }
+      }
 
-  const handleThreadSelect = async (thread: Thread) => {
-    console.log('ChatScreen: Thread selected:', thread.name);
+      // Type filter
+      if (typeFilter !== 'all') {
+        if (typeFilter === 'personal' && thread.type !== 'direct') return false;
+        if (typeFilter === 'league' && thread.type !== 'group') return false;
+      }
+
+      return true;
+    });
+  }, [threads, searchQuery, sportFilter, typeFilter]);
+
+  // Handle keyboard hide to blur search input on Android
+  useEffect(() => {
+    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+
+    const keyboardHideListener = Keyboard.addListener(hideEvent, () => {
+      if (Platform.OS === 'android') {
+        searchInputRef.current?.blur();
+      }
+    });
+
+    return () => {
+      keyboardHideListener.remove();
+    };
+  }, []);
+
+  const handleThreadSelect = useCallback(async (thread: Thread) => {
+    chatLogger.debug('Thread selected:', thread.name);
+
+    // Store thread in store for the chat screen to access
     setCurrentThread(thread);
-    
+
     // Mark thread as read when opening it
     if (user?.id && thread.unreadCount > 0) {
-      console.log('ChatScreen: Marking thread as read, unread count:', thread.unreadCount);
+      chatLogger.debug('Marking thread as read, unread count:', thread.unreadCount);
       try {
         await ChatService.markAllAsRead(thread.id, user.id);
-        console.log('ChatScreen: Thread marked as read successfully');
+        chatLogger.debug('Thread marked as read successfully');
         updateThread({
           ...thread,
           unreadCount: 0,
         });
       } catch (error) {
-        console.error('ChatScreen: Error marking thread as read:', error);
+        chatLogger.error('Error marking thread as read:', error);
       }
     }
-  };
 
-  const handleSendMessage = (content: string, replyToId?: string) => {
-    if (!currentThread || !user?.id) return;
-
-    console.log('Sending message:', {
-      threadId: currentThread.id,
-      senderId: user.id,
-      content,
-      replyToId,
+    // Navigate to chat thread using native navigation
+    // Pass the dashboard's selected sport so it can be used for friendly match requests
+    router.push({
+      pathname: '/chat/[threadId]',
+      params: { threadId: thread.id, sport }
     });
+  }, [user?.id, setCurrentThread, updateThread, sport]);
 
-    sendMessage(currentThread.id, user.id, content, replyToId);
-    
-    if (replyingTo) {
-      setReplyingTo(null);
-    }
-  };
-
-  const handleBackToThreads = () => {
-    setCurrentThread(null);
+  const clearSearch = useCallback(() => {
     setSearchQuery('');
-  };
+  }, []);
 
-  const clearSearch = () => {
-    setSearchQuery('');
-  };
+  // Memoize handlers for NewMessageBottomSheet
+  const handleCloseNewMessageSheet = useCallback(() => {
+    setShowNewMessageSheet(false);
+  }, []);
 
-  const handleMatch = () => {
-    console.log('Create match button pressed');
-    // TO DO ADD MATCH LOGIC LATER
-  };
-
-  const handleReply = (message: any) => {
-    // console.log('📝 Reply to message:', message.id);
-    // console.log('📝 Message content:', message.content);
-    // console.log('📝 Message sender:', message.metadata?.sender);
-    // console.log('📝 Full message object:', JSON.stringify(message, null, 2));
-    setReplyingTo(message);
-  };
-
-  const handleCancelReply = () => {
-    setReplyingTo(null);
-  };
-
-  const handleLongPress = (message: any) => {
-    console.log('Long press on message:', message.id);
-    setSelectedMessage(message);
-    setShowActionBar(true);
-  };
-
-  const handleCloseActionBar = () => {
-    setShowActionBar(false);
-    setSelectedMessage(null);
-  };
-
-  const handleActionBarReply = () => {
-    if (selectedMessage) {
-      handleReply(selectedMessage);
-    }
-  };
-
-  const handleActionBarCopy = async () => {
-    if (selectedMessage?.content && !selectedMessage.metadata?.isDeleted) {
-      try {
-        await Clipboard.setStringAsync(selectedMessage.content);
-        toast.success('Message copied to clipboard');
-      } catch (error) {
-        console.error('Failed to copy:', error);
-        toast.error('Failed to copy message');
-      }
-    }
-  };
-
-  const handleActionBarDelete = async () => {
-    if (selectedMessage) {
-      // Show confirmation toast
-      toast('Delete this message?', {
-        action: {
-          label: 'Delete',
-          onClick: async () => {
-            try {
-              await deleteMessageFromStore(selectedMessage.id, currentThread?.id || '');
-              toast.success('Message deleted');
-            } catch (error) {
-              console.error('Failed to delete:', error);
-              toast.error('Failed to delete message');
-            }
-          },
-        },
-        cancel: {
-          label: 'Cancel',
-          onClick: () => {},
-        },
-      });
-    }
-  };
-
-  const handleDeleteMessageAction = async (messageId: string) => {
-    if (!currentThread) {
+  const handleSelectUser = useCallback(async (userId: string, userName: string) => {
+    if (!user?.id) {
+      toast.error('Please log in to start a conversation');
       return;
     }
+
     try {
-      await deleteMessageFromStore(messageId, currentThread.id);
-      console.log('✅ Message deleted successfully');
-    } catch (error) {
-      console.error('❌ Failed to delete message:', error);
-      toast.error('Failed to delete message. Please try again.');
-    }
-  };
+      chatLogger.debug('Creating/finding thread with user:', userId, userName);
 
-  // Get header content based on chat type
-  const getHeaderContent = () => {
-    if (!currentThread || !user?.id) return { title: 'Chat', subtitle: null };
-
-    if (currentThread.type === 'group') {
-      // Group chat: show group name and participant count
-      return {
-        title: currentThread.name || 'Group Chat',
-        subtitle: `${currentThread.participants.length} participants`
-      };
-    } else {
-      // Direct chat: show other participant's name and username
-      const otherParticipant = currentThread.participants.find(
-        participant => participant.id !== user.id
+      // Create or find existing direct message thread
+      const thread = await ChatService.createThread(
+        user.id,
+        [userId],
+        false // isGroup = false for direct messages
       );
-      
-      if (otherParticipant) {
-        return {
-          title: otherParticipant.name || otherParticipant.username || 'Unknown User',
-          subtitle: otherParticipant.username ? `@${otherParticipant.username}` : null
-        };
-      } else {
-        return {
-          title: 'Chat',
-          subtitle: null
-        };
-      }
-    }
-  };
 
-  const headerContent = getHeaderContent();
+      chatLogger.debug('Thread created/found:', thread.id, thread.name);
+
+      // Close the bottom sheet
+      setShowNewMessageSheet(false);
+
+      // Set the thread as current
+      setCurrentThread(thread);
+
+      // Refresh the threads list to include the new thread
+      loadThreads(user.id);
+
+      // Navigate to the chat thread using native navigation
+      router.push({
+        pathname: '/chat/[threadId]',
+        params: { threadId: thread.id }
+      });
+
+    } catch (error) {
+      chatLogger.error('Error creating thread:', error);
+      toast.error('Failed to start conversation. Please try again.');
+    }
+  }, [user?.id, setCurrentThread, loadThreads]);
+
+  const handleOpenNewMessage = useCallback(() => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    // Blur search input and dismiss keyboard before opening bottom sheet
+    searchInputRef.current?.blur();
+    Keyboard.dismiss();
+    // Small delay to let keyboard fully dismiss before opening bottom sheet
+    setTimeout(() => {
+      setShowNewMessageSheet(true);
+    }, 100);
+  }, []);
 
   if (isLoading && (!threads || threads.length === 0)) {
     return (
@@ -352,121 +345,147 @@ export const ChatScreen: React.FC = () => {
   return (
     <View style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
-      
-      {/* Uncomment to see socket debug info */}
-      {/* <SocketDebugPanel /> */}
-      
-      {currentThread ? (
-        <KeyboardAvoidingView 
-          style={styles.chatContainer}
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-          keyboardVerticalOffset={Platform.OS === 'ios' ? STATUS_BAR_HEIGHT : 0}
-        >
-          {/* Message Action Bar */}
-          <MessageActionBar
-            visible={showActionBar}
-            isCurrentUser={selectedMessage?.senderId === user?.id}
-            onReply={handleActionBarReply}
-            onCopy={handleActionBarCopy}
-            onDelete={handleActionBarDelete}
-            onClose={handleCloseActionBar}
-          />
 
-          <View style={[styles.chatHeader, { paddingTop: STATUS_BAR_HEIGHT + 12 }]}>
-            <TouchableOpacity 
-              style={styles.backButton}
-              onPress={handleBackToThreads}
-              activeOpacity={0.7}
-            >
-              <Ionicons name="arrow-back" size={24} color="#111827" />
-            </TouchableOpacity>
-            
-            <View style={styles.chatHeaderContent}>
-              <Text style={styles.chatHeaderTitle} numberOfLines={1}>
-                {headerContent.title}
-              </Text>
-              {headerContent.subtitle && (
-                <Text style={styles.chatHeaderSubtitle} numberOfLines={1}>
-                  {headerContent.subtitle}
-                </Text>
-              )}
-            </View>
-            
-            {/* <SocketTestButton threadId={currentThread.id} /> */}
-            
-            <TouchableOpacity style={styles.headerAction}>
-              <Ionicons name="ellipsis-vertical" size={20} color="#6B7280" />
-            </TouchableOpacity>
-          </View>
-          
-          <MessageWindow
-            key={refreshKey}
-            messages={messages[currentThread.id] || []}
-            threadId={currentThread.id}
-            isGroupChat={currentThread.type === 'group'}
-            onReply={handleReply}
-            onDeleteMessage={handleDeleteMessageAction}
-            onLongPress={handleLongPress}
-          />
-          
-          <MessageInput 
-            onSendMessage={handleSendMessage}
-            onhandleMatch={handleMatch}
-            replyingTo={replyingTo}
-            onCancelReply={handleCancelReply}
-          />
-        </KeyboardAvoidingView>
-      ) : (
-        <View style={styles.threadsContainer}>
-          {/* Header with profile picture */}
-          <View style={[styles.headerContainer, { paddingTop: STATUS_BAR_HEIGHT }]}>
-            <TouchableOpacity 
-              style={styles.headerProfilePicture}
-              onPress={() => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                router.push('/profile');
-              }}
-            >
-              {(profileData?.image || session?.user?.image) ? (
-                <Image 
-                  source={{ uri: profileData?.image || session?.user?.image }}
-                  style={styles.headerProfileImage}
-                />
-              ) : (
-                <View style={styles.defaultHeaderAvatarContainer}>
-                  <Text style={styles.defaultHeaderAvatarText}>
-                    {(profileData?.name || session?.user?.name)?.charAt(0)?.toUpperCase() || 'U'}
-                  </Text>
-                </View>
-              )}
-            </TouchableOpacity>
-            
-            <View style={styles.headerRight} />
-          </View>
-
-          <View style={styles.searchContainer}>
-            <View style={styles.searchBar}>
-              <Ionicons name="search" size={20} color="#6B7280" style={styles.searchIcon} />
-              <TextInput
-                style={styles.searchInput}
-                placeholder="Search"
-                placeholderTextColor="#9CA3AF"
-                value={searchQuery}
-                onChangeText={setSearchQuery}
-                returnKeyType="search"
-              />
-              {searchQuery.length > 0 && (
-                <TouchableOpacity onPress={clearSearch} style={styles.clearButton}>
-                  <Ionicons name="close-circle" size={20} color="#9CA3AF" />
-                </TouchableOpacity>
-              )}
-            </View>
-          </View>
-           <ThreadList 
-            onThreadSelect={handleThreadSelect}
-          /> 
+      <View style={styles.threadsContainer}>
+        {/* Header with Chats title and New Message button */}
+        <View style={[styles.chatsHeaderContainer, { paddingTop: STATUS_BAR_HEIGHT }]}>
+          <Text style={styles.chatsTitle}>Chats</Text>
+          <Pressable
+            onPress={handleOpenNewMessage}
+            style={({ pressed }) => pressed && { opacity: 0.7 }}
+          >
+            <Text style={styles.newMessageButton}>New Message</Text>
+          </Pressable>
         </View>
+
+        <View style={styles.searchContainer}>
+          <View style={styles.searchBar}>
+            <Ionicons name="search-outline" size={18} color="#9CA3AF" style={styles.searchIcon} />
+            <TextInput
+              ref={searchInputRef}
+              style={styles.searchInput}
+              placeholder="Search chats..."
+              placeholderTextColor="#9CA3AF"
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              returnKeyType="search"
+            />
+            {searchQuery.length > 0 && (
+              <Pressable onPress={clearSearch}>
+                <Ionicons name="close-circle" size={18} color="#9CA3AF" />
+              </Pressable>
+            )}
+          </View>
+        </View>
+
+        {/* Filter chips */}
+        <View style={styles.filterContainer}>
+          <View style={styles.filterChips}>
+            <AnimatedFilterChip
+              label="All"
+              isActive={sportFilter === 'all'}
+              activeColor={SPORT_COLORS.all}
+              onPress={() => setSportFilter('all')}
+            />
+            <AnimatedFilterChip
+              label="Pickleball"
+              isActive={sportFilter === 'pickleball'}
+              activeColor={SPORT_COLORS.pickleball}
+              onPress={() => setSportFilter('pickleball')}
+            />
+            <AnimatedFilterChip
+              label="Tennis"
+              isActive={sportFilter === 'tennis'}
+              activeColor={SPORT_COLORS.tennis}
+              onPress={() => setSportFilter('tennis')}
+            />
+            <AnimatedFilterChip
+              label="Padel"
+              isActive={sportFilter === 'padel'}
+              activeColor={SPORT_COLORS.padel}
+              onPress={() => setSportFilter('padel')}
+            />
+          </View>
+
+          {/* Type filter button */}
+          <TouchableOpacity
+            style={[
+              styles.typeFilterButton,
+              typeFilter !== 'all' && {
+                backgroundColor: SPORT_COLORS[sportFilter] || SPORT_COLORS.all,
+                borderColor: SPORT_COLORS[sportFilter] || SPORT_COLORS.all
+              }
+            ]}
+            onPress={() => setShowTypeFilterModal(true)}
+            activeOpacity={0.7}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
+            <Ionicons
+              name="options-outline"
+              size={20}
+              color={typeFilter !== 'all' ? '#FFFFFF' : SPORT_COLORS[sportFilter] || '#6B7280'}
+            />
+          </TouchableOpacity>
+        </View>
+        <ThreadList
+          key={`thread-list-${appStateKey}`}
+          onThreadSelect={handleThreadSelect}
+          threads={displayedThreads}
+        />
+        {onTabPress && (
+          <NavBar
+            activeTab={activeTab}
+            onTabPress={onTabPress}
+            sport={sport}
+            badgeCounts={{ chat: chatUnreadCount }}
+          />
+        )}
+      </View>
+
+      {/* New Message Bottom Sheet - Only render when needed to prevent touch blocking */}
+      {showNewMessageSheet && (
+        <NewMessageBottomSheet
+          visible={showNewMessageSheet}
+          onClose={handleCloseNewMessageSheet}
+          onSelectUser={handleSelectUser}
+        />
       )}
+
+      {/* Type Filter Dropdown */}
+      <Modal
+        visible={showTypeFilterModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowTypeFilterModal(false)}
+      >
+        <Pressable
+          style={styles.modalOverlay}
+          onPress={() => setShowTypeFilterModal(false)}
+        >
+          <View style={styles.typeFilterDropdown}>
+            {(['all', 'personal', 'league'] as TypeFilter[]).map((type) => (
+              <TouchableOpacity
+                key={type}
+                style={styles.typeFilterOption}
+                onPress={() => {
+                  setTypeFilter(type);
+                  setShowTypeFilterModal(false);
+                }}
+              >
+                <Text style={[
+                  styles.typeFilterOptionText,
+                  typeFilter === type && styles.typeFilterOptionTextActive
+                ]}>
+                  {type === 'all' ? 'All' : type === 'personal' ? 'Personal' : 'League'}
+                </Text>
+                {typeFilter === type && (
+                  <Ionicons name="checkmark" size={18} color={SPORT_COLORS[sportFilter]} />
+                )}
+              </TouchableOpacity>
+            ))}
+          </View>
+        </Pressable>
+      </Modal>
     </View>
   );
 };
@@ -476,76 +495,34 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#FFFFFF',
   },
-  chatContainer: {
-    flex: 1,
-  },
   threadsContainer: {
     flex: 1,
+    backgroundColor: '#FFFFFF',
   },
   searchContainer: {
-    paddingHorizontal: isSmallScreen ? 12 : isTablet ? 24 : 16,
-    paddingVertical: isSmallScreen ? 6 : isTablet ? 10 : 8,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
+    paddingHorizontal: 16,
+    marginBottom: 10,
     backgroundColor: '#FFFFFF',
   },
   searchBar: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    paddingVertical: Platform.OS === 'android' ? 4 : 8,
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    height: 36,
     borderWidth: 1,
     borderColor: '#E5E7EB',
-    minHeight: 40,
   },
   searchIcon: {
-    marginRight: 8,
+    marginRight: 6,
   },
   searchInput: {
     flex: 1,
-    fontSize: isSmallScreen ? 14 : isTablet ? 18 : 16,
-    color: '#111827',
-    paddingVertical: Platform.OS === 'android' ? 8 : 4,
-    paddingHorizontal: 0,
-  },
-  clearButton: {
-    padding: 4,
-  },
-  chatHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: isSmallScreen ? 12 : isTablet ? 24 : 16,
-    paddingBottom: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
-    backgroundColor: '#FFFFFF',
-    minHeight: 60,
-    width: '100%',
-  },
-  backButton: {
-    marginRight: 12,
-    padding: 4,
-  },
-  chatHeaderContent: {
-    flex: 1,
-    justifyContent: 'center',
-  },
-  chatHeaderTitle: {
-    fontSize: isSmallScreen ? 16 : isTablet ? 20 : 18,
-    fontWeight: '600',
-    color: '#111827',
-    lineHeight: isSmallScreen ? 20 : isTablet ? 24 : 22,
-  },
-  chatHeaderSubtitle: {
-    fontSize: isSmallScreen ? 12 : isTablet ? 16 : 14,
-    color: '#6B7280',
-    marginTop: 2,
-    lineHeight: isSmallScreen ? 14 : isTablet ? 18 : 16,
-  },
-  headerAction: {
-    padding: 4,
+    fontSize: 13,
+    color: '#1F2937',
+    paddingVertical: 0,
+    textAlignVertical: 'center',
   },
   centerContainer: {
     flex: 1,
@@ -569,56 +546,82 @@ const styles = StyleSheet.create({
     color: '#9CA3AF',
     textAlign: 'center',
   },
-  headerContainer: {
+  chatsHeaderContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     width: '100%',
     backgroundColor: '#FFFFFF',
     paddingHorizontal: isSmallScreen ? 16 : isTablet ? 24 : 20,
-    paddingVertical: isSmallScreen ? 4 : isTablet ? 8 : 6,
-    minHeight: isSmallScreen ? 36 : isTablet ? 44 : 40,
+    paddingTop: 12,
+    paddingBottom: 16,
+    marginBottom: 4,
   },
-  headerProfilePicture: {
-    width: isSmallScreen ? 40 : isTablet ? 56 : 48,
-    height: isSmallScreen ? 40 : isTablet ? 56 : 48,
-    borderRadius: isSmallScreen ? 20 : isTablet ? 28 : 24,
-    overflow: 'hidden',
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: {
-          width: 0,
-          height: 2,
-        },
-        shadowOpacity: 0.1,
-        shadowRadius: 4,
-      },
-      android: {
-        elevation: 3,
-      },
-    }),
+  chatsTitle: {
+    fontSize: isSmallScreen ? 28 : isTablet ? 36 : 32,
+    fontWeight: '700',
+    color: '#111827',
   },
-  headerProfileImage: {
-    width: '100%',
-    height: '100%',
+  newMessageButton: {
+    fontSize: isSmallScreen ? 14 : isTablet ? 18 : 16,
+    fontWeight: '600',
+    color: '#FEA04D',
   },
-  defaultHeaderAvatarContainer: {
-    width: '100%',
-    height: '100%',
-    backgroundColor: '#6de9a0',
+  filterContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingBottom: 12,
+    gap: 8,
+  },
+  filterChips: {
+    flex: 1,
+    flexDirection: 'row',
+    gap: 8,
+  },
+  typeFilterButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
     justifyContent: 'center',
     alignItems: 'center',
   },
-  defaultHeaderAvatarText: {
-    color: '#FFFFFF',
-    fontSize: isSmallScreen ? 16 : isTablet ? 22 : 18,
-    fontWeight: 'bold',
-    fontFamily: 'System',
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.3)',
+    justifyContent: 'flex-start',
+    alignItems: 'flex-end',
+    paddingTop: 180,
+    paddingRight: 16,
   },
-  headerRight: {
-    width: isSmallScreen ? 40 : isTablet ? 56 : 48,
+  typeFilterDropdown: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    paddingVertical: 6,
+    minWidth: 140,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  typeFilterOption: {
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    gap: 16,
+  },
+  typeFilterOptionText: {
+    fontSize: 15,
+    color: '#374151',
+  },
+  typeFilterOptionTextActive: {
+    fontWeight: '600',
+    color: '#111827',
   },
 });

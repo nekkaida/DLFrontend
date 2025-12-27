@@ -1,6 +1,7 @@
+import { getSportColors, SportType } from '@/constants/SportsColor';
 import { format } from 'date-fns';
-import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import React, { useMemo } from 'react';
+import { Image, StyleSheet, Text, View } from 'react-native';
 import { Message } from '../types';
 
 interface MessageBubbleProps {
@@ -9,18 +10,35 @@ interface MessageBubbleProps {
   showAvatar: boolean;
   isLastInGroup?: boolean;
   isGroupChat?: boolean;
+  sportType?: SportType | null;
 }
 
-export const MessageBubble: React.FC<MessageBubbleProps> = ({
+export const MessageBubble: React.FC<MessageBubbleProps> = React.memo(({
   message,
   isCurrentUser,
   showAvatar,
   isLastInGroup = true,
   isGroupChat = false,
+  sportType,
 }) => {
-  const senderName = message.metadata?.sender?.name || 
-                    message.metadata?.sender?.username || 
+  const senderName = message.metadata?.sender?.name ||
+                    message.metadata?.sender?.username ||
                     'Unknown';
+
+  // Get sender's avatar/image - check both 'avatar' and 'image' properties
+  const senderAvatar = message.metadata?.sender?.avatar ||
+                       message.metadata?.sender?.image ||
+                       null;
+  const senderInitial = senderName.charAt(0).toUpperCase();
+
+  // Memoized sport-specific color for current user messages
+  const bubbleColor = useMemo(() => {
+    if (!isCurrentUser) return '#F3F4F6'; // Gray for received messages
+
+    // Use sport color for sent messages (both group and direct chats)
+    const colors = getSportColors(sportType);
+    return colors.background;
+  }, [isCurrentUser, sportType]);
   
   return (
     <View style={[
@@ -29,11 +47,18 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
     ]}>
       {!isCurrentUser && isLastInGroup && isGroupChat && (
         <View style={styles.avatarContainer}>
-          <View style={styles.avatar}>
-            <Text style={styles.avatarText}>
-              {senderName.charAt(0).toUpperCase()}
-            </Text>
-          </View>
+          {senderAvatar ? (
+            <Image 
+              source={{ uri: senderAvatar }} 
+              style={styles.avatarImage}
+            />
+          ) : (
+            <View style={styles.avatar}>
+              <Text style={styles.avatarText}>
+                {senderInitial}
+              </Text>
+            </View>
+          )}
         </View>
       )}
       {!isCurrentUser && !isLastInGroup && isGroupChat && (
@@ -49,6 +74,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
         <View style={[
           styles.bubble,
           isCurrentUser ? styles.currentUserBubble : styles.otherUserBubble,
+          isCurrentUser && { backgroundColor: bubbleColor },
           isCurrentUser ? {
             borderBottomRightRadius: isLastInGroup ? 6 : 18,
             borderTopRightRadius: showAvatar ? 18 : 6,
@@ -87,7 +113,9 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
       </View>
     </View>
   );
-};
+});
+
+MessageBubble.displayName = 'MessageBubble';
 
 const styles = StyleSheet.create({
   container: {
@@ -116,6 +144,11 @@ const styles = StyleSheet.create({
     backgroundColor: '#E5E7EB',
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  avatarImage: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
   },
   avatarText: {
     color: '#6B7280',

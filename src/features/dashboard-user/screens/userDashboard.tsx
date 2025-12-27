@@ -9,13 +9,14 @@ import { SportSwitcher } from "@/shared/components/ui/SportSwitcher";
 import { ChatScreen } from "@/src/features/chat/ChatScreen";
 import { useUnreadCount } from "@/src/features/chat/hooks/useUnreadCount";
 import CommunityScreen from "@/src/features/community/screens/CommunityScreen";
-import { LeagueCard, useLeagues } from "@/src/features/leagues";
+import { LeagueCard, LeagueGrid, useLeagues, useUserActiveLeagues, ActiveLeaguesCarousel } from "@/src/features/leagues";
 import { useNotifications } from "@/src/hooks/useNotifications";
 import NotificationBell from "@/src/shared/components/NotificationBell";
-import NotificationDrawer from "@/src/shared/components/NotificationDrawer";
+import MyGamesScreen from "./MyGamesScreen";
+import { FriendlyScreen } from "@/src/features/friendly/screens";
 import * as Haptics from "expo-haptics";
-import { router, useLocalSearchParams } from "expo-router";
-import { default as React, useEffect } from "react";
+import { router, useLocalSearchParams, useFocusEffect } from "expo-router";
+import { default as React, useCallback, useEffect } from "react";
 import {
   Animated,
   BackHandler,
@@ -75,12 +76,18 @@ export default function DashboardScreen() {
   >("pickleball");
   const [locationFilterOpen, setLocationFilterOpen] = React.useState(false);
   const [searchTerm, setSearchTerm] = React.useState("");
-  const [notificationDrawerVisible, setNotificationDrawerVisible] = React.useState(false);
   const scrollY = React.useRef(new Animated.Value(0)).current;
  
   
   // Notification hook
-  const { unreadCount } = useNotifications();
+  const { unreadCount, refreshUnreadCount } = useNotifications();
+
+  // Refresh unread count when dashboard gains focus (e.g., after returning from notifications page)
+  useFocusEffect(
+    useCallback(() => {
+      refreshUnreadCount();
+    }, [refreshUnreadCount])
+  );
   
   // Chat unread count hook
   const chatUnreadCount = useUnreadCount();
@@ -128,6 +135,17 @@ export default function DashboardScreen() {
 
   // Fetch leagues data for current sport
   const { leagues, isLoading, error, refetch } = useLeagues({
+    sportType: currentSportConfig?.apiType,
+    autoFetch: true,
+  });
+
+  // Fetch user's active leagues (leagues they've joined)
+  const {
+    activeLeagues,
+    isLoading: isLoadingActiveLeagues,
+    hasActiveLeagues,
+    refetch: refetchActiveLeagues
+  } = useUserActiveLeagues({
     sportType: currentSportConfig?.apiType,
     autoFetch: true,
   });
@@ -247,14 +265,7 @@ export default function DashboardScreen() {
   }, [session?.user?.id]);
 
   const handleTabPress = (tabIndex: number) => {
-    // console.log(`DashboardScreen: Setting activeTab to ${tabIndex}`);
     setActiveTab(tabIndex);
-    // console.log(
-    //   `Tab ${tabIndex} pressed - ${
-    //     ["Connect", "Friendly", "Leagues", "My Games", "Chat"][tabIndex]
-    //   }`
-    // );
-
     // Absolute in-app view switching per tab
     if (tabIndex === 0) {
       setCurrentView("connect");
@@ -326,8 +337,8 @@ export default function DashboardScreen() {
       // Add haptic feedback for refresh
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
 
-      // Fetch fresh profile data and leagues
-      await Promise.all([fetchProfileData(), refetch()]);
+      // Fetch fresh profile data, leagues, and active leagues
+      await Promise.all([fetchProfileData(), refetch(), refetchActiveLeagues()]);
 
       console.log("DashboardScreen: Dashboard data refreshed successfully");
     } catch (error) {
@@ -335,38 +346,14 @@ export default function DashboardScreen() {
     } finally {
       setRefreshing(false);
     }
-  }, [session?.user?.id, refetch]);
+  }, [session?.user?.id, refetch, refetchActiveLeagues]);
 
   // use this for swtiching between tabs
   if (currentView === "connect") {
-    return <CommunityScreen onTabPress={handleTabPress} sport={selectedSport} />;
-  }
-
-  if (currentView === "chat") {
     return (
       <View style={styles.container}>
         <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
-        <ChatScreen />
-        <NavBar 
-          activeTab={activeTab} 
-          onTabPress={handleTabPress} 
-          sport={selectedSport}
-          badgeCounts={{ chat: chatUnreadCount }}
-        />
-      </View>
-    );
-  }
-
-  // later delete this
-  if (currentView === "friendly" || currentView === "myGames") {
-    const title = currentView === "friendly" ? "Friendly" : "My Games";
-    return (
-      <View style={styles.container}>
-        <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
-        <View
-          style={[styles.headerContainer, { paddingTop: STATUS_BAR_HEIGHT }]}
-        >
-          {/* Profile picture moved to left */}
+        <View style={[styles.headerContainer, { paddingTop: STATUS_BAR_HEIGHT }]}>
           <TouchableOpacity
             style={styles.profilePicture}
             onPress={() => {
@@ -378,50 +365,144 @@ export default function DashboardScreen() {
               <Image
                 source={{ uri: profileData?.image || session?.user?.image }}
                 style={styles.profileImage}
-                onError={() => {
-                  console.log(
-                    "Profile image failed to load:",
-                    profileData?.image || session?.user?.image
-                  );
-                }}
               />
             ) : (
               <View style={styles.defaultAvatarContainer}>
                 <Text style={styles.defaultAvatarText}>
-                  {(profileData?.name || session?.user?.name)
-                    ?.charAt(0)
-                    ?.toUpperCase() || "U"}
+                  {(profileData?.name || session?.user?.name)?.charAt(0)?.toUpperCase() || "U"}
                 </Text>
               </View>
             )}
           </TouchableOpacity>
-
-          {/* Sports switcher in center */}
           <SportSwitcher
             currentSport={selectedSport}
             availableSports={getUserSelectedSports()}
             onSportChange={setSelectedSport}
           />
-
-          {/* Empty space on right for balance */}
-          <View style={styles.headerRight} />
-        </View>
-
-        <View style={styles.contentContainer}>
-          <View
-            style={{ flex: 1, alignItems: "center", justifyContent: "center" }}
-          >
-            <Text style={{ fontSize: 18, fontWeight: "700", color: "#1A1C1E" }}>
-              {title}
-            </Text>
-            <Text style={{ marginTop: 8, color: "#6B7280" }}>
-              Content coming soon
-            </Text>
+          <View style={styles.headerRight}>
+            <NotificationBell unreadCount={unreadCount} />
           </View>
         </View>
-        <NavBar 
-          activeTab={activeTab} 
-          onTabPress={handleTabPress} 
+        <View style={styles.contentContainer}>
+          <View style={styles.contentBox}>
+            <CommunityScreen onTabPress={handleTabPress} sport={selectedSport} />
+          </View>
+        </View>
+        <NavBar
+          activeTab={activeTab}
+          onTabPress={handleTabPress}
+          sport={selectedSport}
+          badgeCounts={{ chat: chatUnreadCount }}
+        />
+      </View>
+    );
+  }
+
+  if (currentView === "chat") {
+    return (
+      <View style={styles.container}>
+        <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
+        <ChatScreen
+          activeTab={activeTab}
+          onTabPress={handleTabPress}
+          sport={selectedSport}
+          chatUnreadCount={chatUnreadCount}
+        />
+      </View>
+    );
+  }
+    
+    if (currentView === "myGames") {
+      return (
+        <View style={styles.container}>
+          <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
+          <View style={[styles.headerContainer, { paddingTop: STATUS_BAR_HEIGHT }]}>
+            <TouchableOpacity
+              style={styles.profilePicture}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                router.push("/profile");
+              }}
+            >
+              {profileData?.image || session?.user?.image ? (
+                <Image
+                  source={{ uri: profileData?.image || session?.user?.image }}
+                  style={styles.profileImage}
+                />
+              ) : (
+                <View style={styles.defaultAvatarContainer}>
+                  <Text style={styles.defaultAvatarText}>
+                    {(profileData?.name || session?.user?.name)?.charAt(0)?.toUpperCase() || "U"}
+                  </Text>
+                </View>
+              )}
+            </TouchableOpacity>
+            <SportSwitcher
+              currentSport={selectedSport}
+              availableSports={getUserSelectedSports()}
+              onSportChange={setSelectedSport}
+            />
+            <View style={styles.headerRight}>
+              <NotificationBell unreadCount={unreadCount} />
+            </View>
+          </View>
+          <View style={styles.contentContainer}>
+            <View style={styles.contentBox}>
+              <MyGamesScreen sport={selectedSport} />
+            </View>
+          </View>
+          <NavBar
+            activeTab={activeTab}
+            onTabPress={handleTabPress}
+            sport={selectedSport}
+            badgeCounts={{ chat: chatUnreadCount }}
+          />
+        </View>
+      );
+    }
+
+  if (currentView === "friendly") {
+    return (
+      <View style={styles.container}>
+        <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
+        <View style={[styles.headerContainer, { paddingTop: STATUS_BAR_HEIGHT }]}>
+          <TouchableOpacity
+            style={styles.profilePicture}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              router.push("/profile");
+            }}
+          >
+            {profileData?.image || session?.user?.image ? (
+              <Image
+                source={{ uri: profileData?.image || session?.user?.image }}
+                style={styles.profileImage}
+              />
+            ) : (
+              <View style={styles.defaultAvatarContainer}>
+                <Text style={styles.defaultAvatarText}>
+                  {(profileData?.name || session?.user?.name)?.charAt(0)?.toUpperCase() || "U"}
+                </Text>
+              </View>
+            )}
+          </TouchableOpacity>
+          <SportSwitcher
+            currentSport={selectedSport}
+            availableSports={getUserSelectedSports()}
+            onSportChange={setSelectedSport}
+          />
+          <View style={styles.headerRight}>
+            <NotificationBell unreadCount={unreadCount} />
+          </View>
+        </View>
+        <View style={styles.contentContainer}>
+          <View style={styles.contentBox}>
+            <FriendlyScreen sport={selectedSport} />
+          </View>
+        </View>
+        <NavBar
+          activeTab={activeTab}
+          onTabPress={handleTabPress}
           sport={selectedSport}
           badgeCounts={{ chat: chatUnreadCount }}
         />
@@ -472,14 +553,7 @@ export default function DashboardScreen() {
         />
 
         <View style={styles.headerRight}>
-          <NotificationBell
-            onPress={() => {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              setNotificationDrawerVisible(true);
-            }}
-            unreadCount={unreadCount}
-            isOpen={notificationDrawerVisible}
-          />
+          <NotificationBell unreadCount={unreadCount} />
         </View>
       </View>
 
@@ -504,188 +578,216 @@ export default function DashboardScreen() {
               { useNativeDriver: true }
             )}
           >
-            {/* Recommended League Header with filter */}
-            <View style={styles.recommendedHeaderRow}>
-              <Text style={styles.recommendedLeagueText}>
-                Recommended league
-              </Text>
-              <View style={styles.locationRow}>
-                {selectedSport === 'pickleball' ? (
-                  <PickleballLocationIcon
-                  width={11}
-                  height={10}
-                  style={styles.locationIcon}
-                  fill={selectedSport === 'pickleball' ? '#863A73' : undefined}
-                />
-                ) : selectedSport === 'tennis' ? (
-                  <TennisLocationIcon
-                  width={11}
-                  height={10}
-                  style={styles.locationIcon}
-                  fill={selectedSport === 'tennis' ? '#84B43F' : undefined}
-                />
-                ) : (
-                  <PadelLocationIcon
-                  width={11}
-                  height={10}
-                  style={styles.locationIcon}
-                  fill={selectedSport === 'padel' ? '#1B72C0' : undefined}
-                />
-                )}
-                <Text style={[
-                  styles.locationFilterText,
-                  selectedSport === 'tennis' && { color: '#4A7D00' },
-                  selectedSport === 'padel' && { color: '#1B72C0' }
-                ]}>
-                  Based on your location
-                </Text>
-              </View>
-            </View>
-
-            {/* Featured League Card */}
-            {isLoading ? (
-              <View style={styles.featuredSkeleton} />
-            ) : error ? (
-              <View style={styles.errorContainer}>
-                <Text style={styles.errorText}>Failed to load leagues</Text>
-                <TouchableOpacity style={styles.retryButton} onPress={refetch}>
-                  <Text style={styles.retryButtonText}>Retry</Text>
-                </TouchableOpacity>
-              </View>
-            ) : leagues.length > 0 ? (
-              <Animated.View
-                style={[
-                  styles.parallaxWrapper,
-                  {
-                    transform: [
-                      {
-                        translateY: scrollY.interpolate({
-                          inputRange: [-100, 0, 200],
-                          outputRange: [-30, 0, 20],
-                          extrapolate: "clamp",
-                        }),
-                      },
-                      {
-                        scale: scrollY.interpolate({
-                          inputRange: [-100, 0],
-                          outputRange: [1.05, 1],
-                          extrapolate: "clamp",
-                        }),
-                      },
-                    ],
-                  },
-                ]}
-              >
-                <LeagueCard
-                  league={leagues[0]}
-                  variant="featured"
-                  onJoinPress={handleJoinLeague}
-                  sport={selectedSport}
-                />
-              </Animated.View>
-            ) : (
-              <View style={styles.noLeaguesContainer}>
-                <Text style={styles.noLeaguesText}>
-                  No {currentSportConfig?.displayName.toLowerCase()} leagues
-                  available
-                </Text>
-                <Text style={styles.noLeaguesSubtext}>
-                  Check back later for new leagues!
-                </Text>
-              </View>
-            )}
-
-            {/* Other leagues near you */}
-            {leagues.length > 1 && (
+            {/* Conditionally show Active Leagues or Recommended League */}
+            {hasActiveLeagues ? (
               <>
-                <View style={styles.otherLeaguesHeaderRow}>
-                  <Text style={styles.sectionTitle}>
-                    Other leagues near you
+                {/* User has active leagues - show "Your active league(s)" */}
+                <View style={styles.activeLeaguesHeaderRow}>
+                  <Text style={styles.activeLeaguesHeaderText}>
+                    Your active league(s)
                   </Text>
-                  <Text style={styles.arrowText}>→</Text>
                 </View>
 
-                {/* Search field */}
-                <View style={styles.searchContainer}>
-                  <View style={styles.searchInputContainer}>
-                    <SearchIcon
-                      width={20}
-                      height={20}
-                      style={styles.searchIcon}
-                    />
-                    <TextInput
-                      style={styles.searchInput}
-                      placeholder="Search leagues..."
-                      placeholderTextColor="#BABABA"
-                      value={searchTerm}
-                      onChangeText={setSearchTerm}
-                    />
-                  </View>
-                </View>
+                {isLoadingActiveLeagues ? (
+                  <View style={styles.featuredSkeleton} />
+                ) : (
+                  <ActiveLeaguesCarousel
+                    leagues={activeLeagues}
+                    sport={selectedSport}
+                  />
+                )}
 
-                {(() => {
-                  const filteredLeagues = leagues.slice(1).filter((league) => {
-                    if (!searchTerm.trim()) return true;
-                    const search = searchTerm.toLowerCase();
-                    return (
-                      league.name?.toLowerCase().includes(search) ||
-                      league.location?.toLowerCase().includes(search)
-                    );
-                  });
+                {/* Show recommended leagues below if available */}
+                {leagues.length > 0 && (
+                  <>
+                    <View style={styles.otherLeaguesHeaderRow}>
+                      <Text style={styles.sectionTitle}>
+                        Other leagues near you
+                      </Text>
+                      <Text style={styles.arrowText}>→</Text>
+                    </View>
 
-                  // If there arei 2 leagues, display them side by side
-                  if (filteredLeagues.length === 2) {
-                    return (
-                      <View style={styles.sideBySideContainer}>
-                        <View style={styles.halfWidthCard}>
-                          <LeagueCard
-                            league={filteredLeagues[0]}
-                            variant="regular"
-                            size="large"
-                            onJoinPress={handleJoinLeague}
-                            sport={selectedSport}
-                          />
-                        </View>
-                        <View style={styles.halfWidthCard}>
-                          <LeagueCard
-                            league={filteredLeagues[1]}
-                            variant="regular"
-                            size="large"
-                            onJoinPress={handleJoinLeague}
-                            sport={selectedSport}
-                          />
-                        </View>
+                    {/* Search field */}
+                    <View style={styles.searchContainer}>
+                      <View style={styles.searchInputContainer}>
+                        <SearchIcon
+                          width={20}
+                          height={20}
+                          style={styles.searchIcon}
+                        />
+                        <TextInput
+                          style={styles.searchInput}
+                          placeholder="Search leagues..."
+                          placeholderTextColor="#BABABA"
+                          value={searchTerm}
+                          onChangeText={setSearchTerm}
+                        />
                       </View>
-                    );
-                  }
+                    </View>
 
-                  // Otherwise, display vertically
-                  return filteredLeagues.map((league) => (
-                    <LeagueCard
-                      key={league.id}
-                      league={league}
-                      variant="regular"
+                    <LeagueGrid
+                      leagues={leagues.filter((league) => {
+                        // Filter out leagues user is already in
+                        const isActiveLeague = activeLeagues.some(al => al.id === league.id);
+                        if (isActiveLeague) return false;
+                        if (!searchTerm.trim()) return true;
+                        const search = searchTerm.toLowerCase();
+                        return (
+                          league.name?.toLowerCase().includes(search) ||
+                          league.location?.toLowerCase().includes(search)
+                        );
+                      })}
                       onJoinPress={handleJoinLeague}
                       sport={selectedSport}
                     />
-                  ));
-                })()}
+                  </>
+                )}
+              </>
+            ) : (
+              <>
+                {/* User has no active leagues - show "Recommended league" */}
+                <View style={styles.recommendedHeaderRow}>
+                  <Text style={styles.recommendedLeagueText}>
+                    Recommended league
+                  </Text>
+                  <View style={styles.locationRow}>
+                    {selectedSport === 'pickleball' ? (
+                      <PickleballLocationIcon
+                      width={11}
+                      height={10}
+                      style={styles.locationIcon}
+                      fill={selectedSport === 'pickleball' ? '#863A73' : undefined}
+                    />
+                    ) : selectedSport === 'tennis' ? (
+                      <TennisLocationIcon
+                      width={11}
+                      height={10}
+                      style={styles.locationIcon}
+                      fill={selectedSport === 'tennis' ? '#84B43F' : undefined}
+                    />
+                    ) : (
+                      <PadelLocationIcon
+                      width={11}
+                      height={10}
+                      style={styles.locationIcon}
+                      fill={selectedSport === 'padel' ? '#1B72C0' : undefined}
+                    />
+                    )}
+                    <Text style={[
+                      styles.locationFilterText,
+                      selectedSport === 'tennis' && { color: '#4A7D00' },
+                      selectedSport === 'padel' && { color: '#1B72C0' }
+                    ]}>
+                      Based on your location
+                    </Text>
+                  </View>
+                </View>
+
+                {/* Featured League Card */}
+                {isLoading ? (
+                  <View style={styles.featuredSkeleton} />
+                ) : error ? (
+                  <View style={styles.errorContainer}>
+                    <Text style={styles.errorText}>Failed to load leagues</Text>
+                    <TouchableOpacity style={styles.retryButton} onPress={refetch}>
+                      <Text style={styles.retryButtonText}>Retry</Text>
+                    </TouchableOpacity>
+                  </View>
+                ) : leagues.length > 0 ? (
+                  <Animated.View
+                    style={[
+                      styles.parallaxWrapper,
+                      {
+                        transform: [
+                          {
+                            translateY: scrollY.interpolate({
+                              inputRange: [-100, 0, 200],
+                              outputRange: [-30, 0, 20],
+                              extrapolate: "clamp",
+                            }),
+                          },
+                          {
+                            scale: scrollY.interpolate({
+                              inputRange: [-100, 0],
+                              outputRange: [1.05, 1],
+                              extrapolate: "clamp",
+                            }),
+                          },
+                        ],
+                      },
+                    ]}
+                  >
+                    <LeagueCard
+                      league={leagues[0]}
+                      variant="featured"
+                      onJoinPress={handleJoinLeague}
+                      sport={selectedSport}
+                    />
+                  </Animated.View>
+                ) : (
+                  <View style={styles.noLeaguesContainer}>
+                    <Text style={styles.noLeaguesText}>
+                      No {currentSportConfig?.displayName.toLowerCase()} leagues
+                      available
+                    </Text>
+                    <Text style={styles.noLeaguesSubtext}>
+                      Check back later for new leagues!
+                    </Text>
+                  </View>
+                )}
+
+                {/* Other leagues near you */}
+                {leagues.length > 1 && (
+                  <>
+                    <View style={styles.otherLeaguesHeaderRow}>
+                      <Text style={styles.sectionTitle}>
+                        Other leagues near you
+                      </Text>
+                      <Text style={styles.arrowText}>→</Text>
+                    </View>
+
+                    {/* Search field */}
+                    <View style={styles.searchContainer}>
+                      <View style={styles.searchInputContainer}>
+                        <SearchIcon
+                          width={20}
+                          height={20}
+                          style={styles.searchIcon}
+                        />
+                        <TextInput
+                          style={styles.searchInput}
+                          placeholder="Search leagues..."
+                          placeholderTextColor="#BABABA"
+                          value={searchTerm}
+                          onChangeText={setSearchTerm}
+                        />
+                      </View>
+                    </View>
+
+                    <LeagueGrid
+                      leagues={leagues.slice(1).filter((league) => {
+                        if (!searchTerm.trim()) return true;
+                        const search = searchTerm.toLowerCase();
+                        return (
+                          league.name?.toLowerCase().includes(search) ||
+                          league.location?.toLowerCase().includes(search)
+                        );
+                      })}
+                      onJoinPress={handleJoinLeague}
+                      sport={selectedSport}
+                    />
+                  </>
+                )}
               </>
             )}
           </Animated.ScrollView>
         </View>
       </View>
-      <NavBar 
-        activeTab={activeTab} 
-        onTabPress={handleTabPress} 
+      <NavBar
+        activeTab={activeTab}
+        onTabPress={handleTabPress}
         sport={selectedSport}
         badgeCounts={{ chat: chatUnreadCount }}
-      />
-      
-      {/* Notification Drawer */}
-      <NotificationDrawer
-        visible={notificationDrawerVisible}
-        onClose={() => setNotificationDrawerVisible(false)}
       />
     </View>
   );
@@ -973,6 +1075,22 @@ const styles = StyleSheet.create({
     textAlign: "center",
     marginBottom: 8,
   },
+  activeLeaguesHeaderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 12,
+    marginTop: 20,
+  },
+  activeLeaguesHeaderText: {
+    fontFamily: "Inter",
+    fontStyle: "normal",
+    fontWeight: "700",
+    fontSize: isSmallScreen ? 14 : isTablet ? 18 : 16,
+    lineHeight: isSmallScreen ? 20 : isTablet ? 24 : 22,
+    color: "#1A1C1E",
+    textAlign: "center",
+  },
   locationRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -992,6 +1110,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
     marginBottom: 12,
+    marginTop: 20,
   },
   searchContainer: {
     marginBottom: 16,

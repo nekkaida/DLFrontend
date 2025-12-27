@@ -9,8 +9,11 @@ import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { KeyboardProvider } from 'react-native-keyboard-controller';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 import 'react-native-reanimated';
 import { Toaster } from 'sonner-native';
+import { usePushNotifications } from '@/src/hooks/usePushNotifications';
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
@@ -18,6 +21,9 @@ export default function RootLayout() {
   const [loaded] = useFonts({
     SpaceMono: require('../assets/fonts/SpaceMono-Regular.ttf'),
   });
+
+  // Initialize push notifications (auto-registers when user is authenticated)
+  usePushNotifications();
 
   // Initialize socket connection when user is authenticated
   useEffect(() => {
@@ -52,11 +58,13 @@ export default function RootLayout() {
   }
 
   return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
-      <BottomSheetModalProvider>
-        <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-          <NavigationInterceptor>
-          <Stack
+    <SafeAreaProvider>
+      <GestureHandlerRootView style={{ flex: 1 }}>
+        <KeyboardProvider>
+        <BottomSheetModalProvider>
+          <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+            <NavigationInterceptor>
+            <Stack
             screenOptions={{
               gestureEnabled: true,
               headerShown: false,
@@ -81,7 +89,7 @@ export default function RootLayout() {
           name="login" 
           options={{ 
             headerShown: false,
-            gestureEnabled: false,
+            gestureEnabled: true,
           }} 
         />
         <Stack.Screen 
@@ -109,7 +117,7 @@ export default function RootLayout() {
           name="onboarding" 
           options={{ 
             headerShown: false,
-            gestureEnabled: true,
+            gestureEnabled: false,
           }} 
         />
         <Stack.Screen 
@@ -141,20 +149,29 @@ export default function RootLayout() {
             gestureEnabled: true,
           }} 
         />
-        <Stack.Screen 
-          name="match-history" 
-          options={{ 
+        <Stack.Screen
+          name="match-history"
+          options={{
             headerShown: false,
             gestureEnabled: true,
-          }} 
+          }}
+        />
+        <Stack.Screen
+          name="notifications"
+          options={{
+            headerShown: false,
+            gestureEnabled: true,
+          }}
         />
         <Stack.Screen name="+not-found" />
         </Stack>
-          </NavigationInterceptor>
-          <StatusBar style="auto" />
-          <Toaster />
-        </ThemeProvider>
-      </BottomSheetModalProvider>
-    </GestureHandlerRootView>
+            </NavigationInterceptor>
+            <StatusBar style="auto" />
+            <Toaster />
+          </ThemeProvider>
+        </BottomSheetModalProvider>
+        </KeyboardProvider>
+      </GestureHandlerRootView>
+    </SafeAreaProvider>
   );
 }
