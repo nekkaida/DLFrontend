@@ -1670,11 +1670,12 @@ export default function JoinMatchScreen() {
                         'INTERMEDIATE': 'Intermediate',
                         'UPPER_INTERMEDIATE': 'Upper Intermediate',
                         'EXPERT': 'Expert',
+                        'ADVANCED': 'Advanced',
                       };
                       return (
                         <View key={index} style={styles.skillRestrictionChip}>
                           <Text style={styles.skillRestrictionChipText}>
-                            {skillMap[level] || level}
+                            {skillMap[level] || level.charAt(0) + level.slice(1).toLowerCase().replace(/_/g, ' ')}
                           </Text>
                         </View>
                       );
