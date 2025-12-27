@@ -38,7 +38,7 @@ import {
   getMatchTime,
 } from './my-games';
 
-export default function MyGamesScreen({ sport = 'pickleball' }: MyGamesScreenProps) {
+export default function MyGamesScreen({ sport = 'pickleball', initialTab }: MyGamesScreenProps) {
   const { data: session } = useSession();
   const [matches, setMatches] = useState<Match[]>([]);
   const [invitations, setInvitations] = useState<MatchInvitation[]>([]);
@@ -54,7 +54,14 @@ export default function MyGamesScreen({ sport = 'pickleball' }: MyGamesScreenPro
 
   // Filter states
   const [searchQuery, setSearchQuery] = useState('');
-  const [activeTab, setActiveTab] = useState<FilterTab>('ALL');
+  const [activeTab, setActiveTab] = useState<FilterTab>(initialTab || 'ALL');
+
+  // Handle initialTab changes from navigation
+  useEffect(() => {
+    if (initialTab) {
+      setActiveTab(initialTab);
+    }
+  }, [initialTab]);
   const [filters, setFilters] = useState<FilterOptions>({
     sport: null,
     division: null,

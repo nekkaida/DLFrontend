@@ -416,11 +416,36 @@ export const MatchMessageBubble: React.FC<MatchMessageBubbleProps> = ({
       return;
     }
 
+    // Check if this is a doubles league match where user needs to accept an invite
+    // Redirect to My Games > Invites tab instead of match-details
+    const isDoublesMatch = matchData.matchType === 'DOUBLES' || matchData.numberOfPlayers === '4';
+    const isLeagueMatch = !isFriendly;
+
+    // Check if current user has a pending invitation
+    const userHasPendingInvite = matchData.participants?.some(
+      (p) =>
+        (p.userId === currentUserId) &&
+        p.invitationStatus === 'PENDING'
+    );
+
+    // Redirect doubles league match invitees to My Games > Invites tab
+    if (isDoublesMatch && isLeagueMatch && userHasPendingInvite) {
+      router.push({
+        pathname: '/user-dashboard',
+        params: {
+          view: 'myGames',
+          sport: (matchData.sportType || 'PICKLEBALL').toLowerCase(),
+          tab: 'INVITES',
+        },
+      });
+      return;
+    }
+
     setIsFetchingPartner(true);
-    
+
     try {
       const backendUrl = getBackendBaseURL();
-      
+
       // Fetch match details to get divisionId and seasonId
       const matchResponse = await fetch(`${backendUrl}/api/match/${matchData.matchId}`, {
         headers: {

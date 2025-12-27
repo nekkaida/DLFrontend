@@ -14,6 +14,7 @@ import { LeagueCard, LeagueGrid, useLeagues, useUserActiveLeagues, ActiveLeagues
 import { useNotifications } from "@/src/hooks/useNotifications";
 import NotificationBell from "@/src/shared/components/NotificationBell";
 import MyGamesScreen from "./MyGamesScreen";
+import { FilterTab } from './my-games';
 import { FriendlyScreen } from "@/src/features/friendly/screens";
 import * as Haptics from "expo-haptics";
 import { router, useLocalSearchParams, useFocusEffect } from "expo-router";
@@ -65,7 +66,7 @@ const isTablet = width > 768;
 export default function DashboardScreen() {
   const { data: session } = useSession();
   const insets = useSafeAreaInsets();
-  const { sport: routeSport, view: routeView } = useLocalSearchParams<{ sport?: string; view?: string }>();
+  const { sport: routeSport, view: routeView, tab: routeTab } = useLocalSearchParams<{ sport?: string; view?: string; tab?: string }>();
   const [activeTab, setActiveTab] = React.useState(2);
   const [currentView, setCurrentView] = React.useState<
     "dashboard" | "connect" | "friendly" | "myGames" | "chat"
@@ -78,6 +79,10 @@ export default function DashboardScreen() {
   const [locationFilterOpen, setLocationFilterOpen] = React.useState(false);
   const [searchTerm, setSearchTerm] = React.useState("");
   const scrollY = React.useRef(new Animated.Value(0)).current;
+
+  // State for navigating directly to a specific tab in MyGames
+  const [myGamesInitialTab, setMyGamesInitialTab] = React.useState<FilterTab | undefined>(undefined);
+  const initialTabConsumedRef = React.useRef(false);
  
   
   // Notification hook
@@ -134,6 +139,21 @@ export default function DashboardScreen() {
       }
     }
   }, [routeView]);
+
+  // Handle tab param for navigating directly to a specific tab in MyGames
+  React.useEffect(() => {
+    if (routeTab && routeView === 'myGames' && !initialTabConsumedRef.current) {
+      const validTabs = ['ALL', 'UPCOMING', 'PAST', 'INVITES'];
+      if (validTabs.includes(routeTab.toUpperCase())) {
+        setMyGamesInitialTab(routeTab.toUpperCase() as FilterTab);
+        initialTabConsumedRef.current = true;
+      }
+    }
+    // Reset when leaving myGames view
+    if (routeView !== 'myGames') {
+      initialTabConsumedRef.current = false;
+    }
+  }, [routeTab, routeView]);
 
   // Get current sport configuration
   const currentSportConfig = SPORT_CONFIG[selectedSport];
@@ -453,7 +473,7 @@ export default function DashboardScreen() {
           </View>
           <View style={styles.contentContainer}>
             <View style={styles.contentBox}>
-              <MyGamesScreen sport={selectedSport} />
+              <MyGamesScreen sport={selectedSport} initialTab={myGamesInitialTab} />
             </View>
           </View>
           <NavBar
