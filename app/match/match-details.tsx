@@ -87,6 +87,15 @@ export default function JoinMatchScreen() {
     matchDate: string | null;  // ISO date from database
     genderRestriction?: 'MALE' | 'FEMALE' | 'OPEN' | null;
     skillLevels?: string[];
+    isWalkover?: boolean;
+    walkoverReason?: string;
+    walkover?: {
+      defaultingPlayerId: string;
+      defaultingPlayer?: { id: string; name: string; image?: string };
+      winningPlayerId: string;
+      winningPlayer?: { id: string; name: string; image?: string };
+      walkoverReasonDetail?: string;
+    };
   }>({ createdById: null, resultSubmittedById: null, resultSubmittedAt: null, status: 'SCHEDULED', team1Score: null, team2Score: null, isDisputed: false, matchDate: null });
   
   // Partnership data with captain info
@@ -223,6 +232,9 @@ export default function JoinMatchScreen() {
             matchDate: data.matchDate || null,
             genderRestriction: data.genderRestriction || null,
             skillLevels: data.skillLevels || [],
+            isWalkover: data.isWalkover || false,
+            walkoverReason: data.walkoverReason || null,
+            walkover: data.walkover || null,
           }));
         }
       } catch (error) {
@@ -320,6 +332,9 @@ export default function JoinMatchScreen() {
             matchDate: match.matchDate || match.scheduledStartTime || null,
             genderRestriction: match.genderRestriction || null,
             skillLevels: match.skillLevels || [],
+            isWalkover: match.isWalkover || false,
+            walkoverReason: match.walkoverReason || null,
+            walkover: match.walkover || null,
           });
         }
       } catch (error) {
@@ -697,6 +712,18 @@ export default function JoinMatchScreen() {
 
   const canStartMatch = allSlotsFilled && isMatchTimeReached();
 
+  // Helper to format walkover reason for display
+  const formatWalkoverReason = (reason?: string): string => {
+    switch (reason) {
+      case 'NO_SHOW': return 'No Show';
+      case 'LATE_CANCELLATION': return 'Late Cancellation';
+      case 'INJURY': return 'Injury';
+      case 'PERSONAL_EMERGENCY': return 'Personal Emergency';
+      case 'OTHER': return 'Other';
+      default: return reason || 'Unknown';
+    }
+  };
+
   // Get match status badge with real-time progression
   const getStatusBadge = () => {
     const status = matchStatus.toUpperCase();
@@ -770,9 +797,15 @@ export default function JoinMatchScreen() {
     switch (status) {
       case 'COMPLETED':
       case 'FINISHED':
-        badgeColor = '#D1FAE5';
-        textColor = '#000000ff';
-        statusText = 'Finished';
+        if (matchData.isWalkover) {
+          badgeColor = '#FEF3C7';  // Amber background
+          textColor = '#92400E';   // Amber text
+          statusText = 'Walkover';
+        } else {
+          badgeColor = '#D1FAE5';
+          textColor = '#000000ff';
+          statusText = 'Finished';
+        }
         break;
       case 'CANCELLED':
         badgeColor = '#FEE2E2';
@@ -1534,6 +1567,20 @@ export default function JoinMatchScreen() {
                 </Text>
               </View>
             )}
+            {/* Walkover info banner */}
+            {matchData.isWalkover && (
+              <View style={styles.walkoverInfoBanner}>
+                <Ionicons name="flag-outline" size={16} color="#92400E" />
+                <View style={styles.walkoverInfoContent}>
+                  <Text style={styles.walkoverInfoText}>
+                    {matchData.walkover?.defaultingPlayer?.name || 'Opponent'} forfeited
+                  </Text>
+                  <Text style={styles.walkoverReasonText}>
+                    Reason: {formatWalkoverReason(matchData.walkoverReason)}
+                  </Text>
+                </View>
+              </View>
+            )}
           </View>
         </View>
 
@@ -1901,6 +1948,12 @@ export default function JoinMatchScreen() {
           seasonId={seasonId}
           mode={resultSheetMode}
           isFriendlyMatch={isFriendly}
+          isWalkover={matchData.isWalkover}
+          walkoverInfo={matchData.isWalkover ? {
+            reason: matchData.walkoverReason || '',
+            defaultingPlayerName: matchData.walkover?.defaultingPlayer?.name || 'Opponent',
+            reasonDetail: matchData.walkover?.walkoverReasonDetail,
+          } : undefined}
           matchComments={comments}
           currentUserId={session?.user?.id}
           onCreateComment={handleCreateComment}
@@ -2288,6 +2341,29 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#F59E0B',
     fontWeight: '500',
+  },
+  walkoverInfoBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFBEB',
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    borderRadius: 8,
+    marginTop: 10,
+    gap: 8,
+  },
+  walkoverInfoContent: {
+    flex: 1,
+  },
+  walkoverInfoText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#92400E',
+  },
+  walkoverReasonText: {
+    fontSize: 12,
+    color: '#B45309',
+    marginTop: 2,
   },
   draftStatusBanner: {
     flexDirection: 'row',

@@ -186,8 +186,8 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
         const query = searchQuery.toLowerCase();
         const matchesSearch =
           thread.name?.toLowerCase().includes(query) ||
-          thread.participants.some(participant =>
-            participant.name.toLowerCase().includes(query)
+          thread.participants?.some(participant =>
+            participant.name?.toLowerCase().includes(query)
           ) ||
           thread.lastMessage?.content.toLowerCase().includes(query);
         if (!matchesSearch) return false;
@@ -442,14 +442,12 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
         )}
       </View>
 
-      {/* New Message Bottom Sheet - Only render when needed to prevent touch blocking */}
-      {showNewMessageSheet && (
-        <NewMessageBottomSheet
-          visible={showNewMessageSheet}
-          onClose={handleCloseNewMessageSheet}
-          onSelectUser={handleSelectUser}
-        />
-      )}
+      {/* New Message Bottom Sheet - Always rendered, visibility controlled via present/dismiss */}
+      <NewMessageBottomSheet
+        visible={showNewMessageSheet}
+        onClose={handleCloseNewMessageSheet}
+        onSelectUser={handleSelectUser}
+      />
 
       {/* Type Filter Dropdown */}
       <Modal

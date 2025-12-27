@@ -101,9 +101,11 @@ export const ChatThreadScreen: React.FC<ChatThreadScreenProps> = ({ threadId, da
 
       setIsLoadingThread(true);
 
-      // First check if thread exists in store
+      // First check if thread exists in store with valid participants
       const existingThread = threads.find(t => t.id === threadId);
-      if (existingThread) {
+      const hasValidParticipants = existingThread?.participants && existingThread.participants.length > 0;
+
+      if (existingThread && hasValidParticipants) {
         setCurrentThread(existingThread);
         // Mark as read
         if (existingThread.unreadCount > 0) {
@@ -115,11 +117,15 @@ export const ChatThreadScreen: React.FC<ChatThreadScreenProps> = ({ threadId, da
           }
         }
       } else {
-        // Fetch thread from API
+        // Fetch thread from API (either not in store or missing participants)
         try {
           const thread = await ChatService.getThread(threadId);
           if (thread) {
             setCurrentThread(thread);
+            // Also update the thread in the store if it exists but was incomplete
+            if (existingThread) {
+              updateThread(thread);
+            }
           }
         } catch (error) {
           chatLogger.error('Error fetching thread:', error);
@@ -180,7 +186,7 @@ export const ChatThreadScreen: React.FC<ChatThreadScreenProps> = ({ threadId, da
     // Check if this is a direct chat (1-on-1)
     if (currentThread.type === 'direct') {
       // Find the recipient (other participant)
-      const recipient = currentThread.participants.find(p => p.id !== user.id);
+      const recipient = currentThread.participants?.find(p => p.id !== user.id);
 
       if (!recipient) {
         chatLogger.error('Cannot find recipient for friendly match request');
@@ -571,7 +577,7 @@ export const ChatThreadScreen: React.FC<ChatThreadScreenProps> = ({ threadId, da
         participantName: 'Group Chat'
       };
     } else {
-      const otherParticipant = currentThread.participants.find(
+      const otherParticipant = currentThread.participants?.find(
         participant => participant.id !== user.id
       );
 
