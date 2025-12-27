@@ -182,7 +182,7 @@ describe('ChatStore', () => {
       const messages = useChatStore.getState().messages['thread-1'];
       expect(messages[0].isRead).toBe(true);
       expect(messages[0].metadata?.readBy).toHaveLength(1);
-      expect(messages[0].metadata?.readBy[0].userId).toBe('reader-1');
+      expect(messages[0]?.metadata?.readBy?.[0]?.userId).toBe('reader-1');
     });
 
     it('should not add duplicate read receipts', () => {
