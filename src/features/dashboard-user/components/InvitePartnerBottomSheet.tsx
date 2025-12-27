@@ -227,6 +227,9 @@ export const InvitePartnerBottomSheet: React.FC<InvitePartnerBottomSheetProps> =
   // Render header content
   const renderHeader = () => (
     <View style={styles.headerContainer}>
+      <TouchableOpacity style={styles.closeButton} onPress={onClose}>
+        <Ionicons name="close" size={24} color="#86868B" />
+      </TouchableOpacity>
       <View style={styles.header}>
         <Text style={styles.title}>Invite Your Doubles Partner</Text>
         <Text style={styles.description}>
@@ -329,6 +332,7 @@ export const InvitePartnerBottomSheet: React.FC<InvitePartnerBottomSheetProps> =
       keyboardBlurBehavior="restore"
       keyboardBehavior="interactive"
       detached={false}
+      enableDynamicSizing={false}
     >
       <BottomSheetFlatList
         data={listData}
@@ -361,6 +365,13 @@ export const InvitePartnerBottomSheet: React.FC<InvitePartnerBottomSheetProps> =
 const styles = StyleSheet.create({
   handleContainer: {
     paddingTop: 8,
+  },
+  closeButton: {
+    position: 'absolute',
+    top: -4,
+    right: 0,
+    zIndex: 1,
+    padding: 4,
   },
   bottomSheetBackground: {
     backgroundColor: '#FFFFFF',
