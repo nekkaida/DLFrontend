@@ -291,7 +291,10 @@ export const SwipeableMessageBubble: React.FC<SwipeableMessageBubbleProps> = Rea
                     pressed && styles.replyPreviewPressed,
                   ]}
                 >
-                  <View style={styles.replyPreviewContainer}>
+                  <View style={[
+                    styles.replyPreviewContainer,
+                    !isCurrentUser && styles.replyPreviewContainerReceived,
+                  ]}>
                     <Text style={styles.replyPreviewSender} numberOfLines={1}>
                       {repliedMessage.metadata?.sender?.name || repliedMessage.metadata?.sender?.username || 'User'}
                     </Text>
@@ -508,6 +511,9 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 15,
     borderBottomLeftRadius: 8,
     borderBottomRightRadius: 8,
+  },
+  replyPreviewContainerReceived: {
+    backgroundColor: '#E5E7EB', // Darker gray for received messages to distinguish from bubble
   },
   replyPreviewSender: {
     fontSize: 13,

@@ -17,6 +17,7 @@ import {
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { MatchCardSkeleton } from '@/src/components/MatchCardSkeleton';
+import { useMyGamesStore } from '../stores/MyGamesStore';
 
 // Cache key for match summary
 const MATCH_SUMMARY_CACHE_KEY = 'my_matches_summary';
@@ -169,6 +170,17 @@ export default function MyGamesScreen({ sport = 'pickleball' }: MyGamesScreenPro
     fetchMyMatches();
     fetchPendingInvitations();
   }, [fetchMyMatches, fetchPendingInvitations]);
+
+  // Listen for refresh signal from match-details (after submit/confirm/join/cancel)
+  const { shouldRefresh, clearRefresh } = useMyGamesStore();
+
+  useEffect(() => {
+    if (shouldRefresh) {
+      fetchMyMatches(true); // Manual refresh style (no skeleton)
+      fetchPendingInvitations();
+      clearRefresh();
+    }
+  }, [shouldRefresh, clearRefresh, fetchMyMatches, fetchPendingInvitations]);
 
   const onRefresh = () => {
     setRefreshing(true);

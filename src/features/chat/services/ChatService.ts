@@ -50,7 +50,7 @@ export class ChatService {
     chatLogger.debug("getThread called for thread:", threadId);
     try {
       const response: AxiosResponse = await axiosInstance.get(
-        `/chat/threads/${threadId}`
+        endpoints.chat.getThread(threadId)
       );
 
       if (response.data?.data) {

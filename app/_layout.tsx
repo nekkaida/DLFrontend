@@ -9,6 +9,7 @@ import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { KeyboardProvider } from 'react-native-keyboard-controller';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import 'react-native-reanimated';
 import { Toaster } from 'sonner-native';
@@ -59,6 +60,7 @@ export default function RootLayout() {
   return (
     <SafeAreaProvider>
       <GestureHandlerRootView style={{ flex: 1 }}>
+        <KeyboardProvider>
         <BottomSheetModalProvider>
           <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
             <NavigationInterceptor>
@@ -147,12 +149,19 @@ export default function RootLayout() {
             gestureEnabled: true,
           }} 
         />
-        <Stack.Screen 
-          name="match-history" 
-          options={{ 
+        <Stack.Screen
+          name="match-history"
+          options={{
             headerShown: false,
             gestureEnabled: true,
-          }} 
+          }}
+        />
+        <Stack.Screen
+          name="notifications"
+          options={{
+            headerShown: false,
+            gestureEnabled: true,
+          }}
         />
         <Stack.Screen name="+not-found" />
         </Stack>
@@ -161,6 +170,7 @@ export default function RootLayout() {
             <Toaster />
           </ThemeProvider>
         </BottomSheetModalProvider>
+        </KeyboardProvider>
       </GestureHandlerRootView>
     </SafeAreaProvider>
   );

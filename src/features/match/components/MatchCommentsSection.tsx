@@ -25,7 +25,6 @@ interface MatchCommentsSectionProps {
   onUpdateComment: (commentId: string, text: string) => Promise<void>;
   onDeleteComment: (commentId: string) => Promise<void>;
   isLoading?: boolean;
-  onInputFocus?: () => void;
 }
 
 const MAX_COMMENT_LENGTH = 1000;
@@ -52,7 +51,6 @@ export const MatchCommentsSection: React.FC<MatchCommentsSectionProps> = ({
   onUpdateComment,
   onDeleteComment,
   isLoading = false,
-  onInputFocus,
 }) => {
   const [newComment, setNewComment] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -133,17 +131,20 @@ export const MatchCommentsSection: React.FC<MatchCommentsSectionProps> = ({
     const isOwner = comment.userId === currentUserId;
     const isEditing = editingCommentId === comment.id;
     const isMenuOpen = openMenuId === comment.id;
+    const userInitial = comment.user.name?.charAt(0)?.toUpperCase() || '?';
 
     return (
       <View key={comment.id} style={styles.commentItem}>
-        <Image
-          source={
-            comment.user.image
-              ? { uri: comment.user.image }
-              : require('@/assets/images/profile-avatar.png')
-          }
-          style={styles.avatar}
-        />
+        {comment.user.image ? (
+          <Image
+            source={{ uri: comment.user.image }}
+            style={styles.avatar}
+          />
+        ) : (
+          <View style={[styles.avatar, styles.defaultAvatar]}>
+            <Text style={styles.defaultAvatarText}>{userInitial}</Text>
+          </View>
+        )}
         <View style={styles.commentContent}>
           <View style={styles.commentHeaderRow}>
             <View style={styles.commentHeaderInfo}>
@@ -280,7 +281,6 @@ export const MatchCommentsSection: React.FC<MatchCommentsSectionProps> = ({
               placeholderTextColor="#9CA3AF"
               maxLength={MAX_COMMENT_LENGTH}
               editable={!isSubmitting}
-              onFocus={onInputFocus}
             />
             <TouchableOpacity
               style={styles.sendIconButton}
@@ -395,6 +395,15 @@ const styles = StyleSheet.create({
     height: 32,
     borderRadius: 16,
     backgroundColor: '#E5E7EB',
+  },
+  defaultAvatar: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  defaultAvatarText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#6B7280',
   },
   commentContent: {
     flex: 1,

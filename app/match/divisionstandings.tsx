@@ -1026,14 +1026,18 @@ export default function DivisionStandingsScreen() {
             {(expandedComments.has(match.id) ? match.comments : match.comments.slice(0, 2)).map((commentItem) => (
               <View key={commentItem.id} style={styles.cardCommentItem}>
                 <Ionicons name="thumbs-up" size={14} color={sportColors.background} style={styles.cardCommentThumb} />
-                <Image
-                  source={
-                    commentItem.user.image
-                      ? { uri: commentItem.user.image }
-                      : require('@/assets/images/profile-avatar.png')
-                  }
-                  style={styles.cardCommentAvatar}
-                />
+                {commentItem.user.image ? (
+                  <Image
+                    source={{ uri: commentItem.user.image }}
+                    style={styles.cardCommentAvatar}
+                  />
+                ) : (
+                  <View style={[styles.cardCommentAvatar, styles.cardCommentDefaultAvatar]}>
+                    <Text style={styles.cardCommentDefaultAvatarText}>
+                      {commentItem.user.name?.charAt(0)?.toUpperCase() || '?'}
+                    </Text>
+                  </View>
+                )}
                 <Text style={styles.cardCommentText} numberOfLines={2}>
                   <Text style={styles.cardCommentAuthor}>{commentItem.user.name.split(' ')[0]}:</Text>
                   {' '}{commentItem.comment}
@@ -1821,6 +1825,15 @@ const styles = StyleSheet.create({
     height: 20,
     borderRadius: 10,
     backgroundColor: '#E5E7EB',
+  },
+  cardCommentDefaultAvatar: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cardCommentDefaultAvatarText: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: '#6B7280',
   },
   cardCommentAuthor: {
     fontWeight: '700',

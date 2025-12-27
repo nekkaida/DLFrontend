@@ -6,7 +6,6 @@ import {
   FlatList,
   RefreshControl,
   StyleSheet,
-  Modal,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { MatchCardSkeleton } from '@/src/components/MatchCardSkeleton';
@@ -15,13 +14,13 @@ import { Ionicons } from '@expo/vector-icons';
 import { format } from 'date-fns';
 import { toast } from 'sonner-native';
 import { router } from 'expo-router';
+import { useFocusEffect } from '@react-navigation/native';
 import { useSession } from '@/lib/auth-client';
 import axiosInstance, { endpoints } from '@/lib/endpoints';
 import { getBackendBaseURL } from '@/src/config/network';
 import { getSportColors, SportType } from '@/constants/SportsColor';
 import { FriendlyMatchCard, FriendlyMatch } from '../components/FriendlyMatchCard';
 import { DateRangeFilterModal, DateRangeFilterModalRef } from '../components/DateRangeFilterModal';
-import { CreateFriendlyMatchScreen, FriendlyMatchFormData } from './CreateFriendlyMatchScreen';
 
 // Cache key for friendly match summary
 const FRIENDLY_SUMMARY_CACHE_KEY = 'friendly_matches_summary';
@@ -42,7 +41,6 @@ export const FriendlyScreen: React.FC<FriendlyScreenProps> = ({ sport }) => {
   const [showSkeleton, setShowSkeleton] = useState(false); // Only true when new content detected
   const hasInitializedRef = useRef(false); // Track if we've done the first load
   const [activeTab, setActiveTab] = useState<FilterTab>('all');
-  const [showCreateModal, setShowCreateModal] = useState(false);
   const [dateRange, setDateRange] = useState<{ start: Date | null; end: Date | null }>({
     start: null,
     end: null,
@@ -151,9 +149,12 @@ export const FriendlyScreen: React.FC<FriendlyScreenProps> = ({ sport }) => {
     }
   }, [sportType, dateRange, checkForNewContent]);
 
-  useEffect(() => {
-    fetchFriendlyMatches();
-  }, [fetchFriendlyMatches]);
+  // Refresh matches when screen comes into focus (e.g., after creating a match)
+  useFocusEffect(
+    useCallback(() => {
+      fetchFriendlyMatches();
+    }, [fetchFriendlyMatches])
+  );
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
@@ -213,68 +214,6 @@ export const FriendlyScreen: React.FC<FriendlyScreenProps> = ({ sport }) => {
     return grouped;
   }, [filteredMatches]);
 
-
-  const handleCreateMatch = async (formData: FriendlyMatchFormData) => {
-    try {
-      // Parse date and time - same approach as league match creation
-      const extractStartTime = (timeRange: string): string => {
-        if (timeRange.includes(' - ')) {
-          return timeRange.split(' - ')[0].trim();
-        }
-        return timeRange.trim();
-      };
-
-      const convertTo24Hour = (time12h: string): string => {
-        const [time, modifier] = time12h.split(' ');
-        let [hours, minutes] = time.split(':');
-        
-        if (hours === '12') {
-          hours = modifier === 'AM' ? '00' : '12';
-        } else {
-          hours = modifier === 'PM' ? String(parseInt(hours, 10) + 12) : hours.padStart(2, '0');
-        }
-        
-        return `${hours}:${minutes}`;
-      };
-
-      // TIMEZONE HANDLING:
-      // User selects time in their local timezone using device picker
-      // We send the time + device timezone to backend
-      // Backend converts from device timezone → Malaysia timezone → UTC for storage
-      const startTime = extractStartTime(formData.time);
-      const time24 = convertTo24Hour(startTime);
-      const dateTimeString = `${formData.date}T${time24}:00`;
-      const deviceTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-
-      // Use sport from formData (user's selection)
-      const selectedSportType = formData.sport.toUpperCase() as 'PICKLEBALL' | 'TENNIS' | 'PADEL';
-
-      const payload = {
-        sport: selectedSportType,
-        matchType: formData.numberOfPlayers === 4 ? 'DOUBLES' : 'SINGLES',
-        format: 'STANDARD',
-        matchDate: dateTimeString,
-        deviceTimezone,
-        location: formData.location,
-        notes: formData.description,
-        duration: formData.duration,
-        courtBooked: formData.courtBooked,
-        fee: formData.fee,
-        feeAmount: formData.fee !== 'FREE' ? parseFloat(formData.feeAmount || '0') : undefined,
-        genderRestriction: formData.genderRestriction,
-        skillLevels: formData.skillLevels,
-      };
-
-      await axiosInstance.post(endpoints.friendly.create, payload);
-      toast.success('Friendly match created successfully');
-      setShowCreateModal(false);
-      fetchFriendlyMatches();
-    } catch (error: any) {
-      const errorMessage = error?.response?.data?.error || error?.message || 'Failed to create match';
-      toast.error(errorMessage);
-      throw new Error(errorMessage);
-    }
-  };
 
   const handleMatchPress = (match: FriendlyMatch) => {
     const dateString = match.scheduledTime || match.matchDate;
@@ -406,7 +345,7 @@ export const FriendlyScreen: React.FC<FriendlyScreenProps> = ({ sport }) => {
       {/* Create Match FAB */}
       <TouchableOpacity
         style={[styles.fab, { backgroundColor: sportColors.background }]}
-        onPress={() => setShowCreateModal(true)}
+        onPress={() => router.push({ pathname: '/friendly/create', params: { sportType: sport } })}
         activeOpacity={0.8}
       >
         <Ionicons name="add" size={28} color="#FFFFFF" />
@@ -419,20 +358,6 @@ export const FriendlyScreen: React.FC<FriendlyScreenProps> = ({ sport }) => {
         onApply={handleDateRangeApply}
         sportColor={sportColors.background}
       />
-
-      {/* Create Match Modal */}
-      <Modal
-        visible={showCreateModal}
-        animationType="slide"
-        transparent={false}
-        onRequestClose={() => setShowCreateModal(false)}
-      >
-        <CreateFriendlyMatchScreen
-          sport={sport}
-          onClose={() => setShowCreateModal(false)}
-          onCreateMatch={handleCreateMatch}
-        />
-      </Modal>
     </View>
   );
 };
