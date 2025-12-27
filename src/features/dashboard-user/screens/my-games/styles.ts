@@ -262,6 +262,29 @@ export const matchCardStyles = StyleSheet.create({
     color: '#6B7280',
     fontStyle: 'italic',
   },
+  // Pending player styles
+  playerAvatarWrapper: {
+    position: 'relative',
+  },
+  playerAvatarPending: {
+    opacity: 0.5,
+  },
+  playerNamePending: {
+    opacity: 0.5,
+  },
+  pendingBadge: {
+    position: 'absolute',
+    bottom: -2,
+    right: -2,
+    backgroundColor: '#FEF3C7',
+    borderRadius: 10,
+    width: 18,
+    height: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
+  },
 });
 
 export const invitationCardStyles = StyleSheet.create({
