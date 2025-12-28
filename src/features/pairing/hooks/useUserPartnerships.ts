@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { authClient } from '@/src/lib/auth-client';
+import { authClient } from '@/lib/auth-client';
 import { getBackendBaseURL } from '@/src/config/network';
 
 /**
