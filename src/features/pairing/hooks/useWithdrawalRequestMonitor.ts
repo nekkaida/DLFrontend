@@ -60,9 +60,9 @@ export const useWithdrawalRequestMonitor = ({
             });
 
             // Navigate to find partner page
-            if (request.partnership?.season.id) {
+            if (request.partnership?.season?.id) {
               setTimeout(() => {
-                router.push(`/pairing/find-partner/${request.partnership!.season.id}`);
+                router.push(`/pairing/find-partner/${request.partnership.season.id}`);
               }, 2000);
             }
           } else if (request.status === 'REJECTED') {
