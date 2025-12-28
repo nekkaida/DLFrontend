@@ -409,25 +409,25 @@ export default function EditProfileScreen() {
               <Text style={styles.mainSectionTitle}>Edit Information</Text>
               
               <View style={styles.inputCard}>
-                {renderInput('Full Name', 'fullName', 'Enter your full name')}
+                {renderInput('Full Name', 'fullName', 'Enter your full name', false, 'default', isLoading)}
               </View>
-              
+
               <View style={styles.inputCard}>
-                {renderInput('Username', 'username', 'Enter your username')}
+                {renderInput('Username', 'username', 'Enter your username', false, 'default', isLoading)}
               </View>
-              
+
               <View style={styles.inputCard}>
-                {renderInput('Email', 'email', 'Enter your email address', false, 'email-address')}
+                {renderInput('Email', 'email', 'Enter your email address', false, 'email-address', isLoading)}
               </View>
-              
+
               <View style={styles.inputCard}>
-                {renderInput('Phone Number', 'phoneNumber', 'Enter your phone number', false, 'phone-pad')}
+                {renderInput('Phone Number', 'phoneNumber', 'Enter your phone number', false, 'phone-pad', isLoading)}
               </View>
-              
+
               <View style={styles.inputCard}>
-                {renderInput('Location', 'location', 'Enter your location')}
+                {renderInput('Location', 'location', 'Enter your location', false, 'default', isLoading)}
               </View>
-              
+
               <View style={styles.inputCard}>
                 {renderInput('Birthday', 'dateOfBirth', 'Birthday cannot be changed', false, 'default', true)}
               </View>
@@ -443,6 +443,7 @@ export default function EditProfileScreen() {
                   multiline
                   numberOfLines={3}
                   textAlignVertical="top"
+                  editable={!isLoading}
                 />
               </View>
 
