@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   StyleSheet,
   View,
@@ -20,6 +20,7 @@ import { router } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { authClient } from '@/lib/auth-client';
 import * as SecureStore from 'expo-secure-store';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { toast } from 'sonner-native';
 import { navigateAndClearStack } from '@/src/core/navigation/navigationUtils';
 
@@ -63,9 +64,39 @@ export default function SettingsScreen() {
     hapticFeedback: true,
   });
 
+  // Load settings on mount
+  useEffect(() => {
+    loadSettings();
+  }, []);
+
+  const loadSettings = async () => {
+    try {
+      const savedSettings = await AsyncStorage.getItem('user_settings');
+      if (savedSettings) {
+        setSettings(JSON.parse(savedSettings));
+      }
+    } catch (error) {
+      // Failed to load settings, use defaults
+    }
+  };
+
+  const saveSettings = async (newSettings: typeof settings) => {
+    try {
+      await AsyncStorage.setItem('user_settings', JSON.stringify(newSettings));
+    } catch (error) {
+      toast.error('Error', {
+        description: 'Failed to save settings',
+      });
+    }
+  };
+
   const updateSetting = (key: string, value: boolean) => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    setSettings(prev => ({ ...prev, [key]: value }));
+    if (settings.hapticFeedback) {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }
+    const newSettings = { ...settings, [key]: value };
+    setSettings(newSettings);
+    saveSettings(newSettings);
   };
 
   const handleLogout = () => {
