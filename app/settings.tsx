@@ -19,6 +19,7 @@ import { theme } from '@core/theme/theme';
 import { router } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import * as Notifications from 'expo-notifications';
+import * as Location from 'expo-location';
 import { authClient } from '@/lib/auth-client';
 import * as SecureStore from 'expo-secure-store';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -105,6 +106,20 @@ export default function SettingsScreen() {
     return finalStatus === 'granted';
   };
 
+  const requestLocationPermission = async (enable: boolean) => {
+    if (!enable) return true; // Allow disabling without permission
+
+    const { status: existingStatus } = await Location.getForegroundPermissionsAsync();
+    let finalStatus = existingStatus;
+
+    if (existingStatus !== 'granted') {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      finalStatus = status;
+    }
+
+    return finalStatus === 'granted';
+  };
+
   const updateSetting = async (key: string, value: boolean) => {
     if (settings.hapticFeedback) {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -116,6 +131,17 @@ export default function SettingsScreen() {
       if (!granted && value) {
         toast.error('Permission Denied', {
           description: 'Enable notifications in device settings',
+        });
+        return;
+      }
+    }
+
+    // Handle location permission
+    if (key === 'locationServices') {
+      const granted = await requestLocationPermission(value);
+      if (!granted && value) {
+        toast.error('Permission Denied', {
+          description: 'Enable location in device settings',
         });
         return;
       }
