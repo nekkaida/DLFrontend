@@ -503,7 +503,9 @@ export default function DoublesTeamPairingScreen({
 
     try {
       console.log('Registering team for season (Pay Later):', season.id);
-      // TODO: Update this to register the team with both players
+      // Backend automatically registers both captain and partner when partnership exists
+      // payLater=true sets payment status to COMPLETED in dev mode (for testing)
+      // In production, this should set payment status to PENDING (requires admin approval)
       const success = await SeasonService.registerForSeason(season.id, userId, true);
 
       if (success) {

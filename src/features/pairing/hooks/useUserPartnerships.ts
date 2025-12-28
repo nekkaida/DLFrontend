@@ -19,13 +19,17 @@ export const useUserPartnerships = (userId: string | undefined) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    console.log('[useUserPartnerships] Hook called with userId:', userId);
+
     if (!userId) {
+      console.log('[useUserPartnerships] No userId, skipping fetch');
       setPartnerships(new Map());
       setLoading(false);
       return;
     }
 
     const fetchPartnerships = async () => {
+      console.log('[useUserPartnerships] Starting fetch for userId:', userId);
       try {
         const backendUrl = getBackendBaseURL();
         const response = await authClient.$fetch(
@@ -33,15 +37,21 @@ export const useUserPartnerships = (userId: string | undefined) => {
           { method: 'GET' }
         );
 
-        const data = response?.data || [];
+        const data = (response as any)?.data?.data || [];
+        console.log('[useUserPartnerships] Fetched partnerships:', data.length);
+        console.log('[useUserPartnerships] First partnership:', data[0]);
+
         // Filter for ACTIVE partnerships only and build Map by seasonId
         const map = new Map();
         data.forEach((p: any) => {
+          console.log(`[useUserPartnerships] Partnership status: ${p.status}, seasonId: ${p.season?.id}`);
           if (p.status === 'ACTIVE') {
             map.set(p.season?.id, p);
+            console.log(`[useUserPartnerships] Added partnership for season: ${p.season?.id}`);
           }
         });
 
+        console.log('[useUserPartnerships] Total active partnerships:', map.size);
         setPartnerships(map);
       } catch (error) {
         console.error('Error fetching partnerships:', error);

@@ -130,9 +130,12 @@ export const PartnerChangeRequestModal: React.FC<PartnerChangeRequestModalProps>
                 onSuccess();
                 onClose();
               } else {
+                const errorMessage = typeof responseData.error === 'string'
+                  ? responseData.error
+                  : responseData.message || 'Failed to submit partner change request';
+
                 toast.error('Error', {
-                  description:
-                    responseData.error || responseData.message || 'Failed to submit partner change request',
+                  description: errorMessage,
                 });
               }
             } catch (error) {
