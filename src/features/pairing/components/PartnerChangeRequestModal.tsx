@@ -184,7 +184,7 @@ export const PartnerChangeRequestModal: React.FC<PartnerChangeRequestModalProps>
             <View style={styles.infoSection}>
               <Text style={styles.infoText}>
                 You are requesting to change your partner for{' '}
-                <Text style={styles.boldText}>{partnership?.season.name}</Text>.
+                <Text style={styles.boldText}>{partnership?.season?.name}</Text>.
               </Text>
               <Text style={styles.infoTextSecondary}>
                 This request will be sent to admin for review. If approved, your
