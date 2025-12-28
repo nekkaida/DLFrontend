@@ -199,6 +199,17 @@ export default function EditProfileScreen() {
       return;
     }
 
+    // Phone number format validation (if provided)
+    if (formData.phoneNumber.trim()) {
+      const phoneRegex = /^\+?[0-9\s\-()]+$/;
+      if (!phoneRegex.test(formData.phoneNumber.trim())) {
+        toast.error('Validation Error', {
+          description: 'Please enter a valid phone number',
+        });
+        return;
+      }
+    }
+
     setIsLoading(true);
 
     try {
