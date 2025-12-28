@@ -33,7 +33,7 @@ export const useUserPartnerships = (userId: string | undefined) => {
           { method: 'GET' }
         );
 
-        const data = response?.data || [];
+        const data = response?.data?.data || [];
         // Filter for ACTIVE partnerships only and build Map by seasonId
         const map = new Map();
         data.forEach((p: any) => {
