@@ -435,6 +435,26 @@ export default function LeagueDetailsScreen({
         };
       }
 
+      // If doubles season and partnership was dissolved (REMOVED status), show Find Partner
+      if (isDoublesSeason && userMembership && userMembership.status === 'REMOVED') {
+        return {
+          text: 'Find Partner',
+          color: '#FEA04D',
+          onPress: () => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            router.push({
+              pathname: '/user-dashboard/doubles-team-pairing',
+              params: {
+                seasonId: season.id,
+                seasonName: season.name,
+                leagueId: league?.id,
+                sport: sport || 'pickleball'
+              }
+            } as any);
+          }
+        };
+      }
+
       if (isUserRegistered) {
         return {
           text: 'View Leaderboard',
