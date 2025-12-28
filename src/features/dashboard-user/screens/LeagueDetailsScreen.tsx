@@ -24,6 +24,7 @@ import { normalizeCategoriesFromSeason } from '../utils/categoryNormalization';
 import { useUserProfile } from '../hooks/useUserProfile';
 import { useLeagueData } from '../hooks/useLeagueData';
 import { useSeasonSelection } from '../hooks/useSeasonSelection';
+import { useUserPartnerships } from '@/src/features/pairing/hooks/useUserPartnerships';
 import { FiuuPaymentService } from '@/src/features/payments/services/FiuuPaymentService';
 
 const { width } = Dimensions.get('window');
@@ -105,6 +106,9 @@ export default function LeagueDetailsScreen({
 
   // Use custom hook for season selection management
   const { selectedCategoryId, setSelectedCategoryId, selectedSeason, setSelectedSeason } = useSeasonSelection(categories);
+
+  // Use custom hook for user partnerships management
+  const { partnerships, loading: partnershipsLoading } = useUserPartnerships(userId);
 
   // Animated scroll value for collapsing header
   const scrollY = React.useRef(new Animated.Value(0)).current;
@@ -467,9 +471,18 @@ export default function LeagueDetailsScreen({
     // Get category for this season - handle both singular and plural
     const normalizedCategories = normalizeCategoriesFromSeason(season);
 
-    // Disabled manage team button for seasons in list view to avoid React Hooks violation
-    // The button is only available for the selected/active season
-    const showManageTeam = false;
+    // Check if user has partnership for this season
+    const hasPartnership = partnerships.has(season.id);
+
+    // Determine if this is a doubles season
+    const isDoublesSeason = normalizedCategories.some(cat =>
+      cat?.name?.toLowerCase().includes('doubles') ||
+      cat?.matchFormat?.toLowerCase().includes('doubles') ||
+      (cat as any)?.game_type === 'DOUBLES'
+    );
+
+    // Show manage team button for doubles seasons with active partnership
+    const showManageTeam = isDoublesSeason && hasPartnership && isUserRegistered;
     const seasonCategory = normalizedCategories && normalizedCategories.length > 0 
       ? normalizedCategories[0] 
       : null;
