@@ -98,7 +98,6 @@ export default function EditProfileScreen() {
         return;
       }
 
-      console.log(" user info", session.user.id)
       try {
         const backendUrl = getBackendBaseURL();
         const response = await authClient.$fetch(`${backendUrl}/api/player/profile/me`, {
@@ -380,7 +379,6 @@ export default function EditProfileScreen() {
                     <Image
                       source={{ uri: formData.profilePicture, cache: 'reload' }}
                       style={styles.profileImage}
-                      onError={() => console.log('Profile image failed to load')}
                     />
                   ) : (
                     <View style={styles.defaultProfileImage}>
