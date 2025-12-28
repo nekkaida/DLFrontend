@@ -18,6 +18,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { theme } from '@core/theme/theme';
 import { router } from 'expo-router';
 import * as Haptics from 'expo-haptics';
+import * as Notifications from 'expo-notifications';
 import { authClient } from '@/lib/auth-client';
 import * as SecureStore from 'expo-secure-store';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -90,10 +91,36 @@ export default function SettingsScreen() {
     }
   };
 
-  const updateSetting = (key: string, value: boolean) => {
+  const requestNotificationPermission = async (enable: boolean) => {
+    if (!enable) return true; // Allow disabling without permission
+
+    const { status: existingStatus } = await Notifications.getPermissionsAsync();
+    let finalStatus = existingStatus;
+
+    if (existingStatus !== 'granted') {
+      const { status } = await Notifications.requestPermissionsAsync();
+      finalStatus = status;
+    }
+
+    return finalStatus === 'granted';
+  };
+
+  const updateSetting = async (key: string, value: boolean) => {
     if (settings.hapticFeedback) {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     }
+
+    // Handle notification permission
+    if (key === 'notifications') {
+      const granted = await requestNotificationPermission(value);
+      if (!granted && value) {
+        toast.error('Permission Denied', {
+          description: 'Enable notifications in device settings',
+        });
+        return;
+      }
+    }
+
     const newSettings = { ...settings, [key]: value };
     setSettings(newSettings);
     saveSettings(newSettings);
