@@ -33,15 +33,21 @@ export const useUserPartnerships = (userId: string | undefined) => {
           { method: 'GET' }
         );
 
-        const data = response?.data?.data || [];
+        const data = (response as any)?.data?.data || [];
+        console.log('[useUserPartnerships] Fetched partnerships:', data.length);
+        console.log('[useUserPartnerships] First partnership:', data[0]);
+
         // Filter for ACTIVE partnerships only and build Map by seasonId
         const map = new Map();
         data.forEach((p: any) => {
+          console.log(`[useUserPartnerships] Partnership status: ${p.status}, seasonId: ${p.season?.id}`);
           if (p.status === 'ACTIVE') {
             map.set(p.season?.id, p);
+            console.log(`[useUserPartnerships] Added partnership for season: ${p.season?.id}`);
           }
         });
 
+        console.log('[useUserPartnerships] Total active partnerships:', map.size);
         setPartnerships(map);
       } catch (error) {
         console.error('Error fetching partnerships:', error);
