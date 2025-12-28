@@ -48,8 +48,8 @@ export default function ManagePartnershipScreen({ seasonId }: ManagePartnershipS
   const error = !loading && !partnership ? 'No active partnership found for this season' : null;
 
   const handleDissolve = () => {
-    // After dissolution, navigate back
-    router.back();
+    // PartnershipCard handles navigation to find-partner, so we don't need to do anything here
+    // The monitoring hooks will also detect the dissolution and could redirect, but PartnershipCard navigates first
   };
 
   if (loading) {
