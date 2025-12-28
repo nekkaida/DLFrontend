@@ -646,14 +646,9 @@ export default function LeagueDetailsScreen({
     const categories = (season as any).categories || (category ? [category] : []);
     const normalizedCategories = Array.isArray(categories) ? categories : [categories].filter(Boolean);
 
-    // Check if this is a doubles season with active partnership
-    const isDoublesSeason = normalizedCategories.some(cat =>
-      cat?.name?.toLowerCase().includes('doubles') ||
-      cat?.matchFormat?.toLowerCase().includes('doubles') ||
-      (cat as any)?.game_type === 'DOUBLES'
-    );
-    const { partnership } = useActivePartnership(isDoublesSeason ? season.id : null, userId);
-    const showManageTeam = isDoublesSeason && partnership && isUserRegistered;
+    // Disabled manage team button for seasons in list view to avoid React Hooks violation
+    // The button is only available for the selected/active season
+    const showManageTeam = false;
     const seasonCategory = normalizedCategories && normalizedCategories.length > 0 
       ? normalizedCategories[0] 
       : null;
