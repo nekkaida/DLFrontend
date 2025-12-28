@@ -444,7 +444,9 @@ export default function EditProfileScreen() {
                   numberOfLines={3}
                   textAlignVertical="top"
                   editable={!isLoading}
+                  maxLength={500}
                 />
+                <Text style={styles.charCounter}>{formData.bio.length}/500</Text>
               </View>
 
             </View>
@@ -713,6 +715,13 @@ const styles = StyleSheet.create({
     fontFamily: theme.typography.fontFamily.primary,
     fontStyle: 'italic',
     minHeight: 60,
+  } as TextStyle,
+  charCounter: {
+    fontSize: 12,
+    color: theme.colors.neutral.gray[400],
+    textAlign: 'right',
+    marginTop: 4,
+    fontFamily: theme.typography.fontFamily.primary,
   } as TextStyle,
   loadingContainer: {
     flex: 1,
