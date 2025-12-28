@@ -257,10 +257,25 @@ export const matchCardStyles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
   },
+  secondaryStatusBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F3F4F6',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    gap: 5,
+  },
+  secondaryStatusDot: {
+    width: 5,
+    height: 5,
+    borderRadius: 2.5,
+    backgroundColor: '#9CA3AF',
+  },
   secondaryStatusText: {
-    fontSize: 12,
+    fontSize: 11,
+    fontWeight: '500',
     color: '#6B7280',
-    fontStyle: 'italic',
   },
   // Pending player styles
   playerAvatarWrapper: {

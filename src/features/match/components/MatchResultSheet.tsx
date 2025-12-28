@@ -2180,7 +2180,7 @@ export const MatchResultSheet: React.FC<MatchResultSheetProps> = ({
                   This match result has been disputed and is awaiting admin review. No actions can be taken until the dispute is resolved.
                 </Text>
 
-                {/* Dispute Details */}
+                {/* Dispute Details - Hidden to prevent opponent from seeing dispute details
                 {matchDetails?.dispute && (
                   <View style={styles.disputeDetailsContainer}>
                     <View style={styles.disputeDetailRow}>
@@ -2247,7 +2247,7 @@ export const MatchResultSheet: React.FC<MatchResultSheetProps> = ({
                       </View>
                     </View>
                   </View>
-                )}
+                )} */}
               </View>
             </View>
           ) : (
