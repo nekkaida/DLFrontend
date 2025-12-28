@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { questionnaireAPI } from '@/src/features/questionnaires/api/questionnaireAPI';
+import { questionnaireAPI } from '@/src/features/onboarding/services/api';
 import { getBackendBaseURL } from '@/src/config/network';
 import { authClient } from '@/src/lib/auth-client';
 
