@@ -15,6 +15,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
+import Constants from 'expo-constants';
 import { theme } from '@core/theme/theme';
 import { router } from 'expo-router';
 import * as Haptics from 'expo-haptics';
@@ -58,6 +59,8 @@ interface SettingSection {
 }
 
 export default function SettingsScreen() {
+  const version = Constants.expoConfig?.version ?? '1.0.0';
+
   const [settings, setSettings] = useState({
     notifications: true,
     matchReminders: true,
@@ -290,13 +293,10 @@ export default function SettingsScreen() {
         {
           id: 'about',
           title: 'About Deuce',
-          subtitle: 'Version 1.0.0',
+          subtitle: `Version ${version}`,
           type: 'navigate',
           icon: 'information-circle-outline',
-          action: () => {
-            // TODO: Create these routes or use a type-safe navigation helper
-            router.push('/about' as Parameters<typeof router.push>[0]);
-          },
+          action: () => router.push('/about'),
         },
       ],
     },
@@ -436,7 +436,7 @@ export default function SettingsScreen() {
 
           {/* Footer */}
           <View style={styles.footer as ViewStyle}>
-            <Text style={styles.footerText as TextStyle}>Version 1.0.0</Text>
+            <Text style={styles.footerText as TextStyle}>Version {version}</Text>
           </View>
         </ScrollView>
       </SafeAreaView>
