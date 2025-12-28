@@ -69,6 +69,7 @@ export default function SettingsScreen() {
     hapticFeedback: true,
   });
   const [isLoadingSettings, setIsLoadingSettings] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   // Load settings on mount
   useEffect(() => {
@@ -78,12 +79,15 @@ export default function SettingsScreen() {
   const loadSettings = async () => {
     try {
       setIsLoadingSettings(true);
+      setLoadError(null);
       const savedSettings = await AsyncStorage.getItem('user_settings');
       if (savedSettings) {
         setSettings(JSON.parse(savedSettings));
       }
     } catch (error) {
       // Failed to load settings, use defaults
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      setLoadError(errorMessage);
       toast.error('Error', {
         description: 'Failed to load settings. Using defaults.',
       });
@@ -92,42 +96,72 @@ export default function SettingsScreen() {
     }
   };
 
+  const retryLoadSettings = () => {
+    if (settings.hapticFeedback) {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    }
+    loadSettings();
+  };
+
   const saveSettings = async (newSettings: typeof settings) => {
     try {
       await AsyncStorage.setItem('user_settings', JSON.stringify(newSettings));
     } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       toast.error('Error', {
-        description: 'Failed to save settings',
+        description: 'Failed to save settings. Please try again.',
       });
+      // Retry once after short delay
+      setTimeout(async () => {
+        try {
+          await AsyncStorage.setItem('user_settings', JSON.stringify(newSettings));
+        } catch (retryError) {
+          // Silent failure on retry - already showed error to user
+        }
+      }, 1000);
     }
   };
 
   const requestNotificationPermission = async (enable: boolean) => {
     if (!enable) return true; // Allow disabling without permission
 
-    const { status: existingStatus } = await Notifications.getPermissionsAsync();
-    let finalStatus = existingStatus;
+    try {
+      const { status: existingStatus } = await Notifications.getPermissionsAsync();
+      let finalStatus = existingStatus;
 
-    if (existingStatus !== 'granted') {
-      const { status } = await Notifications.requestPermissionsAsync();
-      finalStatus = status;
+      if (existingStatus !== 'granted') {
+        const { status } = await Notifications.requestPermissionsAsync();
+        finalStatus = status;
+      }
+
+      return finalStatus === 'granted';
+    } catch (error) {
+      toast.error('Error', {
+        description: 'Failed to request notification permission',
+      });
+      return false;
     }
-
-    return finalStatus === 'granted';
   };
 
   const requestLocationPermission = async (enable: boolean) => {
     if (!enable) return true; // Allow disabling without permission
 
-    const { status: existingStatus } = await Location.getForegroundPermissionsAsync();
-    let finalStatus = existingStatus;
+    try {
+      const { status: existingStatus } = await Location.getForegroundPermissionsAsync();
+      let finalStatus = existingStatus;
 
-    if (existingStatus !== 'granted') {
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      finalStatus = status;
+      if (existingStatus !== 'granted') {
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        finalStatus = status;
+      }
+
+      return finalStatus === 'granted';
+    } catch (error) {
+      toast.error('Error', {
+        description: 'Failed to request location permission',
+      });
+      return false;
     }
-
-    return finalStatus === 'granted';
   };
 
   const updateSetting = async (key: string, value: boolean) => {
