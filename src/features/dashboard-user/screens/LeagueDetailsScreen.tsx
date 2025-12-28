@@ -22,6 +22,8 @@ import { PaymentOptionsBottomSheet } from '../components';
 import { checkQuestionnaireStatus, getSeasonSport } from '../utils/questionnaireCheck';
 import { normalizeCategoriesFromSeason } from '../utils/categoryNormalization';
 import { useUserProfile } from '../hooks/useUserProfile';
+import { useLeagueData } from '../hooks/useLeagueData';
+import { useSeasonSelection } from '../hooks/useSeasonSelection';
 import { FiuuPaymentService } from '@/src/features/payments/services/FiuuPaymentService';
 
 const { width } = Dimensions.get('window');
@@ -42,15 +44,8 @@ export default function LeagueDetailsScreen({
 }: LeagueDetailsScreenProps) {
   const { data: session } = useSession();
   const [activeTab, setActiveTab] = React.useState(2);
-  const [league, setLeague] = React.useState<any>(null);
-  const [categories, setCategories] = React.useState<Category[]>([]);
-  const [seasons, setSeasons] = React.useState<Season[]>([]);
-  const [selectedCategoryId, setSelectedCategoryId] = React.useState<string | null>(null);
-  const [isLoading, setIsLoading] = React.useState(true);
-  const [error, setError] = React.useState<string | null>(null);
   const [showPaymentOptions, setShowPaymentOptions] = React.useState(false);
   const [isProcessingPayment, setIsProcessingPayment] = React.useState(false);
-  const [selectedSeason, setSelectedSeason] = React.useState<Season | null>(null);
   const [selectedSport, setSelectedSport] = React.useState<'pickleball' | 'tennis' | 'padel'>('pickleball');
   const [isRefreshing, setIsRefreshing] = React.useState(false);
   const insets = useSafeAreaInsets();
@@ -60,6 +55,56 @@ export default function LeagueDetailsScreen({
 
   // Use custom hook for user profile and gender management
   const { profileData, userGender, fetchProfileData } = useUserProfile(userId);
+
+  // Helper function to check if a category is visible to the user based on gender
+  const isCategoryVisibleToUser = React.useCallback((category: any): boolean => {
+    if (!category) {
+      return false;
+    }
+
+    const genderCategory = category.gender_category?.toUpperCase() || category.genderCategory?.toUpperCase();
+    const genderRestriction = category.genderRestriction?.toUpperCase();
+    const categoryGender = genderCategory || genderRestriction;
+    const isDoubles = CategoryService.getEffectiveGameType(category, 'SINGLES') === 'DOUBLES';
+
+    if (!userGender) {
+      return categoryGender === 'MIXED' || categoryGender === 'OPEN';
+    }
+
+    const normalizedUserGender = userGender.toUpperCase();
+
+    if (normalizedUserGender === 'FEMALE') {
+      if (categoryGender === 'FEMALE' || categoryGender === 'WOMEN') {
+        return true;
+      }
+      if (categoryGender === 'MIXED' && isDoubles) {
+        return true;
+      }
+      return false;
+    }
+
+    if (normalizedUserGender === 'MALE') {
+      if (categoryGender === 'MALE' || categoryGender === 'MEN') {
+        return true;
+      }
+      if (categoryGender === 'MIXED' && isDoubles) {
+        return true;
+      }
+      return false;
+    }
+
+    return categoryGender === 'OPEN';
+  }, [userGender]);
+
+  // Use custom hook for league data management
+  const { league, seasons, categories, isLoading, error, fetchAllData } = useLeagueData(
+    leagueId,
+    userGender,
+    isCategoryVisibleToUser
+  );
+
+  // Use custom hook for season selection management
+  const { selectedCategoryId, setSelectedCategoryId, selectedSeason, setSelectedSeason } = useSeasonSelection(categories);
 
   // Animated scroll value for collapsing header
   const scrollY = React.useRef(new Animated.Value(0)).current;
@@ -102,165 +147,13 @@ export default function LeagueDetailsScreen({
     }
   }, [showPaymentOptions]);
 
-  // Set default selected category when categories are loaded
-  React.useEffect(() => {
-    if (categories.length > 0 && !selectedCategoryId) {
-      setSelectedCategoryId(categories[0].id);
-    }
-  }, [categories, selectedCategoryId]);
-  // Helper function to check if a category is visible to the user based on gender
-  const isCategoryVisibleToUser = React.useCallback((category: any): boolean => {
-    if (!category) {
-      return false;
-    }
-
-    // Primary check: Use gender fields from backend (most reliable)
-    // Check both snake_case (gender_category) and camelCase (genderCategory) for backward compatibility
-    const genderCategory = category.gender_category?.toUpperCase() || category.genderCategory?.toUpperCase();
-    const genderRestriction = category.genderRestriction?.toUpperCase();
-    const categoryGender = genderCategory || genderRestriction;
-
-    // Check if it's a doubles category
-    const isDoubles = CategoryService.getEffectiveGameType(category, 'SINGLES') === 'DOUBLES';
-
-    if (!userGender) {
-      // If no user gender, only show MIXED/OPEN categories
-      return categoryGender === 'MIXED' || categoryGender === 'OPEN';
-    }
-
-    const normalizedUserGender = userGender.toUpperCase();
-
-    // Female users can see: FEMALE/WOMEN categories (any game type) OR MIXED DOUBLES
-    if (normalizedUserGender === 'FEMALE') {
-      // Check by gender fields
-      if (categoryGender === 'FEMALE' || categoryGender === 'WOMEN') {
-        return true;
-      }
-      // Check for MIXED doubles
-      if (categoryGender === 'MIXED' && isDoubles) {
-        return true;
-      }
-      return false;
-    }
-
-    // Male users can see: MALE/MEN categories (any game type) OR MIXED DOUBLES
-    if (normalizedUserGender === 'MALE') {
-      // Check by gender fields
-      if (categoryGender === 'MALE' || categoryGender === 'MEN') {
-        return true;
-      }
-      // Check for MIXED doubles
-      if (categoryGender === 'MIXED' && isDoubles) {
-        return true;
-      }
-      return false;
-    }
-
-    // For OPEN categories, show to everyone
-    return categoryGender === 'OPEN';
-  }, [userGender]);
-
-  const fetchAllData = React.useCallback(async () => {
-    if (!leagueId) {
-      setIsLoading(false);
-      return;
-    }
-
-    try {
-      setIsLoading(true);
-      setError(null);
-
-      // Fetch league and seasons in parallel
-      // Note: Categories are extracted from seasons since there's no direct league->category relationship
-      const [leagueData, seasonsData] = await Promise.all([
-        LeagueService.fetchLeagueById(leagueId),
-        SeasonService.fetchAllSeasons()
-      ]);
-
-      // console.log('Fetched league data:', leagueData);
-      // console.log('Fetched seasons:', seasonsData);
-      console.log('✅ LeagueDetailsScreen: Fetched data:', {
-        league: leagueData ? { id: leagueData.id, name: leagueData.name } : null,
-        seasonsCount: seasonsData?.length || 0,
-      });
-
-      // Set league data to state
-      setLeague(leagueData);
-
-      // Filter seasons to only those belonging to this league
-      const leagueSeasons = seasonsData.filter(season =>
-        season.leagues?.some(l => l.id === leagueId)
-      );
-
-      // Normalize category data - seasons have `category` (singular), convert to array format for consistency
-      const normalizedSeasons = leagueSeasons.map(season => ({
-        ...season,
-        categories: normalizeCategoriesFromSeason(season)
-      }));
-
-      // Filter seasons by gender first
-      const genderFilteredSeasons = normalizedSeasons.filter(season => {
-        // If season has no categories, skip it
-        if (!season.categories || !Array.isArray(season.categories) || season.categories.length === 0) {
-          return false;
-        }
-        
-        // Check if any category in the season is visible to the user
-        return season.categories.some(category => 
-          category && isCategoryVisibleToUser(category)
-        );
-      });
-
-      // Set seasons (all league seasons - we'll filter by gender in getFilteredSeasons)
-      setSeasons(normalizedSeasons);
-
-      // Extract unique categories from gender-filtered seasons
-      const availableCategoriesMap = new Map<string, Category>();
-      genderFilteredSeasons.forEach(season => {
-        if (season.categories && Array.isArray(season.categories)) {
-          season.categories.forEach(category => {
-            if (category && category.id && isCategoryVisibleToUser(category)) {
-              // Only add category if it's not already in the map
-              if (!availableCategoriesMap.has(category.id)) {
-                availableCategoriesMap.set(category.id, category as Category);
-              }
-            }
-          });
-        }
-      });
-
-      const availableCategories = Array.from(availableCategoriesMap.values());
-      
-      // Sort categories by categoryOrder if available
-      availableCategories.sort((a, b) => {
-        const orderA = (a as any).categoryOrder || 0;
-        const orderB = (b as any).categoryOrder || 0;
-        return orderA - orderB;
-      });
-
-      setCategories(availableCategories);
-
-      // Set default selected category from available categories
-      if (availableCategories.length > 0) {
-        setSelectedCategoryId(availableCategories[0].id);
-      } else {
-        setSelectedCategoryId(null);
-      }
-    } catch (err) {
-      console.error('Error fetching data:', err);
-      setError('Failed to load league details');
-    } finally {
-      setIsLoading(false);
-    }
-  }, [leagueId, userGender, isCategoryVisibleToUser]);
-
-  // Fetch all data on mount
+  // Fetch all data on mount - trigger when dependencies change
   React.useEffect(() => {
     if (leagueId && userGender !== undefined) {
       fetchAllData();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [leagueId, userGender]); // fetchAllData omitted to break circular dependency (isCategoryVisibleToUser -> userGender -> fetchAllData)
+  }, [leagueId, userGender]); // fetchAllData omitted to break circular dependency
 
   const filterCategoriesByGender = (categories: Category[], userGender: string | null): Category[] => {
     return categories.filter(category => isCategoryVisibleToUser(category));
