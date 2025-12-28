@@ -21,6 +21,7 @@ import { toast } from 'sonner-native';
 import { PaymentOptionsBottomSheet } from '../components';
 import { checkQuestionnaireStatus, getSeasonSport } from '../utils/questionnaireCheck';
 import { normalizeCategoriesFromSeason } from '../utils/categoryNormalization';
+import { useUserProfile } from '../hooks/useUserProfile';
 import { FiuuPaymentService } from '@/src/features/payments/services/FiuuPaymentService';
 
 const { width } = Dimensions.get('window');
@@ -47,17 +48,18 @@ export default function LeagueDetailsScreen({
   const [selectedCategoryId, setSelectedCategoryId] = React.useState<string | null>(null);
   const [isLoading, setIsLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
-  const [userGender, setUserGender] = React.useState<string | null | undefined>(undefined);
   const [showPaymentOptions, setShowPaymentOptions] = React.useState(false);
   const [isProcessingPayment, setIsProcessingPayment] = React.useState(false);
   const [selectedSeason, setSelectedSeason] = React.useState<Season | null>(null);
-  const [profileData, setProfileData] = React.useState<any>(null);
   const [selectedSport, setSelectedSport] = React.useState<'pickleball' | 'tennis' | 'padel'>('pickleball');
   const [isRefreshing, setIsRefreshing] = React.useState(false);
   const insets = useSafeAreaInsets();
   const STATUS_BAR_HEIGHT = insets.top;
 
   const userId = session?.user?.id;
+
+  // Use custom hook for user profile and gender management
+  const { profileData, userGender, fetchProfileData } = useUserProfile(userId);
 
   // Animated scroll value for collapsing header
   const scrollY = React.useRef(new Animated.Value(0)).current;
@@ -99,28 +101,6 @@ export default function LeagueDetailsScreen({
       setIsProcessingPayment(false);
     }
   }, [showPaymentOptions]);
-
-  // Fetch user gender
-  React.useEffect(() => {
-    const fetchUserGender = async () => {
-      if (!userId) {
-        // If no userId, explicitly set to null so fetchAllData can proceed
-        setUserGender(null);
-        return;
-      }
-
-      try {
-        const { user } = await questionnaireAPI.getUserProfile(userId);
-        setUserGender(user.gender?.toUpperCase() || null);
-      } catch (error) {
-        console.error('Error fetching user profile:', error);
-        // Set to null on error so fetchAllData can still proceed
-        setUserGender(null);
-      }
-    };
-
-    fetchUserGender();
-  }, [userId]);
 
   // Set default selected category when categories are loaded
   React.useEffect(() => {
@@ -811,27 +791,6 @@ export default function LeagueDetailsScreen({
   const getUserSelectedSports = () => {
     return ["pickleball", "tennis", "padel"];
   };
-
-  // Fetch profile data function (extracted for reuse)
-  const fetchProfileData = React.useCallback(async () => {
-    if (!session?.user?.id) return;
-    try {
-      const backendUrl = getBackendBaseURL();
-      const authResponse = await authClient.$fetch(`${backendUrl}/api/player/profile/me`, {
-        method: 'GET',
-      });
-      if (authResponse && (authResponse as any).data && (authResponse as any).data.data) {
-        setProfileData((authResponse as any).data.data);
-      }
-    } catch (error) {
-      console.error('Error fetching profile data:', error);
-    }
-  }, [session?.user?.id]);
-
-  // Fetch profile data on mount
-  React.useEffect(() => {
-    fetchProfileData();
-  }, [fetchProfileData]);
 
   // Refresh profile data when screen comes into focus (e.g., after completing questionnaire)
   useFocusEffect(
