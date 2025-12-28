@@ -20,6 +20,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { toast } from 'sonner-native';
 import { PaymentOptionsBottomSheet } from '../components';
 import { checkQuestionnaireStatus, getSeasonSport } from '../utils/questionnaireCheck';
+import { normalizeCategoriesFromSeason } from '../utils/categoryNormalization';
 import { FiuuPaymentService } from '@/src/features/payments/services/FiuuPaymentService';
 
 const { width } = Dimensions.get('window');
@@ -212,15 +213,10 @@ export default function LeagueDetailsScreen({
       );
 
       // Normalize category data - seasons have `category` (singular), convert to array format for consistency
-      const normalizedSeasons = leagueSeasons.map(season => {
-        // Handle both `category` (singular) and `categories` (plural) for backward compatibility
-        const category = (season as any).category;
-        const categories = (season as any).categories || (category ? [category] : []);
-        return {
-          ...season,
-          categories: Array.isArray(categories) ? categories : [categories].filter(Boolean)
-        };
-      });
+      const normalizedSeasons = leagueSeasons.map(season => ({
+        ...season,
+        categories: normalizeCategoriesFromSeason(season)
+      }));
 
       // Filter seasons by gender first
       const genderFilteredSeasons = normalizedSeasons.filter(season => {
@@ -359,10 +355,7 @@ export default function LeagueDetailsScreen({
     }
     
     // Check if this is a doubles season by checking category name
-    // Handle both singular and plural category fields
-    const category = (season as any).category;
-    const categories = (season as any).categories || (category ? [category] : []);
-    const normalizedCategories = Array.isArray(categories) ? categories : [categories].filter(Boolean);
+    const normalizedCategories = normalizeCategoriesFromSeason(season);
     const isDoublesSeason = normalizedCategories.some(cat => 
       cat?.name?.toLowerCase().includes('doubles') || 
       cat?.matchFormat?.toLowerCase().includes('doubles') || 
@@ -403,9 +396,7 @@ export default function LeagueDetailsScreen({
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     
     // Get category info for display
-    const category = (season as any).category;  
-    const categories = (season as any).categories || (category ? [category] : []);
-    const normalizedCategories = Array.isArray(categories) ? categories : [categories].filter(Boolean);
+    const normalizedCategories = normalizeCategoriesFromSeason(season);
     const seasonCategory = normalizedCategories && normalizedCategories.length > 0 
       ? normalizedCategories[0] 
       : null;
@@ -489,10 +480,8 @@ export default function LeagueDetailsScreen({
     // Filter by gender first
     filtered = filtered.filter(season => {
       // Normalize category data - handle both singular and plural
-      const category = (season as any).category;
-      const categories = (season as any).categories || (category ? [category] : []);
-      const normalizedCategories = Array.isArray(categories) ? categories : [categories].filter(Boolean);
-      
+      const normalizedCategories = normalizeCategoriesFromSeason(season);
+
       // If season has no categories, skip it
       if (!normalizedCategories || normalizedCategories.length === 0) {
         return false;
@@ -514,9 +503,7 @@ export default function LeagueDetailsScreen({
       
       filtered = filtered.filter(season => {
         // Normalize category data - handle both singular and plural
-        const category = (season as any).category;
-        const categories = (season as any).categories || (category ? [category] : []);
-        const normalizedCategories = Array.isArray(categories) ? categories : [categories].filter(Boolean);
+        const normalizedCategories = normalizeCategoriesFromSeason(season);
         const seasonCategoryIds = normalizedCategories.map(c => c?.id).filter(Boolean);
         return seasonCategoryIds.includes(selectedCategoryId);
       });
@@ -554,9 +541,7 @@ export default function LeagueDetailsScreen({
     const getButtonConfig = () => {
       // For doubles seasons, check if user needs to complete team registration/payment
       // Handle both singular and plural category fields
-      const category = (season as any).category;
-      const categories = (season as any).categories || (category ? [category] : []);
-      const normalizedCategories = Array.isArray(categories) ? categories : [categories].filter(Boolean);
+      const normalizedCategories = normalizeCategoriesFromSeason(season);
       const isDoublesSeason = normalizedCategories.some(cat =>
         cat?.name?.toLowerCase().includes('doubles') ||
         cat?.matchFormat?.toLowerCase().includes('doubles') ||
@@ -606,9 +591,7 @@ export default function LeagueDetailsScreen({
     const buttonConfig = getButtonConfig();
 
     // Get category for this season - handle both singular and plural
-    const category = (season as any).category;
-    const categories = (season as any).categories || (category ? [category] : []);
-    const normalizedCategories = Array.isArray(categories) ? categories : [categories].filter(Boolean);
+    const normalizedCategories = normalizeCategoriesFromSeason(season);
 
     // Disabled manage team button for seasons in list view to avoid React Hooks violation
     // The button is only available for the selected/active season
