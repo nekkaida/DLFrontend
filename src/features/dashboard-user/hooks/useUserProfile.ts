@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { questionnaireAPI } from '@/src/features/onboarding/services/api';
 import { getBackendBaseURL } from '@/src/config/network';
-import { authClient } from '@/src/lib/auth-client';
+import { authClient } from '@/lib/auth-client';
 
 /**
  * Custom hook to manage user profile data and gender
