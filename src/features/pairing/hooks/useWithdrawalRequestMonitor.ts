@@ -44,7 +44,7 @@ export const useWithdrawalRequestMonitor = ({
         { method: 'GET' }
       );
 
-      const requests = (response as any)?.data || [];
+      const requests = (response as any)?.data?.data || [];
       setPendingRequests(requests);
 
       // Check for status changes
