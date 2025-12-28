@@ -210,12 +210,12 @@ export default function EditProfileScreen() {
         },
       }) as any;
 
-      if (response && response.data && response.data.success) {
+      if (response && response.success && response.data) {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         toast.success('Profile Updated', {
           description: 'Your profile has been successfully updated.',
         });
-        
+
         // Navigate back after a short delay to let user see the toast
         setTimeout(() => {
           router.dismiss();
@@ -223,7 +223,7 @@ export default function EditProfileScreen() {
         }, 1500);
       } else {
         // Check if it's a successful HTTP response but with success: false
-        const errorMessage = (response?.data?.message || response?.message || 'Failed to update profile') as string;
+        const errorMessage = (response?.message || 'Failed to update profile') as string;
         throw new Error(errorMessage);
       }
     } catch (error) {
