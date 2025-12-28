@@ -190,6 +190,15 @@ export default function EditProfileScreen() {
       return;
     }
 
+    // Username format validation
+    const usernameRegex = /^[a-zA-Z0-9_]+$/;
+    if (!usernameRegex.test(formData.username.trim())) {
+      toast.error('Validation Error', {
+        description: 'Username can only contain letters, numbers, and underscores',
+      });
+      return;
+    }
+
     // Email format validation
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(formData.email.trim())) {
