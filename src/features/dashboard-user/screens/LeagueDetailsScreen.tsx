@@ -953,7 +953,7 @@ export default function LeagueDetailsScreen({
 
       <View style={styles.contentContainer}>
         <View style={styles.contentBox}>
-        {isLoading ? (
+        {isLoading || userGender === undefined ? (
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color={sportConfig.color} />
             <Text style={styles.loadingText}>Loading league details...</Text>
