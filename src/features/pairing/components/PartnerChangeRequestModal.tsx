@@ -106,7 +106,7 @@ export const PartnerChangeRequestModal: React.FC<PartnerChangeRequestModalProps>
                 {
                   method: 'POST',
                   body: JSON.stringify({
-                    seasonId: partnership?.seasonId,
+                    seasonId: partnership?.seasonId || partnership?.season?.id,
                     partnershipId: partnership?.id,
                     reason: finalReason,
                   }),
