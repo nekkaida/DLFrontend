@@ -163,17 +163,9 @@ export default function SettingsScreen() {
           style: 'destructive',
           onPress: async () => {
             try {
-              console.log('User signing out...');
-              
-              // Show loading toast
-              // toast.loading('Signing out...', {
-              //   description: 'Please wait while we sign you out.',
-              // });
-              
               // Sign out from better-auth
               await authClient.signOut();
-              console.log('Sign out completed, clearing local storage...');
-              
+
               // Manually clear all better-auth related storage
               try {
                 await SecureStore.deleteItemAsync('deuceleague.sessionToken');
@@ -181,25 +173,20 @@ export default function SettingsScreen() {
                 await SecureStore.deleteItemAsync('deuceleague.user');
                 await SecureStore.deleteItemAsync('deuceleague.accessToken');
                 await SecureStore.deleteItemAsync('deuceleague.refreshToken');
-                console.log('Local storage cleared successfully');
               } catch (storageError) {
-                console.log('Some storage items may not exist:', storageError);
+                // Some storage items may not exist
               }
-              
+
               // Add a longer delay to ensure complete cleanup
               await new Promise(resolve => setTimeout(resolve, 500));
-              
+
               // Show success toast
               toast.success('Signed Out', {
                 description: 'You have been successfully signed out.',
               });
-              
-              console.log('Successfully signed out');
 
               // Navigate to login and clear navigation stack to prevent back navigation
               navigateAndClearStack('/login');
-              
-              console.log('Logout process completed - user should see login page');
               
             } catch (error) {
               console.error('Logout error:', error);
