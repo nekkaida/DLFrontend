@@ -172,6 +172,16 @@ export default function EditProfileScreen() {
     }
   };
 
+  // Sanitize input to prevent XSS
+  const sanitizeInput = (input: string): string => {
+    return input
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#x27;')
+      .trim();
+  };
+
   const handleSave = async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     
@@ -226,13 +236,13 @@ export default function EditProfileScreen() {
       const response = await authClient.$fetch(`${backendUrl}/api/player/profile/me`, {
         method: 'PUT',
         body: JSON.stringify({
-          name: formData.fullName.trim(),
+          name: sanitizeInput(formData.fullName),
           username: formData.username.trim(),
           email: formData.email.trim(),
-          location: formData.location.trim(),
+          location: sanitizeInput(formData.location),
           image: formData.profilePicture || null,
           phoneNumber: formData.phoneNumber.trim() || null,
-          bio: formData.bio.trim() || null,
+          bio: sanitizeInput(formData.bio),
           dateOfBirth: formData.dateOfBirth || null,
         }),
         headers: {
