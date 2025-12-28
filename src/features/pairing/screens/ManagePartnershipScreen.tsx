@@ -16,6 +16,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { authClient, useSession } from '@/lib/auth-client';
 import { getBackendBaseURL } from '@/config/network';
 import { PartnershipCard } from '../components/PartnershipCard';
+import { usePartnershipMonitor } from '../hooks/usePartnershipMonitor';
+import { useWithdrawalRequestMonitor } from '../hooks/useWithdrawalRequestMonitor';
 
 const { width } = Dimensions.get('window');
 const isSmallScreen = width < 375;
@@ -30,6 +32,20 @@ export default function ManagePartnershipScreen({ seasonId }: ManagePartnershipS
   const [error, setError] = useState<string | null>(null);
   const { data: session } = useSession();
   const insets = useSafeAreaInsets();
+
+  // Monitor partnership for dissolution by partner
+  const { isMonitoring: isMonitoringPartnership } = usePartnershipMonitor({
+    seasonId: seasonId,
+    enabled: !!partnership, // Only monitor if partnership exists
+    pollingInterval: 30000, // Poll every 30 seconds
+  });
+
+  // Monitor withdrawal requests for admin approval/denial
+  const { pendingRequests, isMonitoring: isMonitoringRequests } = useWithdrawalRequestMonitor({
+    userId: session?.user?.id || null,
+    enabled: true,
+    pollingInterval: 60000, // Poll every 60 seconds
+  });
 
   useEffect(() => {
     fetchPartnership();
@@ -176,6 +192,16 @@ export default function ManagePartnershipScreen({ seasonId }: ManagePartnershipS
           showActions={true}
         />
 
+        {/* Pending Request Status Badge */}
+        {pendingRequests.length > 0 && (
+          <View style={styles.statusBadge}>
+            <Ionicons name="time-outline" size={20} color="#FF9800" />
+            <Text style={styles.statusText}>
+              Partner change request pending - Awaiting admin approval
+            </Text>
+          </View>
+        )}
+
         {/* Additional Info Section */}
         <View style={styles.infoCard}>
           <View style={styles.infoRow}>
@@ -286,6 +312,24 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     fontFamily: 'Inter',
+  },
+  statusBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: '#FFF3E0',
+    borderRadius: 8,
+    padding: 12,
+    marginHorizontal: 16,
+    marginTop: 16,
+    borderWidth: 1,
+    borderColor: '#FFE0B2',
+  },
+  statusText: {
+    fontFamily: 'Inter',
+    fontSize: 14,
+    color: '#E65100',
+    flex: 1,
   },
   infoCard: {
     backgroundColor: '#FFFFFF',
