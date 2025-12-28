@@ -23,6 +23,7 @@ import * as Haptics from 'expo-haptics';
 import * as Notifications from 'expo-notifications';
 import * as Location from 'expo-location';
 import { authClient } from '@/lib/auth-client';
+import { getBackendBaseURL } from '@/src/config/network';
 import * as SecureStore from 'expo-secure-store';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { toast } from 'sonner-native';
@@ -80,6 +81,31 @@ export default function SettingsScreen() {
     try {
       setIsLoadingSettings(true);
       setLoadError(null);
+
+      // Try to load from backend first
+      try {
+        const backendUrl = getBackendBaseURL();
+        const response = await authClient.$fetch(`${backendUrl}/api/player/settings`, {
+          method: 'GET',
+        }) as any;
+
+        if (response && response.success && response.data) {
+          const backendSettings = {
+            notifications: response.data.notifications,
+            matchReminders: response.data.matchReminders,
+            locationServices: response.data.locationServices,
+            hapticFeedback: response.data.hapticFeedback,
+          };
+          setSettings(backendSettings);
+          // Also save to local storage as cache
+          await AsyncStorage.setItem('user_settings', JSON.stringify(backendSettings));
+          return;
+        }
+      } catch (backendError) {
+        // Backend failed, fall back to local storage
+      }
+
+      // Fall back to local storage
       const savedSettings = await AsyncStorage.getItem('user_settings');
       if (savedSettings) {
         setSettings(JSON.parse(savedSettings));
@@ -105,7 +131,22 @@ export default function SettingsScreen() {
 
   const saveSettings = async (newSettings: typeof settings) => {
     try {
+      // Save to local storage first (instant feedback)
       await AsyncStorage.setItem('user_settings', JSON.stringify(newSettings));
+
+      // Sync to backend in background
+      try {
+        const backendUrl = getBackendBaseURL();
+        await authClient.$fetch(`${backendUrl}/api/player/settings`, {
+          method: 'PUT',
+          body: JSON.stringify(newSettings),
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        });
+      } catch (backendError) {
+        // Silent failure - already saved locally, will retry on next load
+      }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       toast.error('Error', {
@@ -115,6 +156,19 @@ export default function SettingsScreen() {
       setTimeout(async () => {
         try {
           await AsyncStorage.setItem('user_settings', JSON.stringify(newSettings));
+          // Try backend sync again
+          try {
+            const backendUrl = getBackendBaseURL();
+            await authClient.$fetch(`${backendUrl}/api/player/settings`, {
+              method: 'PUT',
+              body: JSON.stringify(newSettings),
+              headers: {
+                'Content-Type': 'application/json',
+              },
+            });
+          } catch {
+            // Silent retry failure
+          }
         } catch (retryError) {
           // Silent failure on retry - already showed error to user
         }
