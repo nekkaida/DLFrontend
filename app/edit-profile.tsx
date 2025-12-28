@@ -204,6 +204,7 @@ export default function EditProfileScreen() {
           image: formData.profilePicture || null,
           phoneNumber: formData.phoneNumber.trim() || null,
           bio: formData.bio.trim() || null,
+          dateOfBirth: formData.dateOfBirth || null,
         }),
         headers: {
           'Content-Type': 'application/json',
