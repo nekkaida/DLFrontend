@@ -279,7 +279,8 @@ export default function LeagueDetailsScreen({
     if (leagueId && userGender !== undefined) {
       fetchAllData();
     }
-  }, [leagueId, userGender, fetchAllData]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [leagueId, userGender]); // fetchAllData omitted to break circular dependency (isCategoryVisibleToUser -> userGender -> fetchAllData)
 
   const filterCategoriesByGender = (categories: Category[], userGender: string | null): Category[] => {
     return categories.filter(category => isCategoryVisibleToUser(category));
@@ -840,7 +841,8 @@ export default function LeagueDetailsScreen({
       if (leagueId && userGender !== undefined) {
         fetchAllData();
       }
-    }, [fetchProfileData, fetchAllData, leagueId, userGender])
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [fetchProfileData, leagueId, userGender]) // fetchAllData omitted to break circular dependency
   );
 
   // Set selected sport based on route param
@@ -861,7 +863,8 @@ export default function LeagueDetailsScreen({
     } finally {
       setIsRefreshing(false);
     }
-  }, [fetchAllData, fetchProfileData]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fetchProfileData]); // fetchAllData omitted to break circular dependency
 
   // Animated styles for collapsing header
   // Only start collapsing after COLLAPSE_START_THRESHOLD
