@@ -111,7 +111,13 @@ export const PartnershipCard: React.FC<PartnershipCardProps> = ({
                 }
 
                 // Navigate to find partner page
-                router.push(`/pairing/find-partner/${partnership.season.id}`);
+                if (partnership?.season?.id) {
+                  router.push(`/pairing/find-partner/${partnership.season.id}`);
+                } else {
+                  toast.error('Error', {
+                    description: 'Season information missing',
+                  });
+                }
               } else {
                 toast.error('Error', {
                   description: responseData.message || 'Failed to dissolve partnership',
