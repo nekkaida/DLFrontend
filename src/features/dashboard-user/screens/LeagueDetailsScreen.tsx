@@ -121,13 +121,6 @@ export default function LeagueDetailsScreen({
     fetchUserGender();
   }, [userId]);
 
-  // Fetch all data on mount
-  React.useEffect(() => {
-    if (leagueId && userGender !== undefined) {
-      fetchAllData();
-    }
-  }, [leagueId, userGender]);
-
   // Set default selected category when categories are loaded
   React.useEffect(() => {
     if (categories.length > 0 && !selectedCategoryId) {
@@ -285,41 +278,12 @@ export default function LeagueDetailsScreen({
     }
   }, [leagueId, userGender, isCategoryVisibleToUser]);
 
-  // Fetch user gender
-  React.useEffect(() => {
-    const fetchUserGender = async () => {
-      if (!userId) {
-        // If no userId, explicitly set to null so fetchAllData can proceed
-        setUserGender(null);
-        return;
-      }
-
-      try {
-        const { user } = await questionnaireAPI.getUserProfile(userId);
-        setUserGender(user.gender?.toUpperCase() || null);
-      } catch (error) {
-        console.error('Error fetching user profile:', error);
-        // Set to null on error so fetchAllData can still proceed
-        setUserGender(null);
-      }
-    };
-
-    fetchUserGender();
-  }, [userId]);
-
   // Fetch all data on mount
   React.useEffect(() => {
     if (leagueId && userGender !== undefined) {
       fetchAllData();
     }
   }, [leagueId, userGender, fetchAllData]);
-
-  // Set default selected category when categories are loaded
-  React.useEffect(() => {
-    if (categories.length > 0 && !selectedCategoryId) {
-      setSelectedCategoryId(categories[0].id);
-    }
-  }, [categories, selectedCategoryId]);
 
   const filterCategoriesByGender = (categories: Category[], userGender: string | null): Category[] => {
     return categories.filter(category => isCategoryVisibleToUser(category));
