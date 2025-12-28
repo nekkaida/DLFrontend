@@ -8,6 +8,7 @@ import {
   Switch,
   Alert,
   Platform,
+  ActivityIndicator,
   ViewStyle,
   TextStyle,
   StyleProp,
@@ -67,6 +68,7 @@ export default function SettingsScreen() {
     locationServices: false,
     hapticFeedback: true,
   });
+  const [isLoadingSettings, setIsLoadingSettings] = useState(true);
 
   // Load settings on mount
   useEffect(() => {
@@ -75,12 +77,18 @@ export default function SettingsScreen() {
 
   const loadSettings = async () => {
     try {
+      setIsLoadingSettings(true);
       const savedSettings = await AsyncStorage.getItem('user_settings');
       if (savedSettings) {
         setSettings(JSON.parse(savedSettings));
       }
     } catch (error) {
       // Failed to load settings, use defaults
+      toast.error('Error', {
+        description: 'Failed to load settings. Using defaults.',
+      });
+    } finally {
+      setIsLoadingSettings(false);
     }
   };
 
@@ -313,6 +321,8 @@ export default function SettingsScreen() {
 
   const renderSettingItem = (item: SettingItem) => {
     const handlePress = () => {
+      if (isLoadingSettings) return; // Disable actions during loading
+
       if (item.type === 'toggle') {
         updateSetting(item.id, !item.value);
       } else if (item.action) {
@@ -321,17 +331,28 @@ export default function SettingsScreen() {
       }
     };
 
+    // Generate accessibility hint based on item type
+    const getAccessibilityHint = () => {
+      if (item.type === 'toggle') {
+        return `Double tap to ${item.value ? 'disable' : 'enable'} ${item.title.toLowerCase()}`;
+      }
+      return `Double tap to ${item.title.toLowerCase()}`;
+    };
+
     return (
       <Pressable
         key={item.id}
         style={({ pressed }): StyleProp<ViewStyle> => [
           styles.settingItem as ViewStyle,
-          { opacity: pressed ? 0.7 : 1 }
+          { opacity: pressed || isLoadingSettings ? 0.7 : 1 }
         ]}
         onPress={handlePress}
+        disabled={isLoadingSettings}
         accessible={true}
         accessibilityRole="button"
         accessibilityLabel={item.title}
+        accessibilityHint={getAccessibilityHint()}
+        accessibilityState={item.type === 'toggle' ? { checked: item.value, disabled: isLoadingSettings } : { disabled: isLoadingSettings }}
       >
         <View style={styles.settingLeft as ViewStyle}>
           <View style={[
@@ -359,21 +380,26 @@ export default function SettingsScreen() {
 
         <View style={styles.settingRight as ViewStyle}>
           {item.type === 'toggle' ? (
-            <Switch
-              value={item.value}
-              onValueChange={(value) => updateSetting(item.id, value)}
-              trackColor={{
-                false: theme.colors.neutral.gray[200],
-                true: `${theme.colors.primary}40`,
-              }}
-              thumbColor={item.value ? theme.colors.primary : theme.colors.neutral.white}
-              ios_backgroundColor={theme.colors.neutral.gray[200]}
-            />
+            isLoadingSettings ? (
+              <ActivityIndicator size="small" color={theme.colors.primary} />
+            ) : (
+              <Switch
+                value={item.value}
+                onValueChange={(value) => updateSetting(item.id, value)}
+                trackColor={{
+                  false: theme.colors.neutral.gray[200],
+                  true: `${theme.colors.primary}40`,
+                }}
+                thumbColor={item.value ? theme.colors.primary : theme.colors.neutral.white}
+                ios_backgroundColor={theme.colors.neutral.gray[200]}
+                disabled={isLoadingSettings}
+              />
+            )
           ) : (
-            <Ionicons 
-              name="chevron-forward" 
-              size={18} 
-              color={theme.colors.neutral.gray[400]} 
+            <Ionicons
+              name="chevron-forward"
+              size={18}
+              color={theme.colors.neutral.gray[400]}
             />
           )}
         </View>
