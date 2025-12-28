@@ -80,7 +80,7 @@ export const useActivePartnership = (
       });
 
       console.log('[useActivePartnership] API response:', response);
-      const data = (response as any)?.data;
+      const data = (response as any)?.data?.data;
       console.log('[useActivePartnership] Extracted data:', data);
       console.log('[useActivePartnership] Data status:', data?.status);
 
