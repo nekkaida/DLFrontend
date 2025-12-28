@@ -110,9 +110,12 @@ export const PartnershipCard: React.FC<PartnershipCardProps> = ({
                   onDissolve();
                 }
 
-                // Navigate to find partner page
+                // Navigate to doubles team pairing page
                 if (partnership?.season?.id) {
-                  router.push(`/pairing/find-partner/${partnership.season.id}`);
+                  router.push({
+                    pathname: '/user-dashboard/doubles-team-pairing',
+                    params: { seasonId: partnership.season.id }
+                  } as any);
                 } else {
                   toast.error('Error', {
                     description: 'Season information missing',
