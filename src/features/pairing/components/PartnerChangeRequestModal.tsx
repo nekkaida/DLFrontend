@@ -19,8 +19,10 @@ import { getBackendBaseURL } from '@/config/network';
 interface Partnership {
   id: string;
   seasonId?: string;
-  player1: { name: string };
-  player2: { name: string };
+  captainId: string;
+  partnerId: string;
+  captain: { id: string; name: string };
+  partner: { id: string; name: string };
   season: { id: string; name: string };
 }
 
@@ -53,9 +55,9 @@ export const PartnerChangeRequestModal: React.FC<PartnerChangeRequestModalProps>
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const partnerName = partnership
-    ? partnership.player1.name === currentUserId
-      ? partnership.player2.name
-      : partnership.player1.name
+    ? partnership.captainId === currentUserId
+      ? partnership.partner.name
+      : partnership.captain.name
     : '';
 
   const handleReasonSelect = (value: string) => {
