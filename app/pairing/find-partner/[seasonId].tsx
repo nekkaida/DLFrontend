@@ -118,7 +118,7 @@ export default function FindPartnerScreen() {
       console.log('FindPartner: Available players response:', response);
 
       if (response && response.data) {
-        const playersData = response.data.data || response.data;
+        const playersData = response.data.data?.players || response.data.players || [];
         setPlayers(playersData);
       }
     } catch (error) {
@@ -160,7 +160,7 @@ export default function FindPartnerScreen() {
       );
 
       if (response && response.data) {
-        const playersData = response.data.data || response.data;
+        const playersData = response.data.data?.players || response.data.players || [];
         setPlayers(playersData);
       }
     } catch (error) {
