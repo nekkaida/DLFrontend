@@ -22,14 +22,14 @@ const isSmallScreen = width < 375;
 interface Partnership {
   id: string;
   seasonId?: string;
-  player1Id: string;
-  player2Id: string;
-  player1: {
+  captainId: string;
+  partnerId: string;
+  captain: {
     id: string;
     name: string;
     image: string | null;
   };
-  player2: {
+  partner: {
     id: string;
     name: string;
     image: string | null;
@@ -62,9 +62,9 @@ export const PartnershipCard: React.FC<PartnershipCardProps> = ({
   const [changeRequestModalVisible, setChangeRequestModalVisible] = useState(false);
 
   // Determine which player is the partner (not the current user)
-  const partner = partnership.player1Id === currentUserId
-    ? partnership.player2
-    : partnership.player1;
+  const partner = partnership.captainId === currentUserId
+    ? partnership.partner
+    : partnership.captain;
 
   const handleViewProfile = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -111,7 +111,13 @@ export const PartnershipCard: React.FC<PartnershipCardProps> = ({
                 }
 
                 // Navigate to find partner page
-                router.push(`/pairing/find-partner/${partnership.season.id}`);
+                if (partnership?.season?.id) {
+                  router.push(`/pairing/find-partner/${partnership.season.id}`);
+                } else {
+                  toast.error('Error', {
+                    description: 'Season information missing',
+                  });
+                }
               } else {
                 toast.error('Error', {
                   description: responseData.message || 'Failed to dissolve partnership',

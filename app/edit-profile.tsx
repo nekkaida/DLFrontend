@@ -98,7 +98,6 @@ export default function EditProfileScreen() {
         return;
       }
 
-      console.log(" user info", session.user.id)
       try {
         const backendUrl = getBackendBaseURL();
         const response = await authClient.$fetch(`${backendUrl}/api/player/profile/me`, {
@@ -115,7 +114,7 @@ export default function EditProfileScreen() {
             location: profileData.area || '',
             bio: profileData.bio || '',
             profilePicture: profileData.image || '',
-            dateOfBirth: profileData.dateOfBirth ? new Date(profileData.dateOfBirth).toLocaleDateString('en-GB') : '',
+            dateOfBirth: profileData.dateOfBirth ? new Date(profileData.dateOfBirth).toISOString().split('T')[0] : '',
           });
           // Also set the profile image in the shared hook for edit functionality
           if (profileData.image) {
@@ -172,6 +171,16 @@ export default function EditProfileScreen() {
     }
   };
 
+  // Sanitize input to prevent XSS
+  const sanitizeInput = (input: string): string => {
+    return input
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#x27;')
+      .trim();
+  };
+
   const handleSave = async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     
@@ -190,6 +199,35 @@ export default function EditProfileScreen() {
       return;
     }
 
+    // Username format validation
+    const usernameRegex = /^[a-zA-Z0-9_]+$/;
+    if (!usernameRegex.test(formData.username.trim())) {
+      toast.error('Validation Error', {
+        description: 'Username can only contain letters, numbers, and underscores',
+      });
+      return;
+    }
+
+    // Email format validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(formData.email.trim())) {
+      toast.error('Validation Error', {
+        description: 'Please enter a valid email address',
+      });
+      return;
+    }
+
+    // Phone number format validation (if provided)
+    if (formData.phoneNumber.trim()) {
+      const phoneRegex = /^\+?[0-9\s\-()]+$/;
+      if (!phoneRegex.test(formData.phoneNumber.trim())) {
+        toast.error('Validation Error', {
+          description: 'Please enter a valid phone number',
+        });
+        return;
+      }
+    }
+
     setIsLoading(true);
 
     try {
@@ -197,25 +235,26 @@ export default function EditProfileScreen() {
       const response = await authClient.$fetch(`${backendUrl}/api/player/profile/me`, {
         method: 'PUT',
         body: JSON.stringify({
-          name: formData.fullName.trim(),
+          name: sanitizeInput(formData.fullName),
           username: formData.username.trim(),
           email: formData.email.trim(),
-          location: formData.location.trim(),
+          location: sanitizeInput(formData.location),
           image: formData.profilePicture || null,
           phoneNumber: formData.phoneNumber.trim() || null,
-          bio: formData.bio.trim() || null,
+          bio: sanitizeInput(formData.bio),
+          dateOfBirth: formData.dateOfBirth || null,
         }),
         headers: {
           'Content-Type': 'application/json',
         },
       }) as any;
 
-      if (response && response.data && response.data.success) {
+      if (response && response.success && response.data) {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         toast.success('Profile Updated', {
           description: 'Your profile has been successfully updated.',
         });
-        
+
         // Navigate back after a short delay to let user see the toast
         setTimeout(() => {
           router.dismiss();
@@ -223,7 +262,7 @@ export default function EditProfileScreen() {
         }, 1500);
       } else {
         // Check if it's a successful HTTP response but with success: false
-        const errorMessage = (response?.data?.message || response?.message || 'Failed to update profile') as string;
+        const errorMessage = (response?.message || 'Failed to update profile') as string;
         throw new Error(errorMessage);
       }
     } catch (error) {
@@ -340,7 +379,6 @@ export default function EditProfileScreen() {
                     <Image
                       source={{ uri: formData.profilePicture, cache: 'reload' }}
                       style={styles.profileImage}
-                      onError={() => console.log('Profile image failed to load')}
                     />
                   ) : (
                     <View style={styles.defaultProfileImage}>
@@ -379,25 +417,25 @@ export default function EditProfileScreen() {
               <Text style={styles.mainSectionTitle}>Edit Information</Text>
               
               <View style={styles.inputCard}>
-                {renderInput('Full Name', 'fullName', 'Enter your full name')}
+                {renderInput('Full Name', 'fullName', 'Enter your full name', false, 'default', isLoading)}
               </View>
-              
+
               <View style={styles.inputCard}>
-                {renderInput('Username', 'username', 'Enter your username')}
+                {renderInput('Username', 'username', 'Enter your username', false, 'default', isLoading)}
               </View>
-              
+
               <View style={styles.inputCard}>
-                {renderInput('Email', 'email', 'Enter your email address', false, 'email-address')}
+                {renderInput('Email', 'email', 'Enter your email address', false, 'email-address', isLoading)}
               </View>
-              
+
               <View style={styles.inputCard}>
-                {renderInput('Phone Number', 'phoneNumber', 'Enter your phone number', false, 'phone-pad')}
+                {renderInput('Phone Number', 'phoneNumber', 'Enter your phone number', false, 'phone-pad', isLoading)}
               </View>
-              
+
               <View style={styles.inputCard}>
-                {renderInput('Location', 'location', 'Enter your location')}
+                {renderInput('Location', 'location', 'Enter your location', false, 'default', isLoading)}
               </View>
-              
+
               <View style={styles.inputCard}>
                 {renderInput('Birthday', 'dateOfBirth', 'Birthday cannot be changed', false, 'default', true)}
               </View>
@@ -413,7 +451,10 @@ export default function EditProfileScreen() {
                   multiline
                   numberOfLines={3}
                   textAlignVertical="top"
+                  editable={!isLoading}
+                  maxLength={500}
                 />
+                <Text style={styles.charCounter}>{formData.bio.length}/500</Text>
               </View>
 
             </View>
@@ -682,6 +723,13 @@ const styles = StyleSheet.create({
     fontFamily: theme.typography.fontFamily.primary,
     fontStyle: 'italic',
     minHeight: 60,
+  } as TextStyle,
+  charCounter: {
+    fontSize: 12,
+    color: theme.colors.neutral.gray[400],
+    textAlign: 'right',
+    marginTop: 4,
+    fontFamily: theme.typography.fontFamily.primary,
   } as TextStyle,
   loadingContainer: {
     flex: 1,

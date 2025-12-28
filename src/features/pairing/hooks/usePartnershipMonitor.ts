@@ -81,6 +81,7 @@ export const usePartnershipMonitor = ({
   return {
     partnership,
     loading,
+    refresh,
     isMonitoring: enabled && !!seasonId && !!intervalRef.current,
   };
 };

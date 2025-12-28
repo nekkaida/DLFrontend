@@ -19,8 +19,10 @@ import { getBackendBaseURL } from '@/config/network';
 interface Partnership {
   id: string;
   seasonId?: string;
-  player1: { name: string };
-  player2: { name: string };
+  captainId: string;
+  partnerId: string;
+  captain: { id: string; name: string };
+  partner: { id: string; name: string };
   season: { id: string; name: string };
 }
 
@@ -53,9 +55,9 @@ export const PartnerChangeRequestModal: React.FC<PartnerChangeRequestModalProps>
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const partnerName = partnership
-    ? partnership.player1.name === currentUserId
-      ? partnership.player2.name
-      : partnership.player1.name
+    ? partnership.captainId === currentUserId
+      ? partnership.partner.name
+      : partnership.captain.name
     : '';
 
   const handleReasonSelect = (value: string) => {
@@ -106,7 +108,7 @@ export const PartnerChangeRequestModal: React.FC<PartnerChangeRequestModalProps>
                 {
                   method: 'POST',
                   body: JSON.stringify({
-                    seasonId: partnership?.seasonId,
+                    seasonId: partnership?.seasonId || partnership?.season?.id,
                     partnershipId: partnership?.id,
                     reason: finalReason,
                   }),
@@ -182,7 +184,7 @@ export const PartnerChangeRequestModal: React.FC<PartnerChangeRequestModalProps>
             <View style={styles.infoSection}>
               <Text style={styles.infoText}>
                 You are requesting to change your partner for{' '}
-                <Text style={styles.boldText}>{partnership?.season.name}</Text>.
+                <Text style={styles.boldText}>{partnership?.season?.name}</Text>.
               </Text>
               <Text style={styles.infoTextSecondary}>
                 This request will be sent to admin for review. If approved, your

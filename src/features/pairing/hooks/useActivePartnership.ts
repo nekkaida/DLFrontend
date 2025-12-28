@@ -4,22 +4,22 @@ import { getBackendBaseURL } from '@/config/network';
 
 interface Partnership {
   id: string;
-  player1Id: string;
-  player2Id: string;
+  captainId: string;
+  partnerId: string;
   seasonId: string;
   divisionId: string | null;
   pairRating: number | null;
   status: string;
   createdAt: string;
   dissolvedAt: string | null;
-  player1: {
+  captain: {
     id: string;
     name: string;
     username: string;
     displayUsername: string | null;
     image: string | null;
   };
-  player2: {
+  partner: {
     id: string;
     name: string;
     username: string;
