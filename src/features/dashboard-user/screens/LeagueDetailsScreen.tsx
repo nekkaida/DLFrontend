@@ -442,7 +442,15 @@ export default function LeagueDetailsScreen({
           color: '#FEA04D',
           onPress: () => {
             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-            router.push(`/pairing/find-partner/${season.id}` as any);
+            router.push({
+              pathname: '/user-dashboard/doubles-team-pairing',
+              params: {
+                seasonId: season.id,
+                seasonName: season.name,
+                leagueId: league?.id,
+                sport: sport || 'pickleball'
+              }
+            } as any);
           }
         };
       }
