@@ -15,6 +15,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import React from 'react';
 import { ActivityIndicator, Animated, Dimensions, Image, RefreshControl, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { toast } from 'sonner-native';
 import { PaymentOptionsBottomSheet } from '../components';
@@ -644,6 +645,15 @@ export default function LeagueDetailsScreen({
     const category = (season as any).category;
     const categories = (season as any).categories || (category ? [category] : []);
     const normalizedCategories = Array.isArray(categories) ? categories : [categories].filter(Boolean);
+
+    // Check if this is a doubles season with active partnership
+    const isDoublesSeason = normalizedCategories.some(cat =>
+      cat?.name?.toLowerCase().includes('doubles') ||
+      cat?.matchFormat?.toLowerCase().includes('doubles') ||
+      (cat as any)?.game_type === 'DOUBLES'
+    );
+    const { partnership } = useActivePartnership(isDoublesSeason ? season.id : null, userId);
+    const showManageTeam = isDoublesSeason && partnership && isUserRegistered;
     const seasonCategory = normalizedCategories && normalizedCategories.length > 0 
       ? normalizedCategories[0] 
       : null;
@@ -756,13 +766,32 @@ export default function LeagueDetailsScreen({
           )}
 
           <View style={styles.buttonRow}>
-            <TouchableOpacity
-              style={[styles.registerButton, { backgroundColor: buttonConfig.color }]}
-              onPress={buttonConfig.onPress}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.registerButtonText}>{buttonConfig.text}</Text>
-            </TouchableOpacity>
+            <View style={styles.seasonCardButtons}>
+              <TouchableOpacity
+                style={[
+                  styles.registerButton,
+                  styles.primaryButton,
+                  { backgroundColor: buttonConfig.color }
+                ]}
+                onPress={buttonConfig.onPress}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.registerButtonText}>{buttonConfig.text}</Text>
+              </TouchableOpacity>
+
+              {showManageTeam && (
+                <TouchableOpacity
+                  style={styles.manageTeamButton}
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    router.push(`/pairing/manage-partnership/${season.id}` as any);
+                  }}
+                >
+                  <Ionicons name="settings-outline" size={16} color="#FEA04D" />
+                  <Text style={styles.manageTeamButtonText}>Manage Team</Text>
+                </TouchableOpacity>
+              )}
+            </View>
             {season.status === 'ACTIVE' && !isUserRegistered && (
               <Text style={styles.registrationOpenText}>
                 Registration{'\n'}open
@@ -1226,7 +1255,6 @@ export default function LeagueDetailsScreen({
         onPayNow={handlePayNow}
         onPayLater={handlePayLater}
         isProcessingPayment={isProcessingPayment}
-        sport={sport}
         sport={sport}
       />
     </View>
@@ -1703,6 +1731,33 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     paddingHorizontal: 24,
     alignItems: 'center',
+  },
+  seasonCardButtons: {
+    flexDirection: 'row',
+    gap: 10,
+    flex: 1,
+  },
+  primaryButton: {
+    flex: 1,
+  },
+  manageTeamButton: {
+    flex: 0.85,
+    backgroundColor: 'transparent',
+    borderWidth: 1.5,
+    borderColor: '#FEA04D',
+    borderRadius: 8,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+  },
+  manageTeamButtonText: {
+    fontFamily: 'Inter',
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#FEA04D',
   },
   registrationOpenText: {
     fontSize: 12,
