@@ -274,10 +274,7 @@ export default function SettingsScreen() {
           subtitle: 'Get help and support',
           type: 'navigate',
           icon: 'help-circle-outline',
-          action: () => {
-            // TODO: Create these routes or use a type-safe navigation helper
-            router.push('/help' as Parameters<typeof router.push>[0]);
-          },
+          action: () => router.push('/help'),
         },
         {
           id: 'feedback',
@@ -285,10 +282,7 @@ export default function SettingsScreen() {
           subtitle: 'Share your thoughts with us',
           type: 'navigate',
           icon: 'chatbubble-outline',
-          action: () => {
-            // TODO: Create these routes or use a type-safe navigation helper
-            router.push('/feedback' as Parameters<typeof router.push>[0]);
-          },
+          action: () => router.push('/feedback'),
         },
         {
           id: 'about',
