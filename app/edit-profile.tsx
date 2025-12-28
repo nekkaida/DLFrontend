@@ -115,7 +115,7 @@ export default function EditProfileScreen() {
             location: profileData.area || '',
             bio: profileData.bio || '',
             profilePicture: profileData.image || '',
-            dateOfBirth: profileData.dateOfBirth ? new Date(profileData.dateOfBirth).toLocaleDateString('en-GB') : '',
+            dateOfBirth: profileData.dateOfBirth ? new Date(profileData.dateOfBirth).toISOString().split('T')[0] : '',
           });
           // Also set the profile image in the shared hook for edit functionality
           if (profileData.image) {
