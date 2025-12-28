@@ -62,7 +62,6 @@ export default function SettingsScreen() {
     notifications: true,
     matchReminders: true,
     locationServices: false,
-    darkMode: false,
     hapticFeedback: true,
   });
 
