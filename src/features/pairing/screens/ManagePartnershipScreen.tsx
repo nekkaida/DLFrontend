@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import {
   View,
   Text,
@@ -13,8 +13,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { authClient, useSession } from '@/lib/auth-client';
-import { getBackendBaseURL } from '@/config/network';
+import { useSession } from '@/lib/auth-client';
 import { PartnershipCard } from '../components/PartnershipCard';
 import { usePartnershipMonitor } from '../hooks/usePartnershipMonitor';
 import { useWithdrawalRequestMonitor } from '../hooks/useWithdrawalRequestMonitor';
@@ -27,16 +26,14 @@ interface ManagePartnershipScreenProps {
 }
 
 export default function ManagePartnershipScreen({ seasonId }: ManagePartnershipScreenProps) {
-  const [partnership, setPartnership] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const { data: session } = useSession();
   const insets = useSafeAreaInsets();
 
   // Monitor partnership for dissolution by partner
-  const { isMonitoring: isMonitoringPartnership } = usePartnershipMonitor({
+  // This hook also fetches and manages partnership data, so we don't need separate state
+  const { partnership, loading, refresh, isMonitoring: isMonitoringPartnership } = usePartnershipMonitor({
     seasonId: seasonId,
-    enabled: !!partnership, // Only monitor if partnership exists
+    enabled: true, // Always enabled - hook handles null partnership
     pollingInterval: 30000, // Poll every 30 seconds
   });
 
@@ -47,34 +44,8 @@ export default function ManagePartnershipScreen({ seasonId }: ManagePartnershipS
     pollingInterval: 60000, // Poll every 60 seconds
   });
 
-  useEffect(() => {
-    fetchPartnership();
-  }, [seasonId]);
-
-  const fetchPartnership = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-
-      const backendUrl = getBackendBaseURL();
-      const response = await authClient.$fetch(
-        `${backendUrl}/api/pairing/partnership/active/${seasonId}`
-      );
-
-      const partnershipData = (response as any)?.data;
-
-      if (partnershipData) {
-        setPartnership(partnershipData);
-      } else {
-        setError('No active partnership found for this season');
-      }
-    } catch (err) {
-      console.error('Error fetching partnership:', err);
-      setError('Failed to load partnership details');
-    } finally {
-      setLoading(false);
-    }
-  };
+  // Derive error state from partnership being null after loading
+  const error = !loading && !partnership ? 'No active partnership found for this season' : null;
 
   const handleDissolve = () => {
     // After dissolution, navigate back
@@ -147,7 +118,7 @@ export default function ManagePartnershipScreen({ seasonId }: ManagePartnershipS
             style={styles.retryButton}
             onPress={() => {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              fetchPartnership();
+              refresh();
             }}
           >
             <Text style={styles.retryButtonText}>Retry</Text>
