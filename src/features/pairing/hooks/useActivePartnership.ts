@@ -60,28 +60,35 @@ export const useActivePartnership = (
 
   const fetchPartnership = useCallback(async () => {
     if (!seasonId) {
+      console.log('[useActivePartnership] No seasonId provided');
       setLoading(false);
       setPartnership(null);
       return;
     }
 
     try {
+      console.log('[useActivePartnership] Fetching partnership for seasonId:', seasonId);
       setLoading(true);
       setError(null);
 
       const backendUrl = getBackendBaseURL();
-      const response = await authClient.$fetch(
-        `${backendUrl}/api/pairing/partnership/active/${seasonId}`,
-        {
-          method: 'GET',
-        }
-      );
+      const url = `${backendUrl}/api/pairing/partnership/active/${seasonId}`;
+      console.log('[useActivePartnership] API URL:', url);
 
+      const response = await authClient.$fetch(url, {
+        method: 'GET',
+      });
+
+      console.log('[useActivePartnership] API response:', response);
       const data = (response as any)?.data;
+      console.log('[useActivePartnership] Extracted data:', data);
+      console.log('[useActivePartnership] Data status:', data?.status);
 
       if (data && data.status === 'ACTIVE') {
+        console.log('[useActivePartnership] Partnership found and ACTIVE');
         setPartnership(data);
       } else {
+        console.log('[useActivePartnership] No active partnership found or status not ACTIVE');
         setPartnership(null);
       }
     } catch (err) {

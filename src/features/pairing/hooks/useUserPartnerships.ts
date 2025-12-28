@@ -19,13 +19,17 @@ export const useUserPartnerships = (userId: string | undefined) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    console.log('[useUserPartnerships] Hook called with userId:', userId);
+
     if (!userId) {
+      console.log('[useUserPartnerships] No userId, skipping fetch');
       setPartnerships(new Map());
       setLoading(false);
       return;
     }
 
     const fetchPartnerships = async () => {
+      console.log('[useUserPartnerships] Starting fetch for userId:', userId);
       try {
         const backendUrl = getBackendBaseURL();
         const response = await authClient.$fetch(
