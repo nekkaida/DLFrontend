@@ -1,6 +1,7 @@
 import BackButtonIcon from '@/assets/icons/back-button.svg';
 import LeagueInfoIcon from '@/assets/icons/league-info.svg';
 import { useActivePartnership } from '@/features/pairing/hooks';
+import { ManageTeamButton } from '@/features/pairing/components';
 import { authClient, useSession } from '@/lib/auth-client';
 import { NavBar } from '@/shared/components/layout';
 import { SportSwitcher } from '@/shared/components/ui/SportSwitcher';
@@ -509,6 +510,7 @@ export default function LeagueDetailsScreen({
 
     // Check if user has partnership for this season
     const hasPartnership = partnerships.has(season.id);
+    const partnership = partnerships.get(season.id);
 
     // Determine if this is a doubles season
     const isDoublesSeason = normalizedCategories.some(cat =>
@@ -644,17 +646,11 @@ export default function LeagueDetailsScreen({
                 <Text style={styles.registerButtonText}>{buttonConfig.text}</Text>
               </TouchableOpacity>
 
-              {showManageTeam && (
-                <TouchableOpacity
-                  style={styles.manageTeamButton}
-                  onPress={() => {
-                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                    router.push(`/pairing/manage-partnership/${season.id}` as any);
-                  }}
-                >
-                  <Ionicons name="settings-outline" size={16} color="#FEA04D" />
-                  <Text style={styles.manageTeamButtonText}>Manage Team</Text>
-                </TouchableOpacity>
+              {showManageTeam && partnership && (
+                <ManageTeamButton
+                  seasonId={season.id}
+                  partnershipId={partnership.id}
+                />
               )}
             </View>
             {season.status === 'ACTIVE' && !isUserRegistered && (

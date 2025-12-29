@@ -18,6 +18,7 @@ interface Partnership {
     username: string;
     displayUsername: string | null;
     image: string | null;
+    skillRatings?: Record<string, { singles?: number; doubles?: number }>;
   };
   partner: {
     id: string;
@@ -25,11 +26,18 @@ interface Partnership {
     username: string;
     displayUsername: string | null;
     image: string | null;
+    skillRatings?: Record<string, { singles?: number; doubles?: number }>;
   };
   season: {
     id: string;
     name: string;
-    sportType: string;
+    sportType?: string;
+    category?: {
+      gameType?: string;
+    };
+    leagues?: Array<{
+      sportType?: string;
+    }>;
   };
   division: {
     id: string;

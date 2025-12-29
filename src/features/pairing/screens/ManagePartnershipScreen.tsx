@@ -7,6 +7,7 @@ import {
   ScrollView,
   TouchableOpacity,
   Dimensions,
+  Platform,
 } from 'react-native';
 import { router } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -15,8 +16,9 @@ import * as Haptics from 'expo-haptics';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useSession } from '@/lib/auth-client';
 import { PartnershipCard } from '../components/PartnershipCard';
+import { PartnershipStatusBanner } from '../components/PartnershipStatusBanner';
 import { usePartnershipMonitor } from '../hooks/usePartnershipMonitor';
-import { useWithdrawalRequestMonitor } from '../hooks/useWithdrawalRequestMonitor';
+import { usePartnershipStatus } from '../hooks/usePartnershipStatus';
 
 const { width } = Dimensions.get('window');
 const isSmallScreen = width < 375;
@@ -37,11 +39,11 @@ export default function ManagePartnershipScreen({ seasonId }: ManagePartnershipS
     pollingInterval: 30000, // Poll every 30 seconds
   });
 
-  // Monitor withdrawal requests for admin approval/denial
-  const { pendingRequests, isMonitoring: isMonitoringRequests } = useWithdrawalRequestMonitor({
-    userId: session?.user?.id || null,
-    enabled: true,
-    pollingInterval: 60000, // Poll every 60 seconds
+  // Monitor partnership status (pending requests from both partners)
+  const partnershipStatus = usePartnershipStatus({
+    partnershipId: partnership?.id || null,
+    enabled: !!partnership?.id,
+    pollingInterval: 30000, // Poll every 30 seconds
   });
 
   // Derive error state from partnership being null after loading
@@ -156,44 +158,34 @@ export default function ManagePartnershipScreen({ seasonId }: ManagePartnershipS
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
+        {/* Status Banner - Shows alerts for pending requests or partner actions */}
+        <PartnershipStatusBanner
+          hasMyPendingRequest={partnershipStatus.hasMyPendingRequest}
+          hasPartnerPendingRequest={partnershipStatus.hasPartnerPendingRequest}
+          partnerHasLeft={partnershipStatus.partnerHasLeft}
+        />
+
+        {/* Partnership Card */}
         <PartnershipCard
           partnership={partnership}
           currentUserId={session?.user?.id}
           onDissolve={handleDissolve}
           showActions={true}
+          hasPartnerPendingRequest={partnershipStatus.hasPartnerPendingRequest}
+          hasMyPendingRequest={partnershipStatus.hasMyPendingRequest}
         />
 
-        {/* Pending Request Status Badge */}
-        {pendingRequests.length > 0 && (
-          <View style={styles.statusBadge}>
-            <Ionicons name="time-outline" size={20} color="#FF9800" />
-            <Text style={styles.statusText}>
-              Partner change request pending - Awaiting admin approval
-            </Text>
-          </View>
-        )}
-
-        {/* Additional Info Section */}
-        <View style={styles.infoCard}>
-          <View style={styles.infoRow}>
-            <Ionicons name="information-circle" size={20} color="#4CAF50" />
-            <Text style={styles.infoTitle}>Partnership Actions</Text>
-          </View>
-          <Text style={styles.infoText}>
-            • <Text style={styles.infoBold}>View Profile:</Text> See your partner's player profile and stats{'\n'}
-            • <Text style={styles.infoBold}>Request Change:</Text> Submit a request to the admin for partner reassignment{'\n'}
-            • <Text style={styles.infoBold}>Leave:</Text> Dissolve the partnership immediately (cannot be undone)
-          </Text>
-        </View>
-
+        {/* Division Information Card */}
         {partnership.division && (
-          <View style={styles.infoCard}>
-            <View style={styles.infoRow}>
-              <Ionicons name="trophy" size={20} color="#FEA04D" />
-              <Text style={styles.infoTitle}>Division Information</Text>
+          <View style={styles.divisionCard}>
+            <View style={styles.divisionHeader}>
+              <View style={styles.divisionIconContainer}>
+                <Ionicons name="trophy" size={18} color="#FE9F4D" />
+              </View>
+              <Text style={styles.divisionTitle}>Division Assignment</Text>
             </View>
-            <Text style={styles.infoText}>
-              You and your partner are currently assigned to {partnership.division.name}.
+            <Text style={styles.divisionText}>
+              You and your partner are assigned to <Text style={styles.divisionName}>{partnership.division.name}</Text>
             </Text>
           </View>
         )}
@@ -228,6 +220,7 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     flex: 1,
     textAlign: 'center',
+    fontFamily: 'Inter',
   },
   headerRight: {
     width: 40,
@@ -236,7 +229,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    paddingTop: 20,
+    paddingTop: 8,
     paddingBottom: 40,
   },
   loadingContainer: {
@@ -276,7 +269,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#A04DFE',
     paddingHorizontal: 24,
     paddingVertical: 12,
-    borderRadius: 8,
+    borderRadius: 10,
   },
   retryButtonText: {
     color: '#FFFFFF',
@@ -284,58 +277,52 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     fontFamily: 'Inter',
   },
-  statusBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    backgroundColor: '#FFF3E0',
-    borderRadius: 8,
-    padding: 12,
-    marginHorizontal: 16,
-    marginTop: 16,
-    borderWidth: 1,
-    borderColor: '#FFE0B2',
-  },
-  statusText: {
-    fontFamily: 'Inter',
-    fontSize: 14,
-    color: '#E65100',
-    flex: 1,
-  },
-  infoCard: {
+  divisionCard: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 12,
+    borderRadius: 16,
     padding: 16,
     marginHorizontal: 16,
     marginTop: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-    borderWidth: 1,
-    borderColor: '#E8F5E9',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.06,
+        shadowRadius: 8,
+      },
+      android: {
+        elevation: 3,
+      },
+    }),
   },
-  infoRow: {
+  divisionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    marginBottom: 12,
+    gap: 10,
+    marginBottom: 10,
   },
-  infoTitle: {
-    fontSize: 16,
+  divisionIconContainer: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#FFF7ED',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  divisionTitle: {
+    fontSize: 15,
     fontWeight: '600',
-    color: '#1a1a1a',
+    color: '#111827',
     fontFamily: 'Inter',
   },
-  infoText: {
+  divisionText: {
     fontSize: 14,
-    color: '#666666',
+    color: '#6B7280',
     lineHeight: 20,
     fontFamily: 'Inter',
   },
-  infoBold: {
+  divisionName: {
     fontWeight: '600',
-    color: '#1a1a1a',
+    color: '#374151',
   },
 });
