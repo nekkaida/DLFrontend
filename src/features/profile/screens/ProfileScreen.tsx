@@ -5,6 +5,7 @@ import { router, useFocusEffect } from 'expo-router';
 import React, { useCallback, useEffect, useState, useRef } from 'react';
 import {
   ActionSheetIOS,
+  ActivityIndicator,
   Alert,
   Dimensions,
   Platform,
@@ -216,11 +217,19 @@ export default function ProfileScreen() {
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    await fetchProfileData();
-    // Also refresh rating history
-    if (selectedGameType && activeTab) {
-      await fetchRatingHistory(selectedGameType.toLowerCase() as 'singles' | 'doubles', activeTab);
-    }
+
+    // Minimum display time for spinner (800ms) so users can see the refresh feedback
+    const minDelay = new Promise(resolve => setTimeout(resolve, 800));
+
+    await Promise.all([
+      fetchProfileData(),
+      // Also refresh rating history
+      selectedGameType && activeTab
+        ? fetchRatingHistory(selectedGameType.toLowerCase() as 'singles' | 'doubles', activeTab)
+        : Promise.resolve(),
+      minDelay,
+    ]);
+
     setRefreshing(false);
   }, [fetchProfileData, fetchRatingHistory, selectedGameType, activeTab]);
 
@@ -332,6 +341,13 @@ export default function ProfileScreen() {
 
   return (
     <View style={styles.container}>
+      {/* Refresh Indicator Overlay - visible above header */}
+      {refreshing && (
+        <View style={styles.refreshOverlay}>
+          <ActivityIndicator size="large" color="#FFFFFF" />
+        </View>
+      )}
+
       <ScrollView
         style={styles.scrollView}
         showsVerticalScrollIndicator={false}
@@ -339,9 +355,9 @@ export default function ProfileScreen() {
           <RefreshControl
             refreshing={refreshing}
             onRefresh={onRefresh}
-            tintColor="#6de9a0"
-            colors={["#6de9a0"]}
-            progressBackgroundColor="#ffffff"
+            tintColor="transparent"
+            colors={["transparent"]}
+            progressBackgroundColor="transparent"
           />
         }
       >
@@ -459,10 +475,11 @@ export default function ProfileScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: theme.colors.neutral.gray[50],
+    backgroundColor: theme.colors.primary,
   },
   scrollView: {
     flex: 1,
+    backgroundColor: theme.colors.primary,
   },
   loadingContainer: {
     justifyContent: 'center',
@@ -472,6 +489,14 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: theme.colors.neutral.gray[600],
     fontFamily: theme.typography.fontFamily.primary,
+  },
+  refreshOverlay: {
+    position: 'absolute',
+    top: 100,
+    left: 0,
+    right: 0,
+    alignItems: 'center',
+    zIndex: 100,
   },
   whiteBackground: {
     backgroundColor: '#ffffff',
