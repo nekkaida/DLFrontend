@@ -22,7 +22,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const { width } = Dimensions.get('window');
-const isSmallScreen = width < 375;
+const isSmallScreen = width <= 375;
 const SCREEN_WIDTH = Dimensions.get('window').width;
 const CARD_WIDTH = SCREEN_WIDTH * 0.88;
 const CARD_GAP = 12;
@@ -807,52 +807,60 @@ const styles = StyleSheet.create({
     backgroundColor: '#F6FAFC',
   },
   header: {
-    paddingHorizontal: 20,
+    paddingHorizontal: isSmallScreen ? 12 : 20,
     paddingBottom: 20,
     alignItems: 'center',
     position: 'relative',
     borderBottomLeftRadius: 20,
     borderBottomRightRadius: 20,
+    minHeight: 100,
   },
   backButton: {
     position: 'absolute',
-    left: 16,
+    left: isSmallScreen ? 8 : 16,
     padding: 4,
     zIndex: 10,
   },
   headerContent: {
     alignItems: 'center',
+    paddingHorizontal: isSmallScreen ? 40 : 50, // Add padding to prevent overlap with back button
+    width: '100%',
+    justifyContent: 'center',
   },
   seasonTitle: {
-    fontSize: 26,
+    fontSize: isSmallScreen ? 20 : 26, // Responsive font size
     fontWeight: '700',
     color: '#000000',
     marginBottom: 4,
+    textAlign: 'center',
   },
   leagueTitle: {
-    fontSize: 16,
+    fontSize: isSmallScreen ? 14 : 16, // Responsive font size
     fontWeight: '500',
     color: '#FFFFFF',
     marginBottom: 8,
     textAlign: 'center',
   },
   dateRange: {
-    flexDirection: 'row',
-    gap: 28,
+    flexDirection: isSmallScreen ? 'column' : 'row', // Stack vertically on small screens
+    gap: isSmallScreen ? 4 : 28,
     justifyContent: 'center',
+    alignItems: 'center',
+    width: '100%', // Take full width to enable proper centering
   },
   dateText: {
-    fontSize: 12,
+    fontSize: isSmallScreen ? 11 : 12, // Slightly smaller on small screens
     color: '#000000',
+    textAlign: 'center',
   },
   scrollView: {
     flex: 1,
   },
   standingsSection: {
-    padding: 16,
+    padding: isSmallScreen ? 12 : 16,
   },
   standingsTitle: {
-    fontSize: 22,
+    fontSize: isSmallScreen ? 18 : 22,
     fontWeight: '700',
     color: '#111827',
     marginBottom: 16,
@@ -861,6 +869,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#E9F3F8',
     borderRadius: 8,
     overflow: 'hidden',
+    marginBottom: isSmallScreen ? 12 : 16,
     shadowColor: '#000',
     shadowOffset: {
       width: 0,
@@ -875,15 +884,16 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     backgroundColor: '#863A73',
-    paddingHorizontal: 16,
-    paddingVertical: 6,
+    paddingHorizontal: isSmallScreen ? 12 : 16,
+    paddingVertical: isSmallScreen ? 8 : 6,
     borderBottomLeftRadius: 8,
     borderBottomRightRadius: 8,
   },
   divisionName: {
-    fontSize: 17,
+    fontSize: isSmallScreen ? 15 : 17,
     fontWeight: '700',
     color: '#FFFFFF',
+    flexShrink: 1,
   },
   viewMatchesButton: {
     backgroundColor: 'rgba(0, 0, 0, 0.6)',
@@ -898,17 +908,17 @@ const styles = StyleSheet.create({
   },
   standingsTableContainer: {
     backgroundColor: '#E9F3F8',
-    paddingHorizontal: 8,
-    paddingVertical: 8,
+    paddingHorizontal: isSmallScreen ? 4 : 8,
+    paddingVertical: isSmallScreen ? 6 : 8,
   },
   tableHeader: {
     flexDirection: 'row',
     paddingVertical: 10,
-    paddingHorizontal: 8,
+    paddingHorizontal: isSmallScreen ? 4 : 8,
     alignItems: 'center',
   },
   rankHeaderCell: {
-    width: 35,
+    width: isSmallScreen ? 30 : 35,
     alignItems: 'center',
   },
   playerHeaderCell: {
@@ -917,15 +927,15 @@ const styles = StyleSheet.create({
     minWidth: 0,
   },
   statHeaderCell: {
-    width: 25,
+    width: isSmallScreen ? 22 : 25,
     alignItems: 'center',
   },
   ptsHeaderCell: {
-    width: 40,
+    width: isSmallScreen ? 35 : 40,
     alignItems: 'flex-end',
   },
   headerText: {
-    fontSize: 12,
+    fontSize: isSmallScreen ? 10 : 12,
     fontWeight: '500',
     color: '#1D1D1F',
     textTransform: 'uppercase',
@@ -939,18 +949,18 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: '#FFFFFF',
     borderRadius: 12,
-    paddingVertical: 8,
-    paddingHorizontal: 8,
+    paddingVertical: isSmallScreen ? 6 : 8,
+    paddingHorizontal: isSmallScreen ? 4 : 8,
     marginBottom: 0,
     borderWidth: 1,
     borderColor: '#DCE1E4',
   },
   rankCell: {
-    width: 35,
+    width: isSmallScreen ? 30 : 35,
     alignItems: 'center',
   },
   rankText: {
-    fontSize: 15,
+    fontSize: isSmallScreen ? 13 : 15,
     fontWeight: '600',
     color: '#111827',
   },
@@ -958,12 +968,12 @@ const styles = StyleSheet.create({
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: isSmallScreen ? 6 : 10,
   },
   playerAvatar: {
-    width: 28,
-    height: 28,
-    borderRadius: 18,
+    width: isSmallScreen ? 24 : 28,
+    height: isSmallScreen ? 24 : 28,
+    borderRadius: isSmallScreen ? 12 : 18,
     overflow: 'hidden',
   },
   avatarImage: {
@@ -978,31 +988,31 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   defaultAvatarText: {
-    fontSize: 14,
+    fontSize: isSmallScreen ? 12 : 14,
     fontWeight: '600',
     color: '#6B7280',
   },
   playerName: {
-    fontSize: 14,
+    fontSize: isSmallScreen ? 12 : 14,
     fontWeight: '500',
     color: '#111827',
     flex: 1,
   },
   statCell: {
-    width: 25,
+    width: isSmallScreen ? 22 : 25,
     alignItems: 'center',
   },
   statText: {
-    fontSize: 14,
+    fontSize: isSmallScreen ? 12 : 14,
     fontWeight: '500',
     color: '#1D1D1F',
   },
   ptsCell: {
-    width: 40,
+    width: isSmallScreen ? 35 : 40,
     alignItems: 'flex-end',
   },
   ptsText: {
-    fontSize: 14,
+    fontSize: isSmallScreen ? 12 : 14,
     fontWeight: '500',
     color: '#F59E0B',
   },
@@ -1017,7 +1027,9 @@ const styles = StyleSheet.create({
   },
   emptyContainer: {
     paddingVertical: 60,
+    minHeight: 300,
     alignItems: 'center',
+    justifyContent: 'center',
     gap: 12,
   },
   emptyTitle: {
