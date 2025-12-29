@@ -1553,8 +1553,8 @@ const styles = StyleSheet.create({
   buttonRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    position: 'relative',
     justifyContent: 'center',
+    position: 'relative',
   },
   registerButton: {
     borderRadius: 12,
@@ -1565,10 +1565,8 @@ const styles = StyleSheet.create({
   seasonCardButtons: {
     flexDirection: 'row',
     gap: 10,
-    flex: 1,
   },
   primaryButton: {
-    flex: 1,
   },
   manageTeamButton: {
     flex: 0.85,
@@ -1594,9 +1592,9 @@ const styles = StyleSheet.create({
     fontWeight: '400',
     fontStyle: 'italic',
     color: '#34C759',
+    textAlign: 'center',
     position: 'absolute',
     right: 0,
-    textAlign: 'center',
   },
   registerButtonText: {
     fontSize: 14,
