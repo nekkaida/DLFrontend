@@ -46,6 +46,11 @@ export default function ProfileScreen() {
   const [achievements, setAchievements] = useState<any[]>([]);
   const [ratingHistory, setRatingHistory] = useState<GameData[]>([]);
   const [selectedGraphIndex, setSelectedGraphIndex] = useState<number | null>(null);
+  const [leagueStatsData, setLeagueStatsData] = useState<{
+    wins: number;
+    losses: number;
+    matchesPlayed: number;
+  }>({ wins: 0, losses: 0, matchesPlayed: 0 });
   const hasInitializedSport = useRef(false);
 
   // Use shared profile image upload hook
@@ -279,9 +284,8 @@ export default function ProfileScreen() {
   };
 
   const calculateWinRate = () => {
-    const stats = userData.leagueStats?.[activeTab]?.[selectedGameType];
-    if (!stats || stats.totalMatches === 0) return 0;
-    return Math.round((stats.wins / stats.totalMatches) * 100);
+    if (leagueStatsData.matchesPlayed === 0) return 0;
+    return Math.round((leagueStatsData.wins / leagueStatsData.matchesPlayed) * 100);
   };
 
   // Get ELO data - use real rating history if available, otherwise show placeholder
@@ -415,11 +419,14 @@ export default function ProfileScreen() {
             }}
           />
 
-          {/* Division Standings - Shows user's current divisions */}
+          {/* Division Standings - Filtered by selected sport */}
           {session?.user?.id && (
             <PlayerDivisionStandings
               userId={session.user.id}
-              showOnlyCurrentDivisions={true}
+              showOnlyCurrentDivisions={false}
+              sportFilter={activeTab}
+              gameTypeFilter={selectedGameType}
+              onStatsCalculated={setLeagueStatsData}
             />
           )}
 
@@ -430,6 +437,8 @@ export default function ProfileScreen() {
             gameTypeOptions={gameTypeOptions}
             onGameTypeSelect={handleGameTypeSelect}
             winRate={calculateWinRate()}
+            wins={leagueStatsData.wins}
+            losses={leagueStatsData.losses}
           />
         </View>
       </ScrollView>

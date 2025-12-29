@@ -410,6 +410,34 @@ const MatchCard: React.FC<MatchCardProps> = ({ match, onPress }) => {
               <Text style={styles.vsText}>VS</Text>
             </>
           )}
+          {/* Rating Change Badge */}
+          {match.ratingChange && match.ratingChange.delta !== 0 && (
+            <View style={styles.ratingChangeBadge}>
+              <Text style={styles.ratingTransitionText}>
+                {match.ratingChange.ratingBefore}
+              </Text>
+              <Text style={styles.ratingArrowSymbol}>→</Text>
+              <Text style={styles.ratingTransitionText}>
+                {match.ratingChange.ratingAfter}
+              </Text>
+              <Text
+                style={[
+                  styles.ratingDeltaText,
+                  { color: match.ratingChange.delta > 0 ? COLORS.winAccent : COLORS.lossAccent },
+                ]}
+              >
+                ({match.ratingChange.delta > 0 ? '+' : ''}{match.ratingChange.delta})
+              </Text>
+              <Text
+                style={[
+                  styles.ratingChangeArrow,
+                  { color: match.ratingChange.delta > 0 ? COLORS.winAccent : COLORS.lossAccent },
+                ]}
+              >
+                {match.ratingChange.delta > 0 ? '↗' : '↘'}
+              </Text>
+            </View>
+          )}
         </View>
 
         {/* Right Player (Opponent) */}
@@ -629,7 +657,11 @@ export default function MatchHistoryScreen() {
 
   const handleBackPress = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    router.back();
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.replace('/profile');
+    }
   };
 
   const handleSportSelect = (value: SportType | 'all') => {
@@ -1049,6 +1081,33 @@ const styles = StyleSheet.create({
     color: COLORS.textMuted,
     marginTop: 2,
     letterSpacing: 1,
+  },
+  ratingChangeBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 10,
+    backgroundColor: 'rgba(0, 0, 0, 0.04)',
+    gap: 3,
+  },
+  ratingTransitionText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: COLORS.textSecondary,
+  },
+  ratingArrowSymbol: {
+    fontSize: 10,
+    color: COLORS.textMuted,
+  },
+  ratingDeltaText: {
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  ratingChangeArrow: {
+    fontSize: 11,
+    fontWeight: '600',
   },
 
   // Avatar styles

@@ -55,6 +55,13 @@ interface BackendMatch {
   isDisputed?: boolean;
   isFriendly?: boolean;
   sportType?: SportType;
+
+  // Rating change for this match
+  ratingChange?: {
+    ratingBefore: number;
+    ratingAfter: number;
+    delta: number;
+  } | null;
 }
 
 interface BackendResponse {
@@ -174,6 +181,7 @@ export class MatchHistoryService {
       isWalkover: match.isWalkover,
       isFriendly: match.isFriendly,
       sportType: match.sportType,
+      ratingChange: match.ratingChange || null,
     };
   }
 
@@ -253,7 +261,15 @@ export class MatchHistoryService {
       }
 
       // Transform matches to frontend format
+      console.log('[MatchHistoryService] Raw matches from backend:', matches.map(m => ({
+        id: m.id,
+        ratingChange: m.ratingChange,
+      })));
       const transformedMatches = matches.map(match => this.transformMatch(match));
+      console.log('[MatchHistoryService] Transformed matches:', transformedMatches.map(m => ({
+        id: m.id,
+        ratingChange: m.ratingChange,
+      })));
 
       return {
         success: true,

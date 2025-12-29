@@ -49,6 +49,13 @@ export interface MatchHistoryItem {
   walkoverReason?: string;
   isFriendly?: boolean;
   sportType?: SportType;
+
+  // Rating change from this match
+  ratingChange?: {
+    ratingBefore: number;
+    ratingAfter: number;
+    delta: number;
+  } | null;
 }
 
 export interface MatchHistoryFilters {
