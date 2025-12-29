@@ -345,7 +345,7 @@ React.useEffect(() => {
   //           lastRegistration: 'Last Registration: 27 Nov 2025',
   //           entryFee: 'RM59.90',
   //           buttonText: 'Register',
-  //           buttonColor: '#863A73',
+  //           buttonColor: '#A04DFE',
   //           buttonHandler: handleRegisterPress
   //         };
   //       case 1: // Upcoming
@@ -436,7 +436,7 @@ React.useEffect(() => {
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#863A73" />
+        <ActivityIndicator size="large" color="#A04DFE" />
       </View>
     );
   }
@@ -669,7 +669,7 @@ const SeasonCard: React.FC<SeasonCardProps> = ({
         <SportDropdownHeader 
           currentSport={sport}
           sportName={sport === 'pickleball' ? 'Pickleball' : 'Tennis'}
-          sportColor={sport === 'pickleball' ? '#863A73' : '#008000'}
+          sportColor={sport === 'pickleball' ? '#A04DFE' : '#008000'}
         />
         
         {/* Category Title */}
@@ -801,7 +801,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     height: 2,
-    backgroundColor: '#863A73',
+    backgroundColor: '#A04DFE',
     borderRadius: 1,
   },
   scrollContainer: {
@@ -836,12 +836,12 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   seasonBadge: {
-    backgroundColor: '#863A73',
+    backgroundColor: '#A04DFE',
     borderRadius: 14,
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderWidth: 1,
-    borderColor: '#863A73',
+    borderColor: '#A04DFE',
   },
   seasonBadgeText: {
     fontSize: 12,
@@ -871,7 +871,7 @@ const styles = StyleSheet.create({
     color: '#6B7280',
   },
   playerCountNumber: {
-    color: '#863A73',
+    color: '#A04DFE',
     fontWeight: '600',
   },
   seasonDetails: {
@@ -891,7 +891,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   highlightText: {
-    color: '#863A73',
+    color: '#A04DFE',
     fontWeight: '600',
   },
   registerButton: {

@@ -92,11 +92,11 @@ export const useActivePartnership = (
       console.log('[useActivePartnership] Extracted data:', data);
       console.log('[useActivePartnership] Data status:', data?.status);
 
-      if (data && data.status === 'ACTIVE') {
-        console.log('[useActivePartnership] Partnership found and ACTIVE');
+      if (data && (data.status === 'ACTIVE' || data.status === 'INCOMPLETE')) {
+        console.log('[useActivePartnership] Partnership found with status:', data.status);
         setPartnership(data);
       } else {
-        console.log('[useActivePartnership] No active partnership found or status not ACTIVE');
+        console.log('[useActivePartnership] No active/incomplete partnership found');
         setPartnership(null);
       }
     } catch (err) {

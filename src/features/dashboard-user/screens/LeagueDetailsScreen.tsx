@@ -175,8 +175,8 @@ export default function LeagueDetailsScreen({
     if (tabIndex === 0) {
       // Navigate to Connect
       router.push({
-        pathname: '/user-dashboard/connect' as any,
-        params: { sport: selectedSport }
+        pathname: '/user-dashboard' as any,
+        params: { view: 'connect', sport: selectedSport }
       });
     } else if (tabIndex === 1) {
       // Navigate to Friendly
@@ -452,23 +452,12 @@ export default function LeagueDetailsScreen({
         };
       }
 
-      // If doubles season and partnership was dissolved (REMOVED status), show Find Partner
+      // If doubles season and membership was REMOVED (player left), they must re-register and pay again
       if (isDoublesSeason && userMembership && userMembership.status === 'REMOVED') {
         return {
-          text: 'Find Partner',
+          text: 'Join Season',
           color: '#FEA04D',
-          onPress: () => {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-            router.push({
-              pathname: '/user-dashboard/doubles-team-pairing',
-              params: {
-                seasonId: season.id,
-                seasonName: season.name,
-                leagueId: league?.id,
-                sport: sport || 'pickleball'
-              }
-            } as any);
-          }
+          onPress: () => handleRegisterPress(season)
         };
       }
 
@@ -682,7 +671,7 @@ export default function LeagueDetailsScreen({
     }
     return {
       gradient: ['#B98FAF', '#FFFFFF'] as const,
-      color: '#863A73',
+      color: '#A04DFE',
       name: 'Pickleball'
     };
   };

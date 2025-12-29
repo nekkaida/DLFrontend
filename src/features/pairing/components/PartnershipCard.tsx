@@ -389,6 +389,7 @@ export const PartnershipCard: React.FC<PartnershipCardProps> = ({
             onDissolve();
           }
         }}
+        sport={sportType.toLowerCase() as 'pickleball' | 'tennis' | 'padel'}
       />
     </Animated.View>
   );

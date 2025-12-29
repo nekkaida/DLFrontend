@@ -17,6 +17,8 @@ import LeagueInfoIcon from '@/assets/icons/league-info.svg';
 import BackButtonIcon from '@/assets/icons/back-button.svg';
 import { getSeasonInfoIcons } from '../components/SeasonInfoIcons';
 import { checkQuestionnaireStatus, getSeasonSport } from '../utils/questionnaireCheck';
+import { useUserPartnerships } from '@/src/features/pairing/hooks/useUserPartnerships';
+import { ManageTeamButton } from '@/features/pairing/components';
 
 const { width } = Dimensions.get('window');
 
@@ -49,6 +51,9 @@ export default function SeasonDetailsScreen({
   const STATUS_BAR_HEIGHT = insets.top;
 
   const userId = session?.user?.id;
+
+  // Use custom hook for user partnerships management
+  const { partnerships, loading: partnershipsLoading } = useUserPartnerships(userId);
 
   // Animated scroll value for collapsing header
   const scrollY = React.useRef(new Animated.Value(0)).current;
@@ -324,7 +329,7 @@ export default function SeasonDetailsScreen({
     }
     return {
       gradient: ['#B98FAF', '#FFFFFF'] as const,
-      color: '#863A73',
+      color: '#A04DFE',
       name: 'Pickleball'
     };
   };
@@ -427,6 +432,16 @@ export default function SeasonDetailsScreen({
       };
     }
 
+    // If doubles season and membership was REMOVED (player left), they must re-register and pay again
+    if (doublesSeason && userMembership && userMembership.status === 'REMOVED') {
+      return {
+        text: 'Join Season',
+        color: '#FEA04D',
+        onPress: handleRegisterPress,
+        disabled: false
+      };
+    }
+
     if (isUserRegistered) {
       return {
         text: 'View Leaderboard',
@@ -463,6 +478,15 @@ export default function SeasonDetailsScreen({
   };
 
   const buttonConfig = getButtonConfig();
+
+  // Check if user has partnership for this season (for doubles seasons)
+  const hasPartnership = season ? partnerships.has(season.id) : false;
+  const partnership = season ? partnerships.get(season.id) : undefined;
+  const userMembership = season?.memberships?.find((m: any) => m.userId === userId);
+  const isUserRegistered = !!userMembership;
+
+  // Show manage team button for doubles seasons with active partnership
+  const showManageTeam = isDoublesSeason(season) && hasPartnership && isUserRegistered;
 
   // Helper function to get available sports for SportSwitcher
   const getUserSelectedSports = () => {
@@ -820,14 +844,28 @@ export default function SeasonDetailsScreen({
       {/* Sticky Button */}
       {!isLoading && !error && season && (
         <View style={[styles.stickyButtonContainer, { paddingBottom: insets.bottom }]}>
-          <TouchableOpacity
-            style={[styles.stickyButton, { backgroundColor: buttonConfig.color }]}
-            onPress={buttonConfig.onPress}
-            disabled={buttonConfig.disabled}
-            activeOpacity={0.8}
-          >
-            <Text style={styles.stickyButtonText}>{buttonConfig.text}</Text>
-          </TouchableOpacity>
+          <View style={styles.stickyButtonRow}>
+            <TouchableOpacity
+              style={[
+                styles.stickyButton,
+                { backgroundColor: buttonConfig.color },
+                showManageTeam && styles.stickyButtonWithManageTeam
+              ]}
+              onPress={buttonConfig.onPress}
+              disabled={buttonConfig.disabled}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.stickyButtonText}>{buttonConfig.text}</Text>
+            </TouchableOpacity>
+
+            {showManageTeam && partnership && (
+              <ManageTeamButton
+                seasonId={season.id}
+                partnershipId={partnership.id}
+                size="large"
+              />
+            )}
+          </View>
         </View>
       )}
 
@@ -838,7 +876,6 @@ export default function SeasonDetailsScreen({
         onPayNow={handlePayNow}
         onPayLater={handlePayLater}
         isProcessingPayment={isProcessingPayment}
-        sport={sport}
         sport={sport}
       />
     </View>
@@ -1275,12 +1312,22 @@ const styles = StyleSheet.create({
     elevation: 8,
     zIndex: 10,
   },
+  stickyButtonRow: {
+    flexDirection: 'row',
+    gap: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   stickyButton: {
+    flex: 1,
     borderRadius: 12,
     paddingVertical: 14,
     paddingHorizontal: 24,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  stickyButtonWithManageTeam: {
+    flex: 1,
   },
   stickyButtonText: {
     fontSize: 16,

@@ -674,7 +674,7 @@ export const ChatThreadScreen: React.FC<ChatThreadScreenProps> = ({ threadId, da
       <View style={styles.container}>
         <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
         <View style={styles.centerContainer}>
-          <ActivityIndicator size="large" color="#863A73" />
+          <ActivityIndicator size="large" color="#A04DFE" />
           <Text style={styles.loadingText}>Loading conversation...</Text>
         </View>
       </View>
@@ -1028,7 +1028,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   primaryActionButton: {
-    backgroundColor: '#863A73',
+    backgroundColor: '#A04DFE',
   },
   secondaryActionButton: {
     backgroundColor: 'transparent',

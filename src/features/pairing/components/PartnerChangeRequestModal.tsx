@@ -32,7 +32,32 @@ interface PartnerChangeRequestModalProps {
   currentUserId: string;
   onClose: () => void;
   onSuccess: () => void;
+  sport?: 'pickleball' | 'tennis' | 'padel';
 }
+
+const getSportColors = (sport: 'pickleball' | 'tennis' | 'padel' = 'pickleball') => {
+  switch (sport) {
+    case 'tennis':
+      return {
+        primary: '#587A27',
+        primaryLight: '#A2E047',
+        background: '#F5F9F0',
+      };
+    case 'padel':
+      return {
+        primary: '#2E6698',
+        primaryLight: '#4DABFE',
+        background: '#F0F7FC',
+      };
+    case 'pickleball':
+    default:
+      return {
+        primary: '#A04DFE',
+        primaryLight: '#602E98',
+        background: '#F5F0FC',
+      };
+  }
+};
 
 const CHANGE_REASONS = [
   { value: 'AVAILABILITY_CONFLICT', label: 'Availability Conflict' },
@@ -49,10 +74,13 @@ export const PartnerChangeRequestModal: React.FC<PartnerChangeRequestModalProps>
   currentUserId,
   onClose,
   onSuccess,
+  sport = 'pickleball',
 }) => {
   const [selectedReason, setSelectedReason] = useState<string | null>(null);
   const [customReason, setCustomReason] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const sportColors = getSportColors(sport);
 
   const partnerName = partnership
     ? partnership.captainId === currentUserId
@@ -171,7 +199,7 @@ export const PartnerChangeRequestModal: React.FC<PartnerChangeRequestModalProps>
           {/* Header */}
           <View style={styles.header}>
             <View style={styles.headerTitleContainer}>
-              <Ionicons name="swap-horizontal" size={24} color="#863A73" />
+              <Ionicons name="swap-horizontal" size={24} color={sportColors.primary} />
               <Text style={styles.headerTitle}>Request Partner Change</Text>
             </View>
             <TouchableOpacity onPress={handleClose} style={styles.closeButton}>
@@ -187,7 +215,7 @@ export const PartnerChangeRequestModal: React.FC<PartnerChangeRequestModalProps>
             <View style={styles.infoSection}>
               <Text style={styles.infoText}>
                 You are requesting to change your partner for{' '}
-                <Text style={styles.boldText}>{partnership?.season?.name}</Text>.
+                <Text style={[styles.boldText, { color: sportColors.primary }]}>{partnership?.season?.name}</Text>.
               </Text>
               <Text style={styles.infoTextSecondary}>
                 This request will be sent to admin for review. If approved, your
@@ -205,7 +233,10 @@ export const PartnerChangeRequestModal: React.FC<PartnerChangeRequestModalProps>
                 key={reason.value}
                 style={[
                   styles.reasonOption,
-                  selectedReason === reason.value && styles.reasonOptionSelected,
+                  selectedReason === reason.value && [
+                    styles.reasonOptionSelected,
+                    { borderColor: sportColors.primary, backgroundColor: sportColors.background },
+                  ],
                 ]}
                 onPress={() => handleReasonSelect(reason.value)}
                 activeOpacity={0.7}
@@ -213,17 +244,20 @@ export const PartnerChangeRequestModal: React.FC<PartnerChangeRequestModalProps>
                 <View
                   style={[
                     styles.radio,
-                    selectedReason === reason.value && styles.radioSelected,
+                    selectedReason === reason.value && { borderColor: sportColors.primary },
                   ]}
                 >
                   {selectedReason === reason.value && (
-                    <View style={styles.radioInner} />
+                    <View style={[styles.radioInner, { backgroundColor: sportColors.primary }]} />
                   )}
                 </View>
                 <Text
                   style={[
                     styles.reasonLabel,
-                    selectedReason === reason.value && styles.reasonLabelSelected,
+                    selectedReason === reason.value && [
+                      styles.reasonLabelSelected,
+                      { color: sportColors.primary },
+                    ],
                   ]}
                 >
                   {reason.label}
@@ -263,6 +297,7 @@ export const PartnerChangeRequestModal: React.FC<PartnerChangeRequestModalProps>
             <TouchableOpacity
               style={[
                 styles.submitButton,
+                { backgroundColor: sportColors.primary },
                 (!selectedReason || isSubmitting) && styles.submitButtonDisabled,
               ]}
               onPress={handleSubmit}
@@ -339,7 +374,6 @@ const styles = StyleSheet.create({
   },
   boldText: {
     fontWeight: '700',
-    color: '#863A73',
   },
   sectionTitle: {
     fontSize: 16,
@@ -360,8 +394,7 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   reasonOptionSelected: {
-    borderColor: '#863A73',
-    backgroundColor: '#FAF5F9',
+    // Colors applied dynamically via inline styles
   },
   radio: {
     width: 20,
@@ -374,13 +407,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   radioSelected: {
-    borderColor: '#863A73',
+    // Color applied dynamically via inline styles
   },
   radioInner: {
     width: 10,
     height: 10,
     borderRadius: 5,
-    backgroundColor: '#863A73',
+    // Color applied dynamically via inline styles
   },
   reasonLabel: {
     fontSize: 15,
@@ -388,8 +421,8 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   reasonLabelSelected: {
-    color: '#863A73',
     fontWeight: '600',
+    // Color applied dynamically via inline styles
   },
   customReasonContainer: {
     marginTop: 12,
@@ -433,8 +466,8 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingVertical: 14,
     borderRadius: 10,
-    backgroundColor: '#863A73',
     alignItems: 'center',
+    // Background color applied dynamically via inline styles
   },
   submitButtonDisabled: {
     backgroundColor: '#D1D5DB',

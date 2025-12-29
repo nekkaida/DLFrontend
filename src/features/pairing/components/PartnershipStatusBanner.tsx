@@ -10,9 +10,10 @@ interface PartnershipStatusBannerProps {
   hasMyPendingRequest: boolean;
   hasPartnerPendingRequest: boolean;
   partnerHasLeft: boolean;
+  isIncomplete?: boolean;
 }
 
-type BannerType = 'myPending' | 'partnerRequested' | 'partnerLeft' | null;
+type BannerType = 'myPending' | 'partnerRequested' | 'partnerLeft' | 'incomplete' | null;
 
 const getBannerConfig = (type: BannerType) => {
   switch (type) {
@@ -55,6 +56,19 @@ const getBannerConfig = (type: BannerType) => {
           text: '#991B1B',
         },
       };
+    case 'incomplete':
+      return {
+        icon: 'people-outline' as const,
+        title: 'Partner Needed',
+        text: 'Invite a friend or search for a new partner to continue playing matches',
+        colors: {
+          background: '#FFF7ED',
+          border: '#FDBA74',
+          icon: '#F59E0B',
+          title: '#EA580C',
+          text: '#9A3412',
+        },
+      };
     default:
       return null;
   }
@@ -64,11 +78,14 @@ export const PartnershipStatusBanner: React.FC<PartnershipStatusBannerProps> = (
   hasMyPendingRequest,
   hasPartnerPendingRequest,
   partnerHasLeft,
+  isIncomplete = false,
 }) => {
-  // Determine which banner to show (priority: partnerLeft > partnerRequested > myPending)
+  // Determine which banner to show (priority: incomplete > partnerLeft > partnerRequested > myPending)
   let bannerType: BannerType = null;
 
-  if (partnerHasLeft) {
+  if (isIncomplete) {
+    bannerType = 'incomplete';
+  } else if (partnerHasLeft) {
     bannerType = 'partnerLeft';
   } else if (hasPartnerPendingRequest) {
     bannerType = 'partnerRequested';

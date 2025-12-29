@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -8,17 +8,26 @@ import {
   TouchableOpacity,
   Dimensions,
   Platform,
+  Alert,
 } from 'react-native';
 import { router } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useSession } from '@/lib/auth-client';
+import { toast } from 'sonner-native';
+import { useSession, authClient } from '@/lib/auth-client';
+import { getBackendBaseURL } from '@/config/network';
 import { PartnershipCard } from '../components/PartnershipCard';
 import { PartnershipStatusBanner } from '../components/PartnershipStatusBanner';
+import { IncompletePartnershipCard } from '../components/IncompletePartnershipCard';
+import { IncomingPairRequestCard } from '../components/IncomingPairRequestCard';
+import { IncomingSeasonInvitationCard } from '../components/IncomingSeasonInvitationCard';
+import { InvitePartnerBottomSheet } from '@/src/features/dashboard-user/components/InvitePartnerBottomSheet';
 import { usePartnershipMonitor } from '../hooks/usePartnershipMonitor';
 import { usePartnershipStatus } from '../hooks/usePartnershipStatus';
+import { useIncomingPairRequests } from '../hooks/useIncomingPairRequests';
+import { useIncomingSeasonInvitations } from '../hooks/useIncomingSeasonInvitations';
 
 const { width } = Dimensions.get('window');
 const isSmallScreen = width < 375;
@@ -30,6 +39,9 @@ interface ManagePartnershipScreenProps {
 export default function ManagePartnershipScreen({ seasonId }: ManagePartnershipScreenProps) {
   const { data: session } = useSession();
   const insets = useSafeAreaInsets();
+  const [showInvitePartnerSheet, setShowInvitePartnerSheet] = useState(false);
+  const [isInviting, setIsInviting] = useState(false);
+  const [processingRequestId, setProcessingRequestId] = useState<string | null>(null);
 
   // Monitor partnership for dissolution by partner
   // This hook also fetches and manages partnership data, so we don't need separate state
@@ -49,10 +61,221 @@ export default function ManagePartnershipScreen({ seasonId }: ManagePartnershipS
   // Derive error state from partnership being null after loading
   const error = !loading && !partnership ? 'No active partnership found for this season' : null;
 
+  // Check if partnership is INCOMPLETE (partner has left)
+  const isIncomplete = partnership?.status === 'INCOMPLETE';
+
+  // Fetch incoming pair requests for INCOMPLETE partnerships
+  const {
+    requests: incomingRequests,
+    loading: loadingRequests,
+    refresh: refreshRequests,
+  } = useIncomingPairRequests(isIncomplete ? seasonId : null);
+
+  // Fetch incoming season invitations for INCOMPLETE partnerships
+  // (These are from players without partnerships who want to join this team)
+  const {
+    invitations: incomingSeasonInvitations,
+    loading: loadingSeasonInvitations,
+    refresh: refreshSeasonInvitations,
+  } = useIncomingSeasonInvitations(isIncomplete ? seasonId : null);
+
   const handleDissolve = () => {
-    // PartnershipCard handles navigation to find-partner, so we don't need to do anything here
-    // The monitoring hooks will also detect the dissolution and could redirect, but PartnershipCard navigates first
+    // Refresh partnership status to update UI (disable buttons if request was submitted)
+    partnershipStatus.refetch();
+    // PartnershipCard handles navigation to find-partner when dissolving,
+    // but for Request Change, we just need to refresh to show disabled state
   };
+
+  const handleInvitePartner = () => {
+    setShowInvitePartnerSheet(true);
+  };
+
+  const handlePlayerSelect = useCallback(async (player: any) => {
+    if (!partnership?.id || isInviting) return;
+
+    setIsInviting(true);
+    try {
+      const backendUrl = getBackendBaseURL();
+      const response = await authClient.$fetch(
+        `${backendUrl}/api/pairing/partnership/${partnership.id}/invite-replacement`,
+        {
+          method: 'POST',
+          body: JSON.stringify({ recipientId: player.id }),
+        }
+      );
+
+      const responseData = (response as any).data || response;
+      if (responseData && responseData.success) {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        toast.success('Invitation Sent', {
+          description: `Waiting for ${player.name} to accept`,
+        });
+        setShowInvitePartnerSheet(false);
+        refresh(); // Refresh partnership data
+      } else {
+        toast.error('Error', {
+          description: responseData.message || 'Failed to send invitation',
+        });
+      }
+    } catch (error) {
+      console.error('Error inviting replacement partner:', error);
+      toast.error('Error', {
+        description: 'Failed to send invitation',
+      });
+    } finally {
+      setIsInviting(false);
+    }
+  }, [partnership?.id, isInviting, refresh]);
+
+  // Handle accepting an incoming pair request
+  const handleAcceptRequest = useCallback(async (requestId: string) => {
+    setProcessingRequestId(requestId);
+    try {
+      const backendUrl = getBackendBaseURL();
+      const response = await authClient.$fetch(
+        `${backendUrl}/api/pairing/request/${requestId}/accept`,
+        { method: 'POST' }
+      );
+
+      const responseData = (response as any).data || response;
+      if (responseData && responseData.success) {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        toast.success('Partner Added!', {
+          description: 'Your team is complete. Ready to play!',
+        });
+        refresh(); // Refresh partnership data - it should now be ACTIVE
+        refreshRequests(); // Refresh incoming requests
+      } else {
+        toast.error('Error', {
+          description: responseData.message || 'Failed to accept request',
+        });
+      }
+    } catch (error) {
+      console.error('Error accepting request:', error);
+      toast.error('Error', {
+        description: 'Failed to accept request',
+      });
+    } finally {
+      setProcessingRequestId(null);
+    }
+  }, [refresh, refreshRequests]);
+
+  // Handle denying an incoming pair request
+  const handleDenyRequest = useCallback((requestId: string, requesterName: string) => {
+    Alert.alert(
+      'Decline Request',
+      `Are you sure you want to decline the partner request from ${requesterName}?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Decline',
+          style: 'destructive',
+          onPress: async () => {
+            setProcessingRequestId(requestId);
+            try {
+              const backendUrl = getBackendBaseURL();
+              const response = await authClient.$fetch(
+                `${backendUrl}/api/pairing/request/${requestId}/deny`,
+                { method: 'POST' }
+              );
+
+              const responseData = (response as any).data || response;
+              if (responseData && responseData.success) {
+                toast.success('Request declined');
+                refreshRequests();
+              } else {
+                toast.error('Error', {
+                  description: responseData.message || 'Failed to decline request',
+                });
+              }
+            } catch (error) {
+              console.error('Error denying request:', error);
+              toast.error('Error', {
+                description: 'Failed to decline request',
+              });
+            } finally {
+              setProcessingRequestId(null);
+            }
+          },
+        },
+      ]
+    );
+  }, [refreshRequests]);
+
+  // Handle accepting an incoming season invitation
+  const handleAcceptSeasonInvitation = useCallback(async (invitationId: string) => {
+    setProcessingRequestId(invitationId);
+    try {
+      const backendUrl = getBackendBaseURL();
+      const response = await authClient.$fetch(
+        `${backendUrl}/api/pairing/season/invitation/${invitationId}/accept`,
+        { method: 'POST' }
+      );
+
+      const responseData = (response as any).data || response;
+      if (responseData && responseData.success) {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        toast.success('Partner Added!', {
+          description: 'Your team is complete. Ready to play!',
+        });
+        refresh(); // Refresh partnership data - it should now be ACTIVE
+        refreshSeasonInvitations(); // Refresh incoming invitations
+      } else {
+        toast.error('Error', {
+          description: responseData.message || 'Failed to accept invitation',
+        });
+      }
+    } catch (error) {
+      console.error('Error accepting season invitation:', error);
+      toast.error('Error', {
+        description: 'Failed to accept invitation',
+      });
+    } finally {
+      setProcessingRequestId(null);
+    }
+  }, [refresh, refreshSeasonInvitations]);
+
+  // Handle denying an incoming season invitation
+  const handleDenySeasonInvitation = useCallback((invitationId: string, senderName: string) => {
+    Alert.alert(
+      'Decline Request',
+      `Are you sure you want to decline the partner request from ${senderName}?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Decline',
+          style: 'destructive',
+          onPress: async () => {
+            setProcessingRequestId(invitationId);
+            try {
+              const backendUrl = getBackendBaseURL();
+              const response = await authClient.$fetch(
+                `${backendUrl}/api/pairing/season/invitation/${invitationId}/deny`,
+                { method: 'POST' }
+              );
+
+              const responseData = (response as any).data || response;
+              if (responseData && responseData.success) {
+                toast.success('Request declined');
+                refreshSeasonInvitations();
+              } else {
+                toast.error('Error', {
+                  description: responseData.message || 'Failed to decline request',
+                });
+              }
+            } catch (error) {
+              console.error('Error denying season invitation:', error);
+              toast.error('Error', {
+                description: 'Failed to decline request',
+              });
+            } finally {
+              setProcessingRequestId(null);
+            }
+          },
+        },
+      ]
+    );
+  }, [refreshSeasonInvitations]);
 
   if (loading) {
     return (
@@ -163,20 +386,62 @@ export default function ManagePartnershipScreen({ seasonId }: ManagePartnershipS
           hasMyPendingRequest={partnershipStatus.hasMyPendingRequest}
           hasPartnerPendingRequest={partnershipStatus.hasPartnerPendingRequest}
           partnerHasLeft={partnershipStatus.partnerHasLeft}
+          isIncomplete={isIncomplete}
         />
 
-        {/* Partnership Card */}
-        <PartnershipCard
-          partnership={partnership}
-          currentUserId={session?.user?.id}
-          onDissolve={handleDissolve}
-          showActions={true}
-          hasPartnerPendingRequest={partnershipStatus.hasPartnerPendingRequest}
-          hasMyPendingRequest={partnershipStatus.hasMyPendingRequest}
-        />
+        {/* Show incoming pair requests FIRST for INCOMPLETE partnerships */}
+        {isIncomplete && incomingRequests.length > 0 && (
+          <>
+            {incomingRequests.map((request) => (
+              <IncomingPairRequestCard
+                key={request.id}
+                request={request}
+                onAccept={handleAcceptRequest}
+                onDeny={handleDenyRequest}
+                isLoading={processingRequestId === request.id}
+              />
+            ))}
+          </>
+        )}
 
-        {/* Division Information Card */}
-        {partnership.division && (
+        {/* Show incoming season invitations for INCOMPLETE partnerships */}
+        {isIncomplete && incomingSeasonInvitations.length > 0 && (
+          <>
+            {incomingSeasonInvitations.map((invitation) => (
+              <IncomingSeasonInvitationCard
+                key={invitation.id}
+                invitation={invitation}
+                onAccept={handleAcceptSeasonInvitation}
+                onDeny={handleDenySeasonInvitation}
+                isLoading={processingRequestId === invitation.id}
+              />
+            ))}
+          </>
+        )}
+
+        {/* Show different card based on partnership status */}
+        {isIncomplete ? (
+          /* INCOMPLETE Partnership Card - Partner has left */
+          <IncompletePartnershipCard
+            partnership={partnership as any}
+            currentUserId={session?.user?.id}
+            onInvitePartner={handleInvitePartner}
+            incomingRequestCount={incomingRequests.length + incomingSeasonInvitations.length}
+          />
+        ) : (
+          /* Active Partnership Card */
+          <PartnershipCard
+            partnership={partnership}
+            currentUserId={session?.user?.id}
+            onDissolve={handleDissolve}
+            showActions={true}
+            hasPartnerPendingRequest={partnershipStatus.hasPartnerPendingRequest}
+            hasMyPendingRequest={partnershipStatus.hasMyPendingRequest}
+          />
+        )}
+
+        {/* Division Information Card - Show for both ACTIVE and INCOMPLETE */}
+        {partnership.division && !isIncomplete && (
           <View style={styles.divisionCard}>
             <View style={styles.divisionHeader}>
               <View style={styles.divisionIconContainer}>
@@ -190,6 +455,14 @@ export default function ManagePartnershipScreen({ seasonId }: ManagePartnershipS
           </View>
         )}
       </ScrollView>
+
+      {/* Invite Partner Bottom Sheet - For INCOMPLETE partnerships */}
+      <InvitePartnerBottomSheet
+        visible={showInvitePartnerSheet}
+        onClose={() => setShowInvitePartnerSheet(false)}
+        seasonId={seasonId}
+        onPlayerSelect={handlePlayerSelect}
+      />
     </View>
   );
 }

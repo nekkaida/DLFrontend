@@ -681,7 +681,7 @@ export default function DashboardScreen() {
                       width={11}
                       height={10}
                       style={styles.locationIcon}
-                      fill={selectedSport === 'pickleball' ? '#863A73' : undefined}
+                      fill={selectedSport === 'pickleball' ? '#A04DFE' : undefined}
                     />
                     ) : selectedSport === 'tennis' ? (
                       <TennisLocationIcon
@@ -1018,11 +1018,11 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     borderRadius: 12,
     borderLeftWidth: 4,
-    borderLeftColor: "#863A73",
+    borderLeftColor: "#A04DFE",
   },
   tabIndicatorText: {
     fontSize: 14,
-    color: "#863A73",
+    color: "#A04DFE",
     fontWeight: "600",
     textAlign: "center",
   },

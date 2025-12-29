@@ -176,7 +176,7 @@ export default function LeagueCategoryScreen({
         <SportDropdownHeader 
           currentSport={sport}
           sportName={sport === 'pickleball' ? 'Pickleball' : 'Tennis'}
-          sportColor={sport === 'pickleball' ? '#863A73' : '#008000'}
+          sportColor={sport === 'pickleball' ? '#A04DFE' : '#008000'}
         />
         
         {/* League Info Section */}
@@ -201,7 +201,7 @@ export default function LeagueCategoryScreen({
           <View style={styles.categoriesContainer}>
             {isLoading ? (
               <View style={styles.loadingContainer}>
-                <ActivityIndicator size="large" color="#863A73" />
+                <ActivityIndicator size="large" color="#A04DFE" />
                 <Text style={styles.loadingText}>Loading categories...</Text>
               </View>
             ) : error ? (
@@ -321,12 +321,12 @@ const styles = StyleSheet.create({
     textAlign: 'left',
   },
   trophyBadge: {
-    backgroundColor: '#863A73',
+    backgroundColor: '#A04DFE',
     borderRadius: 8,
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderWidth: 1,
-    borderColor: '#863A73',
+    borderColor: '#A04DFE',
   },
   trophyText: {
     fontSize: 12,
@@ -390,7 +390,7 @@ const styles = StyleSheet.create({
   categoryTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#863A73',
+    color: '#A04DFE',
     textAlign: 'center',
   },
   categoryGameTypeText: {
@@ -425,7 +425,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   retryButton: {
-    backgroundColor: '#863A73',
+    backgroundColor: '#A04DFE',
     paddingHorizontal: 24,
     paddingVertical: 12,
     borderRadius: 8,

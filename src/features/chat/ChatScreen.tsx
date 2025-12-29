@@ -324,7 +324,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
     return (
       <View style={styles.container}>
         <View style={styles.centerContainer}>
-          <ActivityIndicator size="large" color="#863A73" />
+          <ActivityIndicator size="large" color="#A04DFE" />
           <Text style={styles.loadingText}>Loading chats...</Text>
         </View>
       </View>

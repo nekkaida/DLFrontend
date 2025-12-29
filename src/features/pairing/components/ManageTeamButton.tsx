@@ -8,11 +8,13 @@ import { usePartnershipStatus } from '../hooks/usePartnershipStatus';
 interface ManageTeamButtonProps {
   seasonId: string;
   partnershipId: string;
+  size?: 'small' | 'large';
 }
 
 export const ManageTeamButton: React.FC<ManageTeamButtonProps> = ({
   seasonId,
   partnershipId,
+  size = 'small',
 }) => {
   // Fetch partnership status to check if partner has requested change or left
   const partnershipStatus = usePartnershipStatus({
@@ -31,7 +33,7 @@ export const ManageTeamButton: React.FC<ManageTeamButtonProps> = ({
 
   return (
     <TouchableOpacity
-      style={styles.button}
+      style={[styles.button, size === 'large' && styles.buttonLarge]}
       onPress={handlePress}
       activeOpacity={0.7}
     >
@@ -52,7 +54,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'transparent',
     borderWidth: 1.5,
     borderColor: '#FEA04D',
-    borderRadius: 8,
+    borderRadius: 12,
     paddingVertical: 10,
     paddingHorizontal: 12,
     flexDirection: 'row',
@@ -60,6 +62,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 6,
     position: 'relative',
+  },
+  buttonLarge: {
+    paddingVertical: 14,
+    paddingHorizontal: 24,
   },
   alertIndicator: {
     position: 'absolute',

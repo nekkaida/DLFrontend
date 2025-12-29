@@ -328,7 +328,7 @@ export default function MyGamesScreen({ sport = 'pickleball', initialTab }: MyGa
 
   // Get filter button color based on selected sport filter
   const getFilterButtonColor = (): string => {
-    if (!hasActiveFilters) return '#863A73'; // Default purple when no filters
+    if (!hasActiveFilters) return '#A04DFE'; // Default purple when no filters
 
     if (filters.sport) {
       const sportType = filters.sport.toUpperCase() as SportType;
