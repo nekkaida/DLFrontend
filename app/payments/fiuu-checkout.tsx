@@ -11,6 +11,12 @@ import { moderateScale, responsivePadding, getComponentSizes } from '@/core/util
 
 type PaymentStatus = 'idle' | 'processing' | 'completed' | 'pending' | 'failed';
 
+interface ReturnToParams {
+  pathname: string;
+  params?: Record<string, string>;
+  dismissCount?: number; // Number of screens to go back (default: 1)
+}
+
 interface CheckoutPayload {
   paymentId: string;
   orderId: string;
@@ -21,6 +27,7 @@ interface CheckoutPayload {
     paymentUrl: string;
     params: Record<string, string>;
   };
+  returnTo?: ReturnToParams;
 }
 
 interface ReturnMessage {
@@ -135,6 +142,24 @@ export default function FiuuCheckoutScreen() {
 
   const handleClose = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+
+    // If we have a returnTo destination with dismissCount, go back multiple screens
+    // This handles the case where we need to return to league-details from fiuu-checkout
+    // through doubles-team-pairing (2 screens back)
+    if (payload?.returnTo) {
+      const dismissCount = payload.returnTo.dismissCount || 1;
+
+      // Navigate back multiple times to reach the target screen
+      // The useFocusEffect in the target screen will refresh the data
+      for (let i = 0; i < dismissCount; i++) {
+        if (router.canGoBack()) {
+          router.back();
+        }
+      }
+      return;
+    }
+
+    // Fallback to default behavior
     if (router.canGoBack()) {
       router.back();
     } else {

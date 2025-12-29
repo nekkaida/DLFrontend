@@ -63,7 +63,7 @@ export const NewMessageBottomSheet: React.FC<NewMessageBottomSheetProps> = ({
   const { data: session } = useSession();
   const insets = useSafeAreaInsets();
 
-  const snapPoints = useMemo(() => ['50%', '90%'], []);
+  const snapPoints = useMemo(() => ['90%'], []);
 
   // Present/dismiss sheet based on visibility
   useEffect(() => {

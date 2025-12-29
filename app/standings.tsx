@@ -63,6 +63,18 @@ interface GameScore {
   team2Points: number;
 }
 
+interface MatchResultComment {
+  id: string;
+  userId: string;
+  comment: string;
+  createdAt: string;
+  user: {
+    id: string;
+    name: string;
+    image?: string | null;
+  };
+}
+
 interface MatchResult {
   id: string;
   matchType: string;
@@ -76,6 +88,7 @@ interface MatchResult {
   team2Players: MatchPlayer[];
   isWalkover: boolean;
   resultComment?: string;
+  comments?: MatchResultComment[];
   venue?: string;
 }
 
@@ -111,6 +124,7 @@ export default function StandingsScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [divisionsWithStandings, setDivisionsWithStandings] = useState<ExtendedDivisionWithStandings[]>([]);
   const [userDivisionId, setUserDivisionId] = useState<string | null>(null);
+  const [expandedComments, setExpandedComments] = useState<Set<string>>(new Set());
 
   const userId = session?.user?.id;
   const isPickleball = sportType?.toLowerCase() === 'pickleball';
@@ -494,15 +508,69 @@ export default function StandingsScreen() {
           </View>
         ) : null}
 
-        {/* Comment Section */}
-        {match.resultComment ? (
+        {/* Comments Section - Show max 2 comments, expandable */}
+        {match.comments && match.comments.length > 0 && (
+          <View style={styles.cardCommentsContainer}>
+            {(expandedComments.has(match.id) ? match.comments : match.comments.slice(0, 2)).map((commentItem) => (
+              <View key={commentItem.id} style={styles.cardCommentItem}>
+                <Ionicons name="thumbs-up" size={14} color={sportColors.background} style={styles.cardCommentThumb} />
+                {commentItem.user.image ? (
+                  <Image
+                    source={{ uri: commentItem.user.image }}
+                    style={styles.cardCommentAvatar}
+                  />
+                ) : (
+                  <View style={[styles.cardCommentAvatar, styles.cardCommentDefaultAvatar]}>
+                    <Text style={styles.cardCommentDefaultAvatarText}>
+                      {commentItem.user.name?.charAt(0)?.toUpperCase() || '?'}
+                    </Text>
+                  </View>
+                )}
+                <Text style={styles.cardCommentText} numberOfLines={2}>
+                  <Text style={styles.cardCommentAuthor}>{commentItem.user.name.split(' ')[0]}:</Text>
+                  {' '}{commentItem.comment}
+                </Text>
+              </View>
+            ))}
+            {match.comments.length > 2 && !expandedComments.has(match.id) && (
+              <TouchableOpacity
+                style={styles.viewMoreCommentsButton}
+                onPress={() => {
+                  setExpandedComments(prev => new Set(prev).add(match.id));
+                }}
+              >
+                <Text style={[styles.viewMoreCommentsText, { color: sportColors.background }]}>
+                  View {match.comments.length - 2} more comment{match.comments.length - 2 > 1 ? 's' : ''}
+                </Text>
+              </TouchableOpacity>
+            )}
+            {match.comments.length > 2 && expandedComments.has(match.id) && (
+              <TouchableOpacity
+                style={styles.viewMoreCommentsButton}
+                onPress={() => {
+                  setExpandedComments(prev => {
+                    const newSet = new Set(prev);
+                    newSet.delete(match.id);
+                    return newSet;
+                  });
+                }}
+              >
+                <Text style={[styles.viewMoreCommentsText, { color: sportColors.background }]}>
+                  View less
+                </Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        )}
+        {/* Fallback to old resultComment if no comments array */}
+        {(!match.comments || match.comments.length === 0) && match.resultComment && (
           <View style={styles.cardCommentSection}>
-            <Ionicons name="thumbs-up" size={16} color="#868686" />
+            <Ionicons name="thumbs-up" size={16} color={sportColors.background} />
             <Text style={styles.cardCommentText} numberOfLines={2}>
               {match.resultComment}
-          </Text>
-        </View>
-        ) : null}
+            </Text>
+          </View>
+        )}
       </View>
     );
   };
@@ -1255,12 +1323,54 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: '#F3F4F6',
   },
+  cardCommentsContainer: {
+    marginTop: 12,
+    gap: 10,
+  },
+  cardCommentItem: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+  },
+  cardCommentThumb: {
+    marginTop: 2,
+  },
+  cardCommentAvatar: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: '#E5E7EB',
+  },
+  cardCommentDefaultAvatar: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cardCommentDefaultAvatarText: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: '#6B7280',
+  },
+  cardCommentAuthor: {
+    fontWeight: '700',
+    color: '#374151',
+  },
   cardCommentText: {
     flex: 1,
-    fontSize: 11,
-    fontWeight: '500',
+    fontSize: 12,
+    fontWeight: '400',
     color: '#868686',
     lineHeight: 16,
+  },
+  viewMoreCommentsButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-start',
+    paddingTop: 4,
+    gap: 4,
+  },
+  viewMoreCommentsText: {
+    fontSize: 12,
+    fontWeight: '600',
   },
   progressContainer: {
     paddingHorizontal: 12,

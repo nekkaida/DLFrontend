@@ -19,6 +19,7 @@ import TeamPlusIcon from '@/assets/icons/teamp_plus.svg';
 import TeamUpBulbIcon from '@/assets/icons/teamup_bulb.svg';
 import { checkQuestionnaireStatus, getSeasonSport } from '../utils/questionnaireCheck';
 import { getSeasonSport as getSeasonSportFromUtil, getDoublesDMR, getTeamDMR } from '@/utils/dmrCalculator';
+import { FiuuPaymentService } from '@/src/features/payments/services/FiuuPaymentService';
 
 const { width } = Dimensions.get('window');
 
@@ -70,6 +71,7 @@ export default function DoublesTeamPairingScreen({
   const [currentInvitation, setCurrentInvitation] = React.useState<any>(null);
   const [currentPartnership, setCurrentPartnership] = React.useState<any>(null);
   const [isPairingLoading, setIsPairingLoading] = React.useState(false);
+  const [isProcessingPayment, setIsProcessingPayment] = React.useState(false);
 
   const insets = useSafeAreaInsets();
   const STATUS_BAR_HEIGHT = insets.top;
@@ -488,10 +490,46 @@ export default function DoublesTeamPairingScreen({
     setShowPaymentOptions(false);
   };
 
-  const handlePayNow = () => {
-    if (!season) return;
-    console.log('Pay Now pressed for season:', season.id);
-    toast.info('Payment gateway coming soon!');
+  const handlePayNow = async () => {
+    if (!userId || !season) {
+      toast.error('Missing required information');
+      return;
+    }
+
+    if (isProcessingPayment) return;
+
+    try {
+      setIsProcessingPayment(true);
+      console.log('Starting FIUU payment for doubles season:', season.id);
+
+      const checkout = await FiuuPaymentService.createCheckout(season.id, userId);
+      const payload = encodeURIComponent(JSON.stringify({
+        ...checkout,
+        returnTo: {
+          pathname: '/user-dashboard/league-details',
+          params: {
+            leagueId: leagueId,
+            leagueName: league?.name || 'League',
+            sport: sport || 'pickleball'
+          },
+          dismissCount: 2 // Go back 2 screens: fiuu-checkout -> doubles-team-pairing -> league-details
+        }
+      }));
+
+      // Close payment options sheet before navigating
+      setShowPaymentOptions(false);
+
+      router.push({
+        pathname: '/payments/fiuu-checkout',
+        params: { payload },
+      });
+    } catch (error: any) {
+      console.error('Error launching FIUU payment:', error);
+      const message = error?.message || 'Unable to start payment. Please try again.';
+      toast.error(message);
+    } finally {
+      setIsProcessingPayment(false);
+    }
   };
 
   const handlePayLater = async () => {
@@ -516,21 +554,10 @@ export default function DoublesTeamPairingScreen({
 
         // Navigate back to LeagueDetailsScreen after a short delay
         // Socket event 'team_registration_completed' will show the toast
+        // The useFocusEffect in LeagueDetailsScreen will refresh the data automatically
         setTimeout(() => {
           Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-          if (leagueId) {
-            router.replace({
-              pathname: '/user-dashboard/league-details' as any,
-              params: {
-                leagueId: leagueId,
-                leagueName: league?.name || 'League',
-                sport: sport || 'pickleball'
-              }
-            });
-          } else {
-            // Fallback to going back if leagueId is not available
-            router.back();
-          }
+          router.back();
         }, 500);
       } else {
         console.warn('Registration failed');
