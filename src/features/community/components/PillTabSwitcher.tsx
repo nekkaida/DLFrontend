@@ -108,7 +108,7 @@ const styles = StyleSheet.create({
   },
   tabButton: {
     flex: 1,
-    paddingVertical: isSmallScreen ? 10 : isTablet ? 14 : 12,
+    paddingVertical: isSmallScreen ? 6 : isTablet ? 10 : 8,
     alignItems: 'center',
     justifyContent: 'center',
     zIndex: 1,

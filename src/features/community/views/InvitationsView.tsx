@@ -149,8 +149,8 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   tabContainer: {
-    paddingTop: 8,
-    paddingBottom: 12,
+    paddingTop: 4,
+    paddingBottom: 8,
   },
   content: {
     paddingTop: 4,
