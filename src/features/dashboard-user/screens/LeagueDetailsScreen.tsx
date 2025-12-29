@@ -55,7 +55,7 @@ export default function LeagueDetailsScreen({
   const userId = session?.user?.id;
 
   // Use custom hook for user profile and gender management
-  const { profileData, userGender, fetchProfileData } = useUserProfile(userId);
+  const { profileData, userGender, fetchProfileData, fetchUserGender } = useUserProfile(userId);
 
   // Helper function to check if a category is visible to the user based on gender
   const isCategoryVisibleToUser = React.useCallback((category: any): boolean => {
@@ -68,8 +68,10 @@ export default function LeagueDetailsScreen({
     const categoryGender = genderCategory || genderRestriction;
     const isDoubles = CategoryService.getEffectiveGameType(category, 'SINGLES') === 'DOUBLES';
 
+    // If user gender is not yet loaded, show all categories to avoid filtering issues
+    // This ensures categories don't disappear during refresh while gender is being fetched
     if (!userGender) {
-      return categoryGender === 'MIXED' || categoryGender === 'OPEN';
+      return true;
     }
 
     const normalizedUserGender = userGender.toUpperCase();
@@ -312,7 +314,21 @@ export default function LeagueDetailsScreen({
       setIsProcessingPayment(true);
       console.log('Starting FIUU payment for season:', season.id);
       const checkout = await FiuuPaymentService.createCheckout(season.id, userId);
-      const payload = encodeURIComponent(JSON.stringify(checkout));
+      const payload = encodeURIComponent(JSON.stringify({
+        ...checkout,
+        returnTo: {
+          pathname: '/user-dashboard/league-details',
+          params: {
+            leagueId: leagueId,
+            leagueName: league?.name || leagueName,
+            sport: sport || 'pickleball'
+          },
+          dismissCount: 1 // Go back 1 screen: fiuu-checkout -> league-details
+        }
+      }));
+
+      // Close payment options sheet before navigating
+      setShowPaymentOptions(false);
 
       router.push({
         pathname: '/payments/fiuu-checkout',
@@ -721,13 +737,17 @@ export default function LeagueDetailsScreen({
   // Refresh profile data when screen comes into focus (e.g., after completing questionnaire)
   useFocusEffect(
     React.useCallback(() => {
-      fetchProfileData();
-      // Also refresh league/season data to show updated membership status
-      if (leagueId && userGender !== undefined) {
-        fetchAllData();
-      }
+      const refreshData = async () => {
+        // Fetch profile data first (which also updates gender)
+        await fetchProfileData();
+        // Then refresh league/season data to show updated membership status
+        if (leagueId) {
+          await fetchAllData();
+        }
+      };
+      refreshData();
       // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [fetchProfileData, leagueId, userGender]) // fetchAllData omitted to break circular dependency
+    }, [fetchProfileData, leagueId, fetchAllData])
   );
 
   // Set selected sport based on route param
@@ -739,17 +759,17 @@ export default function LeagueDetailsScreen({
   const onRefresh = React.useCallback(async () => {
     setIsRefreshing(true);
     try {
-      await Promise.all([
-        fetchAllData(),
-        fetchProfileData()
-      ]);
+      // Fetch profile data first (which also updates gender), then fetch league data
+      // This ensures categories are properly filtered with the correct gender
+      await fetchProfileData();
+      await fetchAllData();
     } catch (error) {
       console.error('Error refreshing data:', error);
     } finally {
       setIsRefreshing(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [fetchProfileData]); // fetchAllData omitted to break circular dependency
+  }, [fetchProfileData, fetchAllData]);
 
   // Animated styles for collapsing header
   // Only start collapsing after COLLAPSE_START_THRESHOLD

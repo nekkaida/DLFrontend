@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { questionnaireAPI } from '@/src/features/onboarding/services/api';
 import { getBackendBaseURL } from '@/src/config/network';
 import { authClient } from '@/lib/auth-client';
@@ -13,6 +13,29 @@ export const useUserProfile = (userId: string | undefined) => {
   const [profileData, setProfileData] = useState<any>(null);
   const [userGender, setUserGender] = useState<string | null | undefined>(undefined);
 
+  // Use ref to store the last fetched gender to preserve it during refresh
+  const lastKnownGender = useRef<string | null>(null);
+
+  // Fetch user gender (can be called externally for refresh)
+  const fetchUserGender = useCallback(async () => {
+    if (!userId) {
+      // If no userId, explicitly set to null so data fetching can proceed
+      setUserGender(null);
+      return;
+    }
+
+    try {
+      const { user } = await questionnaireAPI.getUserProfile(userId);
+      const gender = user.gender?.toUpperCase() || null;
+      lastKnownGender.current = gender;
+      setUserGender(gender);
+    } catch (error) {
+      console.error('Error fetching user gender:', error);
+      // On error, use last known gender if available, otherwise set to null
+      setUserGender(lastKnownGender.current ?? null);
+    }
+  }, [userId]);
+
   // Fetch user profile data from /api/player/profile/me
   const fetchProfileData = useCallback(async () => {
     if (!userId) {
@@ -26,7 +49,15 @@ export const useUserProfile = (userId: string | undefined) => {
         method: 'GET',
       });
       if (authResponse && (authResponse as any).data && (authResponse as any).data.data) {
-        setProfileData((authResponse as any).data.data);
+        const data = (authResponse as any).data.data;
+        setProfileData(data);
+
+        // Also update gender from profile data if available
+        if (data.gender) {
+          const gender = data.gender.toUpperCase();
+          lastKnownGender.current = gender;
+          setUserGender(gender);
+        }
       }
     } catch (error) {
       console.error('Error fetching profile data:', error);
@@ -34,27 +65,10 @@ export const useUserProfile = (userId: string | undefined) => {
     }
   }, [userId]);
 
-  // Fetch user gender separately (needed for category filtering)
+  // Fetch user gender on mount
   useEffect(() => {
-    const fetchUserGender = async () => {
-      if (!userId) {
-        // If no userId, explicitly set to null so data fetching can proceed
-        setUserGender(null);
-        return;
-      }
-
-      try {
-        const { user } = await questionnaireAPI.getUserProfile(userId);
-        setUserGender(user.gender?.toUpperCase() || null);
-      } catch (error) {
-        console.error('Error fetching user gender:', error);
-        // Set to null on error so data fetching can still proceed
-        setUserGender(null);
-      }
-    };
-
     fetchUserGender();
-  }, [userId]);
+  }, [fetchUserGender]);
 
   // Fetch profile data on mount
   useEffect(() => {
@@ -65,5 +79,6 @@ export const useUserProfile = (userId: string | undefined) => {
     profileData,
     userGender,
     fetchProfileData,
+    fetchUserGender,
   };
 };
