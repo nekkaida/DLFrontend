@@ -61,6 +61,8 @@ export const MatchMessageBubble: React.FC<MatchMessageBubbleProps> = ({
   const [timeRemaining, setTimeRemaining] = useState<string>('');
   const [isExpired, setIsExpired] = useState(false);
   const [isDeclining, setIsDeclining] = useState(false);
+  const [enrichedMatchData, setEnrichedMatchData] = useState<any>(null);
+  const [isFetchingMatchDetails, setIsFetchingMatchDetails] = useState(false);
   // Get the most up-to-date request status from multiple sources
   const getLatestRequestStatus = () => {
     // Priority: latestMessage from store > message prop matchData
@@ -500,9 +502,32 @@ export const MatchMessageBubble: React.FC<MatchMessageBubbleProps> = ({
   const sportColors = useMemo(() => getSportColors(matchData.sportType as SportType), [matchData.sportType]);
 
   // Memoized modal handlers
-  const handleOpenInfoModal = useCallback(() => {
+  const handleOpenInfoModal = useCallback(async () => {
     setShowInfoModal(true);
-  }, []);
+
+    // Fetch full match details if we have a matchId and haven't fetched yet
+    if (matchData.matchId && !enrichedMatchData && currentUserId) {
+      setIsFetchingMatchDetails(true);
+      try {
+        const backendUrl = getBackendBaseURL();
+        const response = await fetch(`${backendUrl}/api/match/${matchData.matchId}`, {
+          headers: {
+            'x-user-id': currentUserId,
+          },
+        });
+
+        if (response.ok) {
+          const result = await response.json();
+          const match = result.match || result.data || result;
+          setEnrichedMatchData(match);
+        }
+      } catch (error) {
+        chatLogger.error('Error fetching match details:', error);
+      } finally {
+        setIsFetchingMatchDetails(false);
+      }
+    }
+  }, [matchData.matchId, enrichedMatchData, currentUserId]);
 
   const handleCloseInfoModal = useCallback(() => {
     setShowInfoModal(false);
@@ -739,12 +764,18 @@ export const MatchMessageBubble: React.FC<MatchMessageBubbleProps> = ({
       <MatchInfoModal
         visible={showInfoModal}
         onClose={handleCloseInfoModal}
-        matchData={matchData}
+        matchData={{
+          ...matchData,
+          // Use enriched participants if available (has full user info)
+          participants: enrichedMatchData?.participants || matchData.participants,
+          matchType: enrichedMatchData?.matchType || matchData.matchType,
+        }}
         creatorName={senderName}
         creatorImage={senderImage}
         formattedDate={formatDisplayDate(matchData.date)}
         formattedTime={formattedStartTime}
         formattedEndTime={formattedEndTime}
+        isLoading={isFetchingMatchDetails}
       />
     </Animated.View>
   );
