@@ -287,9 +287,8 @@ export default function DoublesTeamPairingScreen({
     const handleInvitationAccepted = (data: any) => {
       console.log('DoublesTeamPairing: Invitation accepted:', data);
       if (data.partnership?.season?.id === seasonId) {
-        toast.success('Invitation accepted!', {
-          description: `${data.acceptedBy?.name} accepted your invitation.`,
-        });
+        // Don't show toast here - partnership_created event will handle it
+        // Just refresh status
         checkPairingStatus(); // Refresh status
       }
     };
@@ -510,13 +509,13 @@ export default function DoublesTeamPairingScreen({
 
       if (success) {
         console.log('Team registered successfully');
-        toast.success('Team registered successfully!');
+        // Don't show toast here - socket event will handle it to avoid duplicate
 
         // Close payment bottomsheet
         setShowPaymentOptions(false);
 
-        // Navigate back to LeagueDetailsScreen after a short delay to allow toast to show
-        // Using router.replace to replace the current route and ensure LeagueDetailsScreen refreshes
+        // Navigate back to LeagueDetailsScreen after a short delay
+        // Socket event 'team_registration_completed' will show the toast
         setTimeout(() => {
           Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
           if (leagueId) {
