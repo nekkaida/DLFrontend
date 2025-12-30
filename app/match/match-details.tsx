@@ -1280,6 +1280,11 @@ export default function JoinMatchScreen() {
       return 'disputed';
     }
 
+    // If match is UNFINISHED, any participant can continue submitting
+    if (status === 'UNFINISHED' && isUserParticipant) {
+      return 'submit';
+    }
+
     // If match is ONGOING (result submitted), the OPPONENT (non-submitter) can review/approve/dispute
     // The submitter should see 'view' mode with "awaiting confirmation" message
     if (status === 'ONGOING') {
@@ -1832,7 +1837,7 @@ export default function JoinMatchScreen() {
             <View style={styles.unfinishedStatusContent}>
               <Text style={styles.unfinishedStatusTitle}>Match Unfinished</Text>
               <Text style={styles.unfinishedStatusText}>
-                This match was started but not completed. Please contact the league admin for assistance.
+                This match was started but not completed. Tap "Continue Match" below to finish entering scores.
               </Text>
             </View>
           </View>
@@ -1899,6 +1904,18 @@ export default function JoinMatchScreen() {
                     activeOpacity={0.7}
                   >
                     <Text style={styles.joinButtonText}>Accept Invite</Text>
+                  </TouchableOpacity>
+                );
+              }
+
+              // Match UNFINISHED - Show "Continue Match" to any participant
+              if (status === 'UNFINISHED') {
+                return (
+                  <TouchableOpacity
+                    style={[styles.joinButton, { backgroundColor: "#F59E0B" }]}
+                    onPress={() => bottomSheetModalRef.current?.present()}
+                  >
+                    <Text style={styles.joinButtonText}>Continue Match</Text>
                   </TouchableOpacity>
                 );
               }

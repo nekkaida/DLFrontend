@@ -230,10 +230,10 @@ export const MatchResultSheet: React.FC<MatchResultSheetProps> = ({
     (matchDetails?.isFriendly || matchDetails?.isFriendlyRequest || isFriendlyMatch) &&
     hasScores;
 
-  // Fetch match details if in view/review/disputed mode
+  // Fetch match details if in view/review/disputed/submit mode (submit mode for UNFINISHED matches to pre-populate scores)
   useEffect(() => {
     const fetchMatchDetails = async () => {
-      if (mode === 'view' || mode === 'review' || mode === 'disputed') {
+      if (mode === 'view' || mode === 'review' || mode === 'disputed' || mode === 'submit') {
         try {
           const backendUrl = getBackendBaseURL();
           const response = await fetch(`${backendUrl}/api/match/${matchId}`, {
