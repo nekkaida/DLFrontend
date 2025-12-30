@@ -2,6 +2,7 @@ import { getBackendBaseURL } from '@/config/network';
 import { authClient, useSession } from '@/lib/auth-client';
 import { NavBar } from '@/shared/components/layout';
 import { AnimatedFilterChip } from '@/shared/components/ui/AnimatedFilterChip';
+import { SegmentedControl } from '@/shared/components/ui/SegmentedControl';
 import { chatLogger } from '@/utils/logger';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
@@ -14,14 +15,12 @@ import {
   AppStateStatus,
   Dimensions,
   Keyboard,
-  Modal,
   Platform,
   Pressable,
   StatusBar,
   StyleSheet,
   Text,
   TextInput,
-  TouchableOpacity,
   View
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -90,7 +89,6 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
   const [appStateKey, setAppStateKey] = useState(0);
   const [sportFilter, setSportFilter] = useState<SportFilter>('all');
   const [typeFilter, setTypeFilter] = useState<TypeFilter>('all');
-  const [showTypeFilterModal, setShowTypeFilterModal] = useState(false);
   const appStateRef = useRef<AppStateStatus>(AppState.currentState);
   const searchInputRef = useRef<TextInput>(null);
   const insets = useSafeAreaInsets();
@@ -437,9 +435,24 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
             </View>
           </View>
 
-          {/* Filter chips */}
-          <View style={styles.filterContainer}>
-            <View style={styles.filterChips}>
+          {/* Filter section */}
+          <View style={styles.filterSection}>
+            {/* Type filter - Segmented control */}
+            <View style={styles.typeFilterContainer}>
+              <SegmentedControl
+                options={[
+                  { value: 'all' as TypeFilter, label: 'All' },
+                  { value: 'personal' as TypeFilter, label: 'Personal' },
+                  { value: 'league' as TypeFilter, label: 'League' },
+                ]}
+                value={typeFilter}
+                onChange={setTypeFilter}
+                activeColor={SPORT_COLORS[sportFilter]}
+              />
+            </View>
+
+            {/* Sport filter chips */}
+            <View style={styles.sportFilterContainer}>
               <AnimatedFilterChip
                 label="All"
                 isActive={sportFilter === 'all'}
@@ -465,26 +478,6 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
                 onPress={() => setSportFilter('padel')}
               />
             </View>
-
-            {/* Type filter button */}
-            <TouchableOpacity
-              style={[
-                styles.typeFilterButton,
-                typeFilter !== 'all' && {
-                  backgroundColor: SPORT_COLORS[sportFilter] || SPORT_COLORS.all,
-                  borderColor: SPORT_COLORS[sportFilter] || SPORT_COLORS.all
-                }
-              ]}
-              onPress={() => setShowTypeFilterModal(true)}
-              activeOpacity={0.7}
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-            >
-              <Ionicons
-                name="options-outline"
-                size={20}
-                color={typeFilter !== 'all' ? '#FFFFFF' : SPORT_COLORS[sportFilter] || '#6B7280'}
-              />
-            </TouchableOpacity>
           </View>
           <ThreadList
             key={`thread-list-${appStateKey}`}
@@ -508,42 +501,6 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
         onClose={handleCloseNewMessageSheet}
         onSelectUser={handleSelectUser}
       />
-
-      {/* Type Filter Dropdown */}
-      <Modal
-        visible={showTypeFilterModal}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setShowTypeFilterModal(false)}
-      >
-        <Pressable
-          style={styles.modalOverlay}
-          onPress={() => setShowTypeFilterModal(false)}
-        >
-          <View style={styles.typeFilterDropdown}>
-            {(['all', 'personal', 'league'] as TypeFilter[]).map((type) => (
-              <TouchableOpacity
-                key={type}
-                style={styles.typeFilterOption}
-                onPress={() => {
-                  setTypeFilter(type);
-                  setShowTypeFilterModal(false);
-                }}
-              >
-                <Text style={[
-                  styles.typeFilterOptionText,
-                  typeFilter === type && styles.typeFilterOptionTextActive
-                ]}>
-                  {type === 'all' ? 'All' : type === 'personal' ? 'Personal' : 'League'}
-                </Text>
-                {typeFilter === type && (
-                  <Ionicons name="checkmark" size={18} color={SPORT_COLORS[sportFilter]} />
-                )}
-              </TouchableOpacity>
-            ))}
-          </View>
-        </Pressable>
-      </Modal>
     </View>
   );
 };
@@ -625,61 +582,16 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#FEA04D',
   },
-  filterContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  filterSection: {
     paddingHorizontal: 16,
     paddingBottom: 12,
-    gap: 8,
+    gap: 10,
   },
-  filterChips: {
-    flex: 1,
+  typeFilterContainer: {
+    width: '100%',
+  },
+  sportFilterContainer: {
     flexDirection: 'row',
     gap: 8,
-  },
-  typeFilterButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.3)',
-    justifyContent: 'flex-start',
-    alignItems: 'flex-end',
-    paddingTop: 180,
-    paddingRight: 16,
-  },
-  typeFilterDropdown: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    paddingVertical: 6,
-    minWidth: 140,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 12,
-    elevation: 8,
-  },
-  typeFilterOption: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    gap: 16,
-  },
-  typeFilterOptionText: {
-    fontSize: 15,
-    color: '#374151',
-  },
-  typeFilterOptionTextActive: {
-    fontWeight: '600',
-    color: '#111827',
   },
 });
