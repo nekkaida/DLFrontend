@@ -1,9 +1,10 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   ActivityIndicator,
+  Animated,
   ScrollView,
   TouchableOpacity,
   Dimensions,
@@ -43,6 +44,13 @@ export default function ManagePartnershipScreen({ seasonId }: ManagePartnershipS
   const [isInviting, setIsInviting] = useState(false);
   const [processingRequestId, setProcessingRequestId] = useState<string | null>(null);
 
+  // Entry animation values
+  const headerEntryOpacity = useRef(new Animated.Value(0)).current;
+  const headerEntryTranslateY = useRef(new Animated.Value(-20)).current;
+  const contentEntryOpacity = useRef(new Animated.Value(0)).current;
+  const contentEntryTranslateY = useRef(new Animated.Value(30)).current;
+  const hasPlayedEntryAnimation = useRef(false);
+
   // Monitor partnership for dissolution by partner
   // This hook also fetches and manages partnership data, so we don't need separate state
   const { partnership, loading, refresh, isMonitoring: isMonitoringPartnership } = usePartnershipMonitor({
@@ -78,6 +86,52 @@ export default function ManagePartnershipScreen({ seasonId }: ManagePartnershipS
     loading: loadingSeasonInvitations,
     refresh: refreshSeasonInvitations,
   } = useIncomingSeasonInvitations(isIncomplete ? seasonId : null);
+
+  // Entry animation effect - triggers when partnership data is loaded
+  useEffect(() => {
+    if (!loading && partnership && !hasPlayedEntryAnimation.current) {
+      hasPlayedEntryAnimation.current = true;
+      Animated.stagger(80, [
+        // Header slides down
+        Animated.parallel([
+          Animated.spring(headerEntryOpacity, {
+            toValue: 1,
+            tension: 50,
+            friction: 8,
+            useNativeDriver: false,
+          }),
+          Animated.spring(headerEntryTranslateY, {
+            toValue: 0,
+            tension: 50,
+            friction: 8,
+            useNativeDriver: false,
+          }),
+        ]),
+        // Content slides up
+        Animated.parallel([
+          Animated.spring(contentEntryOpacity, {
+            toValue: 1,
+            tension: 50,
+            friction: 8,
+            useNativeDriver: false,
+          }),
+          Animated.spring(contentEntryTranslateY, {
+            toValue: 0,
+            tension: 50,
+            friction: 8,
+            useNativeDriver: false,
+          }),
+        ]),
+      ]).start();
+    }
+  }, [
+    loading,
+    partnership,
+    headerEntryOpacity,
+    headerEntryTranslateY,
+    contentEntryOpacity,
+    contentEntryTranslateY,
+  ]);
 
   const handleDissolve = () => {
     // Refresh partnership status to update UI (disable buttons if request was submitted)
@@ -355,39 +409,52 @@ export default function ManagePartnershipScreen({ seasonId }: ManagePartnershipS
 
   return (
     <View style={styles.container}>
-      <LinearGradient
-        colors={['#A04DFE', '#602E98']}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 0 }}
-        style={[styles.header, { paddingTop: insets.top + 16 }]}
+      <Animated.View
+        style={{
+          opacity: headerEntryOpacity,
+          transform: [{ translateY: headerEntryTranslateY }],
+        }}
       >
-        <View style={styles.headerContent}>
-          <TouchableOpacity
-            style={styles.backButton}
-            onPress={() => {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              router.back();
-            }}
-          >
-            <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Manage Partnership</Text>
-          <View style={styles.headerRight} />
-        </View>
-      </LinearGradient>
+        <LinearGradient
+          colors={['#A04DFE', '#602E98']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0 }}
+          style={[styles.header, { paddingTop: insets.top + 16 }]}
+        >
+          <View style={styles.headerContent}>
+            <TouchableOpacity
+              style={styles.backButton}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                router.back();
+              }}
+            >
+              <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
+            </TouchableOpacity>
+            <Text style={styles.headerTitle}>Manage Partnership</Text>
+            <View style={styles.headerRight} />
+          </View>
+        </LinearGradient>
+      </Animated.View>
 
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* Status Banner - Shows alerts for pending requests or partner actions */}
-        <PartnershipStatusBanner
-          hasMyPendingRequest={partnershipStatus.hasMyPendingRequest}
-          hasPartnerPendingRequest={partnershipStatus.hasPartnerPendingRequest}
-          partnerHasLeft={partnershipStatus.partnerHasLeft}
-          isIncomplete={isIncomplete}
-        />
+        <Animated.View
+          style={{
+            opacity: contentEntryOpacity,
+            transform: [{ translateY: contentEntryTranslateY }],
+          }}
+        >
+          {/* Status Banner - Shows alerts for pending requests or partner actions */}
+          <PartnershipStatusBanner
+            hasMyPendingRequest={partnershipStatus.hasMyPendingRequest}
+            hasPartnerPendingRequest={partnershipStatus.hasPartnerPendingRequest}
+            partnerHasLeft={partnershipStatus.partnerHasLeft}
+            isIncomplete={isIncomplete}
+          />
 
         {/* Show incoming pair requests FIRST for INCOMPLETE partnerships */}
         {isIncomplete && incomingRequests.length > 0 && (
@@ -454,6 +521,7 @@ export default function ManagePartnershipScreen({ seasonId }: ManagePartnershipS
             </Text>
           </View>
         )}
+        </Animated.View>
       </ScrollView>
 
       {/* Invite Partner Bottom Sheet - For INCOMPLETE partnerships */}

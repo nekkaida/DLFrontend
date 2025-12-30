@@ -6,9 +6,10 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router, useLocalSearchParams } from 'expo-router';
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Animated,
   Dimensions,
   Image,
   Platform,
@@ -83,6 +84,13 @@ export default function FindPartnerScreen() {
   const [pairRequestModalVisible, setPairRequestModalVisible] = useState(false);
   const [playerActionModalVisible, setPlayerActionModalVisible] = useState(false);
   const [selectedPlayer, setSelectedPlayer] = useState<Player | null>(null);
+
+  // Entry animation values
+  const headerEntryOpacity = useRef(new Animated.Value(0)).current;
+  const headerEntryTranslateY = useRef(new Animated.Value(-20)).current;
+  const contentEntryOpacity = useRef(new Animated.Value(0)).current;
+  const contentEntryTranslateY = useRef(new Animated.Value(30)).current;
+  const hasPlayedEntryAnimation = useRef(false);
 
   const fetchSeasonData = useCallback(async () => {
     try {
@@ -177,6 +185,52 @@ export default function FindPartnerScreen() {
       fetchFavorites();
     }
   }, [session?.user?.id, seasonId, fetchSeasonData, fetchAvailablePlayers, fetchFavorites]);
+
+  // Entry animation effect
+  useEffect(() => {
+    if (!isLoading && !hasPlayedEntryAnimation.current) {
+      hasPlayedEntryAnimation.current = true;
+      Animated.stagger(80, [
+        // Header slides down
+        Animated.parallel([
+          Animated.spring(headerEntryOpacity, {
+            toValue: 1,
+            tension: 50,
+            friction: 8,
+            useNativeDriver: false,
+          }),
+          Animated.spring(headerEntryTranslateY, {
+            toValue: 0,
+            tension: 50,
+            friction: 8,
+            useNativeDriver: false,
+          }),
+        ]),
+        // Content slides up
+        Animated.parallel([
+          Animated.spring(contentEntryOpacity, {
+            toValue: 1,
+            tension: 50,
+            friction: 8,
+            useNativeDriver: false,
+          }),
+          Animated.spring(contentEntryTranslateY, {
+            toValue: 0,
+            tension: 50,
+            friction: 8,
+            useNativeDriver: false,
+          }),
+        ]),
+      ]).start();
+    }
+  }, [
+    isLoading,
+    players,
+    headerEntryOpacity,
+    headerEntryTranslateY,
+    contentEntryOpacity,
+    contentEntryTranslateY,
+  ]);
 
   useEffect(() => {
     if (searchTimeout) {
@@ -296,7 +350,15 @@ export default function FindPartnerScreen() {
       />
 
       {/* Header */}
-      <View style={styles.header}>
+      <Animated.View
+        style={[
+          styles.header,
+          {
+            opacity: headerEntryOpacity,
+            transform: [{ translateY: headerEntryTranslateY }],
+          }
+        ]}
+      >
         <TouchableOpacity onPress={handleBack} style={styles.headerButton}>
           <Ionicons name="chevron-back" size={28} color="#FEA04D" />
         </TouchableOpacity>
@@ -307,9 +369,16 @@ export default function FindPartnerScreen() {
           )}
         </View>
         <View style={styles.headerButton} />
-      </View>
+      </Animated.View>
 
-      {/* Tab Switcher */}
+      {/* Tab Switcher + Content */}
+      <Animated.View
+        style={{
+          flex: 1,
+          opacity: contentEntryOpacity,
+          transform: [{ translateY: contentEntryTranslateY }],
+        }}
+      >
       <View style={styles.tabSwitcher}>
         <TouchableOpacity
           style={[styles.tabButton, activeTab === 'search' && styles.tabButtonActive]}
@@ -425,6 +494,7 @@ export default function FindPartnerScreen() {
           ))
         )}
       </ScrollView>
+      </Animated.View>
 
       {/* Player Action Modal */}
       <PlayerActionModal

@@ -15,7 +15,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { format } from 'date-fns';
 import { router, useLocalSearchParams } from 'expo-router';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   ScrollView,
   StyleSheet,
@@ -23,6 +23,7 @@ import {
   TouchableOpacity,
   View,
   ActivityIndicator,
+  Animated,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -46,6 +47,50 @@ export default function DivisionStandingsScreen() {
   const [divisions, setDivisions] = useState<Division[]>([]);
   const [loading, setLoading] = useState(true);
   const [seasonId, setSeasonId] = useState<string>('');
+
+  // Entry animation values
+  const headerEntryOpacity = useRef(new Animated.Value(0)).current;
+  const headerEntryTranslateY = useRef(new Animated.Value(-20)).current;
+  const contentEntryOpacity = useRef(new Animated.Value(0)).current;
+  const contentEntryTranslateY = useRef(new Animated.Value(30)).current;
+  const hasPlayedEntryAnimation = useRef(false);
+
+  // Trigger entry animation when loading is done, regardless of data
+  useEffect(() => {
+    if (!loading && !hasPlayedEntryAnimation.current) {
+      hasPlayedEntryAnimation.current = true;
+      Animated.stagger(80, [
+        Animated.parallel([
+          Animated.spring(headerEntryOpacity, {
+            toValue: 1,
+            tension: 50,
+            friction: 8,
+            useNativeDriver: false,
+          }),
+          Animated.spring(headerEntryTranslateY, {
+            toValue: 0,
+            tension: 50,
+            friction: 8,
+            useNativeDriver: false,
+          }),
+        ]),
+        Animated.parallel([
+          Animated.spring(contentEntryOpacity, {
+            toValue: 1,
+            tension: 50,
+            friction: 8,
+            useNativeDriver: false,
+          }),
+          Animated.spring(contentEntryTranslateY, {
+            toValue: 0,
+            tension: 50,
+            friction: 8,
+            useNativeDriver: false,
+          }),
+        ]),
+      ]).start();
+    }
+  }, [loading, divisions]);
 
   // Get params from parent
   const divisionId = params.divisionId as string;
@@ -301,43 +346,57 @@ export default function DivisionStandingsScreen() {
   return (
     <View style={styles.container}>
       {/* Header */}
-      <View style={[styles.header, { paddingTop: insets.top + 8, backgroundColor: sportColors.badgeColor }]}>
-        <TouchableOpacity
-          style={[styles.backButton, { top: insets.top + 12 }]}
-          onPress={() => router.back()}
-          activeOpacity={0.7}
-        >
-          <Ionicons name="chevron-back" size={24} color="#111827" />
-        </TouchableOpacity>
+      <Animated.View
+        style={{
+          opacity: headerEntryOpacity,
+          transform: [{ translateY: headerEntryTranslateY }],
+        }}
+      >
+        <View style={[styles.header, { paddingTop: insets.top + 8, backgroundColor: sportColors.badgeColor }]}>
+          <TouchableOpacity
+            style={[styles.backButton, { top: insets.top + 12 }]}
+            onPress={() => router.back()}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="chevron-back" size={24} color="#111827" />
+          </TouchableOpacity>
 
-        <View style={styles.headerContent}>
-          {categoryLabel ? (
-            <Text style={styles.categoryTitle}>{categoryLabel}</Text>
-          ) : null}
+          <View style={styles.headerContent}>
+            {categoryLabel ? (
+              <Text style={styles.categoryTitle}>{categoryLabel}</Text>
+            ) : null}
 
-          <Text style={styles.leagueTitle}>{leagueName}</Text>
+            <Text style={styles.leagueTitle}>{leagueName}</Text>
 
-          <View style={[styles.seasonInfoBox, { backgroundColor: sportColors.buttonColor, borderColor: sportColors.badgeColor }]}>
-            <View style={styles.seasonInfoIcon}>
-              <SportIcon width={40} height={40} fill="#FFFFFF" />
+            <View style={[styles.seasonInfoBox, { backgroundColor: sportColors.buttonColor, borderColor: sportColors.badgeColor }]}>
+              <View style={styles.seasonInfoIcon}>
+                <SportIcon width={40} height={40} fill="#FFFFFF" />
+              </View>
+
+              <View style={styles.seasonInfoDetails}>
+                <Text style={styles.seasonInfoTitle}>{seasonName}</Text>
+                <Text style={styles.seasonInfoDate}>Start date: {startDate}</Text>
+                <Text style={styles.seasonInfoDate}>End date: {endDate}</Text>
+              </View>
+
+              <TouchableOpacity style={styles.seasonInfoButton} activeOpacity={0.7}>
+                <Text style={[styles.seasonInfoButtonText, { color: sportColors.buttonColor }]}>Info</Text>
+              </TouchableOpacity>
             </View>
-
-            <View style={styles.seasonInfoDetails}>
-              <Text style={styles.seasonInfoTitle}>{seasonName}</Text>
-              <Text style={styles.seasonInfoDate}>Start date: {startDate}</Text>
-              <Text style={styles.seasonInfoDate}>End date: {endDate}</Text>
-            </View>
-
-            <TouchableOpacity style={styles.seasonInfoButton} activeOpacity={0.7}>
-              <Text style={[styles.seasonInfoButtonText, { color: sportColors.buttonColor }]}>Info</Text>
-            </TouchableOpacity>
           </View>
         </View>
-      </View>
+      </Animated.View>
 
-      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
-        <View style={styles.standingsSection}>
-          <Text style={styles.standingsTitle}>Standings</Text>
+      <Animated.View
+        style={{
+          flex: 1,
+          opacity: contentEntryOpacity,
+          transform: [{ translateY: contentEntryTranslateY }],
+        }}
+      >
+        <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+          <View style={styles.standingsSection}>
+            <Text style={styles.standingsTitle}>Standings</Text>
 
           {loading ? (
             <View style={styles.loadingContainer}>
@@ -377,8 +436,9 @@ export default function DivisionStandingsScreen() {
               />
             ))
           )}
-        </View>
-      </ScrollView>
+          </View>
+        </ScrollView>
+      </Animated.View>
     </View>
   );
 }

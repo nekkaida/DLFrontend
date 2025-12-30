@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo, useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -8,6 +8,7 @@ import {
   FlatList,
   RefreshControl,
   ActivityIndicator,
+  Animated,
   Image,
   Dimensions,
   Modal,
@@ -646,6 +647,13 @@ export default function MatchHistoryScreen() {
     error,
   } = useMatchHistory();
 
+  // Entry animation values
+  const headerEntryOpacity = useRef(new Animated.Value(0)).current;
+  const headerEntryTranslateY = useRef(new Animated.Value(-20)).current;
+  const contentEntryOpacity = useRef(new Animated.Value(0)).current;
+  const contentEntryTranslateY = useRef(new Animated.Value(30)).current;
+  const hasPlayedEntryAnimation = useRef(false);
+
   // Sport dropdown state
   const [showSportDropdown, setShowSportDropdown] = useState(false);
   const selectedSport = filters.sportType || 'all';
@@ -654,6 +662,51 @@ export default function MatchHistoryScreen() {
   // Get gradient colors and theme color based on selected sport
   const gradientColors = useMemo(() => SPORT_GRADIENTS[selectedSport], [selectedSport]);
   const themeColor = useMemo(() => getSportThemeColor(selectedSport), [selectedSport]);
+
+  // Entry animation effect
+  useEffect(() => {
+    if (!isLoading && !hasPlayedEntryAnimation.current) {
+      hasPlayedEntryAnimation.current = true;
+      Animated.stagger(80, [
+        // Header slides down
+        Animated.parallel([
+          Animated.spring(headerEntryOpacity, {
+            toValue: 1,
+            tension: 50,
+            friction: 8,
+            useNativeDriver: false,
+          }),
+          Animated.spring(headerEntryTranslateY, {
+            toValue: 0,
+            tension: 50,
+            friction: 8,
+            useNativeDriver: false,
+          }),
+        ]),
+        // Content slides up
+        Animated.parallel([
+          Animated.spring(contentEntryOpacity, {
+            toValue: 1,
+            tension: 50,
+            friction: 8,
+            useNativeDriver: false,
+          }),
+          Animated.spring(contentEntryTranslateY, {
+            toValue: 0,
+            tension: 50,
+            friction: 8,
+            useNativeDriver: false,
+          }),
+        ]),
+      ]).start();
+    }
+  }, [
+    isLoading,
+    headerEntryOpacity,
+    headerEntryTranslateY,
+    contentEntryOpacity,
+    contentEntryTranslateY,
+  ]);
 
   const handleBackPress = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -704,44 +757,59 @@ export default function MatchHistoryScreen() {
   return (
     <View style={styles.container}>
       {/* Header with sport-themed gradient */}
-      <LinearGradient
-        colors={gradientColors}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={styles.headerGradient}
+      <Animated.View
+        style={{
+          opacity: headerEntryOpacity,
+          transform: [{ translateY: headerEntryTranslateY }],
+        }}
       >
-        <SafeAreaView edges={['top']} style={styles.safeHeader}>
-          <View style={styles.header}>
-            <Pressable
-              style={styles.backButton}
-              onPress={handleBackPress}
-              accessible={true}
-              accessibilityLabel="Go back"
-              accessibilityRole="button"
-            >
-              <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
-            </Pressable>
-            <Text style={styles.headerTitle}>Match History</Text>
-            {/* Sport Dropdown Button */}
-            <Pressable
-              style={styles.sportDropdownButton}
-              onPress={() => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                setShowSportDropdown(true);
-              }}
-            >
-              <Text style={styles.sportDropdownButtonText}>{selectedSportOption.label}</Text>
-              <Ionicons name="chevron-down" size={16} color="#FFFFFF" />
-            </Pressable>
-          </View>
-        </SafeAreaView>
-      </LinearGradient>
+        <LinearGradient
+          colors={gradientColors}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.headerGradient}
+        >
+          <SafeAreaView edges={['top']} style={styles.safeHeader}>
+            <View style={styles.header}>
+              <Pressable
+                style={styles.backButton}
+                onPress={handleBackPress}
+                accessible={true}
+                accessibilityLabel="Go back"
+                accessibilityRole="button"
+              >
+                <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
+              </Pressable>
+              <Text style={styles.headerTitle}>Match History</Text>
+              {/* Sport Dropdown Button */}
+              <Pressable
+                style={styles.sportDropdownButton}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  setShowSportDropdown(true);
+                }}
+              >
+                <Text style={styles.sportDropdownButtonText}>{selectedSportOption.label}</Text>
+                <Ionicons name="chevron-down" size={16} color="#FFFFFF" />
+              </Pressable>
+            </View>
+          </SafeAreaView>
+        </LinearGradient>
+      </Animated.View>
 
-      {/* Filter Bar */}
-      <FilterBar filters={filters} onFilterChange={setFilters} activeColor={themeColor} />
+      {/* Filter Bar + Content */}
+      <Animated.View
+        style={{
+          flex: 1,
+          opacity: contentEntryOpacity,
+          transform: [{ translateY: contentEntryTranslateY }],
+        }}
+      >
+        {/* Filter Bar */}
+        <FilterBar filters={filters} onFilterChange={setFilters} activeColor={themeColor} />
 
-      {/* Content */}
-      {isLoading ? (
+        {/* Content */}
+        {isLoading ? (
         <View style={styles.loadingContainer}>
           <MatchCardSkeleton />
           <MatchCardSkeleton />
@@ -778,6 +846,7 @@ export default function MatchHistoryScreen() {
           }
         />
       )}
+      </Animated.View>
 
       {/* Sport Dropdown Modal */}
       <Modal

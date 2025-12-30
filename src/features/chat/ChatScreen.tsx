@@ -9,6 +9,7 @@ import { router } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Animated,
   AppState,
   AppStateStatus,
   Dimensions,
@@ -94,6 +95,13 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
   const searchInputRef = useRef<TextInput>(null);
   const insets = useSafeAreaInsets();
 
+  // Entry animation values
+  const headerEntryOpacity = useRef(new Animated.Value(0)).current;
+  const headerEntryTranslateY = useRef(new Animated.Value(-20)).current;
+  const contentEntryOpacity = useRef(new Animated.Value(0)).current;
+  const contentEntryTranslateY = useRef(new Animated.Value(30)).current;
+  const hasPlayedEntryAnimation = useRef(false);
+
   const STATUS_BAR_HEIGHT = insets.top;
 
   const {
@@ -105,6 +113,43 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
     setConnectionStatus,
     updateThread,
   } = useChatStore();
+
+  // Trigger entry animation when loading is done, regardless of data
+  useEffect(() => {
+    if (!isLoading && !hasPlayedEntryAnimation.current) {
+      hasPlayedEntryAnimation.current = true;
+      Animated.stagger(80, [
+        Animated.parallel([
+          Animated.spring(headerEntryOpacity, {
+            toValue: 1,
+            tension: 50,
+            friction: 8,
+            useNativeDriver: false,
+          }),
+          Animated.spring(headerEntryTranslateY, {
+            toValue: 0,
+            tension: 50,
+            friction: 8,
+            useNativeDriver: false,
+          }),
+        ]),
+        Animated.parallel([
+          Animated.spring(contentEntryOpacity, {
+            toValue: 1,
+            tension: 50,
+            friction: 8,
+            useNativeDriver: false,
+          }),
+          Animated.spring(contentEntryTranslateY, {
+            toValue: 0,
+            tension: 50,
+            friction: 8,
+            useNativeDriver: false,
+          }),
+        ]),
+      ]).start();
+    }
+  }, [isLoading, threads]);
 
   // Handle app state changes to fix touch issues after backgrounding
   useEffect(() => {
@@ -348,90 +393,105 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
 
       <View style={styles.threadsContainer}>
         {/* Header with Chats title and New Message button */}
-        <View style={[styles.chatsHeaderContainer, { paddingTop: STATUS_BAR_HEIGHT }]}>
-          <Text style={styles.chatsTitle}>Chats</Text>
-          <Pressable
-            onPress={handleOpenNewMessage}
-            style={({ pressed }) => pressed && { opacity: 0.7 }}
-          >
-            <Text style={styles.newMessageButton}>New Message</Text>
-          </Pressable>
-        </View>
-
-        <View style={styles.searchContainer}>
-          <View style={styles.searchBar}>
-            <Ionicons name="search-outline" size={18} color="#9CA3AF" style={styles.searchIcon} />
-            <TextInput
-              ref={searchInputRef}
-              style={styles.searchInput}
-              placeholder="Search chats..."
-              placeholderTextColor="#9CA3AF"
-              value={searchQuery}
-              onChangeText={setSearchQuery}
-              returnKeyType="search"
-            />
-            {searchQuery.length > 0 && (
-              <Pressable onPress={clearSearch}>
-                <Ionicons name="close-circle" size={18} color="#9CA3AF" />
-              </Pressable>
-            )}
+        <Animated.View
+          style={{
+            opacity: headerEntryOpacity,
+            transform: [{ translateY: headerEntryTranslateY }],
+          }}
+        >
+          <View style={[styles.chatsHeaderContainer, { paddingTop: STATUS_BAR_HEIGHT }]}>
+            <Text style={styles.chatsTitle}>Chats</Text>
+            <Pressable
+              onPress={handleOpenNewMessage}
+              style={({ pressed }) => pressed && { opacity: 0.7 }}
+            >
+              <Text style={styles.newMessageButton}>New Message</Text>
+            </Pressable>
           </View>
-        </View>
+        </Animated.View>
 
-        {/* Filter chips */}
-        <View style={styles.filterContainer}>
-          <View style={styles.filterChips}>
-            <AnimatedFilterChip
-              label="All"
-              isActive={sportFilter === 'all'}
-              activeColor={SPORT_COLORS.all}
-              onPress={() => setSportFilter('all')}
-            />
-            <AnimatedFilterChip
-              label="Pickleball"
-              isActive={sportFilter === 'pickleball'}
-              activeColor={SPORT_COLORS.pickleball}
-              onPress={() => setSportFilter('pickleball')}
-            />
-            <AnimatedFilterChip
-              label="Tennis"
-              isActive={sportFilter === 'tennis'}
-              activeColor={SPORT_COLORS.tennis}
-              onPress={() => setSportFilter('tennis')}
-            />
-            <AnimatedFilterChip
-              label="Padel"
-              isActive={sportFilter === 'padel'}
-              activeColor={SPORT_COLORS.padel}
-              onPress={() => setSportFilter('padel')}
-            />
+        <Animated.View
+          style={{
+            flex: 1,
+            opacity: contentEntryOpacity,
+            transform: [{ translateY: contentEntryTranslateY }],
+          }}
+        >
+          <View style={styles.searchContainer}>
+            <View style={styles.searchBar}>
+              <Ionicons name="search-outline" size={18} color="#9CA3AF" style={styles.searchIcon} />
+              <TextInput
+                ref={searchInputRef}
+                style={styles.searchInput}
+                placeholder="Search chats..."
+                placeholderTextColor="#9CA3AF"
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+                returnKeyType="search"
+              />
+              {searchQuery.length > 0 && (
+                <Pressable onPress={clearSearch}>
+                  <Ionicons name="close-circle" size={18} color="#9CA3AF" />
+                </Pressable>
+              )}
+            </View>
           </View>
 
-          {/* Type filter button */}
-          <TouchableOpacity
-            style={[
-              styles.typeFilterButton,
-              typeFilter !== 'all' && {
-                backgroundColor: SPORT_COLORS[sportFilter] || SPORT_COLORS.all,
-                borderColor: SPORT_COLORS[sportFilter] || SPORT_COLORS.all
-              }
-            ]}
-            onPress={() => setShowTypeFilterModal(true)}
-            activeOpacity={0.7}
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-          >
-            <Ionicons
-              name="options-outline"
-              size={20}
-              color={typeFilter !== 'all' ? '#FFFFFF' : SPORT_COLORS[sportFilter] || '#6B7280'}
-            />
-          </TouchableOpacity>
-        </View>
-        <ThreadList
-          key={`thread-list-${appStateKey}`}
-          onThreadSelect={handleThreadSelect}
-          threads={displayedThreads}
-        />
+          {/* Filter chips */}
+          <View style={styles.filterContainer}>
+            <View style={styles.filterChips}>
+              <AnimatedFilterChip
+                label="All"
+                isActive={sportFilter === 'all'}
+                activeColor={SPORT_COLORS.all}
+                onPress={() => setSportFilter('all')}
+              />
+              <AnimatedFilterChip
+                label="Pickleball"
+                isActive={sportFilter === 'pickleball'}
+                activeColor={SPORT_COLORS.pickleball}
+                onPress={() => setSportFilter('pickleball')}
+              />
+              <AnimatedFilterChip
+                label="Tennis"
+                isActive={sportFilter === 'tennis'}
+                activeColor={SPORT_COLORS.tennis}
+                onPress={() => setSportFilter('tennis')}
+              />
+              <AnimatedFilterChip
+                label="Padel"
+                isActive={sportFilter === 'padel'}
+                activeColor={SPORT_COLORS.padel}
+                onPress={() => setSportFilter('padel')}
+              />
+            </View>
+
+            {/* Type filter button */}
+            <TouchableOpacity
+              style={[
+                styles.typeFilterButton,
+                typeFilter !== 'all' && {
+                  backgroundColor: SPORT_COLORS[sportFilter] || SPORT_COLORS.all,
+                  borderColor: SPORT_COLORS[sportFilter] || SPORT_COLORS.all
+                }
+              ]}
+              onPress={() => setShowTypeFilterModal(true)}
+              activeOpacity={0.7}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+              <Ionicons
+                name="options-outline"
+                size={20}
+                color={typeFilter !== 'all' ? '#FFFFFF' : SPORT_COLORS[sportFilter] || '#6B7280'}
+              />
+            </TouchableOpacity>
+          </View>
+          <ThreadList
+            key={`thread-list-${appStateKey}`}
+            onThreadSelect={handleThreadSelect}
+            threads={displayedThreads}
+          />
+        </Animated.View>
         {onTabPress && (
           <NavBar
             activeTab={activeTab}

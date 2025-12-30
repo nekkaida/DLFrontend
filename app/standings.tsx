@@ -13,9 +13,10 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { router, useLocalSearchParams } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import {
   ActivityIndicator,
+  Animated,
   ScrollView,
   StyleSheet,
   Text,
@@ -62,9 +63,62 @@ export default function StandingsScreen() {
   const userId = session?.user?.id;
   const isPickleball = sportType?.toLowerCase() === 'pickleball';
 
+  // Entry animation values
+  const headerEntryOpacity = useRef(new Animated.Value(0)).current;
+  const headerEntryTranslateY = useRef(new Animated.Value(-20)).current;
+  const contentEntryOpacity = useRef(new Animated.Value(0)).current;
+  const contentEntryTranslateY = useRef(new Animated.Value(30)).current;
+  const hasPlayedEntryAnimation = useRef(false);
+
   useEffect(() => {
     fetchStandings();
   }, [seasonId, userId]);
+
+  // Entry animation effect - triggers when loading is done
+  useEffect(() => {
+    if (!isLoading && !hasPlayedEntryAnimation.current) {
+      hasPlayedEntryAnimation.current = true;
+      Animated.stagger(80, [
+        // Header slides down
+        Animated.parallel([
+          Animated.spring(headerEntryOpacity, {
+            toValue: 1,
+            tension: 50,
+            friction: 8,
+            useNativeDriver: false,
+          }),
+          Animated.spring(headerEntryTranslateY, {
+            toValue: 0,
+            tension: 50,
+            friction: 8,
+            useNativeDriver: false,
+          }),
+        ]),
+        // Content slides up
+        Animated.parallel([
+          Animated.spring(contentEntryOpacity, {
+            toValue: 1,
+            tension: 50,
+            friction: 8,
+            useNativeDriver: false,
+          }),
+          Animated.spring(contentEntryTranslateY, {
+            toValue: 0,
+            tension: 50,
+            friction: 8,
+            useNativeDriver: false,
+          }),
+        ]),
+      ]).start();
+    }
+  }, [
+    isLoading,
+    divisions,
+    headerEntryOpacity,
+    headerEntryTranslateY,
+    contentEntryOpacity,
+    contentEntryTranslateY,
+  ]);
 
   const fetchStandings = async () => {
     if (!seasonId) {
@@ -206,7 +260,17 @@ export default function StandingsScreen() {
   return (
     <View style={styles.container}>
       {/* Header */}
-      <View style={[styles.header, { paddingTop: insets.top + 8, backgroundColor: sportColors.badgeColor }]}>
+      <Animated.View
+        style={[
+          styles.header,
+          {
+            paddingTop: insets.top + 8,
+            backgroundColor: sportColors.badgeColor,
+            opacity: headerEntryOpacity,
+            transform: [{ translateY: headerEntryTranslateY }],
+          }
+        ]}
+      >
         <TouchableOpacity
           style={[styles.backButton, { top: insets.top + 12 }]}
           onPress={() => router.back()}
@@ -223,10 +287,18 @@ export default function StandingsScreen() {
             {endDate && <Text style={styles.dateText}>End date: {formatDate(endDate)}</Text>}
           </View>
         </View>
-      </View>
+      </Animated.View>
 
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
-        <View style={styles.standingsSection}>
+        <Animated.View
+          style={[
+            styles.standingsSection,
+            {
+              opacity: contentEntryOpacity,
+              transform: [{ translateY: contentEntryTranslateY }],
+            }
+          ]}
+        >
           <Text style={styles.standingsTitle}>Standings</Text>
 
           {isLoading ? (
@@ -266,7 +338,7 @@ export default function StandingsScreen() {
               />
             ))
           )}
-        </View>
+        </Animated.View>
       </ScrollView>
     </View>
   );

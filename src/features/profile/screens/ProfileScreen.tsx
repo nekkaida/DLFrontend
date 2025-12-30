@@ -7,6 +7,7 @@ import {
   ActionSheetIOS,
   ActivityIndicator,
   Alert,
+  Animated,
   Dimensions,
   Platform,
   RefreshControl,
@@ -53,6 +54,17 @@ export default function ProfileScreen() {
     matchesPlayed: number;
   }>({ wins: 0, losses: 0, matchesPlayed: 0 });
   const hasInitializedSport = useRef(false);
+
+  // Entry animation values
+  const profilePictureEntryOpacity = useRef(new Animated.Value(0)).current;
+  const profilePictureEntryTranslateY = useRef(new Animated.Value(-20)).current;
+  const infoCardEntryOpacity = useRef(new Animated.Value(0)).current;
+  const infoCardEntryTranslateY = useRef(new Animated.Value(30)).current;
+  const achievementsEntryOpacity = useRef(new Animated.Value(0)).current;
+  const achievementsEntryTranslateY = useRef(new Animated.Value(30)).current;
+  const statsEntryOpacity = useRef(new Animated.Value(0)).current;
+  const statsEntryTranslateY = useRef(new Animated.Value(30)).current;
+  const hasPlayedEntryAnimation = useRef(false);
 
   // Use shared profile image upload hook
   const {
@@ -215,6 +227,86 @@ export default function ProfileScreen() {
     }, [fetchProfileData])
   );
 
+  // Entry animation effect - triggers when profile data is loaded
+  useEffect(() => {
+    if (!isLoading && profileData && !hasPlayedEntryAnimation.current) {
+      hasPlayedEntryAnimation.current = true;
+      Animated.stagger(80, [
+        // Profile picture slides down
+        Animated.parallel([
+          Animated.spring(profilePictureEntryOpacity, {
+            toValue: 1,
+            tension: 50,
+            friction: 8,
+            useNativeDriver: false,
+          }),
+          Animated.spring(profilePictureEntryTranslateY, {
+            toValue: 0,
+            tension: 50,
+            friction: 8,
+            useNativeDriver: false,
+          }),
+        ]),
+        // Info card slides up
+        Animated.parallel([
+          Animated.spring(infoCardEntryOpacity, {
+            toValue: 1,
+            tension: 50,
+            friction: 8,
+            useNativeDriver: false,
+          }),
+          Animated.spring(infoCardEntryTranslateY, {
+            toValue: 0,
+            tension: 50,
+            friction: 8,
+            useNativeDriver: false,
+          }),
+        ]),
+        // Achievements slides up
+        Animated.parallel([
+          Animated.spring(achievementsEntryOpacity, {
+            toValue: 1,
+            tension: 50,
+            friction: 8,
+            useNativeDriver: false,
+          }),
+          Animated.spring(achievementsEntryTranslateY, {
+            toValue: 0,
+            tension: 50,
+            friction: 8,
+            useNativeDriver: false,
+          }),
+        ]),
+        // Stats section slides up
+        Animated.parallel([
+          Animated.spring(statsEntryOpacity, {
+            toValue: 1,
+            tension: 50,
+            friction: 8,
+            useNativeDriver: false,
+          }),
+          Animated.spring(statsEntryTranslateY, {
+            toValue: 0,
+            tension: 50,
+            friction: 8,
+            useNativeDriver: false,
+          }),
+        ]),
+      ]).start();
+    }
+  }, [
+    isLoading,
+    profileData,
+    profilePictureEntryOpacity,
+    profilePictureEntryTranslateY,
+    infoCardEntryOpacity,
+    infoCardEntryTranslateY,
+    achievementsEntryOpacity,
+    achievementsEntryTranslateY,
+    statsEntryOpacity,
+    statsEntryTranslateY,
+  ]);
+
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
 
@@ -371,91 +463,120 @@ export default function ProfileScreen() {
         {/* Content */}
         <View style={styles.whiteBackground}>
           {/* Profile Picture */}
-          <ProfilePictureSection
-            imageUri={profileData?.image}
-            isUploading={isUploadingImage}
-            onPickImage={pickImage}
-            isEditable={true}
-          />
+          <Animated.View
+            style={{
+              opacity: profilePictureEntryOpacity,
+              transform: [{ translateY: profilePictureEntryTranslateY }],
+            }}
+          >
+            <ProfilePictureSection
+              imageUri={profileData?.image}
+              isUploading={isUploadingImage}
+              onPickImage={pickImage}
+              isEditable={true}
+            />
+          </Animated.View>
 
           {/* Profile Info */}
-          <ProfileInfoCard
-            name={userData.name}
-            username={userData.username}
-            bio={userData.bio}
-            location={userData.location}
-            gender={userData.gender}
-            sports={userData.sports || []}
-            activeSports={userData.activeSports || []}
-            showActionButtons={false}
-          />
+          <Animated.View
+            style={{
+              opacity: infoCardEntryOpacity,
+              transform: [{ translateY: infoCardEntryTranslateY }],
+            }}
+          >
+            <ProfileInfoCard
+              name={userData.name}
+              username={userData.username}
+              bio={userData.bio}
+              location={userData.location}
+              gender={userData.gender}
+              sports={userData.sports || []}
+              activeSports={userData.activeSports || []}
+              showActionButtons={false}
+            />
+          </Animated.View>
 
           {/* Achievements */}
-          <ProfileAchievementsCard
-            achievements={userData.achievements || []}
-          />
-
-          {/* Sports Tabs */}
-          <ProfileSportsSection
-            sports={userData.sports || []}
-            activeTab={activeTab}
-            onTabPress={(sport) => {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              handleTabPress(sport);
+          <Animated.View
+            style={{
+              opacity: achievementsEntryOpacity,
+              transform: [{ translateY: achievementsEntryTranslateY }],
             }}
-          />
-
-          {/* Skill Level */}
-          <ProfileSkillLevelCard
-            skillLevel={userData.skillLevel}
-          />
-
-          {/* DMR with Graph */}
-          <ProfileDMRCard
-            activeTab={activeTab}
-            selectedGameType={selectedGameType}
-            gameTypeOptions={gameTypeOptions}
-            onGameTypeSelect={handleGameTypeSelect}
-            getRatingForType={getRatingForType}
-            eloData={eloData}
-            onPointPress={(game, index) => {
-              handleGamePointPress(game);
-              setSelectedGraphIndex(index);
-            }}
-            selectedMatch={selectedMatch}
-            selectedGraphIndex={selectedGraphIndex}
-            profileData={profileData}
-          />
-
-          {/* Match History Button */}
-          <MatchHistoryButton
-            onPress={() => {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              navigateTo('/match-history');
-            }}
-          />
-
-          {/* Division Standings - Filtered by selected sport */}
-          {session?.user?.id && (
-            <PlayerDivisionStandings
-              userId={session.user.id}
-              showOnlyCurrentDivisions={false}
-              sportFilter={activeTab}
-              gameTypeFilter={selectedGameType}
-              onStatsCalculated={setLeagueStatsData}
+          >
+            <ProfileAchievementsCard
+              achievements={userData.achievements || []}
             />
-          )}
+          </Animated.View>
 
-          {/* League Stats */}
-          <ProfileLeagueStatsCard
-            activeTab={activeTab}
-            selectedGameType={selectedGameType}
-            gameTypeOptions={gameTypeOptions}
-            onGameTypeSelect={handleGameTypeSelect}
-            winRate={calculateWinRate()}
-            wins={leagueStatsData.wins}
-            losses={leagueStatsData.losses}
-          />
+          {/* Stats Section with Animation */}
+          <Animated.View
+            style={{
+              opacity: statsEntryOpacity,
+              transform: [{ translateY: statsEntryTranslateY }],
+            }}
+          >
+            {/* Sports Tabs */}
+            <ProfileSportsSection
+              sports={userData.sports || []}
+              activeTab={activeTab}
+              onTabPress={(sport) => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                handleTabPress(sport);
+              }}
+            />
+
+            {/* Skill Level */}
+            <ProfileSkillLevelCard
+              skillLevel={userData.skillLevel}
+            />
+
+            {/* DMR with Graph */}
+            <ProfileDMRCard
+              activeTab={activeTab}
+              selectedGameType={selectedGameType}
+              gameTypeOptions={gameTypeOptions}
+              onGameTypeSelect={handleGameTypeSelect}
+              getRatingForType={getRatingForType}
+              eloData={eloData}
+              onPointPress={(game, index) => {
+                handleGamePointPress(game);
+                setSelectedGraphIndex(index);
+              }}
+              selectedMatch={selectedMatch}
+              selectedGraphIndex={selectedGraphIndex}
+              profileData={profileData}
+            />
+
+            {/* Match History Button */}
+            <MatchHistoryButton
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                navigateTo('/match-history');
+              }}
+            />
+
+            {/* Division Standings - Filtered by selected sport */}
+            {session?.user?.id && (
+              <PlayerDivisionStandings
+                userId={session.user.id}
+                showOnlyCurrentDivisions={false}
+                sportFilter={activeTab}
+                gameTypeFilter={selectedGameType}
+                onStatsCalculated={setLeagueStatsData}
+              />
+            )}
+
+            {/* League Stats */}
+            <ProfileLeagueStatsCard
+              activeTab={activeTab}
+              selectedGameType={selectedGameType}
+              gameTypeOptions={gameTypeOptions}
+              onGameTypeSelect={handleGameTypeSelect}
+              winRate={calculateWinRate()}
+              wins={leagueStatsData.wins}
+              losses={leagueStatsData.losses}
+            />
+          </Animated.View>
         </View>
       </ScrollView>
 

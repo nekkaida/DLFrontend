@@ -60,11 +60,12 @@ export const useWithdrawalRequestMonitor = ({
             });
 
             // Navigate to doubles team pairing page
-            if (request.partnership?.season?.id) {
+            const seasonId = request.partnership?.season?.id;
+            if (seasonId) {
               setTimeout(() => {
                 router.push({
                   pathname: '/user-dashboard/doubles-team-pairing',
-                  params: { seasonId: request.partnership.season.id }
+                  params: { seasonId }
                 } as any);
               }, 2000);
             }

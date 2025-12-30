@@ -9,6 +9,7 @@ import { router } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Animated,
   AppState,
   AppStateStatus,
   Dimensions,
@@ -69,6 +70,13 @@ export const ChatThreadScreen: React.FC<ChatThreadScreenProps> = ({ threadId, da
   const appStateRef = useRef<AppStateStatus>(AppState.currentState);
   const messageInputRef = useRef<MessageInputRef>(null);
   const insets = useSafeAreaInsets();
+
+  // Entry animation values
+  const headerEntryOpacity = useRef(new Animated.Value(0)).current;
+  const headerEntryTranslateY = useRef(new Animated.Value(-20)).current;
+  const contentEntryOpacity = useRef(new Animated.Value(0)).current;
+  const contentEntryTranslateY = useRef(new Animated.Value(30)).current;
+  const hasPlayedEntryAnimation = useRef(false);
 
   const { setThreadMetadata, pendingMatchData, clearPendingMatch } = useCreateMatchStore();
 
@@ -138,6 +146,41 @@ export const ChatThreadScreen: React.FC<ChatThreadScreenProps> = ({ threadId, da
       // Load messages
       await loadMessages(threadId);
       setIsLoadingThread(false);
+
+      // Trigger entry animation
+      if (!hasPlayedEntryAnimation.current) {
+        hasPlayedEntryAnimation.current = true;
+        Animated.stagger(80, [
+          Animated.parallel([
+            Animated.spring(headerEntryOpacity, {
+              toValue: 1,
+              tension: 50,
+              friction: 8,
+              useNativeDriver: false,
+            }),
+            Animated.spring(headerEntryTranslateY, {
+              toValue: 0,
+              tension: 50,
+              friction: 8,
+              useNativeDriver: false,
+            }),
+          ]),
+          Animated.parallel([
+            Animated.spring(contentEntryOpacity, {
+              toValue: 1,
+              tension: 50,
+              friction: 8,
+              useNativeDriver: false,
+            }),
+            Animated.spring(contentEntryTranslateY, {
+              toValue: 0,
+              tension: 50,
+              friction: 8,
+              useNativeDriver: false,
+            }),
+          ]),
+        ]).start();
+      }
     };
 
     loadThread();
@@ -690,7 +733,13 @@ export const ChatThreadScreen: React.FC<ChatThreadScreenProps> = ({ threadId, da
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           keyboardVerticalOffset={0}
         >
-          <View style={[styles.chatHeader, { paddingTop: STATUS_BAR_HEIGHT + 12 }]}>
+          <Animated.View
+            style={{
+              opacity: headerEntryOpacity,
+              transform: [{ translateY: headerEntryTranslateY }],
+            }}
+          >
+            <View style={[styles.chatHeader, { paddingTop: STATUS_BAR_HEIGHT + 12 }]}>
             <Pressable
               style={({ pressed }) => [styles.backButton, pressed && { opacity: 0.7 }]}
               onPress={handleBackToThreads}
@@ -822,9 +871,17 @@ export const ChatThreadScreen: React.FC<ChatThreadScreenProps> = ({ threadId, da
                 <Ionicons name="ellipsis-vertical" size={20} color="#6B7280" />
               </Pressable>
             )}
-          </View>
+            </View>
+          </Animated.View>
 
-          <MessageWindow
+          <Animated.View
+            style={{
+              flex: 1,
+              opacity: contentEntryOpacity,
+              transform: [{ translateY: contentEntryTranslateY }],
+            }}
+          >
+            <MessageWindow
             key={refreshKey}
             messages={messages[threadId] || []}
             threadId={threadId}
@@ -836,14 +893,15 @@ export const ChatThreadScreen: React.FC<ChatThreadScreenProps> = ({ threadId, da
           />
 
           <MessageInput
-            ref={messageInputRef}
-            onSendMessage={handleSendMessage}
-            onhandleMatch={handleMatch}
-            replyingTo={replyingTo}
-            onCancelReply={handleCancelReply}
-            sportType={currentThread.sportType}
-            isGroupChat={currentThread.type === 'group'}
-          />
+              ref={messageInputRef}
+              onSendMessage={handleSendMessage}
+              onhandleMatch={handleMatch}
+              replyingTo={replyingTo}
+              onCancelReply={handleCancelReply}
+              sportType={currentThread.sportType}
+              isGroupChat={currentThread.type === 'group'}
+            />
+          </Animated.View>
         </KeyboardAvoidingView>
       </SafeAreaView>
 

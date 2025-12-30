@@ -57,7 +57,17 @@ export default function SeasonDetailsScreen({
 
   // Animated scroll value for collapsing header
   const scrollY = React.useRef(new Animated.Value(0)).current;
-  
+
+  // Entry animation values
+  const headerEntryOpacity = React.useRef(new Animated.Value(0)).current;
+  const headerEntryTranslateY = React.useRef(new Animated.Value(-20)).current;
+  const infoCardEntryOpacity = React.useRef(new Animated.Value(0)).current;
+  const infoCardEntryTranslateY = React.useRef(new Animated.Value(30)).current;
+  const howItWorksEntryOpacity = React.useRef(new Animated.Value(0)).current;
+  const howItWorksEntryTranslateY = React.useRef(new Animated.Value(30)).current;
+  const buttonEntryOpacity = React.useRef(new Animated.Value(0)).current;
+  const hasPlayedEntryAnimation = React.useRef(false);
+
   // Constants for header animation
   const TOP_HEADER_HEIGHT = STATUS_BAR_HEIGHT + (isSmallScreen ? 36 : isTablet ? 44 : 40);
   const HEADER_MAX_HEIGHT = isSmallScreen ? 210 : isTablet ? 240 : 220; // Responsive height to fit profile pictures
@@ -115,6 +125,78 @@ export default function SeasonDetailsScreen({
       setIsProcessingPayment(false);
     }
   }, [showPaymentOptions]);
+
+  // Entry animation effect - triggers when data is loaded
+  React.useEffect(() => {
+    if (!isLoading && !error && season && !hasPlayedEntryAnimation.current) {
+      hasPlayedEntryAnimation.current = true;
+      Animated.stagger(80, [
+        // Header slides down
+        Animated.parallel([
+          Animated.spring(headerEntryOpacity, {
+            toValue: 1,
+            tension: 50,
+            friction: 8,
+            useNativeDriver: false,
+          }),
+          Animated.spring(headerEntryTranslateY, {
+            toValue: 0,
+            tension: 50,
+            friction: 8,
+            useNativeDriver: false,
+          }),
+        ]),
+        // Season info card slides up
+        Animated.parallel([
+          Animated.spring(infoCardEntryOpacity, {
+            toValue: 1,
+            tension: 50,
+            friction: 8,
+            useNativeDriver: false,
+          }),
+          Animated.spring(infoCardEntryTranslateY, {
+            toValue: 0,
+            tension: 50,
+            friction: 8,
+            useNativeDriver: false,
+          }),
+        ]),
+        // How It Works card slides up
+        Animated.parallel([
+          Animated.spring(howItWorksEntryOpacity, {
+            toValue: 1,
+            tension: 50,
+            friction: 8,
+            useNativeDriver: false,
+          }),
+          Animated.spring(howItWorksEntryTranslateY, {
+            toValue: 0,
+            tension: 50,
+            friction: 8,
+            useNativeDriver: false,
+          }),
+        ]),
+        // Button fades in
+        Animated.spring(buttonEntryOpacity, {
+          toValue: 1,
+          tension: 50,
+          friction: 8,
+          useNativeDriver: false,
+        }),
+      ]).start();
+    }
+  }, [
+    isLoading,
+    error,
+    season,
+    headerEntryOpacity,
+    headerEntryTranslateY,
+    infoCardEntryOpacity,
+    infoCardEntryTranslateY,
+    howItWorksEntryOpacity,
+    howItWorksEntryTranslateY,
+    buttonEntryOpacity,
+  ]);
 
   const fetchSeasonData = async () => {
     if (!seasonId) {
@@ -589,11 +671,13 @@ export default function SeasonDetailsScreen({
           </View>
         ) : (
           <>
-            <Animated.View 
+            <Animated.View
               style={[
                 styles.gradientHeaderContainer,
                 {
                   height: headerHeight,
+                  opacity: headerEntryOpacity,
+                  transform: [{ translateY: headerEntryTranslateY }],
                 }
               ]}
             >
@@ -725,7 +809,15 @@ export default function SeasonDetailsScreen({
             >
               <View style={styles.scrollTopSpacer} />
               
-              <View style={styles.seasonInfoCard}>
+              <Animated.View
+                style={[
+                  styles.seasonInfoCard,
+                  {
+                    opacity: infoCardEntryOpacity,
+                    transform: [{ translateY: infoCardEntryTranslateY }],
+                  }
+                ]}
+              >
                 <View style={styles.seasonInfoContent}>
                   <LeagueInfoIcon width={43} height={43} style={styles.seasonInfoIcon} />
                   <View style={styles.seasonInfoTextContainer}>
@@ -734,28 +826,28 @@ export default function SeasonDetailsScreen({
                       <Text style={styles.detailLabel}>Players Registered: </Text>
                       <Text style={styles.detailValue}>{season?._count?.memberships || season?.memberships?.length || 0}</Text>
                     </View>
-                    
+
                     {season?.startDate && (
                       <View style={styles.detailRow}>
                         <Text style={styles.detailLabel}>Start date: </Text>
                         <Text style={styles.detailValue}>{formatSeasonDate(season.startDate)}</Text>
                       </View>
                     )}
-                    
+
                     {season?.endDate && (
                       <View style={styles.detailRow}>
                         <Text style={styles.detailLabel}>End date: </Text>
                         <Text style={styles.detailValue}>{formatSeasonDate(season.endDate)}</Text>
                       </View>
                     )}
-                    
+
                     {season?.regiDeadline && (
                       <View style={styles.detailRow}>
                         <Text style={styles.detailLabel}>Last registration: </Text>
                         <Text style={styles.detailValue}>{formatSeasonDate(season.regiDeadline)}</Text>
                       </View>
                     )}
-                    
+
                     {season?.paymentRequired && season?.entryFee !== undefined && (
                       <View style={styles.detailRow}>
                         <Text style={styles.detailLabel}>Entry fee: </Text>
@@ -766,9 +858,17 @@ export default function SeasonDetailsScreen({
                     )}
                   </View>
                 </View>
-              </View>
+              </Animated.View>
 
-              <View style={styles.howItWorksCard}>
+              <Animated.View
+                style={[
+                  styles.howItWorksCard,
+                  {
+                    opacity: howItWorksEntryOpacity,
+                    transform: [{ translateY: howItWorksEntryTranslateY }],
+                  }
+                ]}
+              >
                 <View style={styles.howItWorksContent}>
                   <Text style={styles.howItWorksTitle}>How <Text style={styles.howItWorksTitleItalic}>DEUCE</Text> League Works?</Text>
                   <Text style={styles.howItWorksDescription}>
@@ -777,12 +877,12 @@ export default function SeasonDetailsScreen({
                   <Text style={[styles.howItWorksSubheadingGradient, { color: getSubheadingTextColor(selectedSport) }]}>
                     Here's how it goes:
                   </Text>
-                  
+
                   <View style={styles.infoItem}>
                     <InfoIcon1 width={43} height={43} />
                     <View style={styles.infoItemTextContainer}>
                       <Text style={styles.infoItemTitle}>You're in Control</Text>
-                      <Text style={styles.infoItemDescription}>Players are responsible for scheduling their own matches and booking courts. 
+                      <Text style={styles.infoItemDescription}>Players are responsible for scheduling their own matches and booking courts.
                         Coordinate with opponents easily through in-app chat.</Text>
                     </View>
                   </View>
@@ -791,7 +891,7 @@ export default function SeasonDetailsScreen({
                     <InfoIcon2 width={43} height={43} />
                     <View style={styles.infoItemTextContainer}>
                       <Text style={styles.infoItemTitle}>Court Fees</Text>
-                      <Text style={styles.infoItemDescription}>Court rental fees aren’t included in registration – just split the cost for each match with your opponent.</Text>
+                      <Text style={styles.infoItemDescription}>Court rental fees aren't included in registration – just split the cost for each match with your opponent.</Text>
                     </View>
                   </View>
 
@@ -834,7 +934,7 @@ export default function SeasonDetailsScreen({
                     </View>
                   </View>
                 </View>
-              </View>
+              </Animated.View>
             </Animated.ScrollView>
           </>
         )}
@@ -843,7 +943,12 @@ export default function SeasonDetailsScreen({
       
       {/* Sticky Button */}
       {!isLoading && !error && season && (
-        <View style={[styles.stickyButtonContainer, { paddingBottom: insets.bottom }]}>
+        <Animated.View
+          style={[
+            styles.stickyButtonContainer,
+            { paddingBottom: insets.bottom, opacity: buttonEntryOpacity }
+          ]}
+        >
           <View style={styles.stickyButtonRow}>
             <TouchableOpacity
               style={[
@@ -866,7 +971,7 @@ export default function SeasonDetailsScreen({
               />
             )}
           </View>
-        </View>
+        </Animated.View>
       )}
 
       <PaymentOptionsBottomSheet

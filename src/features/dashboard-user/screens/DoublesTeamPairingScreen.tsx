@@ -1,5 +1,5 @@
-import React from 'react';
-import { ScrollView, Text, View, StyleSheet, Dimensions, TouchableOpacity, ActivityIndicator, Image, StatusBar, Alert } from 'react-native';
+import React, { useRef, useEffect } from 'react';
+import { ScrollView, Text, View, StyleSheet, Dimensions, TouchableOpacity, ActivityIndicator, Image, StatusBar, Alert, Animated } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
@@ -77,6 +77,50 @@ export default function DoublesTeamPairingScreen({
   const STATUS_BAR_HEIGHT = insets.top;
 
   const userId = session?.user?.id;
+
+  // Entry animation values
+  const headerEntryOpacity = useRef(new Animated.Value(0)).current;
+  const headerEntryTranslateY = useRef(new Animated.Value(-20)).current;
+  const contentEntryOpacity = useRef(new Animated.Value(0)).current;
+  const contentEntryTranslateY = useRef(new Animated.Value(30)).current;
+  const hasPlayedEntryAnimation = useRef(false);
+
+  // Trigger entry animation when data loads
+  useEffect(() => {
+    if (!isLoading && season && !hasPlayedEntryAnimation.current) {
+      hasPlayedEntryAnimation.current = true;
+      Animated.stagger(80, [
+        Animated.parallel([
+          Animated.spring(headerEntryOpacity, {
+            toValue: 1,
+            tension: 50,
+            friction: 8,
+            useNativeDriver: false,
+          }),
+          Animated.spring(headerEntryTranslateY, {
+            toValue: 0,
+            tension: 50,
+            friction: 8,
+            useNativeDriver: false,
+          }),
+        ]),
+        Animated.parallel([
+          Animated.spring(contentEntryOpacity, {
+            toValue: 1,
+            tension: 50,
+            friction: 8,
+            useNativeDriver: false,
+          }),
+          Animated.spring(contentEntryTranslateY, {
+            toValue: 0,
+            tension: 50,
+            friction: 8,
+            useNativeDriver: false,
+          }),
+        ]),
+      ]).start();
+    }
+  }, [isLoading, season]);
 
   React.useEffect(() => {
     fetchSeasonData();
@@ -685,46 +729,60 @@ export default function DoublesTeamPairingScreen({
     <View style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
       
-      <View style={[styles.headerContainer, { paddingTop: STATUS_BAR_HEIGHT }]}>
-        <TouchableOpacity 
-          style={styles.headerProfilePicture}
-          onPress={() => {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-            router.push('/profile');
-          }}
-        >
-          {(profileData?.image || session?.user?.image) ? (
-            <Image 
-              source={{ uri: profileData?.image || session?.user?.image }}
-              style={styles.headerProfileImage}
-            />
-          ) : (
-            <View style={styles.defaultHeaderAvatarContainer}>
-              <Text style={styles.defaultHeaderAvatarText}>
-                {(profileData?.name || session?.user?.name)?.charAt(0)?.toUpperCase() || 'U'}
-              </Text>
-            </View>
-          )}
-        </TouchableOpacity>
-        
-        <SportSwitcher
-          currentSport={selectedSport}
-          availableSports={getUserSelectedSports()}
-          onSportChange={(newSport) => {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-            router.push({
-              pathname: '/user-dashboard' as any,
-              params: { sport: newSport }
-            });
-          }}
-        />
-        
-        <View style={styles.headerRight} />
-      </View>
+      <Animated.View
+        style={{
+          opacity: headerEntryOpacity,
+          transform: [{ translateY: headerEntryTranslateY }],
+        }}
+      >
+        <View style={[styles.headerContainer, { paddingTop: STATUS_BAR_HEIGHT }]}>
+          <TouchableOpacity
+            style={styles.headerProfilePicture}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              router.push('/profile');
+            }}
+          >
+            {(profileData?.image || session?.user?.image) ? (
+              <Image
+                source={{ uri: profileData?.image || session?.user?.image }}
+                style={styles.headerProfileImage}
+              />
+            ) : (
+              <View style={styles.defaultHeaderAvatarContainer}>
+                <Text style={styles.defaultHeaderAvatarText}>
+                  {(profileData?.name || session?.user?.name)?.charAt(0)?.toUpperCase() || 'U'}
+                </Text>
+              </View>
+            )}
+          </TouchableOpacity>
 
-      <View style={styles.contentContainer}>
-        <View style={styles.contentBox}>
-        {isLoading ? (
+          <SportSwitcher
+            currentSport={selectedSport}
+            availableSports={getUserSelectedSports()}
+            onSportChange={(newSport) => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              router.push({
+                pathname: '/user-dashboard' as any,
+                params: { sport: newSport }
+              });
+            }}
+          />
+
+          <View style={styles.headerRight} />
+        </View>
+      </Animated.View>
+
+      <Animated.View
+        style={{
+          flex: 1,
+          opacity: contentEntryOpacity,
+          transform: [{ translateY: contentEntryTranslateY }],
+        }}
+      >
+        <View style={styles.contentContainer}>
+          <View style={styles.contentBox}>
+          {isLoading ? (
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color="#A04DFE" />
             <Text style={styles.loadingText}>Loading...</Text>
@@ -935,9 +993,10 @@ export default function DoublesTeamPairingScreen({
             </ScrollView>
           </>
         )}
+          </View>
         </View>
-      </View>
-      
+      </Animated.View>
+
       {/* Sticky Button */}
       {!isLoading && !error && season && (() => {
         const isCaptain = currentPartnership?.captainId === userId;
