@@ -1,6 +1,7 @@
 import BackButtonIcon from '@/assets/icons/back-button.svg';
 import LeagueInfoIcon from '@/assets/icons/league-info.svg';
 import { useActivePartnership } from '@/features/pairing/hooks';
+import { ManageTeamButton } from '@/features/pairing/components';
 import { authClient, useSession } from '@/lib/auth-client';
 import { NavBar } from '@/shared/components/layout';
 import { SportSwitcher } from '@/shared/components/ui/SportSwitcher';
@@ -26,8 +27,12 @@ import { useLeagueData } from '../hooks/useLeagueData';
 import { useSeasonSelection } from '../hooks/useSeasonSelection';
 import { useUserPartnerships } from '@/src/features/pairing/hooks/useUserPartnerships';
 import { FiuuPaymentService } from '@/src/features/payments/services/FiuuPaymentService';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { SeasonCardSkeleton } from '@/src/components/SeasonCardSkeleton';
 
 const { width } = Dimensions.get('window');
+
+const LEAGUE_SEASONS_CACHE_KEY_PREFIX = 'league_seasons_summary_';
 
 const isSmallScreen = width < 375;
 const isTablet = width > 768;
@@ -49,6 +54,9 @@ export default function LeagueDetailsScreen({
   const [isProcessingPayment, setIsProcessingPayment] = React.useState(false);
   const [selectedSport, setSelectedSport] = React.useState<'pickleball' | 'tennis' | 'padel'>('pickleball');
   const [isRefreshing, setIsRefreshing] = React.useState(false);
+  const [showSeasonsSkeleton, setShowSeasonsSkeleton] = React.useState(false);
+  const hasInitializedSeasonsRef = React.useRef(false);
+  const isManualRefreshRef = React.useRef(false);
   const insets = useSafeAreaInsets();
   const STATUS_BAR_HEIGHT = insets.top;
 
@@ -114,6 +122,17 @@ export default function LeagueDetailsScreen({
 
   // Animated scroll value for collapsing header
   const scrollY = React.useRef(new Animated.Value(0)).current;
+
+  // Entry animation values
+  const headerEntryOpacity = React.useRef(new Animated.Value(0)).current;
+  const headerEntryTranslateY = React.useRef(new Animated.Value(-20)).current;
+  const infoCardEntryOpacity = React.useRef(new Animated.Value(0)).current;
+  const infoCardEntryTranslateY = React.useRef(new Animated.Value(30)).current;
+  const categoriesEntryOpacity = React.useRef(new Animated.Value(0)).current;
+  const categoriesEntryTranslateY = React.useRef(new Animated.Value(30)).current;
+  const seasonsEntryOpacity = React.useRef(new Animated.Value(0)).current;
+  const seasonsEntryTranslateY = React.useRef(new Animated.Value(30)).current;
+  const hasPlayedEntryAnimation = React.useRef(false);
   
   // Constants for header animation
   const TOP_HEADER_HEIGHT = STATUS_BAR_HEIGHT + (isSmallScreen ? 36 : isTablet ? 44 : 40);
@@ -165,6 +184,142 @@ export default function LeagueDetailsScreen({
     return categories.filter(category => isCategoryVisibleToUser(category));
   };
 
+  // Smart skeleton: Update cache with current seasons summary
+  const updateSeasonsCache = React.useCallback(async () => {
+    if (!leagueId || seasons.length === 0) return;
+
+    try {
+      const cacheKey = `${LEAGUE_SEASONS_CACHE_KEY_PREFIX}${leagueId}`;
+      const newSummary = {
+        count: seasons.length,
+        seasonIds: seasons.map(s => s.id).sort().join(','),
+      };
+      await AsyncStorage.setItem(cacheKey, JSON.stringify(newSummary));
+    } catch (error) {
+      console.error('Error updating seasons cache:', error);
+    }
+  }, [leagueId, seasons]);
+
+  // Smart skeleton: Control skeleton display based on loading state and cache
+  React.useEffect(() => {
+    let isMounted = true;
+
+    const handleSkeletonDisplay = async () => {
+      try {
+        // Skip skeleton logic during manual refresh
+        if (isManualRefreshRef.current) return;
+
+        // Only trigger skeleton on first load when we haven't initialized yet
+        if (isLoading && !hasInitializedSeasonsRef.current) {
+          // First load ever - check if we have cached data
+          const cacheKey = `${LEAGUE_SEASONS_CACHE_KEY_PREFIX}${leagueId}`;
+          const cachedSummaryStr = await AsyncStorage.getItem(cacheKey);
+
+          if (!isMounted) return;
+
+          if (!cachedSummaryStr) {
+            // No cache = truly first time, show skeleton
+            setShowSeasonsSkeleton(true);
+          }
+
+          hasInitializedSeasonsRef.current = true;
+        } else if (!isLoading && seasons.length > 0) {
+          if (!isMounted) return;
+          // Data loaded - hide skeleton and update cache
+          setShowSeasonsSkeleton(false);
+          await updateSeasonsCache();
+        } else if (!isLoading && seasons.length === 0 && !error) {
+          if (!isMounted) return;
+          // No seasons but no error - hide skeleton
+          setShowSeasonsSkeleton(false);
+        }
+      } catch (error) {
+        console.error('Error in skeleton display logic:', error);
+        if (isMounted) {
+          setShowSeasonsSkeleton(false); // Fail gracefully
+        }
+      }
+    };
+
+    handleSkeletonDisplay();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [isLoading, seasons, leagueId, error, updateSeasonsCache]);
+
+  // Entry animations - trigger staggered fade-in and slide-up when content loads
+  // Note: useNativeDriver: false because header entry animation is combined with height property
+  React.useEffect(() => {
+    if (!isLoading && !error && league && !hasPlayedEntryAnimation.current) {
+      hasPlayedEntryAnimation.current = true;
+
+      // Staggered entry animations with spring physics
+      Animated.stagger(80, [
+        // Header animation
+        Animated.parallel([
+          Animated.spring(headerEntryOpacity, {
+            toValue: 1,
+            tension: 50,
+            friction: 8,
+            useNativeDriver: false,
+          }),
+          Animated.spring(headerEntryTranslateY, {
+            toValue: 0,
+            tension: 50,
+            friction: 8,
+            useNativeDriver: false,
+          }),
+        ]),
+        // Info card animation
+        Animated.parallel([
+          Animated.spring(infoCardEntryOpacity, {
+            toValue: 1,
+            tension: 50,
+            friction: 8,
+            useNativeDriver: false,
+          }),
+          Animated.spring(infoCardEntryTranslateY, {
+            toValue: 0,
+            tension: 50,
+            friction: 8,
+            useNativeDriver: false,
+          }),
+        ]),
+        // Categories animation
+        Animated.parallel([
+          Animated.spring(categoriesEntryOpacity, {
+            toValue: 1,
+            tension: 50,
+            friction: 8,
+            useNativeDriver: false,
+          }),
+          Animated.spring(categoriesEntryTranslateY, {
+            toValue: 0,
+            tension: 50,
+            friction: 8,
+            useNativeDriver: false,
+          }),
+        ]),
+        // Seasons animation
+        Animated.parallel([
+          Animated.spring(seasonsEntryOpacity, {
+            toValue: 1,
+            tension: 50,
+            friction: 8,
+            useNativeDriver: false,
+          }),
+          Animated.spring(seasonsEntryTranslateY, {
+            toValue: 0,
+            tension: 50,
+            friction: 8,
+            useNativeDriver: false,
+          }),
+        ]),
+      ]).start();
+    }
+  }, [isLoading, error, league, headerEntryOpacity, headerEntryTranslateY, infoCardEntryOpacity, infoCardEntryTranslateY, categoriesEntryOpacity, categoriesEntryTranslateY, seasonsEntryOpacity, seasonsEntryTranslateY]);
+
   const handleTabPress = (tabIndex: number) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setActiveTab(tabIndex);
@@ -174,8 +329,8 @@ export default function LeagueDetailsScreen({
     if (tabIndex === 0) {
       // Navigate to Connect
       router.push({
-        pathname: '/user-dashboard/connect' as any,
-        params: { sport: selectedSport }
+        pathname: '/user-dashboard' as any,
+        params: { view: 'connect', sport: selectedSport }
       });
     } else if (tabIndex === 1) {
       // Navigate to Friendly
@@ -451,23 +606,12 @@ export default function LeagueDetailsScreen({
         };
       }
 
-      // If doubles season and partnership was dissolved (REMOVED status), show Find Partner
+      // If doubles season and membership was REMOVED (player left), they must re-register and pay again
       if (isDoublesSeason && userMembership && userMembership.status === 'REMOVED') {
         return {
-          text: 'Find Partner',
+          text: 'Join Season',
           color: '#FEA04D',
-          onPress: () => {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-            router.push({
-              pathname: '/user-dashboard/doubles-team-pairing',
-              params: {
-                seasonId: season.id,
-                seasonName: season.name,
-                leagueId: league?.id,
-                sport: sport || 'pickleball'
-              }
-            } as any);
-          }
+          onPress: () => handleRegisterPress(season)
         };
       }
 
@@ -509,6 +653,7 @@ export default function LeagueDetailsScreen({
 
     // Check if user has partnership for this season
     const hasPartnership = partnerships.has(season.id);
+    const partnership = partnerships.get(season.id);
 
     // Determine if this is a doubles season
     const isDoublesSeason = normalizedCategories.some(cat =>
@@ -644,17 +789,11 @@ export default function LeagueDetailsScreen({
                 <Text style={styles.registerButtonText}>{buttonConfig.text}</Text>
               </TouchableOpacity>
 
-              {showManageTeam && (
-                <TouchableOpacity
-                  style={styles.manageTeamButton}
-                  onPress={() => {
-                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                    router.push(`/pairing/manage-partnership/${season.id}` as any);
-                  }}
-                >
-                  <Ionicons name="settings-outline" size={16} color="#FEA04D" />
-                  <Text style={styles.manageTeamButtonText}>Manage Team</Text>
-                </TouchableOpacity>
+              {showManageTeam && partnership && (
+                <ManageTeamButton
+                  seasonId={season.id}
+                  partnershipId={partnership.id}
+                />
               )}
             </View>
             {season.status === 'ACTIVE' && !isUserRegistered && (
@@ -686,7 +825,7 @@ export default function LeagueDetailsScreen({
     }
     return {
       gradient: ['#B98FAF', '#FFFFFF'] as const,
-      color: '#863A73',
+      color: '#A04DFE',
       name: 'Pickleball'
     };
   };
@@ -755,9 +894,11 @@ export default function LeagueDetailsScreen({
     setSelectedSport(sport);
   }, [sport]);
 
-  // Pull-to-refresh handler
+  // Pull-to-refresh handler - never show skeleton on manual refresh
   const onRefresh = React.useCallback(async () => {
     setIsRefreshing(true);
+    isManualRefreshRef.current = true; // Flag manual refresh to skip skeleton logic
+    setShowSeasonsSkeleton(false); // Never show skeleton on manual refresh
     try {
       // Fetch profile data first (which also updates gender), then fetch league data
       // This ensures categories are properly filtered with the correct gender
@@ -767,6 +908,7 @@ export default function LeagueDetailsScreen({
       console.error('Error refreshing data:', error);
     } finally {
       setIsRefreshing(false);
+      isManualRefreshRef.current = false; // Clear manual refresh flag
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fetchProfileData, fetchAllData]);
@@ -861,7 +1003,8 @@ export default function LeagueDetailsScreen({
 
       <View style={styles.contentContainer}>
         <View style={styles.contentBox}>
-        {isLoading || userGender === undefined ? (
+        {isLoading && userGender === undefined ? (
+          // Only show full-page spinner when BOTH loading AND no gender
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color={sportConfig.color} />
             <Text style={styles.loadingText}>Loading league details...</Text>
@@ -875,11 +1018,13 @@ export default function LeagueDetailsScreen({
           </View>
         ) : (
           <>
-            <Animated.View 
+            <Animated.View
               style={[
                 styles.gradientHeaderContainer,
                 {
                   height: headerHeight,
+                  opacity: headerEntryOpacity,
+                  transform: [{ translateY: headerEntryTranslateY }],
                 }
               ]}
             >
@@ -1009,87 +1154,115 @@ export default function LeagueDetailsScreen({
             >
             <View style={styles.scrollTopSpacer} />
             {/* League Info Card */}
-            <View style={styles.leagueInfoCard}>
-              <View style={styles.leagueInfoContent}>
-                <LeagueInfoIcon width={43} height={43} style={styles.leagueInfoIcon} />
-                <View style={styles.leagueInfoTextContainer}>
-                  <Text style={styles.leagueInfoTitle}>League Info</Text>
-                  <Text style={styles.leagueInfoText}>
-                    {league?.description || 'This is a friendly, competitive flex league. Join a league to meet new players in your area, stay active, and level up your game. All adult players are welcome to join!'}
-                  </Text>
+            <Animated.View
+              style={{
+                opacity: infoCardEntryOpacity,
+                transform: [{ translateY: infoCardEntryTranslateY }],
+              }}
+            >
+              <View style={styles.leagueInfoCard}>
+                <View style={styles.leagueInfoContent}>
+                  <LeagueInfoIcon width={43} height={43} style={styles.leagueInfoIcon} />
+                  <View style={styles.leagueInfoTextContainer}>
+                    <Text style={styles.leagueInfoTitle}>League Info</Text>
+                    <Text style={styles.leagueInfoText}>
+                      {league?.description || 'This is a friendly, competitive flex league. Join a league to meet new players in your area, stay active, and level up your game. All adult players are welcome to join!'}
+                    </Text>
+                  </View>
                 </View>
               </View>
-            </View>
+            </Animated.View>
 
             {/* Category Filter Buttons */}
             {categories.length > 0 && (
-              <View style={styles.categoriesContainer}>
-                <View style={styles.categoryButtons}>
-                  {categories.map((category) => {
-                    const displayName = CategoryService.getCategoryDisplayName(
-                      category,
-                      CategoryService.getEffectiveGameType(category, 'SINGLES')
-                    );
-                    const isSelected = selectedCategoryId === category.id;
+              <Animated.View
+                style={{
+                  opacity: categoriesEntryOpacity,
+                  transform: [{ translateY: categoriesEntryTranslateY }],
+                }}
+              >
+                <View style={styles.categoriesContainer}>
+                  <View style={styles.categoryButtons}>
+                    {categories.map((category) => {
+                      const displayName = CategoryService.getCategoryDisplayName(
+                        category,
+                        CategoryService.getEffectiveGameType(category, 'SINGLES')
+                      );
+                      const isSelected = selectedCategoryId === category.id;
 
-                    return (
-                      <TouchableOpacity
-                        key={category.id}
-                        style={[styles.categoryButton, isSelected && styles.categoryButtonSelected]}
-                        onPress={() => {
-                          handleCategoryPress(category.id);
-                        }}
-                        activeOpacity={0.7}
-                      >
-                        {isSelected && (
-                          <Text style={styles.tickIcon}>✓</Text>
-                        )}
-                        <Text style={[styles.categoryButtonText, isSelected && styles.categoryButtonTextSelected]}>
-                          {displayName}
-                        </Text>
-                      </TouchableOpacity>
-                    );
-                  })}
+                      return (
+                        <TouchableOpacity
+                          key={category.id}
+                          style={[styles.categoryButton, isSelected && styles.categoryButtonSelected]}
+                          onPress={() => {
+                            handleCategoryPress(category.id);
+                          }}
+                          activeOpacity={0.7}
+                        >
+                          {isSelected && (
+                            <Text style={styles.tickIcon}>✓</Text>
+                          )}
+                          <Text style={[styles.categoryButtonText, isSelected && styles.categoryButtonTextSelected]}>
+                            {displayName}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
                 </View>
-              </View>
+              </Animated.View>
             )}
 
-            {/* Current Seasons Section */}
-            {currentSeasons.length > 0 && (
-              <View style={styles.seasonsSection}>
-                <Text style={styles.sectionTitle}>Current Season</Text>
-                {currentSeasons.map(renderSeasonCard)}
-              </View>
-            )}
+            {/* Season Cards Section - Show skeleton OR content */}
+            <Animated.View
+              style={{
+                opacity: seasonsEntryOpacity,
+                transform: [{ translateY: seasonsEntryTranslateY }],
+              }}
+            >
+              {showSeasonsSkeleton ? (
+                <SeasonCardSkeleton sport={sport} count={2} />
+              ) : (
+                <>
+                  {/* Current Seasons Section */}
+                  {currentSeasons.length > 0 && (
+                    <View style={styles.seasonsSection}>
+                      <Text style={styles.sectionTitle}>Current Season</Text>
+                      {currentSeasons.map(renderSeasonCard)}
+                    </View>
+                  )}
 
-            {/* Upcoming Seasons Section */}
-            {upcomingSeasons.length > 0 && (
-              <View style={styles.seasonsSection}>
-                <Text style={styles.sectionTitle}>Upcoming Season</Text>
-                {upcomingSeasons.map(renderSeasonCard)}
-              </View>
-            )}
+                  {/* Upcoming Seasons Section */}
+                  {upcomingSeasons.length > 0 && (
+                    <View style={styles.seasonsSection}>
+                      <Text style={styles.sectionTitle}>Upcoming Season</Text>
+                      {upcomingSeasons.map(renderSeasonCard)}
+                    </View>
+                  )}
 
-            {/* Past Seasons Section */}
-            {pastSeasons.length > 0 && (
-              <View style={styles.seasonsSection}>
-                <Text style={styles.sectionTitle}>Past Season</Text>
-                {pastSeasons.map(renderSeasonCard)}
-              </View>
-            )}
+                  {/* Past Seasons Section */}
+                  {pastSeasons.length > 0 && (
+                    <View style={styles.seasonsSection}>
+                      <Text style={styles.sectionTitle}>Past Season</Text>
+                      {pastSeasons.map(renderSeasonCard)}
+                    </View>
+                  )}
 
-            {/* Empty State - Show when no categories or no seasons */}
-            {categories.length === 0 || (currentSeasons.length === 0 && upcomingSeasons.length === 0 && pastSeasons.length === 0) ? (
-              <View style={styles.emptyContainer}>
-                <Text style={styles.emptyText}>
-                  {categories.length === 0 
-                    ? 'There are currently no seasons available for this league.'
-                    : selectedCategoryId 
-                      ? 'There are currently no seasons available for this category.'
-                      : 'There are currently no seasons available for this league.'}
-                </Text>
-              </View>
-            ) : null}
+                  {/* Empty State - Show when no categories or no seasons */}
+                  {categories.length === 0 || (currentSeasons.length === 0 && upcomingSeasons.length === 0 && pastSeasons.length === 0) ? (
+                    <View style={styles.emptyContainer}>
+                      <Text style={styles.emptyText}>
+                        {categories.length === 0
+                          ? 'There are currently no seasons available for this league.'
+                          : selectedCategoryId
+                            ? 'There are currently no seasons available for this category.'
+                            : 'There are currently no seasons available for this league.'}
+                      </Text>
+                    </View>
+                  ) : null}
+                </>
+              )}
+            </Animated.View>
             </Animated.ScrollView>
           </>
         )}

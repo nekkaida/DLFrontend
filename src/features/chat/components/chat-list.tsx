@@ -277,7 +277,7 @@ export const ThreadList: React.FC<ThreadListProps> = ({ onThreadSelect, threads:
   if (isLoading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#863A73" />
+        <ActivityIndicator size="large" color="#A04DFE" />
         <Text style={styles.loadingText}>Loading chats...</Text>
       </View>
     );

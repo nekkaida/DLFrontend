@@ -8,6 +8,7 @@ import { router } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
+  Animated,
   FlatList,
   RefreshControl,
   Text,
@@ -47,6 +48,11 @@ export default function MyGamesScreen({ sport = 'pickleball', initialTab }: MyGa
   const sportType = sport.toUpperCase() as SportType;
   const sportColors = getSportColors(sportType);
   const filterBottomSheetRef = useRef<FilterBottomSheetRef>(null);
+
+  // Entry animation values
+  const contentEntryOpacity = useRef(new Animated.Value(0)).current;
+  const contentEntryTranslateY = useRef(new Animated.Value(30)).current;
+  const hasPlayedEntryAnimation = useRef(false);
 
   const [refreshing, setRefreshing] = useState(false);
   const [showSkeleton, setShowSkeleton] = useState(false); // Only true when new content detected
@@ -177,6 +183,27 @@ export default function MyGamesScreen({ sport = 'pickleball', initialTab }: MyGa
     fetchMyMatches();
     fetchPendingInvitations();
   }, [fetchMyMatches, fetchPendingInvitations]);
+
+  // Entry animation effect - trigger when loading is done, regardless of data
+  useEffect(() => {
+    if (!showSkeleton && hasInitializedRef.current && !hasPlayedEntryAnimation.current) {
+      hasPlayedEntryAnimation.current = true;
+      Animated.parallel([
+        Animated.spring(contentEntryOpacity, {
+          toValue: 1,
+          tension: 50,
+          friction: 8,
+          useNativeDriver: false,
+        }),
+        Animated.spring(contentEntryTranslateY, {
+          toValue: 0,
+          tension: 50,
+          friction: 8,
+          useNativeDriver: false,
+        }),
+      ]).start();
+    }
+  }, [showSkeleton, matches, invitations, contentEntryOpacity, contentEntryTranslateY]);
 
   // Listen for refresh signal from match-details (after submit/confirm/join/cancel)
   const { shouldRefresh, clearRefresh } = useMyGamesStore();
@@ -328,7 +355,7 @@ export default function MyGamesScreen({ sport = 'pickleball', initialTab }: MyGa
 
   // Get filter button color based on selected sport filter
   const getFilterButtonColor = (): string => {
-    if (!hasActiveFilters) return '#863A73'; // Default purple when no filters
+    if (!hasActiveFilters) return '#A04DFE'; // Default purple when no filters
 
     if (filters.sport) {
       const sportType = filters.sport.toUpperCase() as SportType;
@@ -435,7 +462,15 @@ export default function MyGamesScreen({ sport = 'pickleball', initialTab }: MyGa
   return (
     <View style={styles.container}>
       {/* Content wrapper */}
-      <View style={styles.contentWrapper}>
+      <Animated.View
+        style={[
+          styles.contentWrapper,
+          {
+            opacity: contentEntryOpacity,
+            transform: [{ translateY: contentEntryTranslateY }],
+          }
+        ]}
+      >
         {/* Search Bar - Compact */}
         <View style={styles.searchContainer}>
           <View style={styles.searchInputWrapper}>
@@ -543,7 +578,7 @@ export default function MyGamesScreen({ sport = 'pickleball', initialTab }: MyGa
           currentFilters={filters}
           sportColor={sportColors.background}
         />
-      </View>
+      </Animated.View>
     </View>
   );
 }

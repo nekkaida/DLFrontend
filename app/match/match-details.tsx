@@ -16,6 +16,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Animated,
   Image,
   StatusBar,
   StyleSheet,
@@ -117,6 +118,13 @@ export default function JoinMatchScreen() {
   
   const bottomSheetModalRef = useRef<BottomSheetModal>(null);
   const cancelSheetRef = useRef<BottomSheetModal>(null);
+
+  // Entry animation values
+  const headerEntryOpacity = useRef(new Animated.Value(0)).current;
+  const headerEntryTranslateY = useRef(new Animated.Value(-20)).current;
+  const contentEntryOpacity = useRef(new Animated.Value(0)).current;
+  const contentEntryTranslateY = useRef(new Animated.Value(30)).current;
+  const hasPlayedEntryAnimation = useRef(false);
 
   // Parse params - use fetched data as fallback when navigating from notifications
   const matchId = params.matchId as string;
@@ -515,6 +523,51 @@ export default function JoinMatchScreen() {
 
     return () => clearInterval(intervalId);
   }, [matchData.status, matchData.resultSubmittedAt]);
+
+  // Entry animation effect - triggers when participants are loaded
+  useEffect(() => {
+    if (participantsWithDetails.length > 0 && !hasPlayedEntryAnimation.current) {
+      hasPlayedEntryAnimation.current = true;
+      Animated.stagger(80, [
+        // Header slides down
+        Animated.parallel([
+          Animated.spring(headerEntryOpacity, {
+            toValue: 1,
+            tension: 50,
+            friction: 8,
+            useNativeDriver: false,
+          }),
+          Animated.spring(headerEntryTranslateY, {
+            toValue: 0,
+            tension: 50,
+            friction: 8,
+            useNativeDriver: false,
+          }),
+        ]),
+        // Content slides up
+        Animated.parallel([
+          Animated.spring(contentEntryOpacity, {
+            toValue: 1,
+            tension: 50,
+            friction: 8,
+            useNativeDriver: false,
+          }),
+          Animated.spring(contentEntryTranslateY, {
+            toValue: 0,
+            tension: 50,
+            friction: 8,
+            useNativeDriver: false,
+          }),
+        ]),
+      ]).start();
+    }
+  }, [
+    participantsWithDetails,
+    headerEntryOpacity,
+    headerEntryTranslateY,
+    contentEntryOpacity,
+    contentEntryTranslateY,
+  ]);
 
   const fetchParticipantDetails = async () => {
     try {
@@ -1259,7 +1312,17 @@ export default function JoinMatchScreen() {
       <StatusBar barStyle="light-content" backgroundColor={themeColor} />
 
       {/* Custom Header */}
-      <View style={[styles.header, { backgroundColor: themeColor, paddingTop: insets.top }]}>
+      <Animated.View
+        style={[
+          styles.header,
+          {
+            backgroundColor: themeColor,
+            paddingTop: insets.top,
+            opacity: headerEntryOpacity,
+            transform: [{ translateY: headerEntryTranslateY }],
+          }
+        ]}
+      >
         <View style={styles.headerTop}>
           <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
             <Ionicons name="chevron-back" size={28} color="#FFFFFF" />
@@ -1290,7 +1353,7 @@ export default function JoinMatchScreen() {
         <View style={styles.headerIcon}>
           <SportIcon width={80} height={80} fill="#FFFFFF" />
         </View>
-      </View>
+      </Animated.View>
 
       <KeyboardAwareScrollView
         style={styles.scrollContent}
@@ -1300,15 +1363,21 @@ export default function JoinMatchScreen() {
         keyboardDismissMode="interactive"
         bottomOffset={16}
       >
-        {/* Loading indicator when fetching match details from notifications */}
-        {isLoadingMatchDetails && (
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color={themeColor} />
-            <Text style={styles.loadingText}>Loading match details...</Text>
-          </View>
-        )}
+        <Animated.View
+          style={{
+            opacity: contentEntryOpacity,
+            transform: [{ translateY: contentEntryTranslateY }],
+          }}
+        >
+          {/* Loading indicator when fetching match details from notifications */}
+          {isLoadingMatchDetails && (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="large" color={themeColor} />
+              <Text style={styles.loadingText}>Loading match details...</Text>
+            </View>
+          )}
 
-        {/* Participants Section */}
+          {/* Participants Section */}
         {(() => {
           // Sort participants by team for doubles matches
           const team1Players = participantsWithDetails.filter(p => p.team === 'team1');
@@ -1806,10 +1875,11 @@ export default function JoinMatchScreen() {
           isLoading={isLoadingComments}
         />
 
-        {/* Report Section  - Waiting on updates from clients */}
-        <TouchableOpacity style={styles.reportButton}>
-          <Text style={styles.reportButtonText}>Report a problem</Text>
-        </TouchableOpacity>
+          {/* Report Section  - Waiting on updates from clients */}
+          <TouchableOpacity style={styles.reportButton}>
+            <Text style={styles.reportButtonText}>Report a problem</Text>
+          </TouchableOpacity>
+        </Animated.View>
       </KeyboardAwareScrollView>
 
       {/* Footer with Action Buttons */}

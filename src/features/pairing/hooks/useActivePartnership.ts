@@ -18,6 +18,7 @@ interface Partnership {
     username: string;
     displayUsername: string | null;
     image: string | null;
+    skillRatings?: Record<string, { singles?: number; doubles?: number }>;
   };
   partner: {
     id: string;
@@ -25,11 +26,18 @@ interface Partnership {
     username: string;
     displayUsername: string | null;
     image: string | null;
+    skillRatings?: Record<string, { singles?: number; doubles?: number }>;
   };
   season: {
     id: string;
     name: string;
-    sportType: string;
+    sportType?: string;
+    category?: {
+      gameType?: string;
+    };
+    leagues?: Array<{
+      sportType?: string;
+    }>;
   };
   division: {
     id: string;
@@ -84,11 +92,11 @@ export const useActivePartnership = (
       console.log('[useActivePartnership] Extracted data:', data);
       console.log('[useActivePartnership] Data status:', data?.status);
 
-      if (data && data.status === 'ACTIVE') {
-        console.log('[useActivePartnership] Partnership found and ACTIVE');
+      if (data && (data.status === 'ACTIVE' || data.status === 'INCOMPLETE')) {
+        console.log('[useActivePartnership] Partnership found with status:', data.status);
         setPartnership(data);
       } else {
-        console.log('[useActivePartnership] No active partnership found or status not ACTIVE');
+        console.log('[useActivePartnership] No active/incomplete partnership found');
         setPartnership(null);
       }
     } catch (err) {

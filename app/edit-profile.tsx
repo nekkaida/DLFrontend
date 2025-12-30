@@ -5,11 +5,12 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import {
   ActionSheetIOS,
   ActivityIndicator,
   Alert,
+  Animated,
   Image,
   ImageStyle,
   KeyboardAvoidingView,
@@ -70,6 +71,13 @@ export default function EditProfileScreen() {
     dateOfBirth: '',
   });
 
+  // Entry animation values
+  const headerEntryOpacity = useRef(new Animated.Value(0)).current;
+  const headerEntryTranslateY = useRef(new Animated.Value(-20)).current;
+  const contentEntryOpacity = useRef(new Animated.Value(0)).current;
+  const contentEntryTranslateY = useRef(new Animated.Value(30)).current;
+  const hasPlayedEntryAnimation = useRef(false);
+
   // Use shared profile image upload hook
   const {
     profileImage,
@@ -128,6 +136,41 @@ export default function EditProfileScreen() {
         });
       } finally {
         setIsDataLoading(false);
+
+        // Trigger entry animation after data loads
+        if (!hasPlayedEntryAnimation.current) {
+          hasPlayedEntryAnimation.current = true;
+          Animated.stagger(80, [
+            Animated.parallel([
+              Animated.spring(headerEntryOpacity, {
+                toValue: 1,
+                tension: 50,
+                friction: 8,
+                useNativeDriver: false,
+              }),
+              Animated.spring(headerEntryTranslateY, {
+                toValue: 0,
+                tension: 50,
+                friction: 8,
+                useNativeDriver: false,
+              }),
+            ]),
+            Animated.parallel([
+              Animated.spring(contentEntryOpacity, {
+                toValue: 1,
+                tension: 50,
+                friction: 8,
+                useNativeDriver: false,
+              }),
+              Animated.spring(contentEntryTranslateY, {
+                toValue: 0,
+                tension: 50,
+                friction: 8,
+                useNativeDriver: false,
+              }),
+            ]),
+          ]).start();
+        }
       }
     };
 
@@ -323,7 +366,13 @@ export default function EditProfileScreen() {
       
       <SafeAreaView style={styles.safeArea}>
         {/* Header */}
-        <View style={styles.header}>
+        <Animated.View
+          style={{
+            opacity: headerEntryOpacity,
+            transform: [{ translateY: headerEntryTranslateY }],
+          }}
+        >
+          <View style={styles.header}>
           <Pressable
             style={styles.headerButton}
             onPress={() => {
@@ -355,9 +404,17 @@ export default function EditProfileScreen() {
               <Text style={styles.headerButtonText}>Save</Text>
             )}
           </Pressable>
-        </View>
+          </View>
+        </Animated.View>
 
-        <KeyboardAvoidingView 
+        <Animated.View
+          style={{
+            flex: 1,
+            opacity: contentEntryOpacity,
+            transform: [{ translateY: contentEntryTranslateY }],
+          }}
+        >
+          <KeyboardAvoidingView 
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           style={styles.keyboardAvoid}
         >
@@ -459,7 +516,8 @@ export default function EditProfileScreen() {
 
             </View>
           </ScrollView>
-        </KeyboardAvoidingView>
+          </KeyboardAvoidingView>
+        </Animated.View>
       </SafeAreaView>
 
       {/* Circular Image Cropper Modal */}

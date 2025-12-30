@@ -6,6 +6,7 @@ import {
   FlatList,
   RefreshControl,
   StyleSheet,
+  Animated,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { MatchCardSkeleton } from '@/src/components/MatchCardSkeleton';
@@ -46,6 +47,11 @@ export const FriendlyScreen: React.FC<FriendlyScreenProps> = ({ sport }) => {
     end: null,
   });
   const dateRangeFilterRef = useRef<DateRangeFilterModalRef>(null);
+
+  // Entry animation values
+  const contentEntryOpacity = useRef(new Animated.Value(0)).current;
+  const contentEntryTranslateY = useRef(new Animated.Value(30)).current;
+  const hasPlayedEntryAnimation = useRef(false);
 
   // Check if there's new content by comparing summary with cache
   const checkForNewContent = useCallback(async (): Promise<boolean> => {
@@ -155,6 +161,27 @@ export const FriendlyScreen: React.FC<FriendlyScreenProps> = ({ sport }) => {
       fetchFriendlyMatches();
     }, [fetchFriendlyMatches])
   );
+
+  // Entry animation effect - trigger when loading is done, regardless of data
+  useEffect(() => {
+    if (!showSkeleton && hasInitializedRef.current && !hasPlayedEntryAnimation.current) {
+      hasPlayedEntryAnimation.current = true;
+      Animated.parallel([
+        Animated.spring(contentEntryOpacity, {
+          toValue: 1,
+          tension: 50,
+          friction: 8,
+          useNativeDriver: false,
+        }),
+        Animated.spring(contentEntryTranslateY, {
+          toValue: 0,
+          tension: 50,
+          friction: 8,
+          useNativeDriver: false,
+        }),
+      ]).start();
+    }
+  }, [showSkeleton, matches, contentEntryOpacity, contentEntryTranslateY]);
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
@@ -282,7 +309,15 @@ export const FriendlyScreen: React.FC<FriendlyScreenProps> = ({ sport }) => {
   return (
     <View style={styles.container}>
       {/* Content */}
-      <View style={styles.contentWrapper}>
+      <Animated.View
+        style={[
+          styles.contentWrapper,
+          {
+            opacity: contentEntryOpacity,
+            transform: [{ translateY: contentEntryTranslateY }],
+          }
+        ]}
+      >
         {/* Filter Controls */}
         <View style={styles.controlsContainer}>
           <View style={styles.chipsContainer}>
@@ -340,7 +375,7 @@ export const FriendlyScreen: React.FC<FriendlyScreenProps> = ({ sport }) => {
             showsVerticalScrollIndicator={false}
           />
         )}
-      </View>
+      </Animated.View>
 
       {/* Create Match FAB */}
       <TouchableOpacity

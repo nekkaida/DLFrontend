@@ -673,7 +673,7 @@ export const filterModalStyles = StyleSheet.create({
     gap: 6,
   },
   filterOptionActive: {
-    backgroundColor: '#863A73',
+    backgroundColor: '#A04DFE',
   },
   filterOptionText: {
     fontSize: 14,
@@ -707,7 +707,7 @@ export const filterModalStyles = StyleSheet.create({
     flex: 1,
     paddingVertical: 14,
     borderRadius: 12,
-    backgroundColor: '#863A73',
+    backgroundColor: '#A04DFE',
     alignItems: 'center',
   },
   applyButtonText: {
