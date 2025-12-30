@@ -258,8 +258,11 @@ export default function PairRequestsScreen() {
                 toast.success('Request denied', {
                   description: 'You can find another partner to pair with',
                 });
-                // Navigate back to find partner page for this season
-                router.push(`/pairing/find-partner/${seasonId}`);
+                // Navigate to doubles team pairing page to find a new partner
+                router.push({
+                  pathname: '/user-dashboard/doubles-team-pairing',
+                  params: { seasonId }
+                });
               } else {
                 toast.error('Error', {
                   description: responseData.message || 'Failed to deny request',

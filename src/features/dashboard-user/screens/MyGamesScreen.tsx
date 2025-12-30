@@ -462,16 +462,8 @@ export default function MyGamesScreen({ sport = 'pickleball', initialTab }: MyGa
   return (
     <View style={styles.container}>
       {/* Content wrapper */}
-      <Animated.View
-        style={[
-          styles.contentWrapper,
-          {
-            opacity: contentEntryOpacity,
-            transform: [{ translateY: contentEntryTranslateY }],
-          }
-        ]}
-      >
-        {/* Search Bar - Compact */}
+      <View style={styles.contentWrapper}>
+        {/* Search Bar - Compact, No animation */}
         <View style={styles.searchContainer}>
           <View style={styles.searchInputWrapper}>
             <Ionicons name="search-outline" size={18} color="#9CA3AF" style={styles.searchIcon} />
@@ -490,7 +482,7 @@ export default function MyGamesScreen({ sport = 'pickleball', initialTab }: MyGa
           </View>
         </View>
 
-        {/* Filter Controls */}
+        {/* Filter Controls - No animation */}
         <View style={styles.controlsContainer}>
           {/* Filter Chips with animated color transitions */}
           <View style={styles.chipsContainer}>
@@ -522,49 +514,60 @@ export default function MyGamesScreen({ sport = 'pickleball', initialTab }: MyGa
           </TouchableOpacity>
         </View>
 
-        {/* Skeleton Loading - Only when new content detected */}
-        {showSkeleton ? (
-          <MatchCardSkeleton count={4} />
-        ) : activeTab === 'INVITES' ? (
-          <FlatList
-            data={filteredInvitations}
-            keyExtractor={(item) => item.id}
-            renderItem={({ item }) => (
-              <InvitationCard
-                invitation={item}
-                defaultSport={sport}
-                onAccept={handleAcceptInvitation}
-                onDecline={handleDeclineInvitation}
-              />
-            )}
-            contentContainerStyle={styles.listContent}
-            ListEmptyComponent={renderEmptyInvitationsState}
-            refreshControl={
-              <RefreshControl
-                refreshing={refreshing}
-                onRefresh={onRefresh}
-                tintColor={sportColors.background}
-              />
+        {/* Match List - Animated */}
+        <Animated.View
+          style={[
+            styles.matchListWrapper,
+            {
+              opacity: contentEntryOpacity,
+              transform: [{ translateY: contentEntryTranslateY }],
             }
-          />
-        ) : (
-          <FlatList
-            data={filteredMatches}
-            renderItem={({ item }) => (
-              <MatchCard match={item} onPress={handleMatchPress} />
-            )}
-            keyExtractor={(item) => item.id}
-            contentContainerStyle={styles.listContent}
-            ListEmptyComponent={renderEmptyState}
-            refreshControl={
-              <RefreshControl
-                refreshing={refreshing}
-                onRefresh={onRefresh}
-                tintColor={sportColors.background}
-              />
-            }
-          />
-        )}
+          ]}
+        >
+          {/* Skeleton Loading - Only when new content detected */}
+          {showSkeleton ? (
+            <MatchCardSkeleton count={4} />
+          ) : activeTab === 'INVITES' ? (
+            <FlatList
+              data={filteredInvitations}
+              keyExtractor={(item) => item.id}
+              renderItem={({ item }) => (
+                <InvitationCard
+                  invitation={item}
+                  defaultSport={sport}
+                  onAccept={handleAcceptInvitation}
+                  onDecline={handleDeclineInvitation}
+                />
+              )}
+              contentContainerStyle={styles.listContent}
+              ListEmptyComponent={renderEmptyInvitationsState}
+              refreshControl={
+                <RefreshControl
+                  refreshing={refreshing}
+                  onRefresh={onRefresh}
+                  tintColor={sportColors.background}
+                />
+              }
+            />
+          ) : (
+            <FlatList
+              data={filteredMatches}
+              renderItem={({ item }) => (
+                <MatchCard match={item} onPress={handleMatchPress} />
+              )}
+              keyExtractor={(item) => item.id}
+              contentContainerStyle={styles.listContent}
+              ListEmptyComponent={renderEmptyState}
+              refreshControl={
+                <RefreshControl
+                  refreshing={refreshing}
+                  onRefresh={onRefresh}
+                  tintColor={sportColors.background}
+                />
+              }
+            />
+          )}
+        </Animated.View>
 
         {/* Filter Bottom Sheet */}
         <FilterBottomSheet
@@ -578,7 +581,7 @@ export default function MyGamesScreen({ sport = 'pickleball', initialTab }: MyGa
           currentFilters={filters}
           sportColor={sportColors.background}
         />
-      </Animated.View>
+      </View>
     </View>
   );
 }

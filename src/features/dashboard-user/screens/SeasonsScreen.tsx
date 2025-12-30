@@ -164,9 +164,12 @@ React.useEffect(() => {
       // TODO: Check if user already has an active partnership
       // This feature is not yet implemented - partnership check will be added later
 
-      // Navigate to Find Partner screen
-      console.log('Doubles category detected - navigating to Find Partner');
-      router.push(`/pairing/find-partner/${seasonId}`);
+      // Navigate to doubles team pairing screen
+      console.log('Doubles category detected - navigating to Doubles Team Pairing');
+      router.push({
+        pathname: '/user-dashboard/doubles-team-pairing',
+        params: { seasonId }
+      });
     } else {
       // For singles categories, navigate to regular registration
       console.log('Singles category detected - navigating to registration');

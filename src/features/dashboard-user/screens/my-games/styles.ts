@@ -11,6 +11,9 @@ export const styles = StyleSheet.create({
     flex: 1,
     paddingTop: 12,
   },
+  matchListWrapper: {
+    flex: 1,
+  },
   // Search styles - compact, above filters
   searchContainer: {
     paddingHorizontal: 16,

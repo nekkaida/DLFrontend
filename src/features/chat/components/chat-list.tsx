@@ -2,7 +2,6 @@ import { useSession } from "@/lib/auth-client";
 import { Ionicons } from "@expo/vector-icons";
 import React, { useCallback, useMemo } from "react";
 import {
-  ActivityIndicator,
   FlatList,
   Image,
   ListRenderItemInfo,
@@ -274,15 +273,6 @@ export const ThreadList: React.FC<ThreadListProps> = ({ onThreadSelect, threads:
     [threads]
   );
 
-  if (isLoading) {
-    return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#A04DFE" />
-        <Text style={styles.loadingText}>Loading chats...</Text>
-      </View>
-    );
-  }
-
   return (
     <FlatList
       data={threads || []}
@@ -320,16 +310,6 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     justifyContent: "center",
     alignItems: "center",
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  loadingText: {
-    marginTop: 10,
-    fontSize: 16,
-    color: "#6B7280",
   },
   threadItem: {
     flexDirection: 'row',

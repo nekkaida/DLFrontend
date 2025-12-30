@@ -309,16 +309,8 @@ export const FriendlyScreen: React.FC<FriendlyScreenProps> = ({ sport }) => {
   return (
     <View style={styles.container}>
       {/* Content */}
-      <Animated.View
-        style={[
-          styles.contentWrapper,
-          {
-            opacity: contentEntryOpacity,
-            transform: [{ translateY: contentEntryTranslateY }],
-          }
-        ]}
-      >
-        {/* Filter Controls */}
+      <View style={styles.contentWrapper}>
+        {/* Filter Controls - No animation, instant */}
         <View style={styles.controlsContainer}>
           <View style={styles.chipsContainer}>
             {(['all', 'open', 'full'] as FilterTab[]).map((tab) => (
@@ -354,28 +346,38 @@ export const FriendlyScreen: React.FC<FriendlyScreenProps> = ({ sport }) => {
           </TouchableOpacity>
         </View>
 
-        {/* Matches List */}
-        {showSkeleton ? (
-          <MatchCardSkeleton count={4} />
-        ) : Object.keys(groupedMatches).length === 0 ? (
-          renderEmptyState()
-        ) : (
-          <FlatList
-            data={Object.entries(groupedMatches)}
-            keyExtractor={([dateKey]) => dateKey}
-            renderItem={({ item: [dateKey, dateMatches] }) => renderMatchGroup(dateKey, dateMatches)}
-            contentContainerStyle={styles.listContent}
-            refreshControl={
-              <RefreshControl
-                refreshing={refreshing}
-                onRefresh={onRefresh}
-                tintColor={sportColors.background}
-              />
+        {/* Matches List - Animated */}
+        <Animated.View
+          style={[
+            styles.matchListWrapper,
+            {
+              opacity: contentEntryOpacity,
+              transform: [{ translateY: contentEntryTranslateY }],
             }
-            showsVerticalScrollIndicator={false}
-          />
-        )}
-      </Animated.View>
+          ]}
+        >
+          {showSkeleton ? (
+            <MatchCardSkeleton count={4} />
+          ) : Object.keys(groupedMatches).length === 0 ? (
+            renderEmptyState()
+          ) : (
+            <FlatList
+              data={Object.entries(groupedMatches)}
+              keyExtractor={([dateKey]) => dateKey}
+              renderItem={({ item: [dateKey, dateMatches] }) => renderMatchGroup(dateKey, dateMatches)}
+              contentContainerStyle={styles.listContent}
+              refreshControl={
+                <RefreshControl
+                  refreshing={refreshing}
+                  onRefresh={onRefresh}
+                  tintColor={sportColors.background}
+                />
+              }
+              showsVerticalScrollIndicator={false}
+            />
+          )}
+        </Animated.View>
+      </View>
 
       {/* Create Match FAB */}
       <TouchableOpacity
@@ -417,6 +419,9 @@ const styles = StyleSheet.create({
   contentWrapper: {
     flex: 1,
     paddingTop: 16,
+  },
+  matchListWrapper: {
+    flex: 1,
   },
   controlsContainer: {
     flexDirection: 'row',

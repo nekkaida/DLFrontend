@@ -8,8 +8,6 @@ import * as Haptics from 'expo-haptics';
 import { router } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  ActivityIndicator,
-  Animated,
   AppState,
   AppStateStatus,
   Dimensions,
@@ -71,13 +69,6 @@ export const ChatThreadScreen: React.FC<ChatThreadScreenProps> = ({ threadId, da
   const messageInputRef = useRef<MessageInputRef>(null);
   const insets = useSafeAreaInsets();
 
-  // Entry animation values
-  const headerEntryOpacity = useRef(new Animated.Value(0)).current;
-  const headerEntryTranslateY = useRef(new Animated.Value(-20)).current;
-  const contentEntryOpacity = useRef(new Animated.Value(0)).current;
-  const contentEntryTranslateY = useRef(new Animated.Value(30)).current;
-  const hasPlayedEntryAnimation = useRef(false);
-
   const { setThreadMetadata, pendingMatchData, clearPendingMatch } = useCreateMatchStore();
 
   const user = session?.user;
@@ -107,24 +98,25 @@ export const ChatThreadScreen: React.FC<ChatThreadScreenProps> = ({ threadId, da
     const loadThread = async () => {
       if (!threadId || !user?.id) return;
 
-      setIsLoadingThread(true);
-
       // First check if thread exists in store with valid participants
       const existingThread = threads.find(t => t.id === threadId);
       const hasValidParticipants = existingThread?.participants && existingThread.participants.length > 0;
 
       if (existingThread && hasValidParticipants) {
+        // Set thread immediately - no loading state needed for cached threads
         setCurrentThread(existingThread);
-        // Mark as read
+        setIsLoadingThread(false);
+
+        // Mark as read in background
         if (existingThread.unreadCount > 0) {
-          try {
-            await ChatService.markAllAsRead(threadId, user.id);
-            updateThread({ ...existingThread, unreadCount: 0 });
-          } catch (error) {
-            chatLogger.error('Error marking thread as read:', error);
-          }
+          ChatService.markAllAsRead(threadId, user.id)
+            .then(() => updateThread({ ...existingThread, unreadCount: 0 }))
+            .catch((error) => chatLogger.error('Error marking thread as read:', error));
         }
       } else {
+        // Only show loading for threads not in cache
+        setIsLoadingThread(true);
+
         // Fetch thread from API (either not in store or missing participants)
         try {
           const thread = await ChatService.getThread(threadId);
@@ -141,46 +133,11 @@ export const ChatThreadScreen: React.FC<ChatThreadScreenProps> = ({ threadId, da
           router.back();
           return;
         }
+        setIsLoadingThread(false);
       }
 
-      // Load messages
-      await loadMessages(threadId);
-      setIsLoadingThread(false);
-
-      // Trigger entry animation
-      if (!hasPlayedEntryAnimation.current) {
-        hasPlayedEntryAnimation.current = true;
-        Animated.stagger(80, [
-          Animated.parallel([
-            Animated.spring(headerEntryOpacity, {
-              toValue: 1,
-              tension: 50,
-              friction: 8,
-              useNativeDriver: false,
-            }),
-            Animated.spring(headerEntryTranslateY, {
-              toValue: 0,
-              tension: 50,
-              friction: 8,
-              useNativeDriver: false,
-            }),
-          ]),
-          Animated.parallel([
-            Animated.spring(contentEntryOpacity, {
-              toValue: 1,
-              tension: 50,
-              friction: 8,
-              useNativeDriver: false,
-            }),
-            Animated.spring(contentEntryTranslateY, {
-              toValue: 0,
-              tension: 50,
-              friction: 8,
-              useNativeDriver: false,
-            }),
-          ]),
-        ]).start();
-      }
+      // Load messages in background (MessageWindow has its own skeleton loading)
+      loadMessages(threadId);
     };
 
     loadThread();
@@ -712,13 +669,16 @@ export const ChatThreadScreen: React.FC<ChatThreadScreenProps> = ({ threadId, da
     chatLogger.debug('Profile image failed to load:', headerContent.avatar);
   }, [headerContent.avatar]);
 
-  if (isLoadingThread || !currentThread) {
+  // Use currentThread or fall back to the thread from the store for immediate render
+  const displayThread = currentThread || threads.find(t => t.id === threadId);
+
+  // Only block rendering if we truly have no thread data anywhere
+  if (!displayThread) {
     return (
       <View style={styles.container}>
         <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
         <View style={styles.centerContainer}>
-          <ActivityIndicator size="large" color="#A04DFE" />
-          <Text style={styles.loadingText}>Loading conversation...</Text>
+          <Text style={styles.loadingText}>{isLoadingThread ? 'Loading...' : 'Conversation not found'}</Text>
         </View>
       </View>
     );
@@ -733,13 +693,7 @@ export const ChatThreadScreen: React.FC<ChatThreadScreenProps> = ({ threadId, da
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           keyboardVerticalOffset={0}
         >
-          <Animated.View
-            style={{
-              opacity: headerEntryOpacity,
-              transform: [{ translateY: headerEntryTranslateY }],
-            }}
-          >
-            <View style={[styles.chatHeader, { paddingTop: STATUS_BAR_HEIGHT + 12 }]}>
+          <View style={[styles.chatHeader, { paddingTop: STATUS_BAR_HEIGHT + 12 }]}>
             <Pressable
               style={({ pressed }) => [styles.backButton, pressed && { opacity: 0.7 }]}
               onPress={handleBackToThreads}
@@ -747,7 +701,7 @@ export const ChatThreadScreen: React.FC<ChatThreadScreenProps> = ({ threadId, da
               <Ionicons name="arrow-back" size={24} color="#111827" />
             </Pressable>
 
-            {currentThread?.type === 'group' ? (
+            {displayThread?.type === 'group' ? (
               // Group chat header with stacked avatars
               <View style={styles.groupHeaderWrapper}>
                 {/* Left section: Avatar with sport badge */}
@@ -765,7 +719,7 @@ export const ChatThreadScreen: React.FC<ChatThreadScreenProps> = ({ threadId, da
                     </View>
                   )}
                   <GroupAvatarStack
-                    participants={currentThread.participants}
+                    participants={displayThread.participants}
                     sportColor={sportColors.background}
                     size={38}
                   />
@@ -806,14 +760,14 @@ export const ChatThreadScreen: React.FC<ChatThreadScreenProps> = ({ threadId, da
                         router.push({
                           pathname: '/match/all-matches',
                           params: {
-                            divisionId: currentThread.metadata?.divisionId || currentThread.division?.id,
-                            sportType: currentThread.sportType || 'PICKLEBALL',
-                            leagueName: currentThread.metadata?.leagueName || currentThread.division?.league?.name || 'League',
-                            seasonName: currentThread.metadata?.seasonName || currentThread.division?.season?.name || 'Season 1',
-                            gameType: currentThread.metadata?.gameType || currentThread.division?.gameType || '',
-                            genderCategory: currentThread.metadata?.genderCategory || currentThread.division?.genderCategory || '',
-                            seasonStartDate: currentThread.division?.season?.startDate,
-                            seasonEndDate: currentThread.division?.season?.endDate,
+                            divisionId: displayThread.metadata?.divisionId || displayThread.division?.id,
+                            sportType: displayThread.sportType || 'PICKLEBALL',
+                            leagueName: displayThread.metadata?.leagueName || displayThread.division?.league?.name || 'League',
+                            seasonName: displayThread.metadata?.seasonName || displayThread.division?.season?.name || 'Season 1',
+                            gameType: displayThread.metadata?.gameType || displayThread.division?.gameType || '',
+                            genderCategory: displayThread.metadata?.genderCategory || displayThread.division?.genderCategory || '',
+                            seasonStartDate: displayThread.division?.season?.startDate,
+                            seasonEndDate: displayThread.division?.season?.endDate,
                           },
                         });
                       }}
@@ -866,27 +820,20 @@ export const ChatThreadScreen: React.FC<ChatThreadScreenProps> = ({ threadId, da
             )}
 
             {/* Only show headerAction for direct chats */}
-            {currentThread.type !== 'group' && (
+            {displayThread.type !== 'group' && (
               <Pressable style={({ pressed }) => [styles.headerAction, pressed && { opacity: 0.7 }]}>
                 <Ionicons name="ellipsis-vertical" size={20} color="#6B7280" />
               </Pressable>
             )}
-            </View>
-          </Animated.View>
+          </View>
 
-          <Animated.View
-            style={{
-              flex: 1,
-              opacity: contentEntryOpacity,
-              transform: [{ translateY: contentEntryTranslateY }],
-            }}
-          >
+          <View style={{ flex: 1 }}>
             <MessageWindow
             key={refreshKey}
             messages={messages[threadId] || []}
             threadId={threadId}
-            isGroupChat={currentThread.type === 'group'}
-            sportType={currentThread.sportType}
+            isGroupChat={displayThread.type === 'group'}
+            sportType={displayThread.sportType}
             onReply={handleReply}
             onDeleteMessage={handleDeleteMessageAction}
             onLongPress={handleLongPress}
@@ -898,10 +845,10 @@ export const ChatThreadScreen: React.FC<ChatThreadScreenProps> = ({ threadId, da
               onhandleMatch={handleMatch}
               replyingTo={replyingTo}
               onCancelReply={handleCancelReply}
-              sportType={currentThread.sportType}
-              isGroupChat={currentThread.type === 'group'}
+              sportType={displayThread.sportType}
+              isGroupChat={displayThread.type === 'group'}
             />
-          </Animated.View>
+          </View>
         </KeyboardAvoidingView>
       </SafeAreaView>
 

@@ -9,7 +9,6 @@ import * as Haptics from 'expo-haptics';
 import { router } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  ActivityIndicator,
   Animated,
   AppState,
   AppStateStatus,
@@ -93,9 +92,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
   const searchInputRef = useRef<TextInput>(null);
   const insets = useSafeAreaInsets();
 
-  // Entry animation values
-  const headerEntryOpacity = useRef(new Animated.Value(0)).current;
-  const headerEntryTranslateY = useRef(new Animated.Value(-20)).current;
+  // Entry animation values - only for thread list
   const contentEntryOpacity = useRef(new Animated.Value(0)).current;
   const contentEntryTranslateY = useRef(new Animated.Value(30)).current;
   const hasPlayedEntryAnimation = useRef(false);
@@ -112,25 +109,13 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
     updateThread,
   } = useChatStore();
 
-  // Trigger entry animation when loading is done, regardless of data
+  // Trigger entry animation when loading is done - for thread list and empty state
   useEffect(() => {
+    // Trigger animation when not loading (either has threads or empty state)
     if (!isLoading && !hasPlayedEntryAnimation.current) {
       hasPlayedEntryAnimation.current = true;
-      Animated.stagger(80, [
-        Animated.parallel([
-          Animated.spring(headerEntryOpacity, {
-            toValue: 1,
-            tension: 50,
-            friction: 8,
-            useNativeDriver: false,
-          }),
-          Animated.spring(headerEntryTranslateY, {
-            toValue: 0,
-            tension: 50,
-            friction: 8,
-            useNativeDriver: false,
-          }),
-        ]),
+      // Use requestAnimationFrame to ensure the view is rendered before animating
+      requestAnimationFrame(() => {
         Animated.parallel([
           Animated.spring(contentEntryOpacity, {
             toValue: 1,
@@ -144,10 +129,10 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
             friction: 8,
             useNativeDriver: false,
           }),
-        ]),
-      ]).start();
+        ]).start();
+      });
     }
-  }, [isLoading, threads]);
+  }, [isLoading, contentEntryOpacity, contentEntryTranslateY]);
 
   // Handle app state changes to fix touch issues after backgrounding
   useEffect(() => {
@@ -363,17 +348,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
     }, 100);
   }, []);
 
-  if (isLoading && (!threads || threads.length === 0)) {
-    return (
-      <View style={styles.container}>
-        <View style={styles.centerContainer}>
-          <ActivityIndicator size="large" color="#A04DFE" />
-          <Text style={styles.loadingText}>Loading chats...</Text>
-        </View>
-      </View>
-    );
-  }
-
+  // Only show error UI if there's an error and no threads to display
   if (error && (!threads || threads.length === 0)) {
     return (
       <View style={styles.container}>
@@ -390,24 +365,84 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
       <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
 
       <View style={styles.threadsContainer}>
-        {/* Header with Chats title and New Message button */}
-        <Animated.View
-          style={{
-            opacity: headerEntryOpacity,
-            transform: [{ translateY: headerEntryTranslateY }],
-          }}
-        >
-          <View style={[styles.chatsHeaderContainer, { paddingTop: STATUS_BAR_HEIGHT }]}>
-            <Text style={styles.chatsTitle}>Chats</Text>
-            <Pressable
-              onPress={handleOpenNewMessage}
-              style={({ pressed }) => pressed && { opacity: 0.7 }}
-            >
-              <Text style={styles.newMessageButton}>New Message</Text>
-            </Pressable>
-          </View>
-        </Animated.View>
+        {/* Header with Chats title and New Message button - No animation, instant */}
+        <View style={[styles.chatsHeaderContainer, { paddingTop: STATUS_BAR_HEIGHT }]}>
+          <Text style={styles.chatsTitle}>Chats</Text>
+          <Pressable
+            onPress={handleOpenNewMessage}
+            style={({ pressed }) => pressed && { opacity: 0.7 }}
+          >
+            <Text style={styles.newMessageButton}>New Message</Text>
+          </Pressable>
+        </View>
 
+        {/* Search and filters - No animation, instant */}
+        <View style={styles.searchContainer}>
+          <View style={styles.searchBar}>
+            <Ionicons name="search-outline" size={18} color="#9CA3AF" style={styles.searchIcon} />
+            <TextInput
+              ref={searchInputRef}
+              style={styles.searchInput}
+              placeholder="Search chats..."
+              placeholderTextColor="#9CA3AF"
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              returnKeyType="search"
+            />
+            {searchQuery.length > 0 && (
+              <Pressable onPress={clearSearch}>
+                <Ionicons name="close-circle" size={18} color="#9CA3AF" />
+              </Pressable>
+            )}
+          </View>
+        </View>
+
+        {/* Filter section - No animation, instant */}
+        <View style={styles.filterSection}>
+          {/* Type filter - Segmented control */}
+          <View style={styles.typeFilterContainer}>
+            <SegmentedControl
+              options={[
+                { value: 'all' as TypeFilter, label: 'All' },
+                { value: 'personal' as TypeFilter, label: 'Personal' },
+                { value: 'league' as TypeFilter, label: 'League' },
+              ]}
+              value={typeFilter}
+              onChange={setTypeFilter}
+              activeColor={SPORT_COLORS[sportFilter]}
+            />
+          </View>
+
+          {/* Sport filter chips */}
+          <View style={styles.sportFilterContainer}>
+            <AnimatedFilterChip
+              label="All"
+              isActive={sportFilter === 'all'}
+              activeColor={SPORT_COLORS.all}
+              onPress={() => setSportFilter('all')}
+            />
+            <AnimatedFilterChip
+              label="Pickleball"
+              isActive={sportFilter === 'pickleball'}
+              activeColor={SPORT_COLORS.pickleball}
+              onPress={() => setSportFilter('pickleball')}
+            />
+            <AnimatedFilterChip
+              label="Tennis"
+              isActive={sportFilter === 'tennis'}
+              activeColor={SPORT_COLORS.tennis}
+              onPress={() => setSportFilter('tennis')}
+            />
+            <AnimatedFilterChip
+              label="Padel"
+              isActive={sportFilter === 'padel'}
+              activeColor={SPORT_COLORS.padel}
+              onPress={() => setSportFilter('padel')}
+            />
+          </View>
+        </View>
+
+        {/* Thread list or Empty state - Both Animated */}
         <Animated.View
           style={{
             flex: 1,
@@ -415,75 +450,21 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
             transform: [{ translateY: contentEntryTranslateY }],
           }}
         >
-          <View style={styles.searchContainer}>
-            <View style={styles.searchBar}>
-              <Ionicons name="search-outline" size={18} color="#9CA3AF" style={styles.searchIcon} />
-              <TextInput
-                ref={searchInputRef}
-                style={styles.searchInput}
-                placeholder="Search chats..."
-                placeholderTextColor="#9CA3AF"
-                value={searchQuery}
-                onChangeText={setSearchQuery}
-                returnKeyType="search"
-              />
-              {searchQuery.length > 0 && (
-                <Pressable onPress={clearSearch}>
-                  <Ionicons name="close-circle" size={18} color="#9CA3AF" />
-                </Pressable>
-              )}
+          {displayedThreads.length === 0 ? (
+            <View style={styles.emptyContainer}>
+              <Ionicons name="chatbubble-outline" size={64} color="#9CA3AF" />
+              <Text style={styles.emptyTitle}>No chats yet</Text>
+              <Text style={styles.emptyDescription}>
+                Start a conversation by tapping "New Message" above
+              </Text>
             </View>
-          </View>
-
-          {/* Filter section */}
-          <View style={styles.filterSection}>
-            {/* Type filter - Segmented control */}
-            <View style={styles.typeFilterContainer}>
-              <SegmentedControl
-                options={[
-                  { value: 'all' as TypeFilter, label: 'All' },
-                  { value: 'personal' as TypeFilter, label: 'Personal' },
-                  { value: 'league' as TypeFilter, label: 'League' },
-                ]}
-                value={typeFilter}
-                onChange={setTypeFilter}
-                activeColor={SPORT_COLORS[sportFilter]}
-              />
-            </View>
-
-            {/* Sport filter chips */}
-            <View style={styles.sportFilterContainer}>
-              <AnimatedFilterChip
-                label="All"
-                isActive={sportFilter === 'all'}
-                activeColor={SPORT_COLORS.all}
-                onPress={() => setSportFilter('all')}
-              />
-              <AnimatedFilterChip
-                label="Pickleball"
-                isActive={sportFilter === 'pickleball'}
-                activeColor={SPORT_COLORS.pickleball}
-                onPress={() => setSportFilter('pickleball')}
-              />
-              <AnimatedFilterChip
-                label="Tennis"
-                isActive={sportFilter === 'tennis'}
-                activeColor={SPORT_COLORS.tennis}
-                onPress={() => setSportFilter('tennis')}
-              />
-              <AnimatedFilterChip
-                label="Padel"
-                isActive={sportFilter === 'padel'}
-                activeColor={SPORT_COLORS.padel}
-                onPress={() => setSportFilter('padel')}
-              />
-            </View>
-          </View>
-          <ThreadList
-            key={`thread-list-${appStateKey}`}
-            onThreadSelect={handleThreadSelect}
-            threads={displayedThreads}
-          />
+          ) : (
+            <ThreadList
+              key={`thread-list-${appStateKey}`}
+              onThreadSelect={handleThreadSelect}
+              threads={displayedThreads}
+            />
+          )}
         </Animated.View>
         {onTabPress && (
           <NavBar
@@ -545,11 +526,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 20,
   },
-  loadingText: {
-    marginTop: 10,
-    fontSize: isSmallScreen ? 14 : isTablet ? 18 : 16,
-    color: '#6B7280',
-  },
   errorText: {
     fontSize: isSmallScreen ? 14 : isTablet ? 18 : 16,
     color: '#DC2626',
@@ -593,5 +569,23 @@ const styles = StyleSheet.create({
   sportFilterContainer: {
     flexDirection: 'row',
     gap: 8,
+  },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 32,
+    paddingBottom: 120,
+    gap: 12,
+  },
+  emptyTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#111827',
+  },
+  emptyDescription: {
+    fontSize: 14,
+    color: '#6B7280',
+    textAlign: 'center',
   },
 });
