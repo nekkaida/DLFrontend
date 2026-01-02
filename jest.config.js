@@ -8,6 +8,9 @@ module.exports = {
     '**/*.spec.[jt]s?(x)',
   ],
   moduleNameMapper: {
+    '^@/lib/(.*)$': '<rootDir>/lib/$1',
+    '^@/config/(.*)$': '<rootDir>/src/config/$1',
+    '^@/src/(.*)$': '<rootDir>/src/$1',
     '^@/(.*)$': '<rootDir>/src/$1',
     '^@features/(.*)$': '<rootDir>/src/features/$1',
     '^@shared/(.*)$': '<rootDir>/src/shared/$1',
