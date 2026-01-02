@@ -3,18 +3,18 @@ import {
   View,
   Text,
   StyleSheet,
-  TouchableOpacity,
   SafeAreaView,
   Dimensions,
   Platform,
+  ScrollView,
 } from 'react-native';
 import { router } from 'expo-router';
 import { useOnboarding } from '../OnboardingContext';
-import { SportButton, DeuceLogo, BackButton, ConfirmButton, ProgressIndicator } from '../components';
+import { SportButton, BackButton, ConfirmButton, ProgressIndicator, SkillLevelModal } from '../components';
 import { questionnaireAPI } from '../services/api';
 import { useSession } from '@/lib/auth-client';
 import { toast } from 'sonner-native';
-import type { SportType } from '../types';
+import type { SportType, SkillLevel } from '../types';
 
 const GameSelectScreen = () => {
   const { data, updateData } = useOnboarding();
@@ -22,23 +22,55 @@ const GameSelectScreen = () => {
   const [selectedSports, setSelectedSports] = useState<SportType[]>(
     (data.selectedSports as SportType[]) || []
   );
+  const [sportSkillLevels, setSportSkillLevels] = useState<Partial<Record<SportType, SkillLevel>>>(
+    data.sportSkillLevels || {}
+  );
   const [isSaving, setIsSaving] = useState(false);
 
-  // Update context when sport selection changes
+  // Modal state
+  const [isModalVisible, setIsModalVisible] = useState(false);
+  const [currentSport, setCurrentSport] = useState<SportType | null>(null);
+
+  // Update context when sport selection or skill levels change
   useEffect(() => {
-    updateData({ selectedSports });
-  }, [selectedSports]);
+    updateData({ selectedSports, sportSkillLevels });
+  }, [selectedSports, sportSkillLevels]);
 
   const handleSportSelect = (sport: SportType) => {
-    setSelectedSports(prev => {
-      if (prev.includes(sport)) {
-        // Remove if already selected
-        return prev.filter(s => s !== sport);
-      } else {
-        // Add to selection in order
-        return [...prev, sport];
-      }
-    });
+    if (selectedSports.includes(sport)) {
+      // Remove if already selected (deselect)
+      setSelectedSports(prev => prev.filter(s => s !== sport));
+      // Also remove the skill level
+      setSportSkillLevels(prev => {
+        const updated = { ...prev };
+        delete updated[sport];
+        return updated;
+      });
+    } else {
+      // Open modal to select skill level
+      setCurrentSport(sport);
+      setIsModalVisible(true);
+    }
+  };
+
+  const handleSkillLevelSave = (level: SkillLevel) => {
+    if (currentSport) {
+      // Save skill level
+      setSportSkillLevels(prev => ({
+        ...prev,
+        [currentSport]: level,
+      }));
+      // Add sport to selected list
+      setSelectedSports(prev => [...prev, currentSport]);
+      // Close modal
+      setIsModalVisible(false);
+      setCurrentSport(null);
+    }
+  };
+
+  const handleModalClose = () => {
+    setIsModalVisible(false);
+    setCurrentSport(null);
   };
 
   const handleConfirm = async () => {
@@ -50,6 +82,12 @@ const GameSelectScreen = () => {
       if (session?.user?.id) {
         await questionnaireAPI.saveSports(session.user.id, selectedSports);
         console.log('Sports saved to backend:', selectedSports);
+
+        // Save skill levels to backend
+        if (Object.keys(sportSkillLevels).length > 0) {
+          await questionnaireAPI.saveSkillLevels(session.user.id, sportSkillLevels);
+          console.log('Skill levels saved to backend:', sportSkillLevels);
+        }
 
         // Update onboarding step to GAME_SELECT
         try {
@@ -77,12 +115,12 @@ const GameSelectScreen = () => {
     <SafeAreaView style={styles.container}>
       <BackButton />
 
-      <View style={styles.contentContainer}>
-        <TouchableOpacity
-          style={styles.backgroundTouchable}
-          activeOpacity={1}
-          onPress={() => setSelectedSports([])}
-        >
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+        bounces={true}
+      >
         {/* Header */}
         <View style={styles.headerContainer}>
           <Text style={styles.title}>Choose your sport</Text>
@@ -96,24 +134,25 @@ const GameSelectScreen = () => {
             sport="pickleball"
             isSelected={selectedSports.includes('pickleball')}
             onPress={() => handleSportSelect('pickleball')}
+            skillLevel={sportSkillLevels.pickleball}
           />
-          
+
           <SportButton
             sport="tennis"
             isSelected={selectedSports.includes('tennis')}
             onPress={() => handleSportSelect('tennis')}
+            skillLevel={sportSkillLevels.tennis}
           />
-          
+
           <SportButton
             sport="padel"
             isSelected={selectedSports.includes('padel')}
             onPress={() => handleSportSelect('padel')}
+            skillLevel={sportSkillLevels.padel}
           />
         </View>
+      </ScrollView>
 
-        </TouchableOpacity>
-      </View>
-      
       {/* Confirm Button */}
       <View style={styles.buttonContainer}>
         <ConfirmButton
@@ -122,26 +161,45 @@ const GameSelectScreen = () => {
           isLoading={isSaving}
         />
       </View>
-      
+
       {/* Fixed Progress Indicator */}
       <ProgressIndicator currentStep={2} totalSteps={3} />
+
+      {/* Skill Level Selection Modal */}
+      <SkillLevelModal
+        visible={isModalVisible}
+        sport={currentSport}
+        selectedLevel={currentSport ? sportSkillLevels[currentSport] || null : null}
+        onSave={handleSkillLevelSave}
+        onClose={handleModalClose}
+      />
     </SafeAreaView>
   );
 };
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
+
+// Responsive calculations
+const isSmallDevice = screenHeight < 700;
 const horizontalPadding = Math.max(screenWidth * 0.08, 20); // 8% of screen, min 20px
 const buttonPadding = Math.max(screenWidth * 0.18, 60); // 18% of screen, min 60px
-const bottomPosition = Math.max(screenHeight * 0.12, 80); // 12% of screen height, min 80px
+const bottomPosition = isSmallDevice ? 70 : Math.max(screenHeight * 0.12, 80); // Smaller on small devices
+
+// Responsive header margin
+const headerTopMargin = isSmallDevice
+  ? (Platform.OS === 'ios' ? 40 : 80)
+  : (Platform.OS === 'ios' ? 70 : 130);
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#FFFFFF',
   },
-  contentContainer: {
+  scrollView: {
     flex: 1,
-    paddingBottom: 120,
+  },
+  scrollContent: {
+    paddingBottom: isSmallDevice ? 140 : 160, // Space for button at bottom
   },
   buttonContainer: {
     position: 'absolute',
@@ -151,70 +209,39 @@ const styles = StyleSheet.create({
     paddingHorizontal: buttonPadding,
     paddingBottom: 10,
   },
-  backgroundTouchable: {
-    flex: 1,
-  },
   headerContainer: {
     paddingHorizontal: horizontalPadding,
-    marginTop: Platform.OS === 'ios' ? 70 : 130,
+    marginTop: headerTopMargin,
   },
   title: {
-    fontSize: 32,
+    fontSize: isSmallDevice ? 28 : 32,
     fontWeight: '700',
     color: '#000000',
-    lineHeight: 40,
+    lineHeight: isSmallDevice ? 36 : 40,
     marginBottom: 4,
     fontFamily: 'Inter',
   },
   subtitle: {
-    fontSize: 24,
+    fontSize: isSmallDevice ? 20 : 24,
     fontWeight: '700',
     color: '#FEA04D',
-    lineHeight: 34,
+    lineHeight: isSmallDevice ? 28 : 34,
     letterSpacing: -0.01,
     fontFamily: 'Inter',
-    marginBottom: 18,
+    marginBottom: isSmallDevice ? 12 : 18,
   },
   helperText: {
-    fontSize: 16,
+    fontSize: isSmallDevice ? 14 : 16,
     fontWeight: '500',
     color: '#8C8C8C',
-    lineHeight: 22,
+    lineHeight: isSmallDevice ? 20 : 22,
     letterSpacing: -0.01,
     fontFamily: 'Inter',
-    marginBottom: 10,
+    marginBottom: isSmallDevice ? 8 : 10,
   },
   sportsContainer: {
     paddingHorizontal: horizontalPadding,
-    gap: 8,
-  },
-  sportButton: {
-    height: 100,
-    backgroundColor: '#FFFFFF',
-    borderWidth: 2,
-    borderColor: '#E5E5E5',
-    borderRadius: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 18,
-    gap: 4,
-  },
-  sportButtonPickleballActive: {
-    borderColor: '#512546',
-    backgroundColor: '#F9F5F8',
-  },
-  sportButtonTennisActive: {
-    borderColor: '#374F35',
-    backgroundColor: '#F5F7F5',
-  },
-  sportButtonPadelActive: {
-    borderColor: '#7D3C03',
-    backgroundColor: '#FBF7F5',
-  },
-  sportText: {
-    fontSize: 14,
-    fontWeight: '600',
-    lineHeight: 24,
+    gap: isSmallDevice ? 6 : 8,
   },
 });
 

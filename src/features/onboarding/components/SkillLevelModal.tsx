@@ -1,23 +1,22 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
-  TouchableOpacity,
-  Text,
-  StyleSheet,
+  Modal,
   View,
-  ViewStyle,
-  TextStyle,
-  Dimensions,
+  Text,
+  TouchableOpacity,
+  StyleSheet,
+  Pressable,
+  Platform,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import Svg, { G, Path } from 'react-native-svg';
-import type { SkillLevel, SportType } from '../types';
-import { SKILL_LEVEL_LABELS } from '../types';
+import type { SportType, SkillLevel } from '../types';
+import { SKILL_LEVEL_LABELS, SKILL_LEVELS_ORDERED } from '../types';
 
-// Re-export SportType for backwards compatibility
-export type { SportType };
-
-// SVG Icon Components
-const PickleballIcon = () => (
-  <Svg width={90} height={90} viewBox="0 0 64 64">
+// Sport Icons (same as SportButton)
+const PickleballIcon = ({ size = 60 }: { size?: number }) => (
+  <Svg width={size} height={size} viewBox="0 0 64 64">
     <G fill="#555555">
       <Path d="M6.519 33.26a1.5 1.5 0 0 1-1.461-1.166C.346 11.497 12.714 4.013 13.243 3.704a1.5 1.5 0 0 1 1.516 2.59c-.477.284-10.97 6.8-6.778 25.131A1.5 1.5 0 0 1 6.52 33.26zM17 15.5a1.5 1.5 0 0 1-1.5-1.5c-.001-6.771 5.493-10.146 5.728-10.286a1.5 1.5 0 0 1 1.548 2.57C22.6 6.391 18.5 8.96 18.5 14a1.5 1.5 0 0 1-1.5 1.5z" />
       <Path d="M13.17 26.61a1.5 1.5 0 0 1-1.326-.799c-2.444-4.62-.942-9.194-.876-9.387a1.499 1.499 0 1 1 2.842.962c-.01.029-1.14 3.572.686 7.023a1.5 1.5 0 0 1-1.325 2.201zM28.52 19.21c-.263 0-.529-.07-.771-.214-4.985-2.988-4.674-7.66-2.893-10.754a1.5 1.5 0 0 1 2.6 1.497c-.719 1.248-1.978 4.398 1.836 6.684a1.5 1.5 0 0 1-.772 2.786zM22.768 43.452a1.5 1.5 0 0 1-.197-2.987l3.584-.478a1.5 1.5 0 1 1 .396 2.974l-3.583.478a1.543 1.543 0 0 1-.2.013zM27.482 36.565c-.272 0-.546-.074-.794-.228l-2.996-1.873a1.499 1.499 0 1 1 1.59-2.544l2.996 1.873a1.499 1.499 0 0 1-.796 2.772zM32.259 32.245a1.5 1.5 0 0 1-1.38-.91l-1.15-2.688a1.5 1.5 0 1 1 2.758-1.18l1.15 2.688a1.5 1.5 0 0 1-1.378 2.09z" />
@@ -29,8 +28,8 @@ const PickleballIcon = () => (
   </Svg>
 );
 
-const TennisIcon = () => (
-  <Svg width={90} height={90} viewBox="0 0 64 64">
+const TennisIcon = ({ size = 60 }: { size?: number }) => (
+  <Svg width={size} height={size} viewBox="0 0 64 64">
     <G fill="#555555">
       <Path d="M29.144 41.56c-3.099 0-6.08-.858-8.637-2.546-3.497-2.296-5.92-5.96-6.82-10.316-1.072-5.196.11-10.904 3.244-15.662 2.872-4.368 7.059-7.51 11.788-8.848 4.808-1.362 9.599-.7 13.489 1.86 6.975 4.596 9.202 14.21 5.296 22.86a1.5 1.5 0 1 1-2.734-1.234c3.295-7.3 1.524-15.34-4.212-19.12-3.15-2.074-7.065-2.598-11.022-1.48-4.036 1.142-7.623 3.845-10.1 7.612-2.699 4.098-3.723 8.984-2.81 13.405.737 3.57 2.702 6.56 5.53 8.417 3.425 2.26 7.826 2.673 12.077 1.133a1.5 1.5 0 1 1 1.021 2.822 17.957 17.957 0 0 1-6.11 1.098zM9.936 60.504a5.408 5.408 0 0 1-2.982-.898 5.45 5.45 0 0 1-1.554-7.54l7.046-10.704a1.5 1.5 0 0 1 2.078-.429l6.587 4.336a1.5 1.5 0 0 1 .428 2.078L14.494 58.05a5.41 5.41 0 0 1-3.448 2.34c-.37.075-.741.113-1.11.113zm4.191-16.24-6.22 9.452a2.446 2.446 0 0 0 .696 3.384c.546.36 1.198.484 1.837.352s1.189-.505 1.548-1.05l6.22-9.452-4.08-2.686z" />
       <Path d="M14.52 44.228a1.5 1.5 0 0 1-1.251-2.325c1.594-2.42 2.939-5.687.838-11.566a1.5 1.5 0 0 1 2.826-1.01c1.996 5.59 1.64 9.977-1.158 14.226a1.498 1.498 0 0 1-1.254.675zM19.461 47.48a1.5 1.5 0 0 1-1.251-2.325c2.797-4.249 6.685-6.311 12.608-6.688a1.49 1.49 0 0 1 1.592 1.402 1.5 1.5 0 0 1-1.402 1.593c-6.23.395-8.699 2.922-10.292 5.343a1.498 1.498 0 0 1-1.255.675zM21.327 39.267a1.5 1.5 0 0 1-1.251-2.325L40.129 6.475a1.5 1.5 0 0 1 2.506 1.65L22.58 38.591a1.498 1.498 0 0 1-1.254.675z" />
@@ -43,8 +42,8 @@ const TennisIcon = () => (
   </Svg>
 );
 
-const PadelIcon = () => (
-  <Svg width={90} height={90} viewBox="0 0 512 512">
+const PadelIcon = ({ size = 60 }: { size?: number }) => (
+  <Svg width={size} height={size} viewBox="0 0 512 512">
     <Path d="m175.127 375.656-38.783-38.783L10 454.86l47.139 47.139z" fill="#fea04d" />
     <Path d="m106.057 365.157 30.287-28.284c59.144-59.144 22.975-199.436 107.622-284.083 59.437-59.438 127.057-59.099 200.7 14.543 73.643 73.642 73.982 141.263 14.544 200.701-84.647 84.646-224.939 48.478-284.083 107.622L57.139 501.999 10 454.86l30.283-28.28" fill="none" stroke="#555555" strokeWidth="20" strokeLinecap="round" strokeLinejoin="round" />
     <Path d="M196.359 315.641c25.056-10.075 52.929-15.234 81.16-19.869a208.796 208.796 0 0 1-33.846-27.445 208.846 208.846 0 0 1-27.445-33.847c-4.636 28.231-9.794 56.104-19.869 81.161zM139.285 339.814l32.9 32.9M312.613 72.102l.006.006M280.794 103.922l.005.005M248.974 135.742l.005.005M376.253 72.102l.005.006M344.433 103.922l.005.005M312.613 135.742l.006.005M280.794 167.561l.005.006M248.974 199.381l.005.005M408.072 103.922l.005.005M376.253 135.742l.005.005M344.433 167.561l.005.006M312.613 199.381l.006.005M280.794 231.201l.005.005M439.892 135.742l.005.005M408.072 167.561l.005.006M376.253 199.381l.005.005M344.433 231.201l.005.005M312.613 263.02l.006.005M439.892 199.381l.005.005M408.072 231.201l.005.005M376.253 263.02l.005.005" fill="none" stroke="#555555" strokeWidth="20" strokeLinecap="round" strokeLinejoin="round" />
@@ -52,157 +51,235 @@ const PadelIcon = () => (
   </Svg>
 );
 
-
-/**
- * Props for the SportButton component
- */
-interface SportButtonProps {
-  /** The sport type to display */
-  sport: SportType;
-  /** Whether this sport is currently selected */
-  isSelected?: boolean;
-  /** Optional order number for multi-selection (1, 2, 3) */
-  orderNumber?: number | null;
-  /** Callback function when button is pressed */
-  onPress: () => void;
-  /** Whether the button should be disabled */
-  disabled?: boolean;
-  /** Optional skill level to display as a badge */
-  skillLevel?: SkillLevel | null;
+interface SkillLevelModalProps {
+  visible: boolean;
+  sport: SportType | null;
+  selectedLevel: SkillLevel | null;
+  onSave: (level: SkillLevel) => void;
+  onClose: () => void;
 }
 
-const SportButton: React.FC<SportButtonProps> = ({
+const SkillLevelModal: React.FC<SkillLevelModalProps> = ({
+  visible,
   sport,
-  isSelected = false,
-  orderNumber = null,
-  onPress,
-  disabled = false,
-  skillLevel = null,
+  selectedLevel,
+  onSave,
+  onClose,
 }) => {
-  // Get display name with proper capitalization
-  const displayName = sport.charAt(0).toUpperCase() + sport.slice(1);
+  const [localSelectedLevel, setLocalSelectedLevel] = useState<SkillLevel | null>(
+    selectedLevel
+  );
 
-  // Dynamic styles based on state
-  const buttonStyle: ViewStyle[] = [
-    styles.button,
-    ...(isSelected ? [styles.buttonSelected] : []),
-    ...(disabled ? [styles.buttonDisabled] : []),
-  ];
+  // Reset local state when modal opens with new data
+  React.useEffect(() => {
+    setLocalSelectedLevel(selectedLevel);
+  }, [selectedLevel, visible]);
 
-  const textStyle: TextStyle[] = [
-    styles.text,
-    ...(isSelected ? [styles.textSelected] : []),
-  ];
+  if (!sport) return null;
+
+  const sportDisplayName = sport.charAt(0).toUpperCase() + sport.slice(1);
+
+  const handleSave = () => {
+    if (localSelectedLevel) {
+      onSave(localSelectedLevel);
+    }
+  };
+
+  const renderSportIcon = () => {
+    switch (sport) {
+      case 'pickleball':
+        return <PickleballIcon size={60} />;
+      case 'tennis':
+        return <TennisIcon size={60} />;
+      case 'padel':
+        return <PadelIcon size={60} />;
+      default:
+        return null;
+    }
+  };
 
   return (
-    <TouchableOpacity
-      style={buttonStyle}
-      onPress={onPress}
-      disabled={disabled}
-      activeOpacity={0.8}
+    <Modal
+      visible={visible}
+      transparent={true}
+      animationType="fade"
+      onRequestClose={onClose}
     >
-      {orderNumber && (
-        <View style={styles.orderBadge}>
-          <Text style={styles.orderText}>{orderNumber}</Text>
-        </View>
-      )}
-      <View style={styles.iconContainer}>
-        {sport === 'pickleball' && <PickleballIcon />}
-        {sport === 'tennis' && <TennisIcon />}
-        {sport === 'padel' && <PadelIcon />}
-      </View>
-      <Text style={textStyle}>{displayName}</Text>
-      {skillLevel && (
-        <View style={styles.skillLevelBadge}>
-          <Text style={styles.skillLevelText}>
-            {SKILL_LEVEL_LABELS[skillLevel]}
-          </Text>
-        </View>
-      )}
-    </TouchableOpacity>
+      <Pressable style={styles.overlay} onPress={onClose}>
+        <Pressable style={styles.modalContainer} onPress={(e) => e.stopPropagation()}>
+          {/* Close Button */}
+          <TouchableOpacity style={styles.closeButton} onPress={onClose}>
+            <Ionicons name="close" size={24} color="#6C7278" />
+          </TouchableOpacity>
+
+          {/* Sport Icon */}
+          <View style={styles.iconContainer}>
+            <View style={styles.iconCircle}>
+              {renderSportIcon()}
+            </View>
+          </View>
+
+          {/* Title */}
+          <View style={styles.titleContainer}>
+            <Text style={styles.title}>
+              What is your {sportDisplayName} skill level?{' '}
+              <Text style={styles.asterisk}>*</Text>
+            </Text>
+          </View>
+
+          {/* Skill Level Chips */}
+          <View style={styles.chipsContainer}>
+            {SKILL_LEVELS_ORDERED.map((level) => {
+              const isSelected = localSelectedLevel === level;
+              return (
+                <TouchableOpacity
+                  key={level}
+                  style={[
+                    styles.chip,
+                    isSelected && styles.chipSelected,
+                  ]}
+                  onPress={() => setLocalSelectedLevel(level)}
+                  activeOpacity={0.7}
+                >
+                  <Text
+                    style={[
+                      styles.chipText,
+                      isSelected && styles.chipTextSelected,
+                    ]}
+                  >
+                    {SKILL_LEVEL_LABELS[level]}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+
+          {/* Save Button */}
+          <TouchableOpacity
+            onPress={handleSave}
+            disabled={!localSelectedLevel}
+            style={styles.saveButtonContainer}
+          >
+            <LinearGradient
+              colors={!localSelectedLevel ? ['#BABABA', '#BABABA'] : ['#FF7903', '#FEA04D']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={[
+                styles.saveButton,
+                !localSelectedLevel && styles.saveButtonDisabled,
+              ]}
+            >
+              <Text style={styles.saveButtonText}>Save</Text>
+            </LinearGradient>
+          </TouchableOpacity>
+        </Pressable>
+      </Pressable>
+    </Modal>
   );
 };
 
-const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
-
-// Responsive calculations
-const isSmallDevice = screenHeight < 700;
-const horizontalPadding = Math.max(screenWidth * 0.08, 20);
-const buttonWidth = screenWidth - (horizontalPadding * 2);
-
-// Responsive icon size
-const iconSize = isSmallDevice ? 70 : 90;
-
 const styles = StyleSheet.create({
-  button: {
-    width: buttonWidth,
-    minHeight: isSmallDevice ? 130 : 145,
-    paddingVertical: 12,
-    flexDirection: 'column',
-    alignItems: 'center',
+  overlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalContainer: {
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingHorizontal: 24,
+    paddingTop: 16,
+    paddingBottom: Platform.OS === 'ios' ? 40 : 24,
+    position: 'relative',
+  },
+  closeButton: {
+    position: 'absolute',
+    top: 16,
+    right: 16,
+    width: 32,
+    height: 32,
     justifyContent: 'center',
-    borderWidth: 2,
-    borderColor: '#BABABA',
-    borderRadius: 10,
-    backgroundColor: 'transparent',
-  },
-  buttonDisabled: {
-    opacity: 0.5,
-  },
-  buttonSelected: {
-    backgroundColor: '#FFF5EC',
-    borderColor: '#FEA04D',
-    borderWidth: 2,
+    alignItems: 'center',
+    zIndex: 10,
   },
   iconContainer: {
-    width: iconSize,
-    height: iconSize,
     alignItems: 'center',
-    justifyContent: 'center',
+    marginTop: 8,
+    marginBottom: 16,
   },
-  icon: {
-    width: iconSize,
-    height: iconSize,
-  },
-  text: {
-    fontFamily: 'Inter',
-    fontWeight: '500',
-    fontSize: isSmallDevice ? 14 : 16,
-    lineHeight: isSmallDevice ? 20 : 24,
-    color: '#555555',
-  },
-  textSelected: {
-    color: '#FF861A',
-  },
-  orderBadge: {
-    position: 'absolute',
-    top: 8,
-    right: 8,
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: '#FE9F4D',
+  iconCircle: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: '#F9F9F9',
     justifyContent: 'center',
     alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#E4E5E7',
   },
-  orderText: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    fontWeight: '700',
+  titleContainer: {
+    alignItems: 'center',
+    marginBottom: 20,
   },
-  skillLevelBadge: {
-    marginTop: 6,
-    paddingHorizontal: 14,
-    paddingVertical: 5,
-    backgroundColor: '#FEA04D',
-    borderRadius: 14,
-  },
-  skillLevelText: {
-    color: '#FFFFFF',
-    fontSize: isSmallDevice ? 11 : 12,
+  title: {
+    fontSize: 18,
     fontWeight: '600',
+    color: '#1A1C1E',
+    textAlign: 'center',
+    fontFamily: 'Inter',
+  },
+  asterisk: {
+    color: '#FF3B30',
+  },
+  chipsContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    gap: 8,
+    marginBottom: 24,
+  },
+  chip: {
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 20,
+    backgroundColor: '#F4F4F4',
+    borderWidth: 1,
+    borderColor: '#E4E5E7',
+  },
+  chipSelected: {
+    backgroundColor: '#1A1C1E',
+    borderColor: '#1A1C1E',
+  },
+  chipText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#444444',
+    fontFamily: 'Inter',
+  },
+  chipTextSelected: {
+    color: '#FFFFFF',
+  },
+  saveButtonContainer: {
+    borderRadius: 22,
+    overflow: 'hidden',
+  },
+  saveButton: {
+    height: 44,
+    borderRadius: 22,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  saveButtonDisabled: {
+    opacity: 0.5,
+  },
+  saveButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '600',
+    lineHeight: 24,
     fontFamily: 'Inter',
   },
 });
 
-export default SportButton;
+export default SkillLevelModal;

@@ -528,6 +528,8 @@ export default function ProfileScreen() {
             {/* Skill Level */}
             <ProfileSkillLevelCard
               skillLevel={userData.skillLevel}
+              selfAssessedSkillLevels={userData.selfAssessedSkillLevels}
+              activeSport={activeTab}
             />
 
             {/* DMR with Graph */}

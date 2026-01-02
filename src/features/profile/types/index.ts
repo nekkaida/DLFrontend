@@ -91,7 +91,8 @@ export interface UserData {
   image?: string | null;
   location: string;
   gender: string;
-  skillRatings?: Record<string, SkillRating>; 
+  skillRatings?: Record<string, SkillRating>;
+  selfAssessedSkillLevels?: Record<string, string>; // Self-assessed skill levels from onboarding (e.g., { tennis: 'INTERMEDIATE', pickleball: 'BEGINNER' })
   skillLevel: string;
   sports: string[];
   activeSports: string[];
