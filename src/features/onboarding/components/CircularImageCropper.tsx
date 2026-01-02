@@ -216,13 +216,7 @@ const CircularImageCropper: React.FC<CircularImageCropperProps> = ({
 
     setIsCropping(true);
     try {
-      if (!imageSize.width || !imageSize.height) {
-        console.error('[CircularImageCropper] Image size not available');
-        return;
-      }
-
-      if (!imageUri) {
-        console.error('[CircularImageCropper] No image URI provided');
+      if (!imageSize.width || !imageSize.height || !imageUri) {
         return;
       }
 
@@ -273,6 +267,11 @@ const CircularImageCropper: React.FC<CircularImageCropperProps> = ({
       const adjustedCropWidth = Math.round(cropWidth * dimensionScaleX);
       const adjustedCropHeight = Math.round(cropHeight * dimensionScaleY);
 
+      // Validate crop dimensions
+      if (adjustedCropWidth <= 0 || adjustedCropHeight <= 0) {
+        throw new Error(`Invalid crop dimensions: width=${adjustedCropWidth}, height=${adjustedCropHeight}`);
+      }
+
       const croppedOnly = await manipulateAsync(
         testRead.uri,
         [
@@ -302,8 +301,8 @@ const CircularImageCropper: React.FC<CircularImageCropperProps> = ({
       );
 
       onCropComplete(croppedImage.uri);
-    } catch (error) {
-      console.error('Error cropping image:', error);
+    } catch {
+      // Silently fail - user can retry
     } finally {
       setIsCropping(false);
     }
