@@ -241,6 +241,17 @@ export class LeagueService {
           const leaguesList = season.leagues || [];
           for (const league of leaguesList) {
             if (!leaguesMap.has(league.id)) {
+              // Extract category data from the season
+              const categories: UserActiveLeague['categories'] = [];
+              if (season.category) {
+                categories.push({
+                  id: season.category.id,
+                  name: season.category.name,
+                  genderRestriction: season.category.genderRestriction || season.category.gender_category,
+                  game_type: season.category.game_type || season.category.gameType,
+                });
+              }
+
               leaguesMap.set(league.id, {
                 id: league.id,
                 name: league.name,
@@ -255,6 +266,7 @@ export class LeagueService {
                 membership: season.membership,
                 totalSeasonMemberships: season._count?.memberships || season.registeredUserCount || 0,
                 memberships: season.memberships,
+                categories,
               });
             }
           }
@@ -302,5 +314,11 @@ export interface UserActiveLeague {
       name: string;
       image?: string;
     };
+  }>;
+  categories?: Array<{
+    id: string;
+    name: string | null;
+    genderRestriction?: string;
+    game_type?: string;
   }>;
 }

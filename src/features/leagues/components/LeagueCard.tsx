@@ -429,6 +429,19 @@ export function ActiveLeagueCard({ league, onViewStandings, sport = 'pickleball'
             </View>
           </View>
 
+          {/* Category Chips */}
+          {league.categories && league.categories.length > 0 && (
+            <View style={styles.activeCardCategoriesContainer}>
+              {league.categories.map((category) => (
+                <View key={category.id} style={styles.activeCardCategoryChip}>
+                  <Text style={styles.activeCardCategoryText}>
+                    {category.name || 'Category'}
+                  </Text>
+                </View>
+              ))}
+            </View>
+          )}
+
           {/* Player count */}
           <View style={styles.activeCardStats}>
             <View style={styles.statusCircle} />
@@ -440,19 +453,19 @@ export function ActiveLeagueCard({ league, onViewStandings, sport = 'pickleball'
           {/* Profile pictures */}
           {league.memberships && league.memberships.length > 0 && (
             <View style={styles.activeCardProfilesSection}>
-              <View style={styles.profilePicturesContainer}>
+              <View style={styles.activeCardProfilesContainer}>
                 {league.memberships.slice(0, 6).map((membership, index) => {
                   if (!membership.user) return null;
                   return (
-                    <View key={membership.id} style={[styles.profilePicture, index > 0 && styles.profilePictureOverlap]}>
+                    <View key={membership.id} style={[styles.activeCardProfilePicture, index > 0 && styles.activeCardProfileOverlap]}>
                       {membership.user.image ? (
                         <Image
                           source={{ uri: membership.user.image }}
-                          style={styles.profileImage}
+                          style={styles.activeCardProfileImage}
                         />
                       ) : (
-                        <View style={styles.defaultProfileImage}>
-                          <Text style={styles.defaultProfileText}>
+                        <View style={styles.activeCardDefaultProfile}>
+                          <Text style={styles.activeCardDefaultProfileText}>
                             {membership.user.name?.charAt(0)?.toUpperCase() || 'U'}
                           </Text>
                         </View>
@@ -461,8 +474,8 @@ export function ActiveLeagueCard({ league, onViewStandings, sport = 'pickleball'
                   );
                 })}
                 {(league.totalSeasonMemberships || 0) > 6 && (
-                  <View style={[styles.remainingCount, styles.profilePictureOverlap]}>
-                    <Text style={styles.remainingCountText}>
+                  <View style={[styles.activeCardRemainingCount, styles.activeCardProfileOverlap]}>
+                    <Text style={styles.activeCardRemainingText}>
                       +{(league.totalSeasonMemberships || 0) - 6}
                     </Text>
                   </View>
@@ -535,7 +548,78 @@ const styles = StyleSheet.create({
     marginLeft: 8,
   },
   activeCardProfilesSection: {
-    marginBottom: 12,
+    marginBottom: 8,
+  },
+  // Active card specific category styles (smaller with better spacing)
+  activeCardCategoriesContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+    marginTop: 4,
+    marginBottom: 8,
+  },
+  activeCardCategoryChip: {
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    borderRadius: 10,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  activeCardCategoryText: {
+    color: '#FEA04D',
+    fontSize: isSmallScreen ? 9 : isTablet ? 11 : 10,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+  // Active card specific profile picture styles (smaller size)
+  activeCardProfilesContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  activeCardProfilePicture: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    overflow: 'hidden',
+    borderWidth: 2,
+    borderColor: 'rgba(255, 255, 255, 0.3)',
+  },
+  activeCardProfileOverlap: {
+    marginLeft: -8,
+  },
+  activeCardProfileImage: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+  },
+  activeCardDefaultProfile: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: '#6de9a0',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  activeCardDefaultProfileText: {
+    color: '#FFFFFF',
+    fontSize: 11,
+    fontWeight: 'bold',
+  },
+  activeCardRemainingCount: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: 'rgba(255, 255, 255, 0.3)',
+  },
+  activeCardRemainingText: {
+    color: '#1C1A1A',
+    fontSize: 9,
+    fontWeight: '700',
   },
   viewStandingsText: {
     color: '#FDFDFD',
