@@ -9,6 +9,7 @@ import { authClient } from '@/lib/auth-client';
 import { useSession } from '@/lib/auth-client';
 import * as Haptics from 'expo-haptics';
 import { SeasonService, Season } from '@/src/features/dashboard-user/services/SeasonService';
+import { CategoryService } from '@/src/features/dashboard-user/services/CategoryService';
 import { LeagueService } from '@/src/features/leagues/services/LeagueService';
 import { PaymentOptionsBottomSheet } from '../components';
 import { FiuuPaymentService } from '@/src/features/payments/services/FiuuPaymentService';
@@ -495,6 +496,45 @@ export default function SeasonDetailsScreen({
     );
   };
 
+  // Helper function to check if user can JOIN a category based on gender restrictions
+  const canUserJoinCategory = (category: any): boolean => {
+    if (!category) return false;
+
+    const genderCategory = category.gender_category?.toUpperCase() || category.genderCategory?.toUpperCase();
+    const genderRestriction = category.genderRestriction?.toUpperCase();
+    const categoryGender = genderCategory || genderRestriction;
+    const isDoubles = CategoryService.getEffectiveGameType(category, 'SINGLES') === 'DOUBLES';
+
+    // Get user gender from profile data
+    const userGender = profileData?.gender?.toUpperCase();
+
+    // If user gender is not yet loaded, allow joining (will be validated on backend)
+    if (!userGender) {
+      return true;
+    }
+
+    if (userGender === 'FEMALE') {
+      if (categoryGender === 'FEMALE' || categoryGender === 'WOMEN') return true;
+      if (categoryGender === 'MIXED' && isDoubles) return true;
+      return false;
+    }
+
+    if (userGender === 'MALE') {
+      if (categoryGender === 'MALE' || categoryGender === 'MEN') return true;
+      if (categoryGender === 'MIXED' && isDoubles) return true;
+      return false;
+    }
+
+    return categoryGender === 'OPEN';
+  };
+
+  // Helper function to check if user can join the current season
+  const canUserJoinSeason = (season: Season | null): boolean => {
+    if (!season) return false;
+    const categories = getNormalizedCategories(season);
+    return categories.some(cat => canUserJoinCategory(cat));
+  };
+
   // Button configuration based on user registration status
   const getButtonConfig = () => {
     if (!season || !userId) {
@@ -511,6 +551,9 @@ export default function SeasonDetailsScreen({
 
     // For doubles seasons, check if user needs to complete team registration/payment
     const doublesSeason = isDoublesSeason(season);
+
+    // Check if user can join this season based on gender restrictions
+    const canJoin = canUserJoinSeason(season);
 
     // If doubles season and membership is PENDING (not paid), show Register Team
     if (doublesSeason && userMembership && userMembership.status === 'PENDING') {
@@ -542,6 +585,15 @@ export default function SeasonDetailsScreen({
     }
 
     if (season.status === 'ACTIVE') {
+      // Check gender restriction - show "View Only" if user cannot join
+      if (!canJoin) {
+        return {
+          text: 'View Only',
+          color: '#B2B2B2',
+          onPress: () => toast.info('This season is restricted to a different gender'),
+          disabled: false
+        };
+      }
       return {
         text: 'Join Season',
         color: '#FEA04D',
@@ -551,6 +603,15 @@ export default function SeasonDetailsScreen({
     }
 
     if (season.status === 'UPCOMING') {
+      // Check gender restriction for waitlist too
+      if (!canJoin) {
+        return {
+          text: 'View Only',
+          color: '#B2B2B2',
+          onPress: () => toast.info('This season is restricted to a different gender'),
+          disabled: false
+        };
+      }
       return {
         text: 'Join Waitlist',
         color: '#000000',

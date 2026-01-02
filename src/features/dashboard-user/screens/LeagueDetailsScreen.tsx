@@ -65,19 +65,21 @@ export default function LeagueDetailsScreen({
   // Use custom hook for user profile and gender management
   const { profileData, userGender, fetchProfileData, fetchUserGender } = useUserProfile(userId);
 
-  // Helper function to check if a category is visible to the user based on gender
+  // Helper function to check if a category is visible - all categories are now visible to all users
   const isCategoryVisibleToUser = React.useCallback((category: any): boolean => {
-    if (!category) {
-      return false;
-    }
+    return category !== null && category !== undefined;
+  }, []);
+
+  // Helper function to check if user can JOIN a category based on gender restrictions
+  const canUserJoinCategory = React.useCallback((category: any): boolean => {
+    if (!category) return false;
 
     const genderCategory = category.gender_category?.toUpperCase() || category.genderCategory?.toUpperCase();
     const genderRestriction = category.genderRestriction?.toUpperCase();
     const categoryGender = genderCategory || genderRestriction;
     const isDoubles = CategoryService.getEffectiveGameType(category, 'SINGLES') === 'DOUBLES';
 
-    // If user gender is not yet loaded, show all categories to avoid filtering issues
-    // This ensures categories don't disappear during refresh while gender is being fetched
+    // If user gender is not yet loaded, allow joining (will be validated on backend)
     if (!userGender) {
       return true;
     }
@@ -85,22 +87,14 @@ export default function LeagueDetailsScreen({
     const normalizedUserGender = userGender.toUpperCase();
 
     if (normalizedUserGender === 'FEMALE') {
-      if (categoryGender === 'FEMALE' || categoryGender === 'WOMEN') {
-        return true;
-      }
-      if (categoryGender === 'MIXED' && isDoubles) {
-        return true;
-      }
+      if (categoryGender === 'FEMALE' || categoryGender === 'WOMEN') return true;
+      if (categoryGender === 'MIXED' && isDoubles) return true;
       return false;
     }
 
     if (normalizedUserGender === 'MALE') {
-      if (categoryGender === 'MALE' || categoryGender === 'MEN') {
-        return true;
-      }
-      if (categoryGender === 'MIXED' && isDoubles) {
-        return true;
-      }
+      if (categoryGender === 'MALE' || categoryGender === 'MEN') return true;
+      if (categoryGender === 'MIXED' && isDoubles) return true;
       return false;
     }
 
@@ -530,42 +524,25 @@ export default function LeagueDetailsScreen({
     }
   };
 
-  // Get filtered seasons for selected category AND gender
+  // Get filtered seasons for selected category (no longer filtered by gender - all users see all seasons)
   const getFilteredSeasons = () => {
     let filtered = seasons;
-    
-    // Filter by gender first
-    filtered = filtered.filter(season => {
-      // Normalize category data - handle both singular and plural
-      const normalizedCategories = normalizeCategoriesFromSeason(season);
 
-      // If season has no categories, skip it
-      if (!normalizedCategories || normalizedCategories.length === 0) {
-        return false;
-      }
-      
-      // Check if any category in the season is visible to the user
-      return normalizedCategories.some(category => isCategoryVisibleToUser(category));
+    // Only filter out seasons with no categories
+    filtered = filtered.filter(season => {
+      const normalizedCategories = normalizeCategoriesFromSeason(season);
+      return normalizedCategories && normalizedCategories.length > 0;
     });
-    
-    // Then filter by selected category if one is selected
+
+    // Filter by selected category if one is selected
     if (selectedCategoryId) {
-      // First verify that the selected category is visible to the user
-      // (categories are already filtered by gender, but this is a safety check)
-      const selectedCategoryObj = categories.find(c => c?.id === selectedCategoryId);
-      if (selectedCategoryObj && !isCategoryVisibleToUser(selectedCategoryObj)) {
-        // Selected category is not visible to user, return empty array
-        return [];
-      }
-      
       filtered = filtered.filter(season => {
-        // Normalize category data - handle both singular and plural
         const normalizedCategories = normalizeCategoriesFromSeason(season);
         const seasonCategoryIds = normalizedCategories.map(c => c?.id).filter(Boolean);
         return seasonCategoryIds.includes(selectedCategoryId);
       });
     }
-    
+
     return filtered;
   };
 
@@ -605,6 +582,9 @@ export default function LeagueDetailsScreen({
         (cat as any)?.game_type === 'DOUBLES'
       );
 
+      // Check if user can join this season based on gender restrictions
+      const canJoin = normalizedCategories.some(cat => canUserJoinCategory(cat));
+
       // If doubles season and membership is PENDING (not paid), show Register Team
       if (isDoublesSeason && userMembership && userMembership.status === 'PENDING') {
         return {
@@ -632,6 +612,14 @@ export default function LeagueDetailsScreen({
       }
 
       if (season.status === 'ACTIVE') {
+        // Check gender restriction - show "View Only" if user cannot join
+        if (!canJoin) {
+          return {
+            text: 'View Only',
+            color: '#B2B2B2',
+            onPress: () => toast.info('This season is restricted to a different gender')
+          };
+        }
         return {
           text: 'Join Season',
           color: '#FEA04D',
@@ -640,6 +628,14 @@ export default function LeagueDetailsScreen({
       }
 
       if (season.status === 'UPCOMING') {
+        // Check gender restriction for waitlist too
+        if (!canJoin) {
+          return {
+            text: 'View Only',
+            color: '#B2B2B2',
+            onPress: () => toast.info('This season is restricted to a different gender')
+          };
+        }
         return {
           text: 'Join Waitlist',
           color: '#F2F2F2',

@@ -7,6 +7,7 @@ import { NavBar } from '@/shared/components/layout';
 import { SportDropdownHeader } from '@/shared/components/ui/SportDropdownHeader';
 import * as Haptics from 'expo-haptics';
 import { CategoryService, Category } from '@/src/features/dashboard-user/services/CategoryService';
+import { getCategorySortOrder } from '@/src/features/dashboard-user/utils/categorySortOrder';
 import { useSession } from '@/lib/auth-client';
 import { questionnaireAPI } from '@/src/features/onboarding/services/api';
 
@@ -127,40 +128,14 @@ export default function LeagueCategoryScreen({
       const gameTypeFiltered = CategoryService.filterCategoriesByGameType(fetchedCategories, gameType);
       console.log('Game type filtered:', gameTypeFiltered);
 
-      // Filter by user gender - show only categories user can join
-      const genderFiltered = gameTypeFiltered.filter(category => {
-        // Check both snake_case (gender_category) and camelCase (genderCategory) for backward compatibility
-        const genderCategory = category.gender_category?.toUpperCase() || category.genderCategory?.toUpperCase();
-        const genderRestriction = category.genderRestriction?.toUpperCase();
-
-        // Use either gender_category/genderCategory or genderRestriction field
-        const categoryGender = genderCategory || genderRestriction;
-
-        console.log(`\n--- Filtering Category: ${category.name} ---`);
-        console.log(`  gender_category: ${category.gender_category}`);
-        console.log(`  genderRestriction: ${category.genderRestriction}`);
-        console.log(`  Resolved categoryGender: ${categoryGender}`);
-        console.log(`  User gender: ${userGender}`);
-
-        // Show if category is MIXED (open to all)
-        if (categoryGender === 'MIXED' || categoryGender === 'OPEN') {
-          console.log(`  ✅ SHOW (MIXED/OPEN)`);
-          return true;
-        }
-
-        // Show if category matches user's gender
-        if (userGender && categoryGender === userGender) {
-          console.log(`  ✅ SHOW (Gender match: ${categoryGender} === ${userGender})`);
-          return true;
-        }
-
-        // Hide if no match
-        console.log(`  ❌ HIDE (No match: ${categoryGender} !== ${userGender})`);
-        return false;
+      // No longer filtering by gender - all categories are visible to all users
+      // Gender restrictions are enforced at the registration/join level, not visibility
+      // Sort categories by name priority: Singles > Doubles, Male > Female > Mixed > Open
+      const sortedCategories = [...gameTypeFiltered].sort((a, b) => {
+        return getCategorySortOrder(a.name ?? null) - getCategorySortOrder(b.name ?? null);
       });
-
-      console.log('Gender filtered categories:', genderFiltered);
-      setCategories(genderFiltered);
+      console.log('All categories visible (sorted, gender restriction at join time only):', sortedCategories);
+      setCategories(sortedCategories);
     } catch (err) {
       console.error('Error fetching categories:', err);
       setError('Failed to load categories');

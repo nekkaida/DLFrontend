@@ -58,25 +58,14 @@ export const useLeagueData = (
         categories: normalizeCategoriesFromSeason(season)
       }));
 
-      // Filter seasons by gender
-      const genderFilteredSeasons = normalizedSeasons.filter(season => {
-        if (!season.categories || !Array.isArray(season.categories) || season.categories.length === 0) {
-          return false;
-        }
-
-        return season.categories.some(category =>
-          category && isCategoryVisibleToUser(category)
-        );
-      });
-
       setSeasons(normalizedSeasons);
 
-      // Extract unique categories from gender-filtered seasons
+      // Extract ALL unique categories (no longer filtered by gender - all users see all categories)
       const availableCategoriesMap = new Map<string, Category>();
-      genderFilteredSeasons.forEach(season => {
+      normalizedSeasons.forEach(season => {
         if (season.categories && Array.isArray(season.categories)) {
           season.categories.forEach(category => {
-            if (category && category.id && isCategoryVisibleToUser(category)) {
+            if (category && category.id) {
               if (!availableCategoriesMap.has(category.id)) {
                 availableCategoriesMap.set(category.id, category as Category);
               }
@@ -99,6 +88,8 @@ export const useLeagueData = (
     } finally {
       setIsLoading(false);
     }
+  // Note: userGender and isCategoryVisibleToUser kept in deps for backwards compatibility
+  // but no longer used since all categories are now visible to all users
   }, [leagueId, userGender, isCategoryVisibleToUser]);
 
   return {

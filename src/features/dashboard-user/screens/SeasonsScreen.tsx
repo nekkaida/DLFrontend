@@ -6,6 +6,7 @@ import { useSession } from '@/lib/auth-client';
 import { NavBar } from '@/shared/components/layout';
 import { SportDropdownHeader } from '@/shared/components/ui/SportDropdownHeader';
 import { Season, SeasonService } from '@/src/features/dashboard-user/services/SeasonService';
+import { CategoryService } from '@/src/features/dashboard-user/services/CategoryService';
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
@@ -71,6 +72,27 @@ export default function SeasonsScreen({
   const isDoublesCategory = category.toLowerCase().includes('double');
   const { data: session } = useSession();
   const userId = session?.user.id
+
+  // Fetch user profile for gender check
+  const [profileData, setProfileData] = React.useState<any>(null);
+
+  React.useEffect(() => {
+    const fetchProfileData = async () => {
+      if (!session?.user?.id) return;
+      try {
+        const backendUrl = getBackendBaseURL();
+        const authResponse = await authClient.$fetch(`${backendUrl}/api/player/profile/me`, {
+          method: 'GET',
+        });
+        if (authResponse && (authResponse as any).data && (authResponse as any).data.data) {
+          setProfileData((authResponse as any).data.data);
+        }
+      } catch (error) {
+        console.error('Error fetching profile data:', error);
+      }
+    };
+    fetchProfileData();
+  }, [session?.user?.id]);
 
 
   
@@ -531,6 +553,7 @@ React.useEffect(() => {
       setShowPaymentOptions={setShowPaymentOptions}
       handleJoinWaitlistPress={handleJoinWaitlistPress}
       handleViewStandingsPress={handleViewStandingsPress}
+      profileData={profileData}
     />
   ));
 };
@@ -544,6 +567,7 @@ interface SeasonCardProps {
   setShowPaymentOptions: (show: boolean) => void;
   handleJoinWaitlistPress: () => void;
   handleViewStandingsPress: (season: Season) => void;
+  profileData: any;
 }
 
 const SeasonCard: React.FC<SeasonCardProps> = ({
@@ -554,6 +578,7 @@ const SeasonCard: React.FC<SeasonCardProps> = ({
   setShowPaymentOptions,
   handleJoinWaitlistPress,
   handleViewStandingsPress,
+  profileData,
 }) => {
   const isUserRegistered = season.memberships?.some(
     (m: any) => m.userId === userId
@@ -564,6 +589,48 @@ const SeasonCard: React.FC<SeasonCardProps> = ({
     isDoublesCategory ? season.id : null,
     userId
   );
+
+  // Helper function to check if user can JOIN a category based on gender restrictions
+  const canUserJoinCategory = (category: any): boolean => {
+    if (!category) return false;
+
+    const genderCategory = category.gender_category?.toUpperCase() || category.genderCategory?.toUpperCase();
+    const genderRestriction = category.genderRestriction?.toUpperCase();
+    const categoryGender = genderCategory || genderRestriction;
+    const isDoubles = CategoryService.getEffectiveGameType(category, 'SINGLES') === 'DOUBLES';
+
+    // Get user gender from profile data
+    const userGender = profileData?.gender?.toUpperCase();
+
+    // If user gender is not yet loaded, allow joining (will be validated on backend)
+    if (!userGender) {
+      return true;
+    }
+
+    if (userGender === 'FEMALE') {
+      if (categoryGender === 'FEMALE' || categoryGender === 'WOMEN') return true;
+      if (categoryGender === 'MIXED' && isDoubles) return true;
+      return false;
+    }
+
+    if (userGender === 'MALE') {
+      if (categoryGender === 'MALE' || categoryGender === 'MEN') return true;
+      if (categoryGender === 'MIXED' && isDoubles) return true;
+      return false;
+    }
+
+    return categoryGender === 'OPEN';
+  };
+
+  // Helper function to check if user can join the season
+  const canUserJoinSeason = (): boolean => {
+    const category = (season as any)?.category;
+    const categories = (season as any)?.categories || (category ? [category] : []);
+    const normalizedCategories = Array.isArray(categories) ? categories : [categories].filter(Boolean);
+    return normalizedCategories.some(cat => canUserJoinCategory(cat));
+  };
+
+  const canJoin = canUserJoinSeason();
 
   function handleViewDivisionPress(season: Season) {
   Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -642,7 +709,9 @@ const SeasonCard: React.FC<SeasonCardProps> = ({
         <TouchableOpacity
           style={[
             styles.registerButton,
-            { backgroundColor: SeasonService.getButtonColor(season.status) },
+            { backgroundColor: !canJoin && (season.status === "ACTIVE" || season.status === "UPCOMING")
+              ? '#B2B2B2'
+              : SeasonService.getButtonColor(season.status) },
           ]}
           onPress={async () => {
             console.log('🔴🔴🔴 BUTTON CLICKED!', {
@@ -658,6 +727,11 @@ const SeasonCard: React.FC<SeasonCardProps> = ({
               console.log('→ Path: View Division');
               handleViewDivisionPress(season);
             } else if (season.status === "ACTIVE") {
+              // Check gender restriction first
+              if (!canJoin) {
+                toast.info('This season is restricted to a different gender');
+                return;
+              }
               // Doubles category: New three-state flow
               if (isDoublesCategory) {
                 console.log('→ Path: Doubles Category Flow');
@@ -700,6 +774,11 @@ const SeasonCard: React.FC<SeasonCardProps> = ({
                 }
               }
             } else if (season.status === "UPCOMING") {
+              // Check gender restriction for waitlist too
+              if (!canJoin) {
+                toast.info('This season is restricted to a different gender');
+                return;
+              }
               handleJoinWaitlistPress();
             } else if (season.status === "FINISHED") {
               handleViewStandingsPress(season);
@@ -710,6 +789,8 @@ const SeasonCard: React.FC<SeasonCardProps> = ({
           <Text style={styles.registerButtonText}>
             {isUserRegistered
               ? "View"
+              : !canJoin && (season.status === "ACTIVE" || season.status === "UPCOMING")
+              ? "View Only"
               : isDoublesCategory && partnership
               ? "View"
               : isDoublesCategory
