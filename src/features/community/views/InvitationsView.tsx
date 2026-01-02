@@ -1,12 +1,13 @@
 import React, { useState } from 'react';
 import { View, StyleSheet, Text } from 'react-native';
+import { router } from 'expo-router';
 import {
   PillTabSwitcher,
   FriendRequestCard,
   SeasonInvitationCard,
   InvitationsEmptyState,
 } from '../components';
-import { SeasonInvitationsData, FriendRequestsData } from '../types';
+import { SeasonInvitationsData, FriendRequestsData, SeasonInvitation } from '../types';
 
 interface InvitationsViewProps {
   friendRequests: FriendRequestsData;
@@ -53,6 +54,16 @@ export const InvitationsView: React.FC<InvitationsViewProps> = ({
     activeTab === 'sent' &&
     (sentFriendRequests.length > 0 || sentSeasonInvitations.length > 0);
 
+  const handleSeasonInvitationPress = (invitation: SeasonInvitation) => {
+    router.push({
+      pathname: '/user-dashboard/doubles-team-pairing' as any,
+      params: {
+        seasonId: invitation.seasonId,
+        seasonName: invitation.season.name,
+      },
+    });
+  };
+
   return (
     <View style={styles.container}>
       <View style={styles.tabContainer}>
@@ -98,6 +109,7 @@ export const InvitationsView: React.FC<InvitationsViewProps> = ({
                       actionLoading={invitationActionLoading}
                       onAccept={onAcceptInvitation}
                       onDeny={onDenyInvitation}
+                      onCardPress={() => handleSeasonInvitationPress(invitation)}
                     />
                   ))}
                 </View>
@@ -132,6 +144,7 @@ export const InvitationsView: React.FC<InvitationsViewProps> = ({
                       type="sent"
                       actionLoading={invitationActionLoading}
                       onCancel={onCancelInvitation}
+                      onCardPress={() => handleSeasonInvitationPress(invitation)}
                     />
                   ))}
                 </View>

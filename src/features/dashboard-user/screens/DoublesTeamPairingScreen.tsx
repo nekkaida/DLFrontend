@@ -72,6 +72,7 @@ export default function DoublesTeamPairingScreen({
   const [currentPartnership, setCurrentPartnership] = React.useState<any>(null);
   const [isPairingLoading, setIsPairingLoading] = React.useState(false);
   const [isProcessingPayment, setIsProcessingPayment] = React.useState(false);
+  const [isTeamRegistered, setIsTeamRegistered] = React.useState(false);
 
   const insets = useSafeAreaInsets();
   const STATUS_BAR_HEIGHT = insets.top;
@@ -155,9 +156,10 @@ export default function DoublesTeamPairingScreen({
       partnershipStatus,
       selectedPartner: selectedPartner?.name || 'none',
       isPairingLoading,
+      isTeamRegistered,
       disabled: invitationStatus !== 'none' || partnershipStatus === 'active'
     });
-  }, [invitationStatus, partnershipStatus, selectedPartner, isPairingLoading]);
+  }, [invitationStatus, partnershipStatus, selectedPartner, isPairingLoading, isTeamRegistered]);
 
   const checkPairingStatus = React.useCallback(async () => {
     if (!seasonId || !userId) return;
@@ -188,6 +190,9 @@ export default function DoublesTeamPairingScreen({
         setPartnershipStatus('active');
         setCurrentPartnership(partnershipData);
         setInvitationStatus('accepted');
+
+        // Set registration status from backend response
+        setIsTeamRegistered(!!partnershipData.isTeamRegistered);
 
         // Debug: Check captain and partner before extraction
         console.log('🔍 Partnership data structure:', {
@@ -260,6 +265,7 @@ export default function DoublesTeamPairingScreen({
         // No invitation or partnership
         setInvitationStatus('none');
         setPartnershipStatus('none');
+        setIsTeamRegistered(false);
       }
     } catch (error) {
       console.error('Error checking pairing status:', error);
@@ -1006,10 +1012,10 @@ export default function DoublesTeamPairingScreen({
         </View>
       </Animated.View>
 
-      {/* Sticky Button */}
-      {!isLoading && !error && season && (() => {
+      {/* Sticky Button - Hide when team is already registered */}
+      {!isLoading && !error && season && !isTeamRegistered && (() => {
         const isCaptain = currentPartnership?.captainId === userId;
-        
+
         return (
           <View style={[styles.stickyButtonContainer, { paddingBottom: insets.bottom }]}>
             <TouchableOpacity
