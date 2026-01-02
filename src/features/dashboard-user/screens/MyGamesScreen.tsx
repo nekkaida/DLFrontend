@@ -332,8 +332,8 @@ export default function MyGamesScreen({ sport = 'pickleball', initialTab }: MyGa
     }
 
     // Filter by status (from bottom sheet - overrides tab filter if set)
-    if (filters.status) {
-      filtered = filtered.filter(m => m.status.toUpperCase() === filters.status);
+    if (filters.status && filters.status.length > 0) {
+      filtered = filtered.filter(m => filters.status!.includes(m.status.toUpperCase()));
     }
 
     return filtered;

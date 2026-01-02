@@ -15,7 +15,7 @@ export interface FilterOptions {
   season: string | null;
   matchType: 'LEAGUE' | 'FRIENDLY' | null;
   gameType: 'SINGLES' | 'DOUBLES' | null;
-  status: string | null;
+  status: string[] | null;
 }
 
 interface FilterBottomSheetProps {
@@ -136,6 +136,28 @@ export const FilterBottomSheet = forwardRef<FilterBottomSheetRef, FilterBottomSh
     }));
   };
 
+  const toggleStatusFilter = (value: string) => {
+    setLocalFilters(prev => {
+      const currentStatus = prev.status || [];
+      const isSelected = currentStatus.includes(value);
+
+      if (isSelected) {
+        // Remove from array
+        const newStatus = currentStatus.filter(s => s !== value);
+        return {
+          ...prev,
+          status: newStatus.length > 0 ? newStatus : null,
+        };
+      } else {
+        // Add to array
+        return {
+          ...prev,
+          status: [...currentStatus, value],
+        };
+      }
+    });
+  };
+
   const activeFilterCount = Object.values(localFilters).filter(Boolean).length;
 
   const renderFilterChip = (
@@ -180,13 +202,7 @@ export const FilterBottomSheet = forwardRef<FilterBottomSheetRef, FilterBottomSh
       <BottomSheetView style={styles.contentContainer}>
         {/* Header */}
         <View style={styles.header}>
-          {activeFilterCount > 0 ? (
-            <TouchableOpacity onPress={handleClearAll} style={styles.clearAllButton}>
-              <Text style={[styles.clearAllText, { color: sportColor }]}>Clear All</Text>
-            </TouchableOpacity>
-          ) : (
-            <View style={styles.placeholder} />
-          )}
+          <View style={styles.placeholder} />
           <Text style={styles.title}>Filter Matches</Text>
           <TouchableOpacity
             onPress={() => bottomSheetModalRef.current?.dismiss()}
@@ -291,8 +307,8 @@ export const FilterBottomSheet = forwardRef<FilterBottomSheetRef, FilterBottomSh
                 renderFilterChip(
                   value,
                   label,
-                  localFilters.status === value,
-                  () => toggleFilter('status', value)
+                  localFilters.status?.includes(value) || false,
+                  () => toggleStatusFilter(value)
                 )
               )}
             </View>
