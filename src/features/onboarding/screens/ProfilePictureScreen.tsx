@@ -259,7 +259,7 @@ const ProfilePictureScreen = () => {
   };
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
+    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
       {/* Back Button - Absolute positioned outside scroll */}
       <View style={styles.backButtonWrapper}>
         <TouchableOpacity
@@ -397,7 +397,12 @@ const ProfilePictureScreen = () => {
 
         {/* All set text - now in normal flow */}
         <View style={styles.allSetContainer}>
-          <TouchableOpacity onPress={handleComplete} style={styles.allSetButton}>
+          <TouchableOpacity
+            onPress={handleComplete}
+            style={styles.allSetButton}
+            activeOpacity={0.7}
+            hitSlop={{ top: 12, bottom: 12, left: 20, right: 20 }}
+          >
             <Text style={styles.allSetText}>All set</Text>
             <AllSetArrowIcon width={scale(14)} height={scale(14)} />
           </TouchableOpacity>
@@ -584,6 +589,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: verticalScale(8),
+    minHeight: scale(44),
+    minWidth: scale(120),
+    paddingVertical: scale(10),
+    paddingHorizontal: scale(20),
   },
   allSetText: {
     fontSize: moderateScale(20),
