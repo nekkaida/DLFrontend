@@ -98,8 +98,8 @@ const GameSelectScreen = () => {
         }
       }
 
-      // Navigate to skill assessment for first sport
-      router.push(`/onboarding/skill-assessment?sport=${selectedSports[0]}&sportIndex=0`);
+      // Navigate to profile picture screen
+      router.push('/onboarding/profile-picture');
     } catch (error) {
       console.error('Error saving sports:', error);
       toast.error('Error', {

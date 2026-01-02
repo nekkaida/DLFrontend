@@ -262,7 +262,7 @@ const AssessmentResultsScreen = () => {
     ).join(' ');
   };
 
-  const handleContinue = () => {
+  const handleContinue = async () => {
     // Check if we're coming from the dashboard
     if (fromDashboard === 'true') {
       // Coming from dashboard - return to user dashboard
@@ -275,8 +275,20 @@ const AssessmentResultsScreen = () => {
         const nextSport = selectedSports[currentSportIndex + 1];
         router.push(`/onboarding/skill-assessment?sport=${nextSport}&sportIndex=${currentSportIndex + 1}`);
       } else {
-        // All sports assessed, go to profile picture
-        router.push('/onboarding/profile-picture');
+        // All sports assessed - complete onboarding and go to dashboard
+        if (session?.user?.id) {
+          try {
+            console.log('AssessmentResultsScreen: Completing onboarding...');
+            const result = await questionnaireAPI.completeOnboarding(session.user.id);
+            console.log('AssessmentResultsScreen: Onboarding completion result:', result);
+
+            // Wait for backend to process
+            await new Promise(resolve => setTimeout(resolve, 1500));
+          } catch (error) {
+            console.error('AssessmentResultsScreen: Error completing onboarding:', error);
+          }
+        }
+        router.replace('/user-dashboard');
       }
     }
   };

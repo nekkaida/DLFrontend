@@ -111,7 +111,7 @@ const ProfilePictureScreen = () => {
       console.log('session?.user?.id:', session?.user?.id);
       console.log('============================');
 
-      // If skip is selected, remove any uploaded profile picture and skip
+      // If skip is selected, remove any uploaded profile picture
       if (isSkipSelected) {
         console.log('=== SKIP SELECTED - CLEARING IMAGE ===');
         console.log('hadUploadedImage:', hadUploadedImage);
@@ -159,74 +159,26 @@ const ProfilePictureScreen = () => {
         } else {
           console.log('No image to delete - hadUploadedImage:', hadUploadedImage, 'session?.user?.id:', session?.user?.id);
         }
-
-        // Update step and mark onboarding as completed
-        if (session?.user?.id) {
-          // First update the step to PROFILE_PICTURE
-          try {
-            await questionnaireAPI.updateOnboardingStep(session.user.id, 'PROFILE_PICTURE');
-            console.log('ProfilePictureScreen: Onboarding step updated to PROFILE_PICTURE (skip)');
-          } catch (stepError) {
-            console.error('Error updating onboarding step:', stepError);
-          }
-
-          console.log('ProfilePictureScreen: Calling completeOnboarding API (skip)...');
-          const result = await questionnaireAPI.completeOnboarding(session.user.id);
-          console.log('ProfilePictureScreen: Onboarding completion result (skip):', result);
-          console.log('ProfilePictureScreen: Onboarding marked as completed (skip)');
-
-          // Wait longer for the backend to process the completion and database to update
-          await new Promise(resolve => setTimeout(resolve, 1500));
-          console.log('ProfilePictureScreen: Waited for backend processing (skip)');
-        }
-
-        // Skip photo and navigate to main app
-        toast.success('Success!', {
-          description: 'Onboarding completed! Welcome to DeuceLeague!',
-        });
-
-        console.log('ProfilePictureScreen: Navigating to dashboard (skip)...');
-
-        // Force clear any cached navigation state and navigate
-        router.replace('/user-dashboard');
-        return;
       }
-      
-      // Otherwise, complete normally with profile picture
-      // Update step and mark onboarding as completed
+
+      // Update onboarding step to PROFILE_PICTURE
       if (session?.user?.id) {
-        // First update the step to PROFILE_PICTURE
         try {
           await questionnaireAPI.updateOnboardingStep(session.user.id, 'PROFILE_PICTURE');
           console.log('ProfilePictureScreen: Onboarding step updated to PROFILE_PICTURE');
         } catch (stepError) {
           console.error('Error updating onboarding step:', stepError);
         }
-
-        console.log('ProfilePictureScreen: Calling completeOnboarding API...');
-        const result = await questionnaireAPI.completeOnboarding(session.user.id);
-        console.log('ProfilePictureScreen: Onboarding completion result:', result);
-        console.log('ProfilePictureScreen: Onboarding marked as completed');
-
-        // Wait longer for the backend to process the completion and database to update
-        await new Promise(resolve => setTimeout(resolve, 1500));
-        console.log('ProfilePictureScreen: Waited for backend processing');
       }
-      
-      // Save profile data and navigate to main app
-      toast.success('Success!', {
-        description: 'Onboarding completed! Welcome to DeuceLeague!',
-      });
-      
-      console.log('ProfilePictureScreen: Navigating to dashboard...');
-      
-      // Force clear any cached navigation state and navigate
-      router.replace('/user-dashboard');
+
+      // Navigate to DMR intro screen for skill assessment
+      console.log('ProfilePictureScreen: Navigating to DMR intro...');
+      router.push('/onboarding/dmr-intro');
     } catch (error) {
-      console.error('ProfilePictureScreen: Error completing onboarding:', error);
-      // Still navigate even if completion fails
-      console.log('ProfilePictureScreen: Navigating to dashboard despite error...');
-      router.push('/user-dashboard');
+      console.error('ProfilePictureScreen: Error in handleComplete:', error);
+      // Still navigate even if something fails
+      console.log('ProfilePictureScreen: Navigating to DMR intro despite error...');
+      router.push('/onboarding/dmr-intro');
     }
   };
 

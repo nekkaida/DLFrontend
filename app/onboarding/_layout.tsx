@@ -16,9 +16,10 @@ export default function OnboardingLayout() {
           <Stack.Screen name="personal-info" />
           <Stack.Screen name="location" />
           <Stack.Screen name="game-select" />
+          <Stack.Screen name="profile-picture" />
+          <Stack.Screen name="dmr-intro" />
           <Stack.Screen name="skill-assessment" />
           <Stack.Screen name="assessment-results" />
-          <Stack.Screen name="profile-picture" />
         </Stack>
       </OnboardingProvider>
     </ErrorBoundary>
