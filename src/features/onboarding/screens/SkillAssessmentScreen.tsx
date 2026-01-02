@@ -166,14 +166,26 @@ const SkillAssessmentScreen = () => {
   }, [isComprehensive, state.questions, state.questionHistory.length, state.responses, actions]);
 
   // Navigation helpers
-  const proceedToNext = useCallback(() => {
+  const proceedToNext = useCallback(async () => {
     if (currentSportIndex < selectedSports.length - 1) {
       const nextSport = selectedSports[currentSportIndex + 1];
       router.push(`/onboarding/skill-assessment?sport=${nextSport}&sportIndex=${currentSportIndex + 1}`);
     } else {
-      router.push('/onboarding/profile-picture');
+      // All sports assessed - complete onboarding and go to dashboard
+      if (session.data?.user?.id) {
+        try {
+          const { questionnaireAPI } = await import('../services/api');
+          console.log('SkillAssessmentScreen: Completing onboarding...');
+          await questionnaireAPI.completeOnboarding(session.data.user.id);
+          // Wait for backend to process
+          await new Promise(resolve => setTimeout(resolve, 1500));
+        } catch (error) {
+          console.error('SkillAssessmentScreen: Error completing onboarding:', error);
+        }
+      }
+      router.replace('/user-dashboard');
     }
-  }, [currentSportIndex, selectedSports]);
+  }, [currentSportIndex, selectedSports, session.data?.user?.id]);
 
   // Backend save helper
   const saveToBackend = useCallback(async (sportName: string, responses: any) => {
