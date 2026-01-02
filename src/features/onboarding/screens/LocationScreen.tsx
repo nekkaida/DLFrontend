@@ -717,7 +717,7 @@ const LocationScreen = () => {
               <TextInput
                 ref={textInputRef}
                 style={styles.input}
-                placeholder="Search or enter postcode..."
+                placeholder="Search city or area..."
                 placeholderTextColor="#BABABA"
                 value={location}
                 onChangeText={(text) => {
@@ -922,7 +922,7 @@ const styles = StyleSheet.create({
   },
   input: {
     flex: 1,
-    fontSize: 13,
+    fontSize: 14,
     color: '#1A1C1E',
     paddingHorizontal: 20,
     fontWeight: '400',
