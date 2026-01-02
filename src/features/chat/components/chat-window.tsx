@@ -440,7 +440,14 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     paddingVertical: 50,
-    transform: [{ scaleY: -1 }], // Counteract FlatList inverted prop
+    ...Platform.select({
+      ios: {
+        transform: [{ scaleY: -1 }], // iOS needs this to counteract FlatList inverted prop
+      },
+      android: {
+        // Android handles inverted FlatList ListEmptyComponent differently - no transform needed
+      },
+    }),
   },
   emptyEmoji: {
     fontSize: isSmallScreen ? 50 : isTablet ? 70 : 60,
