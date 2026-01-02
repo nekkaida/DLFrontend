@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import {
   View,
   Text,
@@ -10,7 +10,6 @@ import {
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { MatchCardSkeleton } from '@/src/components/MatchCardSkeleton';
-import { AnimatedFilterChip } from '@/src/shared/components/ui/AnimatedFilterChip';
 import { Ionicons } from '@expo/vector-icons';
 import { format } from 'date-fns';
 import { toast } from 'sonner-native';
@@ -21,7 +20,9 @@ import axiosInstance, { endpoints } from '@/lib/endpoints';
 import { getBackendBaseURL } from '@/src/config/network';
 import { getSportColors, SportType } from '@/constants/SportsColor';
 import { FriendlyMatchCard, FriendlyMatch } from '../components/FriendlyMatchCard';
-import { DateRangeFilterModal, DateRangeFilterModalRef } from '../components/DateRangeFilterModal';
+import { FriendlyFilterBottomSheet, FriendlyFilterBottomSheetRef, FriendlyFilterOptions } from '../components/FriendlyFilterBottomSheet';
+import { HorizontalDateScroll } from '../components/HorizontalDateScroll';
+import * as Haptics from 'expo-haptics';
 
 // Cache key for friendly match summary
 const FRIENDLY_SUMMARY_CACHE_KEY = 'friendly_matches_summary';
@@ -30,8 +31,6 @@ interface FriendlyScreenProps {
   sport: 'pickleball' | 'tennis' | 'padel';
 }
 
-type FilterTab = 'all' | 'open' | 'full';
-
 export const FriendlyScreen: React.FC<FriendlyScreenProps> = ({ sport }) => {
   const { data: session } = useSession();
   const sportType: SportType = sport.toUpperCase() as SportType;
@@ -39,18 +38,25 @@ export const FriendlyScreen: React.FC<FriendlyScreenProps> = ({ sport }) => {
 
   const [matches, setMatches] = useState<FriendlyMatch[]>([]);
   const [refreshing, setRefreshing] = useState(false);
-  const [showSkeleton, setShowSkeleton] = useState(false); // Only true when new content detected
-  const hasInitializedRef = useRef(false); // Track if we've done the first load
-  const [activeTab, setActiveTab] = useState<FilterTab>('all');
-  const [dateRange, setDateRange] = useState<{ start: Date | null; end: Date | null }>({
-    start: null,
-    end: null,
-  });
-  const dateRangeFilterRef = useRef<DateRangeFilterModalRef>(null);
+  const [showSkeleton, setShowSkeleton] = useState(false);
+  const hasInitializedRef = useRef(false);
 
-  // Entry animation values
-  const contentEntryOpacity = useRef(new Animated.Value(0)).current;
-  const contentEntryTranslateY = useRef(new Animated.Value(30)).current;
+  // Filter state
+  const [filters, setFilters] = useState<FriendlyFilterOptions>({
+    status: 'all',
+    gameType: null,
+  });
+  // Default to today's date
+  const [selectedDate, setSelectedDate] = useState<Date | null>(() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return today;
+  });
+  const filterBottomSheetRef = useRef<FriendlyFilterBottomSheetRef>(null);
+
+  // Entry animation values - start visible (opacity 1) to avoid blank screen issues
+  const contentEntryOpacity = useRef(new Animated.Value(1)).current;
+  const contentEntryTranslateY = useRef(new Animated.Value(0)).current;
   const hasPlayedEntryAnimation = useRef(false);
 
   // Check if there's new content by comparing summary with cache
@@ -126,16 +132,14 @@ export const FriendlyScreen: React.FC<FriendlyScreenProps> = ({ sport }) => {
         limit: '100',
       };
 
-      if (dateRange.start) {
-        // Set start date to beginning of day (00:00:00.000)
-        const startOfDay = new Date(dateRange.start);
+      if (selectedDate) {
+        // Set start date to beginning of selected day
+        const startOfDay = new Date(selectedDate);
         startOfDay.setHours(0, 0, 0, 0);
         params.fromDate = startOfDay.toISOString();
 
-        // Set end date to end of day (23:59:59.999) to include all matches on that day
-        // If no end date is selected, use the start date (single day filter)
-        const endDate = dateRange.end || dateRange.start;
-        const endOfDay = new Date(endDate);
+        // Set end date to end of same day
+        const endOfDay = new Date(selectedDate);
         endOfDay.setHours(23, 59, 59, 999);
         params.toDate = endOfDay.toISOString();
       }
@@ -153,7 +157,7 @@ export const FriendlyScreen: React.FC<FriendlyScreenProps> = ({ sport }) => {
       setRefreshing(false);
       setShowSkeleton(false);
     }
-  }, [sportType, dateRange, checkForNewContent]);
+  }, [sportType, selectedDate, checkForNewContent]);
 
   // Refresh matches when screen comes into focus (e.g., after creating a match)
   useFocusEffect(
@@ -162,38 +166,48 @@ export const FriendlyScreen: React.FC<FriendlyScreenProps> = ({ sport }) => {
     }, [fetchFriendlyMatches])
   );
 
-  // Entry animation effect - trigger when loading is done, regardless of data
+  // Reset animation values when skeleton starts showing
   useEffect(() => {
-    if (!showSkeleton && hasInitializedRef.current && !hasPlayedEntryAnimation.current) {
+    if (showSkeleton) {
+      contentEntryOpacity.setValue(0);
+      contentEntryTranslateY.setValue(30);
+      hasPlayedEntryAnimation.current = false;
+    }
+  }, [showSkeleton, contentEntryOpacity, contentEntryTranslateY]);
+
+  // Entry animation effect - trigger when skeleton finishes
+  useEffect(() => {
+    if (!showSkeleton && !hasPlayedEntryAnimation.current && hasInitializedRef.current) {
+      // Only animate if we were showing skeleton before
       hasPlayedEntryAnimation.current = true;
       Animated.parallel([
         Animated.spring(contentEntryOpacity, {
           toValue: 1,
           tension: 50,
           friction: 8,
-          useNativeDriver: false,
+          useNativeDriver: true,
         }),
         Animated.spring(contentEntryTranslateY, {
           toValue: 0,
           tension: 50,
           friction: 8,
-          useNativeDriver: false,
+          useNativeDriver: true,
         }),
       ]).start();
     }
-  }, [showSkeleton, matches, contentEntryOpacity, contentEntryTranslateY]);
+  }, [showSkeleton, contentEntryOpacity, contentEntryTranslateY]);
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
     fetchFriendlyMatches(true); // Manual refresh - don't show skeleton
   }, [fetchFriendlyMatches]);
 
-  // Filter matches based on active tab
-  const filteredMatches = React.useMemo(() => {
+  // Filter matches based on filters and selected date
+  const filteredMatches = useMemo(() => {
     let filtered = [...matches];
 
-    // Filter by tab (open/full)
-    if (activeTab === 'open') {
+    // Filter by status (open/full)
+    if (filters.status === 'open') {
       filtered = filtered.filter(match => {
         const requiredParticipants = match.matchType === 'DOUBLES' ? 4 : 2;
         const activeParticipants = match.participants?.filter(
@@ -201,7 +215,7 @@ export const FriendlyScreen: React.FC<FriendlyScreenProps> = ({ sport }) => {
         ) || [];
         return activeParticipants.length < requiredParticipants;
       });
-    } else if (activeTab === 'full') {
+    } else if (filters.status === 'full') {
       filtered = filtered.filter(match => {
         const requiredParticipants = match.matchType === 'DOUBLES' ? 4 : 2;
         const activeParticipants = match.participants?.filter(
@@ -209,6 +223,11 @@ export const FriendlyScreen: React.FC<FriendlyScreenProps> = ({ sport }) => {
         ) || [];
         return activeParticipants.length >= requiredParticipants;
       });
+    }
+
+    // Filter by game type (singles/doubles)
+    if (filters.gameType) {
+      filtered = filtered.filter(match => match.matchType === filters.gameType);
     }
 
     // Sort by date (soonest first)
@@ -219,7 +238,7 @@ export const FriendlyScreen: React.FC<FriendlyScreenProps> = ({ sport }) => {
     });
 
     return filtered;
-  }, [matches, activeTab]);
+  }, [matches, filters]);
 
   // Group matches by date
   const groupedMatches = React.useMemo(() => {
@@ -275,17 +294,31 @@ export const FriendlyScreen: React.FC<FriendlyScreenProps> = ({ sport }) => {
     });
   };
 
-  const handleDateRangeApply = (start: Date | null, end: Date | null) => {
-    setDateRange({ start, end });
+  const handleFilterApply = (newFilters: FriendlyFilterOptions) => {
+    setFilters(newFilters);
   };
+
+  const handleFilterButtonPress = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    filterBottomSheetRef.current?.present();
+  };
+
+  // Calculate active filter count for badge
+  const activeFilterCount = useMemo(() => {
+    let count = 0;
+    if (filters.status !== 'all') count++;
+    if (filters.gameType !== null) count++;
+    if (selectedDate !== null) count++;
+    return count;
+  }, [filters, selectedDate]);
 
   const renderEmptyState = () => (
     <View style={styles.emptyContainer}>
       <Ionicons name="calendar-outline" size={64} color="#9CA3AF" />
       <Text style={styles.emptyTitle}>No friendly matches found</Text>
       <Text style={styles.emptyDescription}>
-        {dateRange.start || dateRange.end
-          ? 'Try adjusting your date filter'
+        {activeFilterCount > 0
+          ? 'Try adjusting your filters'
           : 'Be the first to create a friendly match!'}
       </Text>
     </View>
@@ -310,40 +343,48 @@ export const FriendlyScreen: React.FC<FriendlyScreenProps> = ({ sport }) => {
     <View style={styles.container}>
       {/* Content */}
       <View style={styles.contentWrapper}>
-        {/* Filter Controls - No animation, instant */}
+        {/* Filter Controls */}
         <View style={styles.controlsContainer}>
-          <View style={styles.chipsContainer}>
-            {(['all', 'open', 'full'] as FilterTab[]).map((tab) => (
-              <AnimatedFilterChip
-                key={tab}
-                label={tab.charAt(0).toUpperCase() + tab.slice(1)}
-                isActive={activeTab === tab}
-                activeColor={sportColors.background}
-                onPress={() => setActiveTab(tab)}
-              />
-            ))}
-          </View>
-
-          {/* Date Filter Button */}
+          {/* Filter Button */}
           <TouchableOpacity
             style={[
-              styles.dateFilterButton,
-              (dateRange.start || dateRange.end) && styles.dateFilterButtonActive
+              styles.filterButton,
+              (filters.status !== 'all' || filters.gameType !== null) && {
+                backgroundColor: sportColors.background,
+                borderColor: sportColors.background
+              }
             ]}
-            onPress={() => dateRangeFilterRef.current?.present()}
+            onPress={handleFilterButtonPress}
+            accessibilityLabel={`Filter matches, ${activeFilterCount} filters active`}
           >
             <Ionicons
-              name="calendar-outline"
+              name="options-outline"
               size={20}
-              color={(dateRange.start || dateRange.end) ? '#FFFFFF' : sportColors.background}
+              color={(filters.status !== 'all' || filters.gameType !== null) ? '#FFFFFF' : '#6B7280'}
             />
-            {(dateRange.start || dateRange.end) && (
-              <Text style={styles.dateFilterText}>
-                {dateRange.start && format(dateRange.start, 'MMM dd')}
-                {dateRange.end && ` - ${format(dateRange.end, 'MMM dd')}`}
-              </Text>
-            )}
+            <Text
+              style={[
+                styles.filterButtonText,
+                (filters.status !== 'all' || filters.gameType !== null) && styles.filterButtonTextActive
+              ]}
+            >
+              {(filters.status !== 'all' || filters.gameType !== null)
+                ? `${(filters.status !== 'all' ? 1 : 0) + (filters.gameType !== null ? 1 : 0)}`
+                : 'Filter'}
+            </Text>
           </TouchableOpacity>
+
+          {/* Vertical Divider */}
+          <View style={styles.verticalDivider} />
+
+          {/* Horizontal Date Scroll */}
+          <View style={styles.dateScrollContainer}>
+            <HorizontalDateScroll
+              selectedDate={selectedDate}
+              onDateSelect={setSelectedDate}
+              sportColor={sportColors.background}
+            />
+          </View>
         </View>
 
         {/* Matches List - Animated */}
@@ -388,11 +429,12 @@ export const FriendlyScreen: React.FC<FriendlyScreenProps> = ({ sport }) => {
         <Ionicons name="add" size={28} color="#FFFFFF" />
       </TouchableOpacity>
 
-      {/* Date Range Filter Modal */}
-      <DateRangeFilterModal
-        ref={dateRangeFilterRef}
+      {/* Filter Bottom Sheet */}
+      <FriendlyFilterBottomSheet
+        ref={filterBottomSheetRef}
         onClose={() => {}}
-        onApply={handleDateRangeApply}
+        onApply={handleFilterApply}
+        currentFilters={filters}
         sportColor={sportColors.background}
       />
     </View>
@@ -426,46 +468,41 @@ const styles = StyleSheet.create({
   controlsContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
+    paddingLeft: 16,
     marginBottom: 16,
     gap: 12,
+    overflow: 'hidden',
   },
-  chipsContainer: {
-    flexDirection: 'row',
-    gap: 8,
-    flex: 1,
-  },
-  chip: {
-    paddingVertical: 6,
-    paddingHorizontal: 16,
-    borderRadius: 40,
+  filterButton: {
+    flexDirection: 'column',
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  chipText: {
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  dateFilterButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 20,
+    width: 56,
+    height: 72,
+    borderRadius: 8,
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
     borderColor: '#E5E7EB',
-    gap: 6,
+    gap: 4,
   },
-  dateFilterButtonActive: {
-    backgroundColor: '#1F2937',
-    borderColor: '#1F2937',
+  filterButtonText: {
+    fontSize: 11,
+    fontWeight: '500',
+    color: '#6B7280',
+    textTransform: 'uppercase',
   },
-  dateFilterText: {
-    fontSize: 12,
-    fontWeight: '600',
+  filterButtonTextActive: {
     color: '#FFFFFF',
+    fontWeight: '700',
+  },
+  verticalDivider: {
+    width: 1,
+    height: 48,
+    backgroundColor: '#E5E7EB',
+  },
+  dateScrollContainer: {
+    flex: 1,
+    overflow: 'hidden',
   },
   listContent: {
     flexGrow: 1,
