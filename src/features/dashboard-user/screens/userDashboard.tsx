@@ -94,6 +94,15 @@ export default function DashboardScreen() {
       refreshUnreadCount();
     }, [refreshUnreadCount])
   );
+
+  // Refresh profile data when dashboard gains focus (e.g., after returning from profile page with updated picture)
+  useFocusEffect(
+    useCallback(() => {
+      if (session?.user?.id) {
+        fetchProfileData();
+      }
+    }, [session?.user?.id])
+  );
   
   // Chat unread count hook
   const chatUnreadCount = useUnreadCount();
