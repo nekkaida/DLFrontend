@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { StyleSheet, View, TextInput, Pressable, Alert, TouchableWithoutFeedback, Keyboard, ScrollView, Animated } from 'react-native';
+import { StyleSheet, View, TextInput, Pressable, TouchableWithoutFeedback, Keyboard, ScrollView, Animated } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -9,6 +9,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { authClient } from '@/lib/auth-client';
 import { navigateAndClearStack, clearAuthPagesFromHistory } from '@core/navigation';
+import { toast } from 'sonner-native';
 
 export default function VerifyEmailScreen() {
   const router = useRouter();
@@ -66,7 +67,7 @@ export default function VerifyEmailScreen() {
 
   const handleVerifyOtp = async () => {
     if (!otp || otp.length < 6) {
-      Alert.alert('Error', 'Please enter a valid 6-digit verification code.');
+      toast.error('Please enter a valid 6-digit verification code.');
       return;
     }
 
@@ -78,25 +79,15 @@ export default function VerifyEmailScreen() {
       });
 
       if (error) {
-        Alert.alert('Verification Failed', error.message || 'The code is incorrect. Please try again.');
+        toast.error(error.message || 'The code is incorrect. Please try again.');
       } else if (data) {
         console.log('Email verification successful');
-        Alert.alert(
-          'Success',
-          'Your email has been verified successfully.',
-          [{
-            text: 'OK',
-            onPress: () => {
-              // NavigationInterceptor now handles redirecting verified users into onboarding.
-              // clearAuthPagesFromHistory();
-              // navigateAndClearStack('/onboarding/personal-info');
-            },
-          }]
-        );
+        toast.success('Your email has been verified successfully.');
+        // NavigationInterceptor now handles redirecting verified users into onboarding.
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : 'An unknown error occurred.';
-      Alert.alert('Error', message);
+      toast.error(message);
     } finally {
       setIsLoading(false);
     }
@@ -115,17 +106,17 @@ export default function VerifyEmailScreen() {
 
       if (result.error) {
         console.error('VerifyEmailScreen: Error from backend:', result.error);
-        Alert.alert('Error', result.error.message || 'Failed to send verification code. Please check your email address.');
+        toast.error(result.error.message || 'Failed to send verification code. Please check your email address.');
         return;
       }
 
       setOtpSent(true);
       console.log('VerifyEmailScreen: Resend OTP request completed successfully');
-      Alert.alert('Code Sent', `A new verification code has been sent to ${email}.`);
+      toast.success(`A new verification code has been sent to ${email}.`);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'An unknown error occurred.';
       console.error('VerifyEmailScreen: Exception resending OTP:', err);
-      Alert.alert('Error', message);
+      toast.error(message);
     } finally {
       setIsLoading(false);
     }
