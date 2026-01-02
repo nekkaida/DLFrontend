@@ -122,7 +122,13 @@ export default function EditProfileScreen() {
             location: profileData.area || '',
             bio: profileData.bio || '',
             profilePicture: profileData.image || '',
-            dateOfBirth: profileData.dateOfBirth ? new Date(profileData.dateOfBirth).toISOString().split('T')[0] : '',
+            // Extract date portion without timezone conversion
+            // Backend stores dates at noon UTC, handle both Date objects and ISO strings
+            dateOfBirth: profileData.dateOfBirth
+              ? (typeof profileData.dateOfBirth === 'string'
+                  ? profileData.dateOfBirth.split('T')[0]
+                  : new Date(profileData.dateOfBirth).toISOString().split('T')[0])
+              : '',
           });
           // Also set the profile image in the shared hook for edit functionality
           if (profileData.image) {
@@ -292,7 +298,10 @@ export default function EditProfileScreen() {
         },
       }) as any;
 
-      if (response && response.success && response.data) {
+      // authClient.$fetch wraps the response: { data: { success, data, message } }
+      const apiResponse = response?.data || response;
+
+      if (apiResponse && apiResponse.success && apiResponse.data) {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         toast.success('Profile Updated', {
           description: 'Your profile has been successfully updated.',
@@ -305,7 +314,7 @@ export default function EditProfileScreen() {
         }, 1500);
       } else {
         // Check if it's a successful HTTP response but with success: false
-        const errorMessage = (response?.message || 'Failed to update profile') as string;
+        const errorMessage = (apiResponse?.message || 'Failed to update profile') as string;
         throw new Error(errorMessage);
       }
     } catch (error) {
