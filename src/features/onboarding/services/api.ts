@@ -490,22 +490,63 @@ export class QuestionnaireAPI {
       }
 
       const headers = await this.getAuthHeaders();
-      
+
       const response = await fetch(`${BASE_URL}/api/onboarding/sports/${userId}`, {
         method: 'POST',
         headers,
         body: JSON.stringify({ sports })
       });
-      
+
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
         throw new Error(errorData.error || `Failed to save sports: ${response.statusText}`);
       }
-      
+
       const data = await response.json();
       return data;
     } catch (error) {
       console.error('Error saving sports:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Save user's self-assessed sport skill levels
+   * Maps frontend sport keys to backend field names
+   */
+  async saveSkillLevels(userId: string, skillLevels: {
+    pickleball?: string;
+    tennis?: string;
+    padel?: string;
+  }): Promise<{ success: boolean; message: string; data: any }> {
+    try {
+      if (!userId) {
+        throw new Error('User ID is required to save skill levels');
+      }
+
+      const headers = await this.getAuthHeaders();
+
+      // Map frontend sport keys to backend field names
+      const payload: Record<string, string | undefined> = {};
+      if (skillLevels.tennis) payload.tennisSkillLevel = skillLevels.tennis;
+      if (skillLevels.pickleball) payload.pickleballSkillLevel = skillLevels.pickleball;
+      if (skillLevels.padel) payload.padelSkillLevel = skillLevels.padel;
+
+      const response = await fetch(`${BASE_URL}/api/onboarding/skill-levels/${userId}`, {
+        method: 'PUT',
+        headers,
+        body: JSON.stringify(payload)
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || `Failed to save skill levels: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error('Error saving skill levels:', error);
       throw error;
     }
   }

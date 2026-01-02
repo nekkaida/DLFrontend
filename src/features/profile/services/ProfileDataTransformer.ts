@@ -55,6 +55,7 @@ export class ProfileDataTransformer {
       location: profileData.area || 'Location not set',
       gender: profileData.gender || 'Gender not set',
       skillLevel: getPrimarySkillLevel(profileData.skillRatings), // Calculate from actual skill ratings
+      selfAssessedSkillLevels: profileData.selfAssessedSkillLevels || {}, // Self-assessed levels from onboarding
       skillRatings: profileData.skillRatings || {}, // Pass through the actual skill ratings for DMR section
       sports: profileData.sports && profileData.sports.length > 0
         ? profileData.sports
@@ -88,6 +89,7 @@ export class ProfileDataTransformer {
       location: 'Loading...',
       gender: 'Loading...',
       skillLevel: 'Loading...',
+      selfAssessedSkillLevels: {},
       skillRatings: {},
       sports: [],
       activeSports: [],

@@ -2,18 +2,48 @@ import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { theme } from '@core/theme/theme';
 
+// Map backend skill level enum values to display labels
+const SKILL_LEVEL_LABELS: Record<string, string> = {
+  BEGINNER: 'Beginner',
+  IMPROVER: 'Improver',
+  INTERMEDIATE: 'Intermediate',
+  UPPER_INTERMEDIATE: 'Upper Intermediate',
+  ADVANCED: 'Advanced',
+  EXPERT: 'Expert',
+};
+
 interface ProfileSkillLevelCardProps {
   skillLevel: string;
+  selfAssessedSkillLevels?: Record<string, string>;
+  activeSport?: string;
 }
 
 export const ProfileSkillLevelCard: React.FC<ProfileSkillLevelCardProps> = ({
   skillLevel,
+  selfAssessedSkillLevels,
+  activeSport,
 }) => {
+  // Get the self-assessed skill level for the active sport
+  const getSportSkillLevel = (): string => {
+    if (selfAssessedSkillLevels && activeSport) {
+      const sportKey = activeSport.toLowerCase();
+      const selfAssessedLevel = selfAssessedSkillLevels[sportKey];
+      if (selfAssessedLevel) {
+        // Convert enum value to display label
+        return SKILL_LEVEL_LABELS[selfAssessedLevel] || selfAssessedLevel;
+      }
+    }
+    // Fall back to the calculated skill level
+    return skillLevel;
+  };
+
+  const displaySkillLevel = getSportSkillLevel();
+
   return (
     <View style={styles.skillLevelSection}>
       <View style={styles.skillContainer}>
         <Text style={styles.skillLabel}>Skill Level</Text>
-        <Text style={styles.skillValue}>{skillLevel}</Text>
+        <Text style={styles.skillValue}>{displaySkillLevel}</Text>
       </View>
     </View>
   );

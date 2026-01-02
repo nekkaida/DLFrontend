@@ -105,7 +105,14 @@ const ProfilePictureScreen = () => {
     try {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
 
-      // If skip is selected, remove any uploaded profile picture and skip
+      console.log('=== HANDLE COMPLETE DEBUG ===');
+      console.log('isSkipSelected:', isSkipSelected);
+      console.log('hadUploadedImage:', hadUploadedImage);
+      console.log('profileImage:', profileImage);
+      console.log('session?.user?.id:', session?.user?.id);
+      console.log('============================');
+
+      // If skip is selected, remove any uploaded profile picture
       if (isSkipSelected) {
         // If user had uploaded an image before clicking skip, delete it from backend
         if (hadUploadedImage && session?.user?.id) {
@@ -125,52 +132,25 @@ const ProfilePictureScreen = () => {
             });
           }
         }
-
-        // Update step and mark onboarding as completed
-        if (session?.user?.id) {
-          try {
-            await questionnaireAPI.updateOnboardingStep(session.user.id, 'PROFILE_PICTURE');
-          } catch {
-            // Continue even if step update fails
-          }
-
-          await questionnaireAPI.completeOnboarding(session.user.id);
-
-          // Wait for the backend to process the completion
-          await new Promise(resolve => setTimeout(resolve, 1500));
-        }
-
-        // Skip photo and navigate to main app
-        toast.success('Success!', {
-          description: 'Onboarding completed! Welcome to DeuceLeague!',
-        });
-
-        router.replace('/user-dashboard');
-        return;
       }
 
-      // Otherwise, complete normally with profile picture
+      // Update onboarding step to PROFILE_PICTURE
       if (session?.user?.id) {
         try {
           await questionnaireAPI.updateOnboardingStep(session.user.id, 'PROFILE_PICTURE');
         } catch {
           // Continue even if step update fails
         }
-
-        await questionnaireAPI.completeOnboarding(session.user.id);
-
-        // Wait for the backend to process the completion
-        await new Promise(resolve => setTimeout(resolve, 1500));
       }
 
-      toast.success('Success!', {
-        description: 'Onboarding completed! Welcome to DeuceLeague!',
-      });
-
-      router.replace('/user-dashboard');
-    } catch {
-      // Still navigate even if completion fails
-      router.push('/user-dashboard');
+      // Navigate to DMR intro screen for skill assessment
+      console.log('ProfilePictureScreen: Navigating to DMR intro...');
+      router.push('/onboarding/dmr-intro');
+    } catch (error) {
+      console.error('ProfilePictureScreen: Error in handleComplete:', error);
+      // Still navigate even if something fails
+      console.log('ProfilePictureScreen: Navigating to DMR intro despite error...');
+      router.push('/onboarding/dmr-intro');
     }
   };
 

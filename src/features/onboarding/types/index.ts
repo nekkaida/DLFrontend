@@ -13,6 +13,35 @@ export type SportType = 'pickleball' | 'tennis' | 'padel';
 
 export type GenderType = 'male' | 'female';
 
+// Self-assessed skill levels for sports (matches backend SkillLevel enum)
+export type SkillLevel =
+  | 'BEGINNER'
+  | 'IMPROVER'
+  | 'INTERMEDIATE'
+  | 'UPPER_INTERMEDIATE'
+  | 'ADVANCED'
+  | 'EXPERT';
+
+// Display labels for skill levels
+export const SKILL_LEVEL_LABELS: Record<SkillLevel, string> = {
+  BEGINNER: 'Beginner',
+  IMPROVER: 'Improver',
+  INTERMEDIATE: 'Intermediate',
+  UPPER_INTERMEDIATE: 'Upper Intermediate',
+  ADVANCED: 'Advanced',
+  EXPERT: 'Expert',
+};
+
+// Ordered array of skill levels for UI display
+export const SKILL_LEVELS_ORDERED: SkillLevel[] = [
+  'BEGINNER',
+  'IMPROVER',
+  'INTERMEDIATE',
+  'UPPER_INTERMEDIATE',
+  'ADVANCED',
+  'EXPERT',
+];
+
 // ============================================================================
 // ONBOARDING DATA STRUCTURE
 // ============================================================================
@@ -25,19 +54,22 @@ export interface OnboardingData {
   fullName: string;
   gender: GenderType | null;
   dateOfBirth: Date | null;
-  
+
   // Location Data
   location: string;
   useCurrentLocation: boolean;
   latitude?: number;
   longitude?: number;
-  
+
   // Sport Selection
   selectedSports: SportType[];
-  
+
+  // Self-assessed skill levels per sport (selected during game selection)
+  sportSkillLevels: Partial<Record<SportType, SkillLevel>>;
+
   // Skill Assessment Results
   skillAssessments: Partial<Record<SportType, SkillAssessmentResult>>;
-  
+
   // Profile
   profileImage?: string;
 }

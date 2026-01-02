@@ -232,6 +232,7 @@ export const createOnboardingData = (
     location: '',
     useCurrentLocation: false,
     selectedSports: [],
+    sportSkillLevels: {},
     skillAssessments: {},
     ...partial
   };

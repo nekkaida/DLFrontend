@@ -1,11 +1,11 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import type { OnboardingData, SportType, GenderType, SkillAssessmentResult } from './types';
+import type { OnboardingData, SportType, GenderType, SkillAssessmentResult, SkillLevel } from './types';
 import { OnboardingStorage } from '@core/storage';
 import { useSession } from '@/lib/auth-client';
 import { questionnaireAPI } from './services/api';
 
 // Re-export types for convenience
-export type { OnboardingData, SportType, GenderType, SkillAssessmentResult };
+export type { OnboardingData, SportType, GenderType, SkillAssessmentResult, SkillLevel };
 
 interface OnboardingContextType {
   data: OnboardingData;
@@ -24,6 +24,7 @@ const initialData: OnboardingData = {
   latitude: undefined,
   longitude: undefined,
   selectedSports: [],
+  sportSkillLevels: {},
   skillAssessments: {},
   profileImage: undefined,
 };
