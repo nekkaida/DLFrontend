@@ -15,7 +15,17 @@ import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import React from 'react';
-import { ActivityIndicator, Animated, Dimensions, Image, RefreshControl, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Animated as RNAnimated, Dimensions, Image, RefreshControl, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  useAnimatedScrollHandler,
+  interpolate,
+  Extrapolation,
+  withSpring,
+  withTiming,
+  runOnJS,
+} from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { toast } from 'sonner-native';
@@ -114,18 +124,18 @@ export default function LeagueDetailsScreen({
   // Use custom hook for user partnerships management
   const { partnerships, loading: partnershipsLoading } = useUserPartnerships(userId);
 
-  // Animated scroll value for collapsing header
-  const scrollY = React.useRef(new Animated.Value(0)).current;
+  // Animated scroll value for collapsing header (using reanimated for native thread performance)
+  const scrollY = useSharedValue(0);
 
-  // Entry animation values
-  const headerEntryOpacity = React.useRef(new Animated.Value(0)).current;
-  const headerEntryTranslateY = React.useRef(new Animated.Value(-20)).current;
-  const infoCardEntryOpacity = React.useRef(new Animated.Value(0)).current;
-  const infoCardEntryTranslateY = React.useRef(new Animated.Value(30)).current;
-  const categoriesEntryOpacity = React.useRef(new Animated.Value(0)).current;
-  const categoriesEntryTranslateY = React.useRef(new Animated.Value(30)).current;
-  const seasonsEntryOpacity = React.useRef(new Animated.Value(0)).current;
-  const seasonsEntryTranslateY = React.useRef(new Animated.Value(30)).current;
+  // Entry animation values (using reanimated for consistency)
+  const headerEntryOpacity = useSharedValue(0);
+  const headerEntryTranslateY = useSharedValue(-20);
+  const infoCardEntryOpacity = useSharedValue(0);
+  const infoCardEntryTranslateY = useSharedValue(30);
+  const categoriesEntryOpacity = useSharedValue(0);
+  const categoriesEntryTranslateY = useSharedValue(30);
+  const seasonsEntryOpacity = useSharedValue(0);
+  const seasonsEntryTranslateY = useSharedValue(30);
   const hasPlayedEntryAnimation = React.useRef(false);
   
   // Constants for header animation
@@ -136,24 +146,25 @@ export default function LeagueDetailsScreen({
   const COLLAPSE_START_THRESHOLD = 40; // Start collapsing after scrolling 50px
   const COLLAPSE_END_THRESHOLD = COLLAPSE_START_THRESHOLD + HEADER_SCROLL_DISTANCE; // End of collapse range
   
-  const handleScroll = React.useCallback((event: any) => {
-    const { contentOffset, contentSize, layoutMeasurement } = event.nativeEvent;
-    const scrollYValue = contentOffset.y;
-    
-    const availableScrollSpace = contentSize.height - layoutMeasurement.height;
-    
-    const shouldAllowCollapse = availableScrollSpace >= COLLAPSE_END_THRESHOLD;
-    
-    let clampedValue = scrollYValue;
-    if (!shouldAllowCollapse) {
-      clampedValue = Math.min(scrollYValue, Math.max(0, COLLAPSE_START_THRESHOLD - 10));
-    } else {
-      clampedValue = Math.min(scrollYValue, availableScrollSpace);
-    }
-    
-    // Update the animated value
-    scrollY.setValue(clampedValue);
-  }, [scrollY]);
+  // Scroll handler using reanimated for native thread performance
+  const onScroll = useAnimatedScrollHandler({
+    onScroll: (event) => {
+      const { contentOffset, contentSize, layoutMeasurement } = event;
+      const scrollYValue = contentOffset.y;
+
+      const availableScrollSpace = contentSize.height - layoutMeasurement.height;
+      const shouldAllowCollapse = availableScrollSpace >= COLLAPSE_END_THRESHOLD;
+
+      let clampedValue = scrollYValue;
+      if (!shouldAllowCollapse) {
+        clampedValue = Math.min(scrollYValue, Math.max(0, COLLAPSE_START_THRESHOLD - 10));
+      } else {
+        clampedValue = Math.min(scrollYValue, availableScrollSpace);
+      }
+
+      scrollY.value = clampedValue;
+    },
+  });
 
   // Set selected sport based on route param
   React.useEffect(() => {
@@ -243,76 +254,43 @@ export default function LeagueDetailsScreen({
   }, [isLoading, seasons, leagueId, error, updateSeasonsCache]);
 
   // Entry animations - trigger staggered fade-in and slide-up when content loads
-  // Note: useNativeDriver: false because header entry animation is combined with height property
+  // Using reanimated for smooth native thread animations
   React.useEffect(() => {
+    const timeouts: ReturnType<typeof setTimeout>[] = [];
+
     if (!isLoading && !error && league && !hasPlayedEntryAnimation.current) {
       hasPlayedEntryAnimation.current = true;
 
-      // Staggered entry animations with spring physics
-      Animated.stagger(80, [
-        // Header animation
-        Animated.parallel([
-          Animated.spring(headerEntryOpacity, {
-            toValue: 1,
-            tension: 50,
-            friction: 8,
-            useNativeDriver: false,
-          }),
-          Animated.spring(headerEntryTranslateY, {
-            toValue: 0,
-            tension: 50,
-            friction: 8,
-            useNativeDriver: false,
-          }),
-        ]),
-        // Info card animation
-        Animated.parallel([
-          Animated.spring(infoCardEntryOpacity, {
-            toValue: 1,
-            tension: 50,
-            friction: 8,
-            useNativeDriver: false,
-          }),
-          Animated.spring(infoCardEntryTranslateY, {
-            toValue: 0,
-            tension: 50,
-            friction: 8,
-            useNativeDriver: false,
-          }),
-        ]),
-        // Categories animation
-        Animated.parallel([
-          Animated.spring(categoriesEntryOpacity, {
-            toValue: 1,
-            tension: 50,
-            friction: 8,
-            useNativeDriver: false,
-          }),
-          Animated.spring(categoriesEntryTranslateY, {
-            toValue: 0,
-            tension: 50,
-            friction: 8,
-            useNativeDriver: false,
-          }),
-        ]),
-        // Seasons animation
-        Animated.parallel([
-          Animated.spring(seasonsEntryOpacity, {
-            toValue: 1,
-            tension: 50,
-            friction: 8,
-            useNativeDriver: false,
-          }),
-          Animated.spring(seasonsEntryTranslateY, {
-            toValue: 0,
-            tension: 50,
-            friction: 8,
-            useNativeDriver: false,
-          }),
-        ]),
-      ]).start();
+      const springConfig = { damping: 15, stiffness: 100, mass: 0.8 };
+      const staggerDelay = 80;
+
+      // Header animation (immediate)
+      headerEntryOpacity.value = withSpring(1, springConfig);
+      headerEntryTranslateY.value = withSpring(0, springConfig);
+
+      // Info card animation (delayed by 80ms)
+      timeouts.push(setTimeout(() => {
+        infoCardEntryOpacity.value = withSpring(1, springConfig);
+        infoCardEntryTranslateY.value = withSpring(0, springConfig);
+      }, staggerDelay));
+
+      // Categories animation (delayed by 160ms)
+      timeouts.push(setTimeout(() => {
+        categoriesEntryOpacity.value = withSpring(1, springConfig);
+        categoriesEntryTranslateY.value = withSpring(0, springConfig);
+      }, staggerDelay * 2));
+
+      // Seasons animation (delayed by 240ms)
+      timeouts.push(setTimeout(() => {
+        seasonsEntryOpacity.value = withSpring(1, springConfig);
+        seasonsEntryTranslateY.value = withSpring(0, springConfig);
+      }, staggerDelay * 3));
     }
-  }, [isLoading, error, league, headerEntryOpacity, headerEntryTranslateY, infoCardEntryOpacity, infoCardEntryTranslateY, categoriesEntryOpacity, categoriesEntryTranslateY, seasonsEntryOpacity, seasonsEntryTranslateY]);
+
+    return () => {
+      timeouts.forEach(timeout => clearTimeout(timeout));
+    };
+  }, [isLoading, error, league]);
 
   const handleTabPress = (tabIndex: number) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -933,50 +911,96 @@ export default function LeagueDetailsScreen({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fetchProfileData, fetchAllData]);
 
-  // Animated styles for collapsing header
-  // Only start collapsing after COLLAPSE_START_THRESHOLD
-  const headerHeight = scrollY.interpolate({
-    inputRange: [0, COLLAPSE_START_THRESHOLD, COLLAPSE_END_THRESHOLD],
-    outputRange: [HEADER_MAX_HEIGHT, HEADER_MAX_HEIGHT, HEADER_MIN_HEIGHT],
-    extrapolate: 'clamp',
+  // Animated styles for collapsing header using reanimated (runs on native UI thread)
+  const headerAnimatedStyle = useAnimatedStyle(() => {
+    const height = interpolate(
+      scrollY.value,
+      [0, COLLAPSE_START_THRESHOLD, COLLAPSE_END_THRESHOLD],
+      [HEADER_MAX_HEIGHT, HEADER_MAX_HEIGHT, HEADER_MIN_HEIGHT],
+      Extrapolation.CLAMP
+    );
+    return { height };
   });
 
-  const leagueNameOpacity = scrollY.interpolate({
-    inputRange: [0, COLLAPSE_START_THRESHOLD, COLLAPSE_START_THRESHOLD + (HEADER_SCROLL_DISTANCE * 0.7)],
-    outputRange: [1, 1, 0],
-    extrapolate: 'clamp',
+  const leagueNameAnimatedStyle = useAnimatedStyle(() => {
+    const opacity = interpolate(
+      scrollY.value,
+      [0, COLLAPSE_START_THRESHOLD, COLLAPSE_START_THRESHOLD + (HEADER_SCROLL_DISTANCE * 0.7)],
+      [1, 1, 0],
+      Extrapolation.CLAMP
+    );
+    const scale = interpolate(
+      scrollY.value,
+      [0, COLLAPSE_START_THRESHOLD, COLLAPSE_START_THRESHOLD + (HEADER_SCROLL_DISTANCE * 0.7)],
+      [1, 1, 0.8],
+      Extrapolation.CLAMP
+    );
+    return { opacity, transform: [{ scale }] };
   });
 
-  const leagueNameScale = scrollY.interpolate({
-    inputRange: [0, COLLAPSE_START_THRESHOLD, COLLAPSE_START_THRESHOLD + (HEADER_SCROLL_DISTANCE * 0.7)],
-    outputRange: [1, 1, 0.8],
-    extrapolate: 'clamp',
+  const infoContainerAnimatedStyle = useAnimatedStyle(() => {
+    const opacity = interpolate(
+      scrollY.value,
+      [0, COLLAPSE_START_THRESHOLD, COLLAPSE_START_THRESHOLD + (HEADER_SCROLL_DISTANCE * 0.5)],
+      [1, 1, 0],
+      Extrapolation.CLAMP
+    );
+    const translateY = interpolate(
+      scrollY.value,
+      [0, COLLAPSE_START_THRESHOLD, COLLAPSE_START_THRESHOLD + (HEADER_SCROLL_DISTANCE * 0.5)],
+      [0, 0, -20],
+      Extrapolation.CLAMP
+    );
+    return { opacity, transform: [{ translateY }] };
   });
 
-  const infoContainerOpacity = scrollY.interpolate({
-    inputRange: [0, COLLAPSE_START_THRESHOLD, COLLAPSE_START_THRESHOLD + (HEADER_SCROLL_DISTANCE * 0.5)],
-    outputRange: [1, 1, 0],
-    extrapolate: 'clamp',
+  const collapsedLeagueNameAnimatedStyle = useAnimatedStyle(() => {
+    const opacity = interpolate(
+      scrollY.value,
+      [0, COLLAPSE_START_THRESHOLD + (HEADER_SCROLL_DISTANCE * 0.7), COLLAPSE_END_THRESHOLD],
+      [0, 0, 1],
+      Extrapolation.CLAMP
+    );
+    return { opacity };
   });
 
-  const infoContainerTranslateY = scrollY.interpolate({
-    inputRange: [0, COLLAPSE_START_THRESHOLD, COLLAPSE_START_THRESHOLD + (HEADER_SCROLL_DISTANCE * 0.5)],
-    outputRange: [0, 0, -20],
-    extrapolate: 'clamp',
+  const collapsedPlayerCountAnimatedStyle = useAnimatedStyle(() => {
+    const opacity = interpolate(
+      scrollY.value,
+      [0, COLLAPSE_START_THRESHOLD + (HEADER_SCROLL_DISTANCE * 0.5), COLLAPSE_END_THRESHOLD],
+      [0, 0, 1],
+      Extrapolation.CLAMP
+    );
+    return { opacity };
   });
 
-  // Collapsed league name opacity (inverse of leagueNameOpacity)
-  const collapsedLeagueNameOpacity = scrollY.interpolate({
-    inputRange: [0, COLLAPSE_START_THRESHOLD + (HEADER_SCROLL_DISTANCE * 0.7), COLLAPSE_END_THRESHOLD],
-    outputRange: [0, 0, 1],
-    extrapolate: 'clamp',
+  // Entry animation styles using reanimated
+  const headerEntryAnimatedStyle = useAnimatedStyle(() => {
+    return {
+      opacity: headerEntryOpacity.value,
+      transform: [{ translateY: headerEntryTranslateY.value }],
+    };
   });
 
-  // Collapsed player count opacity
-  const collapsedPlayerCountOpacity = scrollY.interpolate({
-    inputRange: [0, COLLAPSE_START_THRESHOLD + (HEADER_SCROLL_DISTANCE * 0.5), COLLAPSE_END_THRESHOLD],
-    outputRange: [0, 0, 1],
-    extrapolate: 'clamp',
+  const infoCardEntryAnimatedStyle = useAnimatedStyle(() => {
+    return {
+      opacity: infoCardEntryOpacity.value,
+      transform: [{ translateY: infoCardEntryTranslateY.value }],
+    };
+  });
+
+  const categoriesEntryAnimatedStyle = useAnimatedStyle(() => {
+    return {
+      opacity: categoriesEntryOpacity.value,
+      transform: [{ translateY: categoriesEntryTranslateY.value }],
+    };
+  });
+
+  const seasonsEntryAnimatedStyle = useAnimatedStyle(() => {
+    return {
+      opacity: seasonsEntryOpacity.value,
+      transform: [{ translateY: seasonsEntryTranslateY.value }],
+    };
   });
 
   return (
@@ -1041,11 +1065,8 @@ export default function LeagueDetailsScreen({
             <Animated.View
               style={[
                 styles.gradientHeaderContainer,
-                {
-                  height: headerHeight,
-                  opacity: headerEntryOpacity,
-                  transform: [{ translateY: headerEntryTranslateY }],
-                }
+                headerAnimatedStyle,
+                headerEntryAnimatedStyle,
               ]}
             >
               <LinearGradient
@@ -1067,35 +1088,28 @@ export default function LeagueDetailsScreen({
                         <BackButtonIcon width={12} height={19} />
                       </TouchableOpacity>
                     </View>
-                    <Animated.View 
+                    <Animated.View
                       style={[
                         styles.leagueNameContainer,
-                        {
-                          opacity: leagueNameOpacity,
-                          transform: [{ scale: leagueNameScale }],
-                        }
+                        leagueNameAnimatedStyle,
                       ]}
                     >
                       <Text style={styles.leagueName} numberOfLines={2}>{league?.name || leagueName}</Text>
                     </Animated.View>
                     {/* Collapsed header content */}
-                    <Animated.View 
+                    <Animated.View
                       style={[
                         styles.collapsedHeaderContent,
-                        {
-                          opacity: collapsedLeagueNameOpacity,
-                        }
+                        collapsedLeagueNameAnimatedStyle,
                       ]}
                     >
                       <Text style={styles.collapsedLeagueName} numberOfLines={1}>
                         {league?.name || leagueName}
                       </Text>
-                      <Animated.View 
+                      <Animated.View
                         style={[
                           styles.collapsedPlayerCountContainer,
-                          {
-                            opacity: collapsedPlayerCountOpacity,
-                          }
+                          collapsedPlayerCountAnimatedStyle,
                         ]}
                       >
                         <View style={styles.statusCircle} />
@@ -1105,13 +1119,10 @@ export default function LeagueDetailsScreen({
                       </Animated.View>
                     </Animated.View>
                   </View>
-                  <Animated.View 
+                  <Animated.View
                     style={[
                       styles.leagueInfoContainer,
-                      {
-                        opacity: infoContainerOpacity,
-                        transform: [{ translateY: infoContainerTranslateY }],
-                      }
+                      infoContainerAnimatedStyle,
                     ]}
                   >
                     <View style={styles.playerCountContainer}>
@@ -1178,7 +1189,7 @@ export default function LeagueDetailsScreen({
               contentContainerStyle={styles.scrollContent}
               showsVerticalScrollIndicator={false}
               scrollEventThrottle={16}
-              onScroll={handleScroll}
+              onScroll={onScroll}
               refreshControl={
                 <RefreshControl
                   refreshing={isRefreshing}
@@ -1190,12 +1201,7 @@ export default function LeagueDetailsScreen({
             >
             <View style={styles.scrollTopSpacer} />
             {/* League Info Card */}
-            <Animated.View
-              style={{
-                opacity: infoCardEntryOpacity,
-                transform: [{ translateY: infoCardEntryTranslateY }],
-              }}
-            >
+            <Animated.View style={infoCardEntryAnimatedStyle}>
               <View style={styles.leagueInfoCard}>
                 <View style={styles.leagueInfoContent}>
                   <LeagueInfoIcon width={43} height={43} style={styles.leagueInfoIcon} />
@@ -1211,12 +1217,7 @@ export default function LeagueDetailsScreen({
 
             {/* Category Filter Buttons */}
             {categories.length > 0 && (
-              <Animated.View
-                style={{
-                  opacity: categoriesEntryOpacity,
-                  transform: [{ translateY: categoriesEntryTranslateY }],
-                }}
-              >
+              <Animated.View style={categoriesEntryAnimatedStyle}>
                 <View style={styles.categoriesContainer}>
                   <View style={styles.categoryButtons}>
                     {categories.map((category) => {
@@ -1250,12 +1251,7 @@ export default function LeagueDetailsScreen({
             )}
 
             {/* Season Cards Section - Show skeleton OR content */}
-            <Animated.View
-              style={{
-                opacity: seasonsEntryOpacity,
-                transform: [{ translateY: seasonsEntryTranslateY }],
-              }}
-            >
+            <Animated.View style={seasonsEntryAnimatedStyle}>
               {showSeasonsSkeleton ? (
                 <SeasonCardSkeleton sport={sport} count={2} />
               ) : (

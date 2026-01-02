@@ -1,5 +1,13 @@
 import React from 'react';
-import { ScrollView, Text, View, StyleSheet, Dimensions, TouchableOpacity, ActivityIndicator, Image, StatusBar, Animated } from 'react-native';
+import { ScrollView, Text, View, StyleSheet, Dimensions, TouchableOpacity, ActivityIndicator, Image, StatusBar, Animated as RNAnimated } from 'react-native';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  useAnimatedScrollHandler,
+  interpolate,
+  Extrapolation,
+  withSpring,
+} from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
@@ -56,17 +64,17 @@ export default function SeasonDetailsScreen({
   // Use custom hook for user partnerships management
   const { partnerships, loading: partnershipsLoading } = useUserPartnerships(userId);
 
-  // Animated scroll value for collapsing header
-  const scrollY = React.useRef(new Animated.Value(0)).current;
+  // Animated scroll value for collapsing header (using reanimated for native thread performance)
+  const scrollY = useSharedValue(0);
 
-  // Entry animation values
-  const headerEntryOpacity = React.useRef(new Animated.Value(0)).current;
-  const headerEntryTranslateY = React.useRef(new Animated.Value(-20)).current;
-  const infoCardEntryOpacity = React.useRef(new Animated.Value(0)).current;
-  const infoCardEntryTranslateY = React.useRef(new Animated.Value(30)).current;
-  const howItWorksEntryOpacity = React.useRef(new Animated.Value(0)).current;
-  const howItWorksEntryTranslateY = React.useRef(new Animated.Value(30)).current;
-  const buttonEntryOpacity = React.useRef(new Animated.Value(0)).current;
+  // Entry animation values (using reanimated for consistency)
+  const headerEntryOpacity = useSharedValue(0);
+  const headerEntryTranslateY = useSharedValue(-20);
+  const infoCardEntryOpacity = useSharedValue(0);
+  const infoCardEntryTranslateY = useSharedValue(30);
+  const howItWorksEntryOpacity = useSharedValue(0);
+  const howItWorksEntryTranslateY = useSharedValue(30);
+  const buttonEntryOpacity = useSharedValue(0);
   const hasPlayedEntryAnimation = React.useRef(false);
 
   // Constants for header animation
@@ -77,23 +85,25 @@ export default function SeasonDetailsScreen({
   const COLLAPSE_START_THRESHOLD = 40; // Start collapsing after scrolling 40px
   const COLLAPSE_END_THRESHOLD = COLLAPSE_START_THRESHOLD + HEADER_SCROLL_DISTANCE; // End of collapse range
   
-  const handleScroll = React.useCallback((event: any) => {
-    const { contentOffset, contentSize, layoutMeasurement } = event.nativeEvent;
-    const scrollYValue = contentOffset.y;
-    
-    const availableScrollSpace = contentSize.height - layoutMeasurement.height;
-    
-    const shouldAllowCollapse = availableScrollSpace >= COLLAPSE_END_THRESHOLD;
-    
-    let clampedValue = scrollYValue;
-    if (!shouldAllowCollapse) {
-      clampedValue = Math.min(scrollYValue, Math.max(0, COLLAPSE_START_THRESHOLD - 10));
-    } else {
-      clampedValue = Math.min(scrollYValue, availableScrollSpace);
-    }
-    
-    scrollY.setValue(clampedValue);
-  }, [scrollY]);
+  // Scroll handler using reanimated for native thread performance
+  const onScroll = useAnimatedScrollHandler({
+    onScroll: (event) => {
+      const { contentOffset, contentSize, layoutMeasurement } = event;
+      const scrollYValue = contentOffset.y;
+
+      const availableScrollSpace = contentSize.height - layoutMeasurement.height;
+      const shouldAllowCollapse = availableScrollSpace >= COLLAPSE_END_THRESHOLD;
+
+      let clampedValue = scrollYValue;
+      if (!shouldAllowCollapse) {
+        clampedValue = Math.min(scrollYValue, Math.max(0, COLLAPSE_START_THRESHOLD - 10));
+      } else {
+        clampedValue = Math.min(scrollYValue, availableScrollSpace);
+      }
+
+      scrollY.value = clampedValue;
+    },
+  });
 
   React.useEffect(() => {
     fetchSeasonData();
@@ -128,76 +138,42 @@ export default function SeasonDetailsScreen({
   }, [showPaymentOptions]);
 
   // Entry animation effect - triggers when data is loaded
+  // Using reanimated for smooth native thread animations
   React.useEffect(() => {
+    const timeouts: ReturnType<typeof setTimeout>[] = [];
+
     if (!isLoading && !error && season && !hasPlayedEntryAnimation.current) {
       hasPlayedEntryAnimation.current = true;
-      Animated.stagger(80, [
-        // Header slides down
-        Animated.parallel([
-          Animated.spring(headerEntryOpacity, {
-            toValue: 1,
-            tension: 50,
-            friction: 8,
-            useNativeDriver: false,
-          }),
-          Animated.spring(headerEntryTranslateY, {
-            toValue: 0,
-            tension: 50,
-            friction: 8,
-            useNativeDriver: false,
-          }),
-        ]),
-        // Season info card slides up
-        Animated.parallel([
-          Animated.spring(infoCardEntryOpacity, {
-            toValue: 1,
-            tension: 50,
-            friction: 8,
-            useNativeDriver: false,
-          }),
-          Animated.spring(infoCardEntryTranslateY, {
-            toValue: 0,
-            tension: 50,
-            friction: 8,
-            useNativeDriver: false,
-          }),
-        ]),
-        // How It Works card slides up
-        Animated.parallel([
-          Animated.spring(howItWorksEntryOpacity, {
-            toValue: 1,
-            tension: 50,
-            friction: 8,
-            useNativeDriver: false,
-          }),
-          Animated.spring(howItWorksEntryTranslateY, {
-            toValue: 0,
-            tension: 50,
-            friction: 8,
-            useNativeDriver: false,
-          }),
-        ]),
-        // Button fades in
-        Animated.spring(buttonEntryOpacity, {
-          toValue: 1,
-          tension: 50,
-          friction: 8,
-          useNativeDriver: false,
-        }),
-      ]).start();
+
+      const springConfig = { damping: 15, stiffness: 100, mass: 0.8 };
+      const staggerDelay = 80;
+
+      // Header animation (immediate)
+      headerEntryOpacity.value = withSpring(1, springConfig);
+      headerEntryTranslateY.value = withSpring(0, springConfig);
+
+      // Info card animation (delayed by 80ms)
+      timeouts.push(setTimeout(() => {
+        infoCardEntryOpacity.value = withSpring(1, springConfig);
+        infoCardEntryTranslateY.value = withSpring(0, springConfig);
+      }, staggerDelay));
+
+      // How It Works animation (delayed by 160ms)
+      timeouts.push(setTimeout(() => {
+        howItWorksEntryOpacity.value = withSpring(1, springConfig);
+        howItWorksEntryTranslateY.value = withSpring(0, springConfig);
+      }, staggerDelay * 2));
+
+      // Button animation (delayed by 240ms)
+      timeouts.push(setTimeout(() => {
+        buttonEntryOpacity.value = withSpring(1, springConfig);
+      }, staggerDelay * 3));
     }
-  }, [
-    isLoading,
-    error,
-    season,
-    headerEntryOpacity,
-    headerEntryTranslateY,
-    infoCardEntryOpacity,
-    infoCardEntryTranslateY,
-    howItWorksEntryOpacity,
-    howItWorksEntryTranslateY,
-    buttonEntryOpacity,
-  ]);
+
+    return () => {
+      timeouts.forEach(timeout => clearTimeout(timeout));
+    };
+  }, [isLoading, error, season]);
 
   const fetchSeasonData = async () => {
     if (!seasonId) {
@@ -644,43 +620,89 @@ export default function SeasonDetailsScreen({
     return ["pickleball", "tennis", "padel"];
   };
 
-  // Animated styles for collapsing header
-  const headerHeight = scrollY.interpolate({
-    inputRange: [0, COLLAPSE_START_THRESHOLD, COLLAPSE_END_THRESHOLD],
-    outputRange: [HEADER_MAX_HEIGHT, HEADER_MAX_HEIGHT, HEADER_MIN_HEIGHT],
-    extrapolate: 'clamp',
+  // Animated styles for collapsing header using reanimated (runs on native UI thread)
+  const headerAnimatedStyle = useAnimatedStyle(() => {
+    const height = interpolate(
+      scrollY.value,
+      [0, COLLAPSE_START_THRESHOLD, COLLAPSE_END_THRESHOLD],
+      [HEADER_MAX_HEIGHT, HEADER_MAX_HEIGHT, HEADER_MIN_HEIGHT],
+      Extrapolation.CLAMP
+    );
+    return { height };
   });
 
-  const leagueNameOpacity = scrollY.interpolate({
-    inputRange: [0, COLLAPSE_START_THRESHOLD, COLLAPSE_START_THRESHOLD + (HEADER_SCROLL_DISTANCE * 0.7)],
-    outputRange: [1, 1, 0],
-    extrapolate: 'clamp',
+  const leagueNameAnimatedStyle = useAnimatedStyle(() => {
+    const opacity = interpolate(
+      scrollY.value,
+      [0, COLLAPSE_START_THRESHOLD, COLLAPSE_START_THRESHOLD + (HEADER_SCROLL_DISTANCE * 0.7)],
+      [1, 1, 0],
+      Extrapolation.CLAMP
+    );
+    return { opacity };
   });
 
-  const bannerContainerOpacity = scrollY.interpolate({
-    inputRange: [0, COLLAPSE_START_THRESHOLD, COLLAPSE_START_THRESHOLD + (HEADER_SCROLL_DISTANCE * 0.5)],
-    outputRange: [1, 1, 0],
-    extrapolate: 'clamp',
+  const bannerContainerAnimatedStyle = useAnimatedStyle(() => {
+    const opacity = interpolate(
+      scrollY.value,
+      [0, COLLAPSE_START_THRESHOLD, COLLAPSE_START_THRESHOLD + (HEADER_SCROLL_DISTANCE * 0.5)],
+      [1, 1, 0],
+      Extrapolation.CLAMP
+    );
+    const translateY = interpolate(
+      scrollY.value,
+      [0, COLLAPSE_START_THRESHOLD, COLLAPSE_START_THRESHOLD + (HEADER_SCROLL_DISTANCE * 0.5)],
+      [0, 0, -20],
+      Extrapolation.CLAMP
+    );
+    return { opacity, transform: [{ translateY }] };
   });
 
-  const bannerContainerTranslateY = scrollY.interpolate({
-    inputRange: [0, COLLAPSE_START_THRESHOLD, COLLAPSE_START_THRESHOLD + (HEADER_SCROLL_DISTANCE * 0.5)],
-    outputRange: [0, 0, -20],
-    extrapolate: 'clamp',
+  const collapsedSeasonNameAnimatedStyle = useAnimatedStyle(() => {
+    const opacity = interpolate(
+      scrollY.value,
+      [0, COLLAPSE_START_THRESHOLD + (HEADER_SCROLL_DISTANCE * 0.7), COLLAPSE_END_THRESHOLD],
+      [0, 0, 1],
+      Extrapolation.CLAMP
+    );
+    return { opacity };
   });
 
-  // Collapsed season name opacity
-  const collapsedSeasonNameOpacity = scrollY.interpolate({
-    inputRange: [0, COLLAPSE_START_THRESHOLD + (HEADER_SCROLL_DISTANCE * 0.7), COLLAPSE_END_THRESHOLD],
-    outputRange: [0, 0, 1],
-    extrapolate: 'clamp',
+  const collapsedPlayerCountAnimatedStyle = useAnimatedStyle(() => {
+    const opacity = interpolate(
+      scrollY.value,
+      [0, COLLAPSE_START_THRESHOLD + (HEADER_SCROLL_DISTANCE * 0.5), COLLAPSE_END_THRESHOLD],
+      [0, 0, 1],
+      Extrapolation.CLAMP
+    );
+    return { opacity };
   });
 
-  // Collapsed player count opacity
-  const collapsedPlayerCountOpacity = scrollY.interpolate({
-    inputRange: [0, COLLAPSE_START_THRESHOLD + (HEADER_SCROLL_DISTANCE * 0.5), COLLAPSE_END_THRESHOLD],
-    outputRange: [0, 0, 1],
-    extrapolate: 'clamp',
+  // Entry animation styles using reanimated
+  const headerEntryAnimatedStyle = useAnimatedStyle(() => {
+    return {
+      opacity: headerEntryOpacity.value,
+      transform: [{ translateY: headerEntryTranslateY.value }],
+    };
+  });
+
+  const infoCardEntryAnimatedStyle = useAnimatedStyle(() => {
+    return {
+      opacity: infoCardEntryOpacity.value,
+      transform: [{ translateY: infoCardEntryTranslateY.value }],
+    };
+  });
+
+  const howItWorksEntryAnimatedStyle = useAnimatedStyle(() => {
+    return {
+      opacity: howItWorksEntryOpacity.value,
+      transform: [{ translateY: howItWorksEntryTranslateY.value }],
+    };
+  });
+
+  const buttonEntryAnimatedStyle = useAnimatedStyle(() => {
+    return {
+      opacity: buttonEntryOpacity.value,
+    };
   });
 
   return (
@@ -743,11 +765,8 @@ export default function SeasonDetailsScreen({
             <Animated.View
               style={[
                 styles.gradientHeaderContainer,
-                {
-                  height: headerHeight,
-                  opacity: headerEntryOpacity,
-                  transform: [{ translateY: headerEntryTranslateY }],
-                }
+                headerAnimatedStyle,
+                headerEntryAnimatedStyle,
               ]}
             >
               <LinearGradient
@@ -769,23 +788,19 @@ export default function SeasonDetailsScreen({
                         <BackButtonIcon width={12} height={19} />
                       </TouchableOpacity>
                     </View>
-                    <Animated.View 
+                    <Animated.View
                       style={[
                         styles.leagueNameContainer,
-                        {
-                          opacity: leagueNameOpacity,
-                        }
+                        leagueNameAnimatedStyle,
                       ]}
                     >
                       <Text style={styles.leagueName} numberOfLines={2}>{league?.name || 'League'}</Text>
                     </Animated.View>
                     {/* Collapsed header content */}
-                    <Animated.View 
+                    <Animated.View
                       style={[
                         styles.collapsedHeaderContent,
-                        {
-                          opacity: collapsedSeasonNameOpacity,
-                        }
+                        collapsedSeasonNameAnimatedStyle,
                       ]}
                     >
                       <Text style={styles.collapsedSeasonName} numberOfLines={1}>
@@ -796,12 +811,10 @@ export default function SeasonDetailsScreen({
                         })()}
                         <Text style={styles.collapsedSeasonNameHighlight}>{season?.name || seasonName}</Text>
                       </Text>
-                      <Animated.View 
+                      <Animated.View
                         style={[
                           styles.collapsedPlayerCountContainer,
-                          {
-                            opacity: collapsedPlayerCountOpacity,
-                          }
+                          collapsedPlayerCountAnimatedStyle,
                         ]}
                       >
                         <View style={styles.statusCircle} />
@@ -811,13 +824,10 @@ export default function SeasonDetailsScreen({
                       </Animated.View>
                     </Animated.View>
                   </View>
-                  <Animated.View 
+                  <Animated.View
                     style={[
                       styles.bannerContainer,
-                      {
-                        opacity: bannerContainerOpacity,
-                        transform: [{ translateY: bannerContainerTranslateY }],
-                      }
+                      bannerContainerAnimatedStyle,
                     ]}
                   >
                     <View style={[styles.nameBanner, { backgroundColor: getBannerBackgroundColor(sport) }]}>
@@ -890,17 +900,14 @@ export default function SeasonDetailsScreen({
               contentContainerStyle={styles.scrollContent}
               showsVerticalScrollIndicator={false}
               scrollEventThrottle={16}
-              onScroll={handleScroll}
+              onScroll={onScroll}
             >
               <View style={styles.scrollTopSpacer} />
               
               <Animated.View
                 style={[
                   styles.seasonInfoCard,
-                  {
-                    opacity: infoCardEntryOpacity,
-                    transform: [{ translateY: infoCardEntryTranslateY }],
-                  }
+                  infoCardEntryAnimatedStyle,
                 ]}
               >
                 <View style={styles.seasonInfoContent}>
@@ -948,10 +955,7 @@ export default function SeasonDetailsScreen({
               <Animated.View
                 style={[
                   styles.howItWorksCard,
-                  {
-                    opacity: howItWorksEntryOpacity,
-                    transform: [{ translateY: howItWorksEntryTranslateY }],
-                  }
+                  howItWorksEntryAnimatedStyle,
                 ]}
               >
                 <View style={styles.howItWorksContent}>
@@ -1031,7 +1035,8 @@ export default function SeasonDetailsScreen({
         <Animated.View
           style={[
             styles.stickyButtonContainer,
-            { paddingBottom: insets.bottom, opacity: buttonEntryOpacity }
+            { paddingBottom: insets.bottom },
+            buttonEntryAnimatedStyle,
           ]}
         >
           <View style={styles.stickyButtonRow}>
