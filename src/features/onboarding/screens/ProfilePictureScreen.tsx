@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import { useRouter } from 'expo-router';
 
 import {
@@ -84,100 +84,60 @@ const ProfilePictureScreen = () => {
   });
 
   // Wrapper functions to clear skip selection when uploading
-  const handlePickImageFromLibrary = async () => {
+  const handlePickImageFromLibrary = useCallback(async () => {
     setIsSkipSelected(false);
     await pickImageFromLibrary();
-  };
+  }, [pickImageFromLibrary]);
 
-  const handleOpenCamera = async () => {
+  const handleOpenCamera = useCallback(async () => {
     setIsSkipSelected(false);
     await openCamera();
-  };
+  }, [openCamera]);
 
   // Custom crop complete handler for onboarding (handles skip state)
-  const onCropComplete = async (croppedUri: string) => {
+  // Using useCallback to ensure stable reference and proper dependency tracking
+  const onCropComplete = useCallback(async (croppedUri: string) => {
     setIsSkipSelected(false);
     await handleCropComplete(croppedUri);
-  };
+  }, [handleCropComplete]);
 
   const handleComplete = async () => {
     try {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
 
-      console.log('=== HANDLE COMPLETE DEBUG ===');
-      console.log('isSkipSelected:', isSkipSelected);
-      console.log('hadUploadedImage:', hadUploadedImage);
-      console.log('profileImage:', profileImage);
-      console.log('session?.user?.id:', session?.user?.id);
-      console.log('============================');
-
       // If skip is selected, remove any uploaded profile picture and skip
       if (isSkipSelected) {
-        console.log('=== SKIP SELECTED - CLEARING IMAGE ===');
-        console.log('hadUploadedImage:', hadUploadedImage);
-        console.log('session?.user?.id:', session?.user?.id);
-
         // If user had uploaded an image before clicking skip, delete it from backend
         if (hadUploadedImage && session?.user?.id) {
           try {
             const backendUrl = getBackendBaseURL();
-            console.log('Sending PUT request to clear image...');
-            console.log('URL:', `${backendUrl}/api/player/profile/me`);
-            console.log('Body:', { image: null });
-
-            const response = await authClient.$fetch(`${backendUrl}/api/player/profile/me`, {
+            await authClient.$fetch(`${backendUrl}/api/player/profile/me`, {
               method: 'PUT',
               body: JSON.stringify({ image: null }),
               headers: {
                 'Content-Type': 'application/json',
               },
             });
-
-            console.log('✅ Profile image cleared successfully');
-            console.log('Response:', response);
-
-            // Verify the response indicates success (check both nested and top-level)
-            const isSuccess = (response as any)?.success || (response as any)?.data?.success;
-            const imageCleared = (response as any)?.data?.data?.image === null;
-
-            if (isSuccess && imageCleared) {
-              console.log('✅ Backend confirmed image cleared');
-            } else if (isSuccess) {
-              console.log('✅ Backend responded successfully');
-            } else {
-              console.warn('⚠️ Backend response unclear:', response);
-            }
-          } catch (err) {
-            console.error('❌ Error removing profile picture:', err);
-            console.error('Error details:', JSON.stringify(err, null, 2));
-
+          } catch {
             // Show error to user but allow them to continue
             toast.error('Warning', {
               description: 'Could not remove profile picture. Continuing anyway.',
             });
           }
-        } else {
-          console.log('No image to delete - hadUploadedImage:', hadUploadedImage, 'session?.user?.id:', session?.user?.id);
         }
 
         // Update step and mark onboarding as completed
         if (session?.user?.id) {
-          // First update the step to PROFILE_PICTURE
           try {
             await questionnaireAPI.updateOnboardingStep(session.user.id, 'PROFILE_PICTURE');
-            console.log('ProfilePictureScreen: Onboarding step updated to PROFILE_PICTURE (skip)');
-          } catch (stepError) {
-            console.error('Error updating onboarding step:', stepError);
+          } catch {
+            // Continue even if step update fails
           }
 
-          console.log('ProfilePictureScreen: Calling completeOnboarding API (skip)...');
-          const result = await questionnaireAPI.completeOnboarding(session.user.id);
-          console.log('ProfilePictureScreen: Onboarding completion result (skip):', result);
-          console.log('ProfilePictureScreen: Onboarding marked as completed (skip)');
+          await questionnaireAPI.completeOnboarding(session.user.id);
 
-          // Wait longer for the backend to process the completion and database to update
+          // Wait for the backend to process the completion
           await new Promise(resolve => setTimeout(resolve, 1500));
-          console.log('ProfilePictureScreen: Waited for backend processing (skip)');
         }
 
         // Skip photo and navigate to main app
@@ -185,47 +145,31 @@ const ProfilePictureScreen = () => {
           description: 'Onboarding completed! Welcome to DeuceLeague!',
         });
 
-        console.log('ProfilePictureScreen: Navigating to dashboard (skip)...');
-
-        // Force clear any cached navigation state and navigate
         router.replace('/user-dashboard');
         return;
       }
-      
+
       // Otherwise, complete normally with profile picture
-      // Update step and mark onboarding as completed
       if (session?.user?.id) {
-        // First update the step to PROFILE_PICTURE
         try {
           await questionnaireAPI.updateOnboardingStep(session.user.id, 'PROFILE_PICTURE');
-          console.log('ProfilePictureScreen: Onboarding step updated to PROFILE_PICTURE');
-        } catch (stepError) {
-          console.error('Error updating onboarding step:', stepError);
+        } catch {
+          // Continue even if step update fails
         }
 
-        console.log('ProfilePictureScreen: Calling completeOnboarding API...');
-        const result = await questionnaireAPI.completeOnboarding(session.user.id);
-        console.log('ProfilePictureScreen: Onboarding completion result:', result);
-        console.log('ProfilePictureScreen: Onboarding marked as completed');
+        await questionnaireAPI.completeOnboarding(session.user.id);
 
-        // Wait longer for the backend to process the completion and database to update
+        // Wait for the backend to process the completion
         await new Promise(resolve => setTimeout(resolve, 1500));
-        console.log('ProfilePictureScreen: Waited for backend processing');
       }
-      
-      // Save profile data and navigate to main app
+
       toast.success('Success!', {
         description: 'Onboarding completed! Welcome to DeuceLeague!',
       });
-      
-      console.log('ProfilePictureScreen: Navigating to dashboard...');
-      
-      // Force clear any cached navigation state and navigate
+
       router.replace('/user-dashboard');
-    } catch (error) {
-      console.error('ProfilePictureScreen: Error completing onboarding:', error);
+    } catch {
       // Still navigate even if completion fails
-      console.log('ProfilePictureScreen: Navigating to dashboard despite error...');
       router.push('/user-dashboard');
     }
   };
@@ -233,25 +177,15 @@ const ProfilePictureScreen = () => {
   const handleSkip = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
 
-    console.log('=== HANDLE SKIP DEBUG ===');
-    console.log('Current isSkipSelected:', isSkipSelected);
-    console.log('Current hadUploadedImage:', hadUploadedImage);
-    console.log('Current profileImage:', profileImage);
-    console.log('========================');
-
     // Toggle skip selection
     const newSkipState = !isSkipSelected;
     setIsSkipSelected(newSkipState);
 
-    console.log('New skip state:', newSkipState);
-
     // Clear profile image display when skip is selected
     if (newSkipState) {
-      console.log('Clearing profileImage because skip is selected');
       setProfileImage(null);
     } else {
       // If user un-toggles skip, reset the hadUploadedImage flag
-      console.log('User un-toggled skip - resetting hadUploadedImage flag');
       setHadUploadedImage(false);
     }
     // Note: hadUploadedImage flag remains true when skip is toggled on
