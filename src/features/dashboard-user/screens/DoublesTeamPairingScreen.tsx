@@ -527,7 +527,17 @@ export default function DoublesTeamPairingScreen({
     }
     
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    setShowPaymentOptions(true);
+
+    // Check if payment is required for this season
+    const isFreeEntry = !season.paymentRequired || !season.entryFee || season.entryFee === 0;
+
+    if (isFreeEntry) {
+      // Free season - register directly without payment flow
+      handlePayLater();
+    } else {
+      // Paid season - show payment options
+      setShowPaymentOptions(true);
+    }
   };
 
   const handleClosePaymentOptions = () => {

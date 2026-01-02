@@ -216,13 +216,7 @@ const CircularImageCropper: React.FC<CircularImageCropperProps> = ({
 
     setIsCropping(true);
     try {
-      if (!imageSize.width || !imageSize.height) {
-        console.error('[CircularImageCropper] Image size not available');
-        return;
-      }
-
-      if (!imageUri) {
-        console.error('[CircularImageCropper] No image URI provided');
+      if (!imageSize.width || !imageSize.height || !imageUri) {
         return;
       }
 
@@ -235,9 +229,10 @@ const CircularImageCropper: React.FC<CircularImageCropperProps> = ({
       const imageCenterX = rendered.width / 2;
       const imageCenterY = rendered.height / 2;
 
-      // React Native applies scale around original center: center = original_center + translation * scale
-      const imageCenterInContainerX = imageCenterX + currentTranslateX * currentScale;
-      const imageCenterInContainerY = imageCenterY + currentTranslateY * currentScale;
+      // Transform order is [scale, translateX, translateY]
+      // Scale is applied around center, then translation moves in screen pixels (not scaled)
+      const imageCenterInContainerX = imageCenterX + currentTranslateX;
+      const imageCenterInContainerY = imageCenterY + currentTranslateY;
 
       const cropCircleCenterX = CROP_SIZE / 2;
       const cropCircleCenterY = CROP_SIZE / 2;
@@ -273,6 +268,23 @@ const CircularImageCropper: React.FC<CircularImageCropperProps> = ({
       const adjustedCropWidth = Math.round(cropWidth * dimensionScaleX);
       const adjustedCropHeight = Math.round(cropHeight * dimensionScaleY);
 
+      // Log crop calculations for debugging
+      console.log('[CircularImageCropper] Crop calculation:', {
+        transforms: { currentScale, currentTranslateX, currentTranslateY },
+        rendered: { width: rendered.width, height: rendered.height },
+        imageSize: { width: imageSize.width, height: imageSize.height },
+        imageCenterInContainer: { x: imageCenterInContainerX, y: imageCenterInContainerY },
+        cropRegion: { visibleLeft, visibleTop, visibleWidth, visibleHeight },
+        beforeExif: { cropX, cropY, cropWidth, cropHeight },
+        exifScale: { dimensionScaleX, dimensionScaleY },
+        afterExif: { adjustedCropX, adjustedCropY, adjustedCropWidth, adjustedCropHeight },
+      });
+
+      // Validate crop dimensions
+      if (adjustedCropWidth <= 0 || adjustedCropHeight <= 0) {
+        throw new Error(`Invalid crop dimensions: width=${adjustedCropWidth}, height=${adjustedCropHeight}`);
+      }
+
       const croppedOnly = await manipulateAsync(
         testRead.uri,
         [
@@ -301,9 +313,19 @@ const CircularImageCropper: React.FC<CircularImageCropperProps> = ({
         { compress: 1, format: SaveFormat.PNG, base64: false }
       );
 
+      console.log('[CircularImageCropper] Crop successful, output URI:', croppedImage.uri);
       onCropComplete(croppedImage.uri);
     } catch (error) {
-      console.error('Error cropping image:', error);
+      // Log the error for debugging
+      // Detailed crop params are logged before the crop attempt
+      console.error('[CircularImageCropper] Crop failed:', error);
+      console.error('[CircularImageCropper] Error context:', {
+        imageSize,
+        renderedDimensions,
+        scale: scalePrevious.value,
+        translateX: translateXPrevious.value,
+        translateY: translateYPrevious.value,
+      });
     } finally {
       setIsCropping(false);
     }

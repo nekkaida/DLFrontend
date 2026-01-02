@@ -409,9 +409,17 @@ export default function LeagueDetailsScreen({
         }
       });
     } else {
-      // Show payment options for singles
-      setSelectedSeason(season);
-      setShowPaymentOptions(true);
+      // Check if payment is required for this season
+      const isFreeEntry = !season.paymentRequired || !season.entryFee || season.entryFee === 0;
+
+      if (isFreeEntry) {
+        // Free season - register directly without payment flow
+        handlePayLater(season);
+      } else {
+        // Paid season - show payment options
+        setSelectedSeason(season);
+        setShowPaymentOptions(true);
+      }
     }
   };
 

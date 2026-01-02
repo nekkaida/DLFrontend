@@ -684,10 +684,20 @@ const SeasonCard: React.FC<SeasonCardProps> = ({
                   }
                 }
               } else {
-                console.log('→ Path: Singles Payment');
-                // Singles category - show payment
-                setSelectedSeason(season);
-                setShowPaymentOptions(true);
+                console.log('→ Path: Singles Registration');
+                // Singles category - check if payment is required
+                const isFreeEntry = !season.paymentRequired || !season.entryFee || season.entryFee === 0;
+
+                if (isFreeEntry) {
+                  // Free season - register directly without payment flow
+                  console.log('→ Free season, registering directly');
+                  handlePayLater(season);
+                } else {
+                  // Paid season - show payment options
+                  console.log('→ Paid season, showing payment options');
+                  setSelectedSeason(season);
+                  setShowPaymentOptions(true);
+                }
               }
             } else if (season.status === "UPCOMING") {
               handleJoinWaitlistPress();
