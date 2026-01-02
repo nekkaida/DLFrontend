@@ -3,6 +3,7 @@ import { Category } from '../services/CategoryService';
 import { Season, SeasonService } from '../services/SeasonService';
 import { LeagueService } from '@/src/features/leagues/services/LeagueService';
 import { normalizeCategoriesFromSeason } from '../utils/categoryNormalization';
+import { getCategorySortOrder } from '../utils/categorySortOrder';
 
 /**
  * Custom hook to manage league data fetching and state
@@ -86,11 +87,9 @@ export const useLeagueData = (
 
       const availableCategories = Array.from(availableCategoriesMap.values());
 
-      // Sort categories by categoryOrder if available
+      // Sort categories by name priority: Singles > Doubles, Male > Female > Mixed > Open
       availableCategories.sort((a, b) => {
-        const orderA = (a as any).categoryOrder || 0;
-        const orderB = (b as any).categoryOrder || 0;
-        return orderA - orderB;
+        return getCategorySortOrder(a.name ?? null) - getCategorySortOrder(b.name ?? null);
       });
 
       setCategories(availableCategories);
