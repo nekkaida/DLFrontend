@@ -136,8 +136,22 @@ export default function LeagueDetailsScreen({
   const categoriesEntryTranslateY = useSharedValue(30);
   const seasonsEntryOpacity = useSharedValue(0);
   const seasonsEntryTranslateY = useSharedValue(30);
-  const hasPlayedEntryAnimation = React.useRef(false);
-  
+
+  // Reset entry animations to hidden state when loading starts or when navigating to different league/sport
+  // This ensures animations play fresh each time data loads
+  React.useEffect(() => {
+    if (isLoading) {
+      headerEntryOpacity.value = 0;
+      headerEntryTranslateY.value = -20;
+      infoCardEntryOpacity.value = 0;
+      infoCardEntryTranslateY.value = 30;
+      categoriesEntryOpacity.value = 0;
+      categoriesEntryTranslateY.value = 30;
+      seasonsEntryOpacity.value = 0;
+      seasonsEntryTranslateY.value = 30;
+    }
+  }, [isLoading]);
+
   // Constants for header animation
   const TOP_HEADER_HEIGHT = STATUS_BAR_HEIGHT + (isSmallScreen ? 36 : isTablet ? 44 : 40);
   const HEADER_MAX_HEIGHT = 180; // Full header height
@@ -255,12 +269,11 @@ export default function LeagueDetailsScreen({
 
   // Entry animations - trigger staggered fade-in and slide-up when content loads
   // Using reanimated for smooth native thread animations
+  // Runs whenever data becomes ready - animations will only visually play if values aren't already at target
   React.useEffect(() => {
     const timeouts: ReturnType<typeof setTimeout>[] = [];
 
-    if (!isLoading && !error && league && !hasPlayedEntryAnimation.current) {
-      hasPlayedEntryAnimation.current = true;
-
+    if (!isLoading && !error && league) {
       const springConfig = { damping: 15, stiffness: 100, mass: 0.8 };
       const staggerDelay = 80;
 
