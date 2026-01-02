@@ -2110,6 +2110,8 @@ export default function JoinMatchScreen() {
         snapPoints={cancelSnapPoints}
         backdropComponent={renderBackdrop}
         enablePanDownToClose={true}
+        enableHandlePanningGesture={true}
+        enableContentPanningGesture={true}
         backgroundStyle={styles.bottomSheetBackground}
       >
         <CancelMatchSheet
