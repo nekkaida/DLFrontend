@@ -25,9 +25,6 @@ export function useLeagues(options: UseLeaguesOptions = {}): UseLeaguesReturn {
   const [isInitialLoad, setIsInitialLoad] = useState(true);
 
   const fetchLeagues = useCallback(async (showSkeleton = false) => {
-    const startTime = Date.now();
-    const minDelay = showSkeleton ? 800 : 0; // Minimum 800ms for skeleton visibility on initial load
-
     setIsLoading(true);
     setError(null);
 
@@ -46,16 +43,10 @@ export function useLeagues(options: UseLeaguesOptions = {}): UseLeaguesReturn {
       console.error('❌ useLeagues: Error fetching leagues:', err);
       setError(errorMessage);
     } finally {
-      // Ensure minimum delay for skeleton visibility on initial load
-      const elapsed = Date.now() - startTime;
-      const remainingDelay = Math.max(0, minDelay - elapsed);
-
-      setTimeout(() => {
-        setIsLoading(false);
-        if (showSkeleton) {
-          setIsInitialLoad(false);
-        }
-      }, remainingDelay);
+      setIsLoading(false);
+      if (showSkeleton) {
+        setIsInitialLoad(false);
+      }
     }
   }, [sportType]);
 
