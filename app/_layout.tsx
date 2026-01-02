@@ -171,6 +171,15 @@ export default function RootLayout() {
           }}
         />
         <Stack.Screen name="+not-found" />
+        <Stack.Screen
+          name="chat/new-message"
+          options={{
+            presentation: 'modal',
+            headerShown: false,
+            gestureEnabled: true,
+            animation: 'slide_from_bottom',
+          }}
+        />
         </Stack>
             </NavigationInterceptor>
             <StatusBar style="auto" />

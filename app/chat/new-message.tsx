@@ -1,21 +1,27 @@
 import { getBackendBaseURL } from '@/config/network';
 import { authClient, useSession } from '@/lib/auth-client';
+import { ChatService } from '@/src/features/chat/services/ChatService';
+import { useChatStore } from '@/src/features/chat/stores/ChatStore';
 import { chatLogger } from '@/utils/logger';
 import { Ionicons } from '@expo/vector-icons';
-import { BottomSheetBackdrop, BottomSheetBackdropProps, BottomSheetFlatList, BottomSheetModal, BottomSheetTextInput, BottomSheetView } from '@gorhom/bottom-sheet';
 import * as Haptics from 'expo-haptics';
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { router } from 'expo-router';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Dimensions,
+  FlatList,
   Image,
   Platform,
   Pressable,
+  StatusBar,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { toast } from 'sonner-native';
 
 // User API response type from getAvailableUsers endpoint
 interface UserApiResponse {
@@ -44,44 +50,19 @@ interface Player {
   image?: string | null;
 }
 
-interface NewMessageBottomSheetProps {
-  visible: boolean;
-  onClose: () => void;
-  onSelectUser: (userId: string, userName: string) => void;
-}
-
-export const NewMessageBottomSheet: React.FC<NewMessageBottomSheetProps> = ({
-  visible,
-  onClose,
-  onSelectUser,
-}) => {
-  const bottomSheetModalRef = useRef<BottomSheetModal>(null);
+export default function NewMessageScreen() {
   const [searchQuery, setSearchQuery] = useState('');
   const [users, setUsers] = useState<Player[]>([]);
   const [filteredUsers, setFilteredUsers] = useState<Player[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const { data: session } = useSession();
   const insets = useSafeAreaInsets();
+  const { setCurrentThread, loadThreads } = useChatStore();
 
-  const snapPoints = useMemo(() => ['90%'], []);
-
-  // Present/dismiss sheet based on visibility
+  // Fetch users on mount
   useEffect(() => {
-    if (visible) {
-      if (Platform.OS === 'ios') {
-        requestAnimationFrame(() => {
-          setTimeout(() => {
-            bottomSheetModalRef.current?.present();
-          }, 50);
-        });
-      } else {
-        bottomSheetModalRef.current?.present();
-      }
-      fetchUsers();
-    } else {
-      bottomSheetModalRef.current?.dismiss();
-    }
-  }, [visible]);
+    fetchUsers();
+  }, []);
 
   // Filter users based on search query
   useEffect(() => {
@@ -133,30 +114,48 @@ export const NewMessageBottomSheet: React.FC<NewMessageBottomSheetProps> = ({
     }
   };
 
-  const handleSelectUser = useCallback((user: Player) => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    onSelectUser(user.id, user.name);
-  }, [onSelectUser]);
-
-  const handleSheetChanges = useCallback((index: number) => {
-    if (index === -1) {
-      onClose();
-      setSearchQuery('');
+  const handleSelectUser = useCallback(async (user: Player) => {
+    if (!session?.user?.id) {
+      toast.error('Please log in to start a conversation');
+      return;
     }
-  }, [onClose]);
 
-  const renderBackdrop = useCallback(
-    (props: BottomSheetBackdropProps) => (
-      <BottomSheetBackdrop
-        {...props}
-        disappearsOnIndex={-1}
-        appearsOnIndex={0}
-        opacity={0.5}
-        pressBehavior="close"
-      />
-    ),
-    []
-  );
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+
+    try {
+      chatLogger.debug('Creating/finding thread with user:', user.id, user.name);
+
+      // Create or find existing direct message thread
+      const thread = await ChatService.createThread(
+        session.user.id,
+        [user.id],
+        false // isGroup = false for direct messages
+      );
+
+      chatLogger.debug('Thread created/found:', thread.id, thread.name);
+
+      // Set the thread as current
+      setCurrentThread(thread);
+
+      // Refresh the threads list to include the new thread
+      loadThreads(session.user.id);
+
+      // Navigate to the chat thread using native navigation
+      // Replace current modal with the chat screen
+      router.replace({
+        pathname: '/chat/[threadId]',
+        params: { threadId: thread.id }
+      });
+
+    } catch (error) {
+      chatLogger.error('Error creating thread:', error);
+      toast.error('Failed to start conversation. Please try again.');
+    }
+  }, [session?.user?.id, setCurrentThread, loadThreads]);
+
+  const handleClose = useCallback(() => {
+    router.back();
+  }, []);
 
   const renderUserItem = useCallback(({ item }: { item: Player }) => (
     <View style={styles.playerItem}>
@@ -203,27 +202,46 @@ export const NewMessageBottomSheet: React.FC<NewMessageBottomSheetProps> = ({
     </View>
   ), [searchQuery]);
 
-  const renderHeader = useCallback(() => (
-    <View style={styles.headerSection}>
-      {/* Header */}
-      <View style={styles.header}>
-        <Pressable onPress={onClose} style={({ pressed }) => [styles.cancelButton, pressed && { opacity: 0.7 }]}>
-          <Text style={styles.cancelText}>Cancel</Text>
-        </Pressable>
-        <Text style={styles.title}>New Message</Text>
-        <View style={styles.cancelButton} />
+  const renderLoading = useCallback(() => (
+    <View style={styles.loadingContainer}>
+      <ActivityIndicator size="large" color="#FEA04D" />
+      <Text style={styles.loadingText}>Loading users...</Text>
+    </View>
+  ), []);
+
+  return (
+    <View style={styles.container}>
+      <StatusBar barStyle="dark-content" />
+
+      {/* Handle indicator for swipe gesture visual */}
+      <View style={styles.handleContainer}>
+        <View style={styles.handle} />
       </View>
 
-      {/* Search bar */}
+      {/* Header */}
+      <View style={styles.header}>
+        <View style={styles.headerSpacer} />
+        <Text style={styles.title}>New Message</Text>
+        <Pressable
+          onPress={handleClose}
+          style={({ pressed }) => [styles.closeButton, pressed && { opacity: 0.7 }]}
+        >
+          <Ionicons name="close" size={18} color="#6B7280" />
+        </Pressable>
+      </View>
+
+      {/* Search Bar - Regular TextInput works perfectly! */}
       <View style={styles.searchContainer}>
         <View style={styles.searchBar}>
           <Ionicons name="search" size={20} color="#6B7280" style={styles.searchIcon} />
-          <BottomSheetTextInput
+          <TextInput
             style={styles.searchInput}
             placeholder="Search users"
             placeholderTextColor="#9CA3AF"
             value={searchQuery}
             onChangeText={setSearchQuery}
+            autoCapitalize="none"
+            autoCorrect={false}
           />
           {searchQuery.length > 0 && (
             <Pressable
@@ -235,53 +253,29 @@ export const NewMessageBottomSheet: React.FC<NewMessageBottomSheetProps> = ({
           )}
         </View>
       </View>
+
+      {/* User List - Regular FlatList */}
+      <FlatList
+        data={isLoading ? [] : filteredUsers}
+        renderItem={renderUserItem}
+        keyExtractor={(item) => item.id}
+        ListEmptyComponent={isLoading ? renderLoading : renderEmpty}
+        contentContainerStyle={[
+          !isLoading && filteredUsers.length === 0
+            ? styles.emptyListContainer
+            : styles.listContent,
+          { paddingBottom: 20 + insets.bottom },
+        ]}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      />
     </View>
-  ), [searchQuery, onClose]);
-
-  return (
-    <BottomSheetModal
-      ref={bottomSheetModalRef}
-      snapPoints={snapPoints}
-      index={0}
-      onChange={handleSheetChanges}
-      backdropComponent={renderBackdrop}
-      backgroundStyle={styles.bottomSheetBackground}
-      handleIndicatorStyle={styles.handleIndicator}
-      enablePanDownToClose
-      enableDismissOnClose
-      enableDynamicSizing={false}
-    >
-      <BottomSheetView style={{ flex: 1 }}>
-        {renderHeader()}
-
-        {isLoading ? (
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color="#FEA04D" />
-            <Text style={styles.loadingText}>Loading users...</Text>
-          </View>
-        ) : (
-          <BottomSheetFlatList
-            data={filteredUsers}
-            renderItem={renderUserItem}
-            keyExtractor={(item: Player) => item.id}
-            contentContainerStyle={[
-              filteredUsers.length === 0
-                ? styles.emptyListContainer
-                : styles.listContent,
-              { paddingBottom: 20 + insets.bottom },
-            ]}
-            ListEmptyComponent={renderEmpty}
-            showsVerticalScrollIndicator={false}
-            style={{ flex: 1 }}
-          />
-        )}
-      </BottomSheetView>
-    </BottomSheetModal>
   );
-};
+}
 
 const styles = StyleSheet.create({
-  bottomSheetBackground: {
+  container: {
+    flex: 1,
     backgroundColor: '#FFFFFF',
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
@@ -297,13 +291,16 @@ const styles = StyleSheet.create({
       },
     }),
   },
-  handleIndicator: {
-    backgroundColor: '#BABABA',
+  handleContainer: {
+    alignItems: 'center',
+    paddingTop: 12,
+    paddingBottom: 4,
+  },
+  handle: {
     width: 40,
     height: 4,
-  },
-  headerSection: {
-    paddingBottom: 8,
+    backgroundColor: '#BABABA',
+    borderRadius: 2,
   },
   header: {
     flexDirection: 'row',
@@ -314,13 +311,16 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#E5E7EB',
   },
-  cancelButton: {
-    width: 60,
+  headerSpacer: {
+    width: 32,
   },
-  cancelText: {
-    fontSize: 16,
-    color: '#6B7280',
-    fontWeight: '500',
+  closeButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#F3F4F6',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   title: {
     fontSize: isSmallScreen ? 16 : isTablet ? 20 : 18,
@@ -328,8 +328,8 @@ const styles = StyleSheet.create({
     color: '#111827',
   },
   searchContainer: {
-    paddingHorizontal: isSmallScreen ? 12 : isTablet ? 24 : 16,
-    paddingVertical: isSmallScreen ? 6 : isTablet ? 10 : 8,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
     borderBottomWidth: 1,
     borderBottomColor: '#E5E7EB',
     backgroundColor: '#FFFFFF',

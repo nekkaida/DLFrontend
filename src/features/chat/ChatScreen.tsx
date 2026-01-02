@@ -23,9 +23,7 @@ import {
   View
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { toast } from 'sonner-native';
 import { ThreadList } from './components/chat-list';
-import { NewMessageBottomSheet } from './components/NewMessageBottomSheet';
 import { useChatSocketEvents } from './hooks/useChatSocketEvents';
 import { ChatService } from './services/ChatService';
 import { useChatStore } from './stores/ChatStore';
@@ -84,7 +82,6 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
   useChatSocketEvents(null, user?.id || '');
 
   const [profileData, setProfileData] = useState<ProfileData | null>(null);
-  const [showNewMessageSheet, setShowNewMessageSheet] = useState(false);
   const [appStateKey, setAppStateKey] = useState(0);
   const [sportFilter, setSportFilter] = useState<SportFilter>('all');
   const [typeFilter, setTypeFilter] = useState<TypeFilter>('all');
@@ -293,59 +290,13 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
     setSearchQuery('');
   }, []);
 
-  // Memoize handlers for NewMessageBottomSheet
-  const handleCloseNewMessageSheet = useCallback(() => {
-    setShowNewMessageSheet(false);
-  }, []);
-
-  const handleSelectUser = useCallback(async (userId: string, userName: string) => {
-    if (!user?.id) {
-      toast.error('Please log in to start a conversation');
-      return;
-    }
-
-    try {
-      chatLogger.debug('Creating/finding thread with user:', userId, userName);
-
-      // Create or find existing direct message thread
-      const thread = await ChatService.createThread(
-        user.id,
-        [userId],
-        false // isGroup = false for direct messages
-      );
-
-      chatLogger.debug('Thread created/found:', thread.id, thread.name);
-
-      // Close the bottom sheet
-      setShowNewMessageSheet(false);
-
-      // Set the thread as current
-      setCurrentThread(thread);
-
-      // Refresh the threads list to include the new thread
-      loadThreads(user.id);
-
-      // Navigate to the chat thread using native navigation
-      router.push({
-        pathname: '/chat/[threadId]',
-        params: { threadId: thread.id }
-      });
-
-    } catch (error) {
-      chatLogger.error('Error creating thread:', error);
-      toast.error('Failed to start conversation. Please try again.');
-    }
-  }, [user?.id, setCurrentThread, loadThreads]);
-
   const handleOpenNewMessage = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    // Blur search input and dismiss keyboard before opening bottom sheet
+    // Blur search input and dismiss keyboard before navigating
     searchInputRef.current?.blur();
     Keyboard.dismiss();
-    // Small delay to let keyboard fully dismiss before opening bottom sheet
-    setTimeout(() => {
-      setShowNewMessageSheet(true);
-    }, 100);
+    // Navigate to the new message modal screen
+    router.push('/chat/new-message');
   }, []);
 
   // Only show error UI if there's an error and no threads to display
@@ -475,13 +426,6 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
           />
         )}
       </View>
-
-      {/* New Message Bottom Sheet - Always rendered, visibility controlled via present/dismiss */}
-      <NewMessageBottomSheet
-        visible={showNewMessageSheet}
-        onClose={handleCloseNewMessageSheet}
-        onSelectUser={handleSelectUser}
-      />
     </View>
   );
 };
