@@ -85,10 +85,12 @@ export function useProfileImageUpload(options: UseProfileImageUploadOptions = {}
    * Returns the uploaded image URL on success, null on failure.
    */
   const uploadProfileImage = useCallback(async (imageUri: string, retryCount = 0): Promise<string | null> => {
+    console.log('[useProfileImageUpload] uploadProfileImage called:', { imageUri, retryCount });
     try {
       setIsUploadingImage(true);
 
       const backendUrl = getBackendBaseURL();
+      console.log('[useProfileImageUpload] Backend URL:', backendUrl);
       const formData = new FormData();
 
       // Get file extension from URI
@@ -114,6 +116,8 @@ export function useProfileImageUpload(options: UseProfileImageUploadOptions = {}
         type: mimeType,
         name: `profile-${Date.now()}.${fileExtension}`,
       };
+
+      console.log('[useProfileImageUpload] File object:', file);
 
       // TypeScript doesn't know about React Native's FormData format
       // In RN, FormData.append accepts { uri, type, name } objects
@@ -141,11 +145,14 @@ export function useProfileImageUpload(options: UseProfileImageUploadOptions = {}
         headers['x-user-id'] = currentUserId;
       }
 
+      console.log('[useProfileImageUpload] Sending upload request...');
       const response = await fetch(`${backendUrl}/api/player/profile/upload-image`, {
         method: 'POST',
         body: formData,
         headers,
       });
+
+      console.log('[useProfileImageUpload] Response status:', response.status, response.statusText);
 
       if (!response.ok) {
         let errorMessage = `Upload failed with status ${response.status}`;
@@ -184,8 +191,17 @@ export function useProfileImageUpload(options: UseProfileImageUploadOptions = {}
       onUploadSuccess?.(imageUrl);
       return imageUrl;
     } catch (error) {
+      console.error('[useProfileImageUpload] Upload error:', error);
+      console.error('[useProfileImageUpload] Error details:', {
+        message: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined,
+        imageUri,
+        retryCount,
+      });
+
       // Retry logic for network errors
       if (retryCount < MAX_RETRIES && error instanceof Error && error.message.includes('Network request failed')) {
+        console.log('[useProfileImageUpload] Retrying due to network error...');
         // Wait a bit before retrying (exponential backoff)
         await new Promise(resolve => setTimeout(resolve, 1000 * (retryCount + 1)));
         setIsUploadingImage(false);
@@ -293,6 +309,7 @@ export function useProfileImageUpload(options: UseProfileImageUploadOptions = {}
    * Handle crop completion - upload the cropped image.
    */
   const handleCropComplete = useCallback(async (croppedUri: string) => {
+    console.log('[useProfileImageUpload] handleCropComplete called with URI:', croppedUri);
     setShowCropper(false);
     setSelectedImageUri(null);
     await uploadProfileImage(croppedUri);
