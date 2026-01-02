@@ -61,14 +61,8 @@ export function useProfileImageUpload(options: UseProfileImageUploadOptions = {}
    */
   const normalizeImageOrientation = useCallback(async (imageUri: string): Promise<string> => {
     try {
-      console.log('=== NORMALIZING IMAGE ORIENTATION ===');
-      console.log('Original URI:', imageUri);
-
       return new Promise((resolve) => {
-        Image.getSize(imageUri, async (width, height) => {
-          console.log('Original dimensions:', { width, height });
-          console.log('Original aspect ratio:', width / height);
-
+        Image.getSize(imageUri, async () => {
           // Use manipulateAsync with no operations to normalize EXIF orientation
           const normalized = await manipulateAsync(
             imageUri,
@@ -76,26 +70,12 @@ export function useProfileImageUpload(options: UseProfileImageUploadOptions = {}
             { compress: 1.0, format: SaveFormat.JPEG }
           );
 
-          console.log('Normalized URI:', normalized.uri);
-
-          // Get dimensions after normalization
-          Image.getSize(normalized.uri, (normWidth, normHeight) => {
-            console.log('Normalized dimensions:', { width: normWidth, height: normHeight });
-            console.log('Normalized aspect ratio:', normWidth / normHeight);
-            console.log('Dimensions changed:', normWidth !== width || normHeight !== height);
-            console.log('========================================');
-            resolve(normalized.uri);
-          }, (error) => {
-            console.error('Error getting normalized image size:', error);
-            resolve(normalized.uri);
-          });
-        }, (error) => {
-          console.error('Error getting image size:', error);
+          resolve(normalized.uri);
+        }, () => {
           resolve(imageUri);
         });
       });
-    } catch (error) {
-      console.error('Error normalizing image orientation:', error);
+    } catch {
       return imageUri;
     }
   }, []);
@@ -139,10 +119,6 @@ export function useProfileImageUpload(options: UseProfileImageUploadOptions = {}
       // In RN, FormData.append accepts { uri, type, name } objects
       formData.append('image', file as any);
 
-      console.log('Uploading profile image:', imageUri);
-      console.log('Backend URL:', backendUrl);
-      console.log('Attempt:', retryCount + 1);
-
       // Get session token for authentication
       const sessionData = await authClient.getSession();
       const token = sessionData?.data?.session?.token;
@@ -181,12 +157,10 @@ export function useProfileImageUpload(options: UseProfileImageUploadOptions = {}
           // If response is not JSON, use status text
           errorMessage = `Upload failed: ${response.status} ${response.statusText}`;
         }
-        console.error('Upload failed:', response.status, errorMessage);
         throw new Error(errorMessage);
       }
 
       const result = await response.json();
-      console.log('Upload response:', result);
 
       // Backend returns: { success: true, data: { user: {...}, imageUrl: "url" }, message: "..." }
       let imageUrl: string | null = null;
@@ -197,17 +171,11 @@ export function useProfileImageUpload(options: UseProfileImageUploadOptions = {}
       }
 
       if (!imageUrl) {
-        console.error('No image URL found in response:', result);
         throw new Error('Upload successful but no image URL received from server');
       }
 
-      console.log('Image URL received:', imageUrl);
-      console.log('Setting profileImage state to:', imageUrl);
-
       // Update local state with new image URL
       setProfileImage(imageUrl);
-
-      console.log('profileImage state updated');
 
       toast.success('Success', {
         description: 'Profile picture updated successfully!',
@@ -216,11 +184,8 @@ export function useProfileImageUpload(options: UseProfileImageUploadOptions = {}
       onUploadSuccess?.(imageUrl);
       return imageUrl;
     } catch (error) {
-      console.error('Error uploading profile image:', error);
-
       // Retry logic for network errors
       if (retryCount < MAX_RETRIES && error instanceof Error && error.message.includes('Network request failed')) {
-        console.log(`Retrying upload (attempt ${retryCount + 2} of ${MAX_RETRIES + 1})...`);
         // Wait a bit before retrying (exponential backoff)
         await new Promise(resolve => setTimeout(resolve, 1000 * (retryCount + 1)));
         setIsUploadingImage(false);
@@ -262,29 +227,19 @@ export function useProfileImageUpload(options: UseProfileImageUploadOptions = {}
       });
 
       if (!result.canceled && result.assets[0]) {
-        console.log('=== PHOTO LIBRARY IMAGE SELECTED ===');
-        console.log('Library image URI:', result.assets[0].uri);
-        console.log('Library result width:', result.assets[0].width);
-        console.log('Library result height:', result.assets[0].height);
-        console.log('Has EXIF:', result.assets[0].exif !== undefined);
-        console.log('=====================================');
-
         // Normalize EXIF rotation BEFORE showing cropper
         // This ensures the displayed image matches what will be cropped
-        console.log('Normalizing library image before cropper...');
         const normalized = await manipulateAsync(
           result.assets[0].uri,
           [],
           { compress: 1, format: SaveFormat.JPEG }
         );
-        console.log('Normalized URI for cropper:', normalized.uri);
 
         setOriginalLocalImage(normalized.uri); // Save original for re-cropping
         setSelectedImageUri(normalized.uri);
         setShowCropper(true);
       }
-    } catch (error) {
-      console.error('Error opening image library:', error);
+    } catch {
       toast.error('Error', {
         description: 'Failed to open photo library. Please try again.',
       });
@@ -315,29 +270,19 @@ export function useProfileImageUpload(options: UseProfileImageUploadOptions = {}
       });
 
       if (!result.canceled && result.assets[0]) {
-        console.log('=== CAMERA PHOTO TAKEN ===');
-        console.log('Raw camera URI:', result.assets[0].uri);
-        console.log('Camera result width:', result.assets[0].width);
-        console.log('Camera result height:', result.assets[0].height);
-        console.log('Has EXIF:', result.assets[0].exif !== undefined);
-        console.log('==========================');
-
         // Normalize EXIF rotation BEFORE showing cropper
         // This ensures the displayed image matches what will be cropped
-        console.log('Normalizing camera image before cropper...');
         const normalized = await manipulateAsync(
           result.assets[0].uri,
           [],
           { compress: 1, format: SaveFormat.JPEG }
         );
-        console.log('Normalized URI for cropper:', normalized.uri);
 
         setOriginalLocalImage(normalized.uri); // Save original for re-cropping
         setSelectedImageUri(normalized.uri);
         setShowCropper(true);
       }
-    } catch (error) {
-      console.error('Error opening camera:', error);
+    } catch {
       toast.error('Error', {
         description: 'Failed to open camera. Please try again.',
       });
@@ -369,7 +314,6 @@ export function useProfileImageUpload(options: UseProfileImageUploadOptions = {}
 
     // Use the original local image for re-cropping, not the uploaded URL
     if (originalLocalImage) {
-      console.log('Re-cropping original local image:', originalLocalImage);
       setSelectedImageUri(originalLocalImage);
       setShowCropper(true);
     } else {
