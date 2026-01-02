@@ -777,7 +777,23 @@ export default function SeasonDetailsScreen({
                     </View>
                     
                     {season?.memberships && season.memberships.length > 0 && (
-                      <View style={styles.profilePicturesContainer}>
+                      <TouchableOpacity
+                        style={styles.profilePicturesContainer}
+                        onPress={() => {
+                          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                          router.push({
+                            pathname: '/user-dashboard/players-list',
+                            params: {
+                              contextType: 'season',
+                              contextId: seasonId,
+                              contextName: season?.name || seasonName,
+                              sport: sport,
+                              totalPlayers: season?._count?.memberships || season?.memberships?.length || 0,
+                            }
+                          });
+                        }}
+                        activeOpacity={0.7}
+                      >
                         {season.memberships.slice(0, 6).map((membership: any, index: number) => (
                           <View key={membership.id} style={[styles.memberProfilePicture, index > 0 && styles.memberProfilePictureOverlap]}>
                             {membership.user?.image ? (
@@ -801,7 +817,7 @@ export default function SeasonDetailsScreen({
                             </Text>
                           </View>
                         )}
-                      </View>
+                      </TouchableOpacity>
                     )}
                   </Animated.View>
                 </View>

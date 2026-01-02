@@ -18,6 +18,7 @@ import {
   RefreshControl,
   ScrollView,
   StyleSheet,
+  Text,
   View,
 } from 'react-native';
 import { toast } from 'sonner-native';
@@ -32,6 +33,11 @@ export default function PlayerProfileScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [isLoadingChat, setIsLoadingChat] = useState(false);
+  const [leagueStatsData, setLeagueStatsData] = useState<{
+    wins: number;
+    losses: number;
+    matchesPlayed: number;
+  }>({ wins: 0, losses: 0, matchesPlayed: 0 });
 
   // Chat store
   const { threads, setCurrentThread, loadThreads } = useChatStore();
@@ -52,15 +58,15 @@ export default function PlayerProfileScreen() {
   
   const hasInitializedSport = useRef(false);
 
-  // Entry animation values
-  const headerEntryOpacity = useRef(new Animated.Value(0)).current;
-  const headerEntryTranslateY = useRef(new Animated.Value(-20)).current;
-  const section1EntryOpacity = useRef(new Animated.Value(0)).current;
-  const section1EntryTranslateY = useRef(new Animated.Value(30)).current;
-  const section2EntryOpacity = useRef(new Animated.Value(0)).current;
-  const section2EntryTranslateY = useRef(new Animated.Value(30)).current;
-  const section3EntryOpacity = useRef(new Animated.Value(0)).current;
-  const section3EntryTranslateY = useRef(new Animated.Value(30)).current;
+  // Entry animation values (matching ProfileScreen.tsx pattern)
+  const profilePictureEntryOpacity = useRef(new Animated.Value(0)).current;
+  const profilePictureEntryTranslateY = useRef(new Animated.Value(-20)).current;
+  const infoCardEntryOpacity = useRef(new Animated.Value(0)).current;
+  const infoCardEntryTranslateY = useRef(new Animated.Value(30)).current;
+  const achievementsEntryOpacity = useRef(new Animated.Value(0)).current;
+  const achievementsEntryTranslateY = useRef(new Animated.Value(30)).current;
+  const statsEntryOpacity = useRef(new Animated.Value(0)).current;
+  const statsEntryTranslateY = useRef(new Animated.Value(30)).current;
   const hasPlayedEntryAnimation = useRef(false);
 
   // Profile handlers
@@ -179,65 +185,65 @@ export default function PlayerProfileScreen() {
     }
   }, [session?.user?.id, id, fetchPlayerProfile]);
 
-  // Entry animation effect
+  // Entry animation effect (matching ProfileScreen.tsx pattern)
   useEffect(() => {
     if (!isLoading && profileData && !hasPlayedEntryAnimation.current) {
       hasPlayedEntryAnimation.current = true;
       Animated.stagger(80, [
-        // Header slides down
+        // Profile picture slides down (from -20 to 0)
         Animated.parallel([
-          Animated.spring(headerEntryOpacity, {
+          Animated.spring(profilePictureEntryOpacity, {
             toValue: 1,
             tension: 50,
             friction: 8,
             useNativeDriver: false,
           }),
-          Animated.spring(headerEntryTranslateY, {
+          Animated.spring(profilePictureEntryTranslateY, {
             toValue: 0,
             tension: 50,
             friction: 8,
             useNativeDriver: false,
           }),
         ]),
-        // Section 1: Profile picture + info card
+        // Info card slides up (from +30 to 0)
         Animated.parallel([
-          Animated.spring(section1EntryOpacity, {
+          Animated.spring(infoCardEntryOpacity, {
             toValue: 1,
             tension: 50,
             friction: 8,
             useNativeDriver: false,
           }),
-          Animated.spring(section1EntryTranslateY, {
+          Animated.spring(infoCardEntryTranslateY, {
             toValue: 0,
             tension: 50,
             friction: 8,
             useNativeDriver: false,
           }),
         ]),
-        // Section 2: Achievements + Sports + Skills
+        // Achievements section slides up
         Animated.parallel([
-          Animated.spring(section2EntryOpacity, {
+          Animated.spring(achievementsEntryOpacity, {
             toValue: 1,
             tension: 50,
             friction: 8,
             useNativeDriver: false,
           }),
-          Animated.spring(section2EntryTranslateY, {
+          Animated.spring(achievementsEntryTranslateY, {
             toValue: 0,
             tension: 50,
             friction: 8,
             useNativeDriver: false,
           }),
         ]),
-        // Section 3: DMR + Stats + Standings
+        // Stats section slides up
         Animated.parallel([
-          Animated.spring(section3EntryOpacity, {
+          Animated.spring(statsEntryOpacity, {
             toValue: 1,
             tension: 50,
             friction: 8,
             useNativeDriver: false,
           }),
-          Animated.spring(section3EntryTranslateY, {
+          Animated.spring(statsEntryTranslateY, {
             toValue: 0,
             tension: 50,
             friction: 8,
@@ -249,18 +255,17 @@ export default function PlayerProfileScreen() {
   }, [
     isLoading,
     profileData,
-    headerEntryOpacity,
-    headerEntryTranslateY,
-    section1EntryOpacity,
-    section1EntryTranslateY,
-    section2EntryOpacity,
-    section2EntryTranslateY,
-    section3EntryOpacity,
-    section3EntryTranslateY,
+    profilePictureEntryOpacity,
+    profilePictureEntryTranslateY,
+    infoCardEntryOpacity,
+    infoCardEntryTranslateY,
+    achievementsEntryOpacity,
+    achievementsEntryTranslateY,
+    statsEntryOpacity,
+    statsEntryTranslateY,
   ]);
 
-  // Transform profile data to userData format   
-  // update the codebase
+  // Transform profile data to userData format
   const userData: UserData = profileData
     ? ProfileDataTransformer.transformProfileToUserData(profileData, achievements)
     : {
@@ -270,10 +275,10 @@ export default function PlayerProfileScreen() {
         location: 'Loading...',
         gender: 'Loading...',
         skillLevel: 'Loading...',
+        selfAssessedSkillLevels: {},
         skillRatings: {},
         sports: [],
         activeSports: [],
-        image: 'loading...',
         achievements: [],
         leagueStats: {},
       };
@@ -289,17 +294,10 @@ export default function PlayerProfileScreen() {
     return 0;
   };
 
-  // Calculate win rate from match history - placeholder until match system is implemented
+  // Calculate win rate from league stats
   const calculateWinRate = () => {
-    if (userData.name === 'Loading...') return 0;
-
-    // Check if user has match data
-    const hasMatches = profileData?.totalMatches && profileData.totalMatches > 0;
-    if (hasMatches) {
-      // TODO: Calculate actual win rate from match history when matches exist
-      return 0; // For now, return 0 until we have match data
-    }
-    return 0; // No matches yet
+    if (leagueStatsData.matchesPlayed === 0) return 0;
+    return Math.round((leagueStatsData.wins / leagueStatsData.matchesPlayed) * 100);
   };
 
   // Create ELO data based on actual rating values only
@@ -347,13 +345,20 @@ export default function PlayerProfileScreen() {
   if (isLoading && !profileData) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={theme.colors.primary} />
+        <Text style={styles.loadingText}>Loading profile...</Text>
       </View>
     );
   }
 
   return (
     <View style={styles.container}>
+      {/* Refresh Indicator Overlay - visible above header */}
+      {refreshing && (
+        <View style={styles.refreshOverlay}>
+          <ActivityIndicator size="large" color="#FFFFFF" />
+        </View>
+      )}
+
       <ScrollView
         style={styles.scrollView}
         showsVerticalScrollIndicator={false}
@@ -361,42 +366,41 @@ export default function PlayerProfileScreen() {
           <RefreshControl
             refreshing={refreshing}
             onRefresh={onRefresh}
-            tintColor="#6de9a0"
-            colors={["#6de9a0"]}
-            progressBackgroundColor="#ffffff"
+            tintColor="transparent"
+            colors={["transparent"]}
+            progressBackgroundColor="transparent"
           />
         }
       >
-        {/* Orange Header Background with Curved Bottom */}
-        <Animated.View
-          style={{
-            opacity: headerEntryOpacity,
-            transform: [{ translateY: headerEntryTranslateY }],
-          }}
-        >
-          <ProfileHeaderWithCurve
-            onBack={() => router.back()}
-            showSettings={false}
-          />
-        </Animated.View>
+        {/* Header with Curve */}
+        <ProfileHeaderWithCurve
+          onBack={() => router.back()}
+          showSettings={false}
+        />
 
-        {/* White Background */}
+        {/* Content */}
         <View style={styles.whiteBackground}>
-          {/* Section 1: Profile Picture + Info Card */}
+          {/* Profile Picture */}
           <Animated.View
             style={{
-              opacity: section1EntryOpacity,
-              transform: [{ translateY: section1EntryTranslateY }],
+              opacity: profilePictureEntryOpacity,
+              transform: [{ translateY: profilePictureEntryTranslateY }],
             }}
           >
-            {/* Profile Picture Section */}
             <ProfilePictureSection
               imageUri={profileData?.image}
               isUploading={false}
               isEditable={false}
             />
+          </Animated.View>
 
-            {/* Profile Info Card */}
+          {/* Profile Info */}
+          <Animated.View
+            style={{
+              opacity: infoCardEntryOpacity,
+              transform: [{ translateY: infoCardEntryTranslateY }],
+            }}
+          >
             <ProfileInfoCard
               name={userData.name}
               username={userData.username}
@@ -412,18 +416,25 @@ export default function PlayerProfileScreen() {
             />
           </Animated.View>
 
-          {/* Section 2: Achievements + Sports + Skills */}
+          {/* Achievements */}
           <Animated.View
             style={{
-              opacity: section2EntryOpacity,
-              transform: [{ translateY: section2EntryTranslateY }],
+              opacity: achievementsEntryOpacity,
+              transform: [{ translateY: achievementsEntryTranslateY }],
             }}
           >
-            {/* Achievements */}
             <ProfileAchievementsCard
               achievements={userData.achievements || []}
             />
+          </Animated.View>
 
+          {/* Stats Section */}
+          <Animated.View
+            style={{
+              opacity: statsEntryOpacity,
+              transform: [{ translateY: statsEntryTranslateY }],
+            }}
+          >
             {/* Sports */}
             <ProfileSportsSection
               sports={userData.sports || []}
@@ -434,16 +445,10 @@ export default function PlayerProfileScreen() {
             {/* Skill Level */}
             <ProfileSkillLevelCard
               skillLevel={userData.skillLevel}
+              selfAssessedSkillLevels={userData.selfAssessedSkillLevels}
+              activeSport={activeTab}
             />
-          </Animated.View>
 
-          {/* Section 3: DMR + Stats + Standings */}
-          <Animated.View
-            style={{
-              opacity: section3EntryOpacity,
-              transform: [{ translateY: section3EntryTranslateY }],
-            }}
-          >
             {/* DMR */}
             <ProfileDMRCard
               activeTab={activeTab}
@@ -469,7 +474,10 @@ export default function PlayerProfileScreen() {
             {id && (
               <PlayerDivisionStandings
                 userId={id as string}
-                showOnlyCurrentDivisions={true}
+                showOnlyCurrentDivisions={false}
+                sportFilter={activeTab}
+                gameTypeFilter={selectedGameType}
+                onStatsCalculated={setLeagueStatsData}
               />
             )}
 
@@ -480,6 +488,8 @@ export default function PlayerProfileScreen() {
               gameTypeOptions={gameTypeOptions}
               onGameTypeSelect={handleGameTypeSelect}
               winRate={calculateWinRate()}
+              wins={leagueStatsData.wins}
+              losses={leagueStatsData.losses}
             />
           </Animated.View>
         </View>
@@ -491,22 +501,35 @@ export default function PlayerProfileScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: theme.colors.neutral.gray[50],
+    backgroundColor: theme.colors.primary,
   },
   scrollView: {
     flex: 1,
+    backgroundColor: theme.colors.primary,
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: theme.colors.neutral.gray[50],
+    backgroundColor: theme.colors.primary,
+  },
+  loadingText: {
+    fontSize: 16,
+    color: theme.colors.neutral.gray[600],
+    fontFamily: theme.typography.fontFamily.primary,
+  },
+  refreshOverlay: {
+    position: 'absolute',
+    top: 100,
+    left: 0,
+    right: 0,
+    alignItems: 'center',
+    zIndex: 100,
   },
   whiteBackground: {
-    backgroundColor: theme.colors.neutral.gray[50],
-    flex: 1,
-    paddingHorizontal: theme.spacing.md,
-    paddingBottom: theme.spacing.xl,
-    marginTop: -1,
+    backgroundColor: '#ffffff',
+    paddingHorizontal: theme.spacing.lg,
+    paddingBottom: theme.spacing['2xl'],
+    minHeight: '100%',
   },
 });

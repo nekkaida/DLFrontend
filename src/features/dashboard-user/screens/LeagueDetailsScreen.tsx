@@ -735,7 +735,23 @@ export default function LeagueDetailsScreen({
           
           {/* Profile pictures */}
           {season.memberships && season.memberships.length > 0 && (
-            <View style={styles.seasonProfilePicturesContainer}>
+            <TouchableOpacity
+              style={styles.seasonProfilePicturesContainer}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                router.push({
+                  pathname: '/user-dashboard/players-list',
+                  params: {
+                    contextType: 'season',
+                    contextId: season.id,
+                    contextName: season.name,
+                    sport: sport,
+                    totalPlayers: season._count?.memberships || season.registeredUserCount || 0,
+                  }
+                });
+              }}
+              activeOpacity={0.7}
+            >
               {season.memberships.slice(0, 6).map((membership, index: number) => {
                 if (!membership.user) return null;
                 return (
@@ -762,7 +778,7 @@ export default function LeagueDetailsScreen({
                   </Text>
                 </View>
               )}
-            </View>
+            </TouchableOpacity>
           )}
 
           {season.regiDeadline && (
@@ -1111,7 +1127,23 @@ export default function LeagueDetailsScreen({
                     
                     {/* Profile pictures */}
                     {league?.memberships && league.memberships.length > 0 && (
-                      <View style={styles.profilePicturesContainer}>
+                      <TouchableOpacity
+                        style={styles.profilePicturesContainer}
+                        onPress={() => {
+                          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                          router.push({
+                            pathname: '/user-dashboard/players-list',
+                            params: {
+                              contextType: 'league',
+                              contextId: leagueId,
+                              contextName: league?.name || leagueName,
+                              sport: sport,
+                              totalPlayers: league?.totalSeasonMemberships || league?._count?.memberships || 0,
+                            }
+                          });
+                        }}
+                        activeOpacity={0.7}
+                      >
                         {league.memberships.slice(0, 6).map((membership: any, index: number) => {
                           if (!membership.user) return null;
                           return (
@@ -1138,7 +1170,7 @@ export default function LeagueDetailsScreen({
                             </Text>
                           </View>
                         )}
-                      </View>
+                      </TouchableOpacity>
                     )}
                   </Animated.View>
                 </View>
