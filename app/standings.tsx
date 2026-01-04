@@ -1,19 +1,18 @@
 import { getSportColors, SportType } from '@/constants/SportsColor';
-import { endpoints } from '@/lib/endpoints';
-import axiosInstance from '@/lib/endpoints';
 import { useSession } from '@/lib/auth-client';
+import axiosInstance, { endpoints } from '@/lib/endpoints';
 import { StandingsService } from '@/src/features/leagues/services/StandingsService';
 import {
   DivisionCard,
   groupPlayersByTeam,
+  MatchResult,
   StandingsPlayer,
   StandingsTeam,
-  MatchResult,
 } from '@/src/features/standings';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { router, useLocalSearchParams } from 'expo-router';
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Animated,
@@ -160,7 +159,9 @@ export default function StandingsScreen() {
         };
       });
 
-      setDivisions(transformedDivisions);
+      // Sort divisions from oldest to newest by id (fallback, assumes id reflects creation order)
+      const sortedDivisions = [...transformedDivisions].sort((a, b) => a.id.localeCompare(b.id));
+      setDivisions(sortedDivisions);
 
       // Find which division the user is in
       const userDiv = data.find(d => d.userStanding);
