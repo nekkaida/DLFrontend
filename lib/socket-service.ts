@@ -19,7 +19,6 @@ export class SocketService {
 
   async connect(): Promise<void> {
     if (this._socket?.connected) {
-      console.log('SocketService: Already connected, skipping...');
       return;
     }
 
@@ -37,7 +36,6 @@ export class SocketService {
       const userId = session.data.user?.id;
       const sessionToken = session.data.session?.token;
       
-      console.log('SocketService: Connecting to:', backendUrl);
       console.log('SocketService: User ID:', userId);
 
       // Pass session info for Better Auth to validate
@@ -55,8 +53,6 @@ export class SocketService {
 
       this._socket.on('connect', () => {
         console.log('✅ SocketService: Connected successfully!');
-        console.log('✅ Socket ID:', this._socket?.id);
-        console.log('✅ Transport:', this._socket?.io?.engine?.transport?.name);
         this.reconnectAttempts = 0;
         this.emit('connection_status', { connected: true });
       });
@@ -93,22 +89,21 @@ export class SocketService {
       });
 
       this._socket.on('message_read', (data) => {
-        console.log('👁️ SocketService: Message read receipt:', data);
+        // console.log('👁️ SocketService: Message read receipt:', data);
         this.emit('message_read', data);
       });
 
       this._socket.on('unread_count_update', (data) => {
-        console.log('📊 SocketService: Unread count update:', data);
+        // console.log('📊 SocketService: Unread count update:', data);
         this.emit('unread_count_update', data);
       });
 
       this._socket.on('thread_marked_read', (data) => {
-        console.log('📖 SocketService: Thread marked as read:', data);
+        // console.log('📖 SocketService: Thread marked as read:', data);
         this.emit('thread_marked_read', data);
       });
 
       this._socket.on('thread_updated', (data) => {
-        console.log('🔄 SocketService: Thread updated:', data);
         this.emit('thread_update', data);
       });
 
@@ -124,17 +119,14 @@ export class SocketService {
 
       // Notification events
       this._socket.on('new_notification', (data) => {
-        console.log('🔔 SocketService: New notification:', data);
         this.emit('new_notification', data);
       });
 
       this._socket.on('notification_read', (data) => {
-        console.log('👁️ SocketService: Notification read:', data);
         this.emit('notification_read', data);
       });
 
       this._socket.on('notification_deleted', (data) => {
-        console.log('🗑️ SocketService: Notification deleted:', data);
         this.emit('notification_deleted', data);
       });
 
@@ -192,17 +184,14 @@ export class SocketService {
 
       // Match comment events
       this._socket.on('match_comment_added', (data) => {
-        console.log('💬 SocketService: Match comment added:', data);
         this.emit('match_comment_added', data);
       });
 
       this._socket.on('match_comment_updated', (data) => {
-        console.log('✏️ SocketService: Match comment updated:', data);
         this.emit('match_comment_updated', data);
       });
 
       this._socket.on('match_comment_deleted', (data) => {
-        console.log('🗑️ SocketService: Match comment deleted:', data);
         this.emit('match_comment_deleted', data);
       });
 
@@ -283,7 +272,7 @@ export class SocketService {
       
       // Listen for acknowledgment from backend
       this._socket.once('thread_joined', (data: any) => {
-        console.log('✅ Backend confirmed thread join:', data);
+        // console.log('✅ Backend confirmed thread join:', data);
       });
     } else {
       console.error('❌ Cannot join thread - socket not connected!');
@@ -295,7 +284,7 @@ export class SocketService {
     if (this._socket?.connected) {
       this._socket.emit('leave_thread', { threadId });
     } else {
-      console.warn('⚠️ Cannot leave thread - socket not connected');
+      // console.warn('⚠️ Cannot leave thread - socket not connected');
     }
   }
 

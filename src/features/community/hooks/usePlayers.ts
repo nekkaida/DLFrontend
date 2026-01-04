@@ -26,11 +26,11 @@ export const usePlayers = () => {
         method: 'GET',
       });
 
-      console.log('📦 usePlayers: API response:', authResponse);
+      // console.log('📦 usePlayers: API response:', authResponse);
 
       if (authResponse && (authResponse as any).data && (authResponse as any).data.data) {
         const playersData = (authResponse as any).data.data;
-        console.log('✅ usePlayers: Players count:', playersData.length);
+        // console.log('✅ usePlayers: Players count:', playersData.length);
         setPlayers(playersData);
       }
     } catch (error) {
