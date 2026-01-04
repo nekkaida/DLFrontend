@@ -174,12 +174,13 @@ export default function ProfileScreen() {
         authClient.$fetch(`${backendUrl}/api/player/profile/achievements`, { method: 'GET' })
       ]);
 
+      // Comment out API responses after testing to keep terminal clean
       // API response structure: response.data.data contains the actual profile
       if (profileResponse && (profileResponse as any).data?.data) {
-        console.log('Setting profile data (nested):', (profileResponse as any).data.data);
+        // console.log('Setting profile data (nested):', (profileResponse as any).data.data);
         setProfileData((profileResponse as any).data.data);
       } else if (profileResponse && (profileResponse as any).data) {
-        console.log('Setting profile data (direct):', (profileResponse as any).data);
+        // console.log('Setting profile data (direct):', (profileResponse as any).data);
         setProfileData((profileResponse as any).data);
       }
 

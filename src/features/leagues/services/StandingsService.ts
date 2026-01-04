@@ -79,7 +79,9 @@ export class StandingsService {
       });
 
       const data = await response.json();
-      console.log('🔍 Standings API response:', JSON.stringify(data, null, 2));
+      // Comment out API responses after testing to keep terminal clean
+      // console.log('🔍 Standings API response:', JSON.stringify(data, null, 2)); 
+
 
       if (data && data.success && data.data) {
         console.log('✅ Found', data.data.length, 'standings for division', divisionId);
@@ -109,8 +111,6 @@ export class StandingsService {
     try {
       const backendUrl = getBackendBaseURL();
       
-      console.log('🔍 Fetching divisions for season:', seasonId);
-      
       // First fetch all divisions for this season
       const divisionsResponse = await fetch(`${backendUrl}/api/division/season/${seasonId}`, {
         method: 'GET',
@@ -120,7 +120,8 @@ export class StandingsService {
       });
 
       const divisionsData = await divisionsResponse.json();
-      console.log('🔍 Divisions API response:', JSON.stringify(divisionsData, null, 2));
+      // Comment out API responses after testing to keep terminal clean
+      // console.log('🔍 Divisions API response:', JSON.stringify(divisionsData, null, 2));
       
       if (!divisionsData || !divisionsData.success || !divisionsData.data) {
         console.log('❌ No divisions found for season:', seasonId);
@@ -172,8 +173,9 @@ export class StandingsService {
       const responseWrapper = assignmentsResponse as any;
       const assignmentsData = responseWrapper?.data || responseWrapper;
 
-      console.log('📊 StandingsService: Raw response:', JSON.stringify(responseWrapper, null, 2).substring(0, 500));
-      console.log('📊 StandingsService: Assignments data:', JSON.stringify(assignmentsData, null, 2).substring(0, 500));
+      // Comment out API responses after testing to keep terminal clean
+      // console.log('📊 StandingsService: Raw response:', JSON.stringify(responseWrapper, null, 2).substring(0, 500));
+      // console.log('📊 StandingsService: Assignments data:', JSON.stringify(assignmentsData, null, 2).substring(0, 500));
 
       // Handle nested data structure from authClient
       let assignments: any[] = [];
@@ -190,8 +192,6 @@ export class StandingsService {
         return [];
       }
 
-      console.log('📊 StandingsService: Found', assignments.length, 'assignments for user:', userId);
-      
       // Fetch standings for each assigned division
       const divisionsWithStandings: DivisionWithStandings[] = await Promise.all(
         assignments.map(async (assignment: any) => {

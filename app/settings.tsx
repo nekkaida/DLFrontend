@@ -27,6 +27,7 @@ import { getBackendBaseURL } from '@/src/config/network';
 import * as SecureStore from 'expo-secure-store';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { toast } from 'sonner-native';
+import { usePushNotifications } from '@/src/hooks/usePushNotifications';
 
 // BackgroundGradient Component (consistent with profile)
 const BackgroundGradient = () => {
@@ -61,6 +62,7 @@ interface SettingSection {
 
 export default function SettingsScreen() {
   const version = Constants.expoConfig?.version ?? '1.0.0';
+  const { cleanup: cleanupPushNotifications } = usePushNotifications();
 
   const [settings, setSettings] = useState({
     notifications: true,
@@ -261,6 +263,9 @@ export default function SettingsScreen() {
           style: 'destructive',
           onPress: async () => {
             try {
+              // IMPORTANT: Clean up push notifications BEFORE signing out
+              await cleanupPushNotifications();
+
               // Sign out from better-auth
               await authClient.signOut();
 
