@@ -171,7 +171,7 @@ export function useNotifications(
     const socket = socketService.getSocket();
     if (!socket || !userId) return;
 
-    console.log('🎧 Setting up notification socket listeners for user:', userId);
+    // console.log('🎧 Setting up notification socket listeners for user:', userId);
 
     // Handle new notification
     const handleNewNotification = (notification: Notification) => {

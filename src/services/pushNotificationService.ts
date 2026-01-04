@@ -1,8 +1,8 @@
+import axiosInstance, { endpoints } from '@/lib/endpoints';
+import Constants from 'expo-constants';
 import * as Device from 'expo-device';
 import * as Notifications from 'expo-notifications';
-import Constants from 'expo-constants';
 import { Platform } from 'react-native';
-import axiosInstance, { endpoints } from '@/lib/endpoints';
 
 // Configure notification handler
 Notifications.setNotificationHandler({
@@ -83,17 +83,20 @@ class PushNotificationService {
     try {
       const platform = Platform.OS === 'ios' ? 'ios' : 'android';
       const deviceId = Device.deviceName || undefined;
-
-      await axiosInstance.post(endpoints.notifications.registerPushToken, {
+      const response = await axiosInstance.post(endpoints.notifications.registerPushToken, {
         token,
         platform,
         deviceId,
       });
 
-      console.log('Push token registered with backend');
+      console.log('✅ Push token registered with backend:', response.data);
       return true;
-    } catch (error) {
-      console.error('Error registering push token with backend:', error);
+    } catch (error: any) {
+      console.error('❌ Error registering push token with backend:', error.message);
+      if (error.response) {
+        console.error('Response status:', error.response.status);
+        console.error('Response data:', error.response.data);
+      }
       return false;
     }
   }
@@ -103,15 +106,21 @@ class PushNotificationService {
    */
   async unregisterTokenFromBackend(token: string): Promise<boolean> {
     try {
-      await axiosInstance.delete(endpoints.notifications.unregisterPushToken, {
+      console.log('🔄 Calling backend to unregister token...');
+      const response = await axiosInstance.delete(endpoints.notifications.unregisterPushToken, {
         data: { token },
       });
 
-      console.log('Push token unregistered from backend');
+      console.log('✅ Push token unregistered from backend:', response.data);
       return true;
-    } catch (error) {
-      console.error('Error unregistering push token from backend:', error);
-      return false;
+    } catch (error: any) {
+      console.error('❌ Error unregistering push token from backend:', error.message);
+      if (error.response) {
+        console.error('❌ Response status:', error.response.status);
+        console.error('❌ Response data:', error.response.data);
+      }
+      // Return true even on error to allow cleanup to proceed
+      return true;
     }
   }
 
@@ -122,7 +131,10 @@ class PushNotificationService {
     const token = await this.registerForPushNotifications();
 
     if (token) {
+      console.log('✅ Got push token, registering with backend...');
       await this.registerTokenWithBackend(token);
+    } else {
+      console.warn('⚠️ No push token received');
     }
 
     return token;
@@ -178,6 +190,32 @@ class PushNotificationService {
    */
   async clearAllNotifications(): Promise<void> {
     await Notifications.dismissAllNotificationsAsync();
+  }
+
+  /**
+   * Cleanup: Unregister token from backend and clear local state
+   * Call this when user signs out
+   */
+  async cleanup(): Promise<void> {
+    console.log('🧹 Starting push notification cleanup...');
+    
+    try {
+      // Unregister token from backend if we have one
+      if (this.expoPushToken) {
+        console.log('📤 Unregistering push token from backend:', this.expoPushToken.substring(0, 20) + '...');
+        await this.unregisterTokenFromBackend(this.expoPushToken);
+      } else {
+        console.log('ℹ️ No push token to unregister');
+      }
+
+      // Clear local token
+      this.expoPushToken = null;
+
+      console.log('✅ Push notification service cleaned up successfully');
+    } catch (error) {
+      console.error('❌ Error during push notification cleanup:', error);
+      this.expoPushToken = null;
+    }
   }
 }
 

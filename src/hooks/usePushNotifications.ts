@@ -22,6 +22,7 @@ interface UsePushNotificationsReturn {
   error: string | null;
   lastNotification: Notifications.Notification | null;
   registerForPushNotifications: () => Promise<void>;
+  cleanup: () => Promise<void>;
 }
 
 export function usePushNotifications(): UsePushNotificationsReturn {
@@ -88,10 +89,11 @@ export function usePushNotifications(): UsePushNotificationsReturn {
   // Register for push notifications
   const registerForPushNotifications = useCallback(async () => {
     if (!session?.user?.id) {
-      console.log('Cannot register for push notifications: No user session');
+      console.log('❌ Cannot register for push notifications: No user session');
       return;
     }
 
+    console.log('🔔 Registering push notifications for user:', session.user.id);
     setIsLoading(true);
     setError(null);
 
@@ -101,21 +103,47 @@ export function usePushNotifications(): UsePushNotificationsReturn {
       if (token) {
         setExpoPushToken(token);
         setIsRegistered(true);
-        console.log('Push notifications registered successfully');
+        console.log('✅ Push notifications registered successfully:', token);
       } else {
+        console.warn('⚠️ Failed to get push token');
         setError('Failed to get push token');
       }
     } catch (err) {
-      console.error('Error registering for push notifications:', err);
+      console.error('❌ Error registering for push notifications:', err);
       setError(err instanceof Error ? err.message : 'Unknown error');
     } finally {
       setIsLoading(false);
     }
   }, [session?.user?.id]);
 
+  // Cleanup push notifications
+  const cleanup = useCallback(async () => {
+    console.log('🧹 usePushNotifications: Starting cleanup...');
+    try {
+      await pushNotificationService.cleanup();
+      setExpoPushToken(null);
+      setIsRegistered(false);
+      setError(null);
+      console.log('✅ usePushNotifications: Cleanup completed');
+    } catch (err) {
+      console.error('❌ usePushNotifications: Error during cleanup:', err);
+      // Still clear local state even on error
+      setExpoPushToken(null);
+      setIsRegistered(false);
+    }
+  }, []);
+
   // Initialize push notifications when user is authenticated
+  // This effect runs when the user logs in or when the component mounts with an authenticated session
   useEffect(() => {
+    console.log('🔍 Push notification effect triggered:', {
+      hasUserId: !!session?.user?.id,
+      isRegistered,
+      isLoading
+    });
+
     if (session?.user?.id && !isRegistered && !isLoading) {
+      console.log('✨ Triggering push notification registration...');
       registerForPushNotifications();
     }
   }, [session?.user?.id, isRegistered, isLoading, registerForPushNotifications]);
@@ -161,5 +189,6 @@ export function usePushNotifications(): UsePushNotificationsReturn {
     error,
     lastNotification,
     registerForPushNotifications,
+    cleanup,
   };
 }
