@@ -560,7 +560,7 @@ export default function SeasonDetailsScreen({
       
       if (!isUserAssignedToDivision) {
         return {
-          text: 'Waiting for admin to assign you to a division',
+          text: 'Awaiting division assignment by admin',
           color: '#FEA04D',
           onPress: () => toast.info('Please wait for admin to assign you to a division before viewing the leaderboard.'),
           disabled: false
