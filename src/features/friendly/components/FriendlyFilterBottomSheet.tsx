@@ -8,10 +8,12 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { BottomSheetModal, BottomSheetBackdrop, BottomSheetView } from '@gorhom/bottom-sheet';
 import * as Haptics from 'expo-haptics';
+import { SkillLevel } from './SkillLevelSelector';
 
 export interface FriendlyFilterOptions {
   status: 'all' | 'open' | 'full';
   gameType: 'SINGLES' | 'DOUBLES' | null;
+  skillLevels: SkillLevel[];
 }
 
 interface FriendlyFilterBottomSheetProps {
@@ -37,6 +39,15 @@ const GAME_TYPE_OPTIONS = [
   { value: 'DOUBLES', label: 'Doubles' },
 ] as const;
 
+const SKILL_LEVEL_OPTIONS: { value: SkillLevel; label: string }[] = [
+  { value: 'BEGINNER', label: 'Beginner' },
+  { value: 'IMPROVER', label: 'Improver' },
+  { value: 'INTERMEDIATE', label: 'Intermediate' },
+  { value: 'UPPER_INTERMEDIATE', label: 'Upper Intermediate' },
+  { value: 'EXPERT', label: 'Expert' },
+  { value: 'ADVANCED', label: 'Advanced' },
+];
+
 export const FriendlyFilterBottomSheet = forwardRef<FriendlyFilterBottomSheetRef, FriendlyFilterBottomSheetProps>(({
   onClose,
   onApply,
@@ -46,7 +57,7 @@ export const FriendlyFilterBottomSheet = forwardRef<FriendlyFilterBottomSheetRef
   const bottomSheetModalRef = React.useRef<BottomSheetModal>(null);
   const [localFilters, setLocalFilters] = useState<FriendlyFilterOptions>(currentFilters);
 
-  const snapPoints = useMemo(() => ['55%'], []);
+  const snapPoints = useMemo(() => ['70%'], []);
 
   useImperativeHandle(ref, () => ({
     present: () => {
@@ -82,6 +93,7 @@ export const FriendlyFilterBottomSheet = forwardRef<FriendlyFilterBottomSheetRef
     const clearedFilters: FriendlyFilterOptions = {
       status: 'all',
       gameType: null,
+      skillLevels: [],
     };
     setLocalFilters(clearedFilters);
     onApply(clearedFilters);
@@ -110,10 +122,23 @@ export const FriendlyFilterBottomSheet = forwardRef<FriendlyFilterBottomSheetRef
     }));
   };
 
+  const handleSkillLevelToggle = (level: SkillLevel) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setLocalFilters(prev => {
+      const currentLevels = prev.skillLevels;
+      if (currentLevels.includes(level)) {
+        return { ...prev, skillLevels: currentLevels.filter(l => l !== level) };
+      } else {
+        return { ...prev, skillLevels: [...currentLevels, level] };
+      }
+    });
+  };
+
   const activeFilterCount = useMemo(() => {
     let count = 0;
     if (localFilters.status !== 'all') count++;
     if (localFilters.gameType !== null) count++;
+    if (localFilters.skillLevels.length > 0) count++;
     return count;
   }, [localFilters]);
 
@@ -196,6 +221,21 @@ export const FriendlyFilterBottomSheet = forwardRef<FriendlyFilterBottomSheetRef
                   label,
                   localFilters.gameType === value,
                   () => handleGameTypeToggle(value)
+                )
+              )}
+            </View>
+          </View>
+
+          {/* Skill Level Section */}
+          <View style={styles.filterSection}>
+            <Text style={styles.sectionTitle}>Skill Level</Text>
+            <View style={styles.chipsContainer}>
+              {SKILL_LEVEL_OPTIONS.map(({ value, label }) =>
+                renderFilterChip(
+                  `skill-${value}`,
+                  label,
+                  localFilters.skillLevels.includes(value),
+                  () => handleSkillLevelToggle(value)
                 )
               )}
             </View>
