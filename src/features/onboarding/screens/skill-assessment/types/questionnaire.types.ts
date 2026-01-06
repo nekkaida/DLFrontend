@@ -3,9 +3,17 @@ export type SportType = 'pickleball' | 'tennis' | 'padel' | 'basketball' | 'socc
 
 export type QuestionType = 'single_choice' | 'number' | 'skill_matrix';
 
-// Pickleball types
+// Conditional visibility for questions
+export interface ShowIfCondition {
+  key: string;
+  operator: '==' | '!=' | 'exists' | 'not_exists';
+  value?: any;
+}
+
+// Sport-specific question types
 export interface Question {
   key: string;
+  showIf?: ShowIfCondition | ShowIfCondition[]; // AND logic for arrays
   question: string;
   type: QuestionType;
   options?: string[];
@@ -38,6 +46,7 @@ export interface SkillQuestions {
 // Tennis types
 export interface TennisQuestion {
   key: string;
+  showIf?: ShowIfCondition | ShowIfCondition[]; // AND logic for arrays
   question: string;
   type: QuestionType;
   options?: string[];
@@ -65,6 +74,7 @@ export interface TennisSkillQuestions {
 // Padel types
 export interface PadelQuestion {
   key: string;
+  showIf?: ShowIfCondition | ShowIfCondition[]; // AND logic for arrays
   question: string;
   type: QuestionType;
   options?: string[];
@@ -97,6 +107,7 @@ export type AnySkillQuestions = SkillQuestions | TennisSkillQuestions | PadelSki
 // Questionnaire service interface
 export interface QuestionnaireService {
   getConditionalQuestions: (responses: any) => AnyQuestion[];
+  getAllQuestions: () => AnyQuestion[]; // Returns ALL questions with showIf conditions
   calculateInitialRating: (responses: any) => any;
   generateFeedback: (rating: any) => string;
 }
