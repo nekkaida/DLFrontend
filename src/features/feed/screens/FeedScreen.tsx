@@ -6,7 +6,7 @@ import { router } from 'expo-router';
 import BottomSheet from '@gorhom/bottom-sheet';
 import { getSportColors, SportType } from '@/constants/SportsColor';
 import { useFeedPosts } from '../hooks';
-import { FeedHeader, FeedPostCard, CommentsSheet } from '../components';
+import { FeedHeader, FeedPostCard, CommentsSheet, SportFilterSheet } from '../components';
 import { feedTheme } from '../theme';
 import { FeedPost } from '../types';
 
@@ -17,15 +17,21 @@ interface FeedScreenProps {
 export default function FeedScreen({ sport = 'default' }: FeedScreenProps) {
   const [selectedPostId, setSelectedPostId] = useState<string | null>(null);
   const commentsSheetRef = useRef<BottomSheet>(null);
+  const sportFilterRef = useRef<BottomSheet>(null);
 
   const [selectedSportFilter, setSelectedSportFilter] = useState<string | undefined>(sport);
 
   const handleFilterPress = useCallback(() => {
-    // Will open filter sheet - placeholder for now
+    sportFilterRef.current?.snapToIndex(0);
   }, []);
 
   const handleSportSelect = useCallback((sportValue: string | undefined) => {
     setSelectedSportFilter(sportValue);
+    sportFilterRef.current?.close();
+  }, []);
+
+  const handleCloseFilter = useCallback(() => {
+    // Filter closed
   }, []);
 
   const {
@@ -146,6 +152,14 @@ export default function FeedScreen({ sport = 'default' }: FeedScreenProps) {
         bottomSheetRef={commentsSheetRef}
         onClose={handleCloseComments}
         onCommentCountChange={handleCommentCountChange}
+      />
+
+      {/* Sport Filter Bottom Sheet */}
+      <SportFilterSheet
+        bottomSheetRef={sportFilterRef}
+        selectedSport={selectedSportFilter}
+        onSelect={handleSportSelect}
+        onClose={handleCloseFilter}
       />
     </View>
   );
