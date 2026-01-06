@@ -1,33 +1,32 @@
+import BackButtonIcon from '@/assets/icons/back-button.svg';
+import LeagueInfoIcon from '@/assets/icons/league-info.svg';
+import { ManageTeamButton } from '@/features/pairing/components';
+import { authClient, useSession } from '@/lib/auth-client';
+import { SportSwitcher } from '@/shared/components/ui/SportSwitcher';
+import { getBackendBaseURL } from '@/src/config/network';
+import { CategoryService } from '@/src/features/dashboard-user/services/CategoryService';
+import { Season, SeasonService } from '@/src/features/dashboard-user/services/SeasonService';
+import { LeagueService } from '@/src/features/leagues/services/LeagueService';
+import { useUserPartnerships } from '@/src/features/pairing/hooks/useUserPartnerships';
+import { FiuuPaymentService } from '@/src/features/payments/services/FiuuPaymentService';
+import * as Haptics from 'expo-haptics';
+import { LinearGradient } from 'expo-linear-gradient';
+import { router } from 'expo-router';
 import React from 'react';
-import { ScrollView, Text, View, StyleSheet, Dimensions, TouchableOpacity, ActivityIndicator, Image, StatusBar, Animated as RNAnimated } from 'react-native';
+import { ActivityIndicator, Dimensions, Image, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  useAnimatedScrollHandler,
-  interpolate,
   Extrapolation,
+  interpolate,
+  useAnimatedScrollHandler,
+  useAnimatedStyle,
+  useSharedValue,
   withSpring,
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { LinearGradient } from 'expo-linear-gradient';
-import { router } from 'expo-router';
-import { SportSwitcher } from '@/shared/components/ui/SportSwitcher';
-import { getBackendBaseURL } from '@/src/config/network';
-import { authClient } from '@/lib/auth-client';
-import { useSession } from '@/lib/auth-client';
-import * as Haptics from 'expo-haptics';
-import { SeasonService, Season } from '@/src/features/dashboard-user/services/SeasonService';
-import { CategoryService } from '@/src/features/dashboard-user/services/CategoryService';
-import { LeagueService } from '@/src/features/leagues/services/LeagueService';
-import { PaymentOptionsBottomSheet } from '../components';
-import { FiuuPaymentService } from '@/src/features/payments/services/FiuuPaymentService';
 import { toast } from 'sonner-native';
-import LeagueInfoIcon from '@/assets/icons/league-info.svg';
-import BackButtonIcon from '@/assets/icons/back-button.svg';
+import { PaymentOptionsBottomSheet } from '../components';
 import { getSeasonInfoIcons } from '../components/SeasonInfoIcons';
 import { checkQuestionnaireStatus, getSeasonSport } from '../utils/questionnaireCheck';
-import { useUserPartnerships } from '@/src/features/pairing/hooks/useUserPartnerships';
-import { ManageTeamButton } from '@/features/pairing/components';
 
 const { width } = Dimensions.get('window');
 
@@ -336,7 +335,6 @@ export default function SeasonDetailsScreen({
 
   const handleViewStandingsPress = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    console.log('View Standings button pressed');
     
     if (!season) {
       toast.info('Season data not available');
@@ -489,6 +487,11 @@ export default function SeasonDetailsScreen({
       return true;
     }
 
+    // OPEN categories allow all genders - check this FIRST
+    if (categoryGender === 'OPEN') {
+      return true;
+    }
+
     if (userGender === 'FEMALE') {
       if (categoryGender === 'FEMALE' || categoryGender === 'WOMEN') return true;
       if (categoryGender === 'MIXED' && isDoubles) return true;
@@ -501,7 +504,7 @@ export default function SeasonDetailsScreen({
       return false;
     }
 
-    return categoryGender === 'OPEN';
+    return false;
   };
 
   // Helper function to check if user can join the current season
@@ -552,6 +555,18 @@ export default function SeasonDetailsScreen({
     }
 
     if (isUserRegistered) {
+      // Check if user has been assigned to a division
+      const isUserAssignedToDivision = !!(userMembership && userMembership.divisionId);
+      
+      if (!isUserAssignedToDivision) {
+        return {
+          text: 'Awaiting division assignment by admin',
+          color: '#FEA04D',
+          onPress: () => toast.info('Please wait for admin to assign you to a division before viewing the leaderboard.'),
+          disabled: false
+        };
+      }
+      
       return {
         text: 'View Leaderboard',
         color: '#FEA04D',

@@ -45,6 +45,7 @@ export const FriendlyScreen: React.FC<FriendlyScreenProps> = ({ sport }) => {
   const [filters, setFilters] = useState<FriendlyFilterOptions>({
     status: 'all',
     gameType: null,
+    skillLevels: [],
   });
   // Default to today's date
   const [selectedDate, setSelectedDate] = useState<Date | null>(() => {
@@ -144,6 +145,11 @@ export const FriendlyScreen: React.FC<FriendlyScreenProps> = ({ sport }) => {
         params.toDate = endOfDay.toISOString();
       }
 
+      // Add skill level filter if any are selected
+      if (filters.skillLevels.length > 0) {
+        params.skillLevels = filters.skillLevels;
+      }
+
       const response = await axiosInstance.get(endpoints.friendly.getAll, { params });
       const data = response.data?.data || response.data;
       const matchesData = data?.matches || data || [];
@@ -157,7 +163,7 @@ export const FriendlyScreen: React.FC<FriendlyScreenProps> = ({ sport }) => {
       setRefreshing(false);
       setShowSkeleton(false);
     }
-  }, [sportType, selectedDate, checkForNewContent]);
+  }, [sportType, selectedDate, filters.skillLevels, checkForNewContent]);
 
   // Refresh matches when screen comes into focus (e.g., after creating a match)
   useFocusEffect(
@@ -228,6 +234,18 @@ export const FriendlyScreen: React.FC<FriendlyScreenProps> = ({ sport }) => {
     // Filter by game type (singles/doubles)
     if (filters.gameType) {
       filtered = filtered.filter(match => match.matchType === filters.gameType);
+    }
+
+    // Filter by skill level (match if any selected level overlaps with match's skill levels)
+    if (filters.skillLevels.length > 0) {
+      filtered = filtered.filter(match => {
+        // If match has no skill levels defined, don't include it when filtering
+        if (!match.skillLevels || match.skillLevels.length === 0) {
+          return false;
+        }
+        // Include match if any of the selected skill levels match the match's skill levels
+        return filters.skillLevels.some(level => match.skillLevels?.includes(level));
+      });
     }
 
     // Sort by date (soonest first)
@@ -308,6 +326,7 @@ export const FriendlyScreen: React.FC<FriendlyScreenProps> = ({ sport }) => {
     let count = 0;
     if (filters.status !== 'all') count++;
     if (filters.gameType !== null) count++;
+    if (filters.skillLevels.length > 0) count++;
     if (selectedDate !== null) count++;
     return count;
   }, [filters, selectedDate]);
@@ -349,7 +368,7 @@ export const FriendlyScreen: React.FC<FriendlyScreenProps> = ({ sport }) => {
           <TouchableOpacity
             style={[
               styles.filterButton,
-              (filters.status !== 'all' || filters.gameType !== null) && {
+              (filters.status !== 'all' || filters.gameType !== null || filters.skillLevels.length > 0) && {
                 backgroundColor: sportColors.background,
                 borderColor: sportColors.background
               }
@@ -360,16 +379,16 @@ export const FriendlyScreen: React.FC<FriendlyScreenProps> = ({ sport }) => {
             <Ionicons
               name="options-outline"
               size={20}
-              color={(filters.status !== 'all' || filters.gameType !== null) ? '#FFFFFF' : '#6B7280'}
+              color={(filters.status !== 'all' || filters.gameType !== null || filters.skillLevels.length > 0) ? '#FFFFFF' : '#6B7280'}
             />
             <Text
               style={[
                 styles.filterButtonText,
-                (filters.status !== 'all' || filters.gameType !== null) && styles.filterButtonTextActive
+                (filters.status !== 'all' || filters.gameType !== null || filters.skillLevels.length > 0) && styles.filterButtonTextActive
               ]}
             >
-              {(filters.status !== 'all' || filters.gameType !== null)
-                ? `${(filters.status !== 'all' ? 1 : 0) + (filters.gameType !== null ? 1 : 0)}`
+              {(filters.status !== 'all' || filters.gameType !== null || filters.skillLevels.length > 0)
+                ? `${(filters.status !== 'all' ? 1 : 0) + (filters.gameType !== null ? 1 : 0) + (filters.skillLevels.length > 0 ? 1 : 0)}`
                 : 'Filter'}
             </Text>
           </TouchableOpacity>
