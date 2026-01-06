@@ -15,6 +15,19 @@ interface FeedScreenProps {
 }
 
 export default function FeedScreen({ sport = 'default' }: FeedScreenProps) {
+  const [selectedPostId, setSelectedPostId] = useState<string | null>(null);
+  const commentsSheetRef = useRef<BottomSheet>(null);
+
+  const [selectedSportFilter, setSelectedSportFilter] = useState<string | undefined>(sport);
+
+  const handleFilterPress = useCallback(() => {
+    // Will open filter sheet - placeholder for now
+  }, []);
+
+  const handleSportSelect = useCallback((sportValue: string | undefined) => {
+    setSelectedSportFilter(sportValue);
+  }, []);
+
   const {
     posts,
     isLoading,
@@ -24,10 +37,7 @@ export default function FeedScreen({ sport = 'default' }: FeedScreenProps) {
     fetchPosts,
     loadMorePosts,
     updatePostLocally,
-  } = useFeedPosts({ sport, limit: 10 });
-
-  const [selectedPostId, setSelectedPostId] = useState<string | null>(null);
-  const commentsSheetRef = useRef<BottomSheet>(null);
+  } = useFeedPosts({ sport: selectedSportFilter, limit: 10 });
 
   // Get sport colors using the utility function (convert to uppercase for SportType)
   const sportType = sport?.toUpperCase() as SportType;
@@ -100,7 +110,8 @@ export default function FeedScreen({ sport = 'default' }: FeedScreenProps) {
   return (
     <View style={styles.container}>
       <FeedHeader
-        selectedSport={sport}
+        selectedSport={selectedSportFilter}
+        onFilterPress={handleFilterPress}
         onFriendListPress={handleFriendListPress}
       />
 
