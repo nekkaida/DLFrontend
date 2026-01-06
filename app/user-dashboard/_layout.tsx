@@ -16,6 +16,13 @@ export default function DashboardLayout() {
         <Stack.Screen name="tennis" />
         <Stack.Screen name="category" options={{ title: 'League Category' }} />
         <Stack.Screen name="seasons" options={{ title: 'Seasons' }} />
+        <Stack.Screen
+          name="friend-list"
+          options={{
+            animation: 'slide_from_right',
+            gestureEnabled: true,
+          }}
+        />
       </Stack>
     </DashboardProvider>
   );
