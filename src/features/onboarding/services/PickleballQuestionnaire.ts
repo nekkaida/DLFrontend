@@ -28,6 +28,8 @@ export interface RatingResult {
   };
 }
 
+import { ShowIfCondition } from '../screens/skill-assessment/types/questionnaire.types';
+
 export interface Question {
   key: string;
   question: string;
@@ -41,6 +43,7 @@ export interface Question {
   help_text?: string;
   conditional?: string;
   reliability_target?: string;
+  showIf?: ShowIfCondition | ShowIfCondition[];
 }
 
 export class PickleballQuestionnaire {
@@ -348,6 +351,134 @@ export class PickleballQuestionnaire {
     }
 
     return this.getRemainingQuestionnaireQuestions(responses);
+  }
+
+  /**
+   * Returns ALL questions with showIf conditions for declarative filtering.
+   * The UI evaluates showIf conditions in real-time based on responses.
+   * This enables stable carousel data for smooth animations.
+   */
+  getAllQuestions(): Question[] {
+    const q = this.questions;
+
+    return [
+      // Q1: DUPR gate question (always visible)
+      {
+        key: 'has_dupr',
+        question: q.has_dupr.question,
+        type: 'single_choice' as const,
+        options: Object.keys(q.has_dupr.answers),
+        help_text: 'DUPR is the official rating system used in competitive play',
+      },
+
+      // Q2: DUPR Singles rating (conditional on has_dupr = Yes)
+      {
+        key: 'dupr_singles',
+        question: 'What is your DUPR Singles rating? (Leave blank if you don\'t play singles)',
+        type: 'number' as const,
+        min_value: 2.0,
+        max_value: 8.0,
+        step: 0.01,
+        optional: true,
+        help_text: 'Your singles DUPR rating (e.g., 3.75). Skip if you don\'t have one.',
+        showIf: { key: 'has_dupr', operator: '==', value: 'Yes' },
+      },
+
+      // Q3: DUPR Doubles rating (conditional on has_dupr = Yes)
+      {
+        key: 'dupr_doubles',
+        question: 'What is your DUPR Doubles rating? (Leave blank if you don\'t play doubles)',
+        type: 'number' as const,
+        min_value: 2.0,
+        max_value: 8.0,
+        step: 0.01,
+        optional: true,
+        help_text: 'Your doubles DUPR rating (e.g., 4.12). Skip if you don\'t have one.',
+        showIf: { key: 'has_dupr', operator: '==', value: 'Yes' },
+      },
+
+      // Q4: DUPR Singles reliability (conditional on dupr_singles having a value)
+      {
+        key: 'dupr_singles_reliability',
+        question: 'What is your DUPR Singles reliability percentage?',
+        type: 'number' as const,
+        min_value: 0,
+        max_value: 100,
+        step: 1,
+        optional: true,
+        help_text: 'The reliability percentage shown next to your DUPR singles rating (0-100%). Skip if unsure.',
+        showIf: { key: 'dupr_singles', operator: 'exists' },
+      },
+
+      // Q5: DUPR Doubles reliability (conditional on dupr_doubles having a value)
+      {
+        key: 'dupr_doubles_reliability',
+        question: 'What is your DUPR Doubles reliability percentage?',
+        type: 'number' as const,
+        min_value: 0,
+        max_value: 100,
+        step: 1,
+        optional: true,
+        help_text: 'The reliability percentage shown next to your DUPR doubles rating (0-100%). Skip if unsure.',
+        showIf: { key: 'dupr_doubles', operator: 'exists' },
+      },
+
+      // Standard questionnaire questions (show when has_dupr != 'Yes')
+      {
+        key: 'experience',
+        question: q.experience.question,
+        type: 'single_choice' as const,
+        options: Object.keys(q.experience.answers),
+        showIf: { key: 'has_dupr', operator: '!=', value: 'Yes' },
+      },
+      {
+        key: 'sports_background',
+        question: q.sports_background.question,
+        type: 'single_choice' as const,
+        options: Object.keys(q.sports_background.answers),
+        showIf: { key: 'has_dupr', operator: '!=', value: 'Yes' },
+      },
+      {
+        key: 'frequency',
+        question: q.frequency.question,
+        type: 'single_choice' as const,
+        options: Object.keys(q.frequency.answers),
+        showIf: { key: 'has_dupr', operator: '!=', value: 'Yes' },
+      },
+      {
+        key: 'competitive_level',
+        question: q.competitive_level.question,
+        type: 'single_choice' as const,
+        options: Object.keys(q.competitive_level.answers),
+        showIf: { key: 'has_dupr', operator: '!=', value: 'Yes' },
+      },
+      {
+        key: 'skills',
+        question: q.skills.question,
+        type: 'skill_matrix' as const,
+        sub_questions: Object.fromEntries(
+          Object.entries(q.skills.sub_questions).map(([skillKey, skillData]) => [
+            skillKey,
+            { question: skillData.question, options: Object.keys(skillData.answers) },
+          ])
+        ),
+        showIf: { key: 'has_dupr', operator: '!=', value: 'Yes' },
+      },
+      {
+        key: 'self_rating',
+        question: q.self_rating.question,
+        type: 'single_choice' as const,
+        options: Object.keys(q.self_rating.answers),
+        showIf: { key: 'has_dupr', operator: '!=', value: 'Yes' },
+      },
+      {
+        key: 'tournament',
+        question: q.tournament.question,
+        type: 'single_choice' as const,
+        options: Object.keys(q.tournament.answers),
+        showIf: { key: 'has_dupr', operator: '!=', value: 'Yes' },
+      },
+    ];
   }
 
   private getRemainingQuestionnaireQuestions(responses: QuestionnaireResponse): Question[] {
