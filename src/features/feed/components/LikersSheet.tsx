@@ -10,7 +10,7 @@ import { feedTheme } from '../theme';
 interface LikersSheetProps {
   postId: string | null;
   likeCount: number;
-  bottomSheetRef: React.RefObject<BottomSheet>;
+  bottomSheetRef: React.RefObject<BottomSheet | null>;
   onClose: () => void;
   onUserPress?: (userId: string) => void;
 }

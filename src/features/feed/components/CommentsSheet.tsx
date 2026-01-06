@@ -21,7 +21,7 @@ import { feedTheme } from '../theme';
 
 interface CommentsSheetProps {
   postId: string | null;
-  bottomSheetRef: React.RefObject<BottomSheet>;
+  bottomSheetRef: React.RefObject<BottomSheet | null>;
   onClose: () => void;
   onCommentCountChange: (postId: string, count: number) => void;
 }

@@ -6,7 +6,7 @@ import { router } from 'expo-router';
 import BottomSheet from '@gorhom/bottom-sheet';
 import { getSportColors, SportType } from '@/constants/SportsColor';
 import { useFeedPosts } from '../hooks';
-import { FeedHeader, FeedPostCard, CommentsSheet, SportFilterSheet } from '../components';
+import { FeedHeader, FeedPostCard, CommentsSheet, SportFilterSheet, LikersSheet } from '../components';
 import { feedTheme } from '../theme';
 import { FeedPost } from '../types';
 
@@ -18,6 +18,9 @@ export default function FeedScreen({ sport = 'default' }: FeedScreenProps) {
   const [selectedPostId, setSelectedPostId] = useState<string | null>(null);
   const commentsSheetRef = useRef<BottomSheet>(null);
   const sportFilterRef = useRef<BottomSheet>(null);
+  const [selectedLikerPostId, setSelectedLikerPostId] = useState<string | null>(null);
+  const [selectedLikerCount, setSelectedLikerCount] = useState(0);
+  const likersSheetRef = useRef<BottomSheet>(null);
 
   const [selectedSportFilter, setSelectedSportFilter] = useState<string | undefined>(sport);
 
@@ -81,6 +84,16 @@ export default function FeedScreen({ sport = 'default' }: FeedScreenProps) {
     router.push(`/profile/${authorId}`);
   }, []);
 
+  const handleLikeCountPress = useCallback((postId: string, likeCount: number) => {
+    setSelectedLikerPostId(postId);
+    setSelectedLikerCount(likeCount);
+    likersSheetRef.current?.snapToIndex(0);
+  }, []);
+
+  const handleCloseLikers = useCallback(() => {
+    setSelectedLikerPostId(null);
+  }, []);
+
   const renderPost = useCallback(({ item }: { item: FeedPost }) => (
     <FeedPostCard
       post={item}
@@ -89,8 +102,9 @@ export default function FeedScreen({ sport = 'default' }: FeedScreenProps) {
       onLikeUpdate={handleLikeUpdate}
       onCommentPress={handleCommentPress}
       onAuthorPress={handleAuthorPress}
+      onLikeCountPress={handleLikeCountPress}
     />
-  ), [sportColors, isGameScoreSport, handleLikeUpdate, handleCommentPress, handleAuthorPress]);
+  ), [sportColors, isGameScoreSport, handleLikeUpdate, handleCommentPress, handleAuthorPress, handleLikeCountPress]);
 
   const renderFooter = useCallback(() => {
     if (!isLoadingMore) return null;
@@ -160,6 +174,15 @@ export default function FeedScreen({ sport = 'default' }: FeedScreenProps) {
         selectedSport={selectedSportFilter}
         onSelect={handleSportSelect}
         onClose={handleCloseFilter}
+      />
+
+      {/* Likers Bottom Sheet */}
+      <LikersSheet
+        postId={selectedLikerPostId}
+        likeCount={selectedLikerCount}
+        bottomSheetRef={likersSheetRef}
+        onClose={handleCloseLikers}
+        onUserPress={handleAuthorPress}
       />
     </View>
   );

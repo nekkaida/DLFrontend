@@ -14,7 +14,7 @@ const SPORT_OPTIONS = [
 ] as const;
 
 interface SportFilterSheetProps {
-  bottomSheetRef: React.RefObject<BottomSheet>;
+  bottomSheetRef: React.RefObject<BottomSheet | null>;
   selectedSport?: string;
   onSelect: (sport: string | undefined) => void;
   onClose: () => void;

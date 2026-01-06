@@ -20,6 +20,7 @@ interface FeedPostCardProps {
   onLikeUpdate: (postId: string, liked: boolean, likeCount: number) => void;
   onCommentPress: (postId: string) => void;
   onAuthorPress?: (authorId: string) => void;
+  onLikeCountPress: (postId: string, likeCount: number) => void;
 }
 
 export const FeedPostCard: React.FC<FeedPostCardProps> = ({
@@ -29,6 +30,7 @@ export const FeedPostCard: React.FC<FeedPostCardProps> = ({
   onLikeUpdate,
   onCommentPress,
   onAuthorPress,
+  onLikeCountPress,
 }) => {
   const { isLiking, toggleLike } = useLikes();
 
@@ -78,6 +80,10 @@ export const FeedPostCard: React.FC<FeedPostCardProps> = ({
     onAuthorPress?.(post.author.id);
   }, [post.author.id, onAuthorPress]);
 
+  const handleLikeCountPress = useCallback(() => {
+    onLikeCountPress(post.id, post.likeCount);
+  }, [post.id, post.likeCount, onLikeCountPress]);
+
   return (
     <View style={styles.container}>
       {/* Author Header */}
@@ -116,6 +122,7 @@ export const FeedPostCard: React.FC<FeedPostCardProps> = ({
         onLikePress={handleLikePress}
         onCommentPress={handleCommentPress}
         onSharePress={handleSharePress}
+        onLikeCountPress={handleLikeCountPress}
       />
     </View>
   );
