@@ -12,19 +12,21 @@ const isBlockedAuthPage = (route: string): boolean => {
   return BLOCKED_AUTH_PAGES.some(authPage => route.startsWith(authPage));
 };
 
-// Map onboarding step to the NEXT route the user should go to
-const STEP_TO_NEXT_ROUTE: Record<string, string> = {
-  'PERSONAL_INFO': '/onboarding/location',
-  'LOCATION': '/onboarding/game-select',
-  'GAME_SELECT': '/onboarding/skill-assessment',
-  'SKILL_ASSESSMENT': '/onboarding/assessment-results',
-  'ASSESSMENT_RESULTS': '/onboarding/profile-picture',
-  'PROFILE_PICTURE': '/user-dashboard',
+// Map onboarding step to the CURRENT route where the user should be
+// The step indicates the CURRENT step the user is on (not completed yet)
+const STEP_TO_CURRENT_ROUTE: Record<string, string> = {
+  'PERSONAL_INFO': '/onboarding/personal-info',
+  'LOCATION': '/onboarding/location',
+  'GAME_SELECT': '/onboarding/game-select',
+  'SKILL_ASSESSMENT': '/onboarding/skill-assessment',
+  'ASSESSMENT_RESULTS': '/onboarding/assessment-results',
+  'PROFILE_PICTURE': '/onboarding/profile-picture',
 };
 
-// Get the next route for a user based on their onboarding step
+// Get the current route for a user based on their onboarding step
+// The step indicates where the user currently IS in the onboarding flow
 // For GAME_SELECT and SKILL_ASSESSMENT steps, we need to determine which sport to resume with
-const getNextOnboardingRoute = (
+const getCurrentOnboardingRoute = (
   step: string | null | undefined,
   selectedSports?: string[],
   completedSports?: string[]
@@ -32,9 +34,8 @@ const getNextOnboardingRoute = (
   if (!step) return '/onboarding/personal-info';
 
   // Special handling for steps that involve sport selection
-  // GAME_SELECT: User has selected sports, needs to start questionnaires
-  // SKILL_ASSESSMENT: User has completed at least one questionnaire, may need to do more
-  if ((step === 'GAME_SELECT' || step === 'SKILL_ASSESSMENT') && selectedSports && selectedSports.length > 0) {
+  // SKILL_ASSESSMENT: User is currently doing questionnaires - find which sport to resume
+  if (step === 'SKILL_ASSESSMENT' && selectedSports && selectedSports.length > 0) {
     // Find the first sport that hasn't been completed yet
     const nextSportIndex = selectedSports.findIndex(
       sport => !completedSports?.includes(sport)
@@ -46,7 +47,8 @@ const getNextOnboardingRoute = (
       console.log(`NavigationInterceptor: Resuming at sport ${nextSport} (index ${nextSportIndex})`);
       return `/onboarding/skill-assessment?sport=${nextSport}&sportIndex=${nextSportIndex}` as Href;
     } else {
-      // All sports completed - move to assessment results for the last sport
+      // All sports completed - this shouldn't happen if step is SKILL_ASSESSMENT
+      // but fallback to assessment results for the last sport
       const lastSport = selectedSports[selectedSports.length - 1];
       const lastIndex = selectedSports.length - 1;
       console.log(`NavigationInterceptor: All sports completed, going to assessment results`);
@@ -54,7 +56,32 @@ const getNextOnboardingRoute = (
     }
   }
 
-  return (STEP_TO_NEXT_ROUTE[step] || '/onboarding/personal-info') as Href;
+  // For ASSESSMENT_RESULTS step, find which sport just completed and show its results
+  // OR redirect to next incomplete sport's questionnaire
+  if (step === 'ASSESSMENT_RESULTS' && selectedSports && selectedSports.length > 0) {
+    // Find the first sport that hasn't been completed yet
+    const nextIncompleteIndex = selectedSports.findIndex(
+      sport => !completedSports?.includes(sport)
+    );
+
+    if (nextIncompleteIndex >= 0) {
+      // There are still incomplete sports - redirect to the next one's questionnaire
+      const nextSport = selectedSports[nextIncompleteIndex];
+      console.log(`NavigationInterceptor: ASSESSMENT_RESULTS - next incomplete sport is ${nextSport} (index ${nextIncompleteIndex})`);
+      return `/onboarding/skill-assessment?sport=${nextSport}&sportIndex=${nextIncompleteIndex}` as Href;
+    } else {
+      // All sports completed - show results for the last completed sport
+      const lastCompletedSport = completedSports && completedSports.length > 0
+        ? completedSports[completedSports.length - 1]
+        : selectedSports[selectedSports.length - 1];
+      const lastIndex = selectedSports.indexOf(lastCompletedSport);
+      console.log(`NavigationInterceptor: ASSESSMENT_RESULTS - all sports done, showing results for ${lastCompletedSport}`);
+      return `/onboarding/assessment-results?sport=${lastCompletedSport}&sportIndex=${lastIndex}` as Href;
+    }
+  }
+
+  // Use the step-to-route mapping for the current step
+  return (STEP_TO_CURRENT_ROUTE[step] || '/onboarding/personal-info') as Href;
 };
 
 // Pages where back navigation should be prevented (exit app instead)
@@ -304,13 +331,13 @@ export const NavigationInterceptor: React.FC<NavigationInterceptorProps> = ({ ch
         }
 
         // User hasn't completed onboarding - redirect to the correct step based on their progress
-        const nextRoute = getNextOnboardingRoute(
+        const nextRoute = getCurrentOnboardingRoute(
           onboardingStatus.onboardingStep,
           onboardingStatus.selectedSports,
           onboardingStatus.completedSports
         );
         console.log('NavigationInterceptor: User needs to continue onboarding, auto-redirecting to:', nextRoute);
-        console.log('NavigationInterceptor: Last completed step:', onboardingStatus.onboardingStep);
+        console.log('NavigationInterceptor: Current onboarding step:', onboardingStatus.onboardingStep);
         console.log('NavigationInterceptor: Selected sports:', onboardingStatus.selectedSports);
         console.log('NavigationInterceptor: Completed sports:', onboardingStatus.completedSports);
         setTimeout(() => router.replace(nextRoute), 100);
@@ -365,13 +392,13 @@ export const NavigationInterceptor: React.FC<NavigationInterceptorProps> = ({ ch
           return;
         }
         // Use step-based routing for resume functionality
-        const nextRoute = getNextOnboardingRoute(
+        const nextRoute = getCurrentOnboardingRoute(
           onboardingStatus.onboardingStep,
           onboardingStatus.selectedSports,
           onboardingStatus.completedSports
         );
         console.warn('Access to protected route blocked - onboarding incomplete:', currentRoute);
-        console.warn('NavigationInterceptor: Last completed step:', onboardingStatus.onboardingStep);
+        console.warn('NavigationInterceptor: Current onboarding step:', onboardingStatus.onboardingStep);
         console.warn('NavigationInterceptor: Selected sports:', onboardingStatus.selectedSports);
         console.warn('NavigationInterceptor: Completed sports:', onboardingStatus.completedSports);
         console.warn('NavigationInterceptor: Redirecting to:', nextRoute);
