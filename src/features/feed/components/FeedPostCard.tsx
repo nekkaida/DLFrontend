@@ -1,7 +1,7 @@
 // src/features/feed/components/FeedPostCard.tsx
 
-import React, { useCallback, useMemo } from 'react';
-import { View, Text, StyleSheet, Share, Dimensions } from 'react-native';
+import React, { useCallback, useMemo, useState } from 'react';
+import { View, Text, StyleSheet, Share, Dimensions, TouchableOpacity } from 'react-native';
 import { MatchResultCard } from '@/features/standings/components';
 import { SportColors, MatchResult } from '@/features/standings/types';
 import { FeedPost } from '../types';
@@ -12,6 +12,7 @@ import { useLikes } from '../hooks';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 const CARD_WIDTH = SCREEN_WIDTH - (feedTheme.spacing.screenPadding * 2) - (feedTheme.spacing.cardPadding * 2);
+const CAPTION_TRUNCATE_LENGTH = 125;
 
 interface FeedPostCardProps {
   post: FeedPost;
@@ -33,6 +34,13 @@ export const FeedPostCard: React.FC<FeedPostCardProps> = ({
   onLikeCountPress,
 }) => {
   const { isLiking, toggleLike } = useLikes();
+  const [captionExpanded, setCaptionExpanded] = useState(false);
+
+  // Caption truncation logic
+  const shouldTruncate = post.caption && post.caption.length > CAPTION_TRUNCATE_LENGTH;
+  const displayCaption = shouldTruncate && !captionExpanded
+    ? post.caption!.slice(0, CAPTION_TRUNCATE_LENGTH)
+    : post.caption;
 
   // Convert FeedMatch to MatchResult format for MatchResultCard
   const matchForCard: MatchResult = useMemo(() => ({
@@ -95,7 +103,18 @@ export const FeedPostCard: React.FC<FeedPostCardProps> = ({
 
       {/* Caption */}
       {post.caption && (
-        <Text style={styles.caption}>{post.caption}</Text>
+        <TouchableOpacity
+          onPress={() => shouldTruncate && setCaptionExpanded(!captionExpanded)}
+          activeOpacity={shouldTruncate ? 0.7 : 1}
+          style={styles.captionContainer}
+        >
+          <Text style={styles.caption}>
+            {displayCaption}
+            {shouldTruncate && !captionExpanded && (
+              <Text style={styles.moreText}>...more</Text>
+            )}
+          </Text>
+        </TouchableOpacity>
       )}
 
       {/* Match Scorecard */}
@@ -135,11 +154,16 @@ const styles = StyleSheet.create({
     marginBottom: feedTheme.spacing.sectionGap,
     ...feedTheme.shadows.card,
   },
+  captionContainer: {
+    paddingHorizontal: feedTheme.spacing.cardPadding,
+    paddingBottom: 10,
+  },
   caption: {
     ...feedTheme.typography.caption,
     color: feedTheme.colors.textPrimary,
-    paddingHorizontal: feedTheme.spacing.cardPadding,
-    paddingBottom: 10,
+  },
+  moreText: {
+    color: feedTheme.colors.textSecondary,
   },
   scorecardContainer: {
     paddingHorizontal: feedTheme.spacing.cardPadding,
