@@ -1,8 +1,10 @@
 import { useMemo } from 'react';
 import type { QuestionnaireResponse } from '../types/questionnaire.types';
+import { filterVisibleQuestions } from '../utils/showIfEvaluator';
 
 interface QuestionnaireService {
-  getConditionalQuestions: (responses: any) => any[];
+  getAllQuestions: () => any[];
+  getConditionalQuestions?: (responses: any) => any[];
 }
 
 interface ProgressResult {
@@ -12,8 +14,7 @@ interface ProgressResult {
 
 /**
  * Custom hook to calculate questionnaire progress.
- * Simulates the full questionnaire flow to determine total questions
- * and counts answered questions for current progress.
+ * Uses getAllQuestions() with showIf filtering for accurate progress.
  */
 export function useQuestionProgress(
   questionnaireType: 'pickleball' | 'tennis' | 'padel' | null,
@@ -27,58 +28,28 @@ export function useQuestionProgress(
       return { current: 1, total: 1 };
     }
 
-    // Count answered questions
-    let answeredQuestions = 0;
-    for (const [key, value] of Object.entries(responses)) {
-      if (value !== undefined && value !== null && value !== '') {
-        if (typeof value === 'object' && !Array.isArray(value)) {
-          answeredQuestions += Object.keys(value).length;
-        } else {
-          answeredQuestions += 1;
-        }
-      }
-    }
-
-    // Merge current answers
+    // Merge current page answers with saved responses
     const allResponses = { ...responses, ...currentPageAnswers };
 
-    // Simulate total questions by walking through the questionnaire flow
-    let totalQuestions = 0;
-    let tempResponses: QuestionnaireResponse = {};
-    const processedKeys = new Set<string>();
+    // Get all questions, expand skill matrices, then filter to visible
+    const allQuestions = questionnaire.getAllQuestions();
+    const expandedQuestions = expandSkillMatrixQuestions(allQuestions);
+    const visibleQuestions = filterVisibleQuestions(expandedQuestions, allResponses);
 
-    while (true) {
-      const questionsForThisStep = questionnaire.getConditionalQuestions(tempResponses);
-      if (questionsForThisStep.length === 0) break;
-
-      const newQuestions = questionsForThisStep.filter(q => !processedKeys.has(q.key));
-      if (newQuestions.length === 0) break;
-
-      const expanded = expandSkillMatrixQuestions(newQuestions);
-      totalQuestions += expanded.length;
-
-      for (const q of newQuestions) {
-        processedKeys.add(q.key);
-        if (allResponses[q.key] !== undefined) {
-          tempResponses[q.key] = allResponses[q.key];
-        } else {
-          // Provide dummy answer for simulation
-          if (q.type === 'single_choice') {
-            tempResponses[q.key] = q.options?.[0] || '';
-          } else if (q.type === 'number') {
-            tempResponses[q.key] = q.min_value !== undefined ? q.min_value : 0;
-          } else if (q.type === 'skill_matrix' && q.sub_questions) {
-            const skillResp: { [key: string]: string } = {};
-            for (const [sk, sd] of Object.entries(q.sub_questions)) {
-              skillResp[sk] = (sd as any).options[0] || '';
-            }
-            tempResponses[q.key] = skillResp;
-          }
-        }
+    // Count answered questions from visible set only
+    let answeredQuestions = 0;
+    for (const question of visibleQuestions) {
+      const key = question.key;
+      // Check in merged responses
+      const value = allResponses[key];
+      if (value !== undefined && value !== null && value !== '') {
+        answeredQuestions += 1;
       }
     }
 
-    // Ensure current never exceeds total
+    const totalQuestions = visibleQuestions.length;
+
+    // Current is answered + 1 (the question being worked on), capped at total
     const current = Math.min(answeredQuestions + 1, totalQuestions);
     return { current, total: Math.max(current, totalQuestions) };
   }, [questionnaireType, questionnaire, responses, currentPageAnswers, expandSkillMatrixQuestions]);

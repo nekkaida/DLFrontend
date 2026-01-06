@@ -12,6 +12,7 @@ import { useQuestionnaire } from './skill-assessment/hooks/useQuestionnaire';
 import { useQuestionProgress } from './skill-assessment/hooks/useQuestionProgress';
 import { expandSkillMatrixQuestions } from './skill-assessment/utils/skillMatrixExpander';
 import { getFirstName } from './skill-assessment/utils/questionnaireHelpers';
+import { filterVisibleQuestions } from './skill-assessment/utils/showIfEvaluator';
 import { PickleballQuestionnaire, QuestionnaireResponse } from '../services/PickleballQuestionnaire';
 import { TennisQuestionnaire, TennisQuestionnaireResponse } from '../services/TennisQuestionnaire';
 import { PadelQuestionnaire, PadelQuestionnaireResponse } from '../services/PadelQuestionnaire';
@@ -85,9 +86,22 @@ const SkillAssessmentScreen = () => {
         return;
       }
 
-      // Validate questionnaire has required methods
-      if (typeof questionnaire.getConditionalQuestions !== 'function') {
-        console.error('Questionnaire missing getConditionalQuestions method');
+      // Validate questionnaire has getAllQuestions method
+      if (typeof questionnaire.getAllQuestions !== 'function') {
+        console.error('Questionnaire missing getAllQuestions method');
+        return;
+      }
+
+      // Load ALL questions upfront (with showIf conditions)
+      // This provides stable carousel data for smooth animations
+      try {
+        const allQuestions = questionnaire.getAllQuestions();
+        const expandedQuestions = expandSkillMatrixQuestions(allQuestions);
+        actions.setQuestions(expandedQuestions);
+        console.log(`Loaded ${expandedQuestions.length} questions for ${sport} (stable array)`);
+      } catch (error) {
+        console.error('Failed to load all questions:', error);
+        toast.error('Failed to load questionnaire. Please try again.');
         return;
       }
 
@@ -105,21 +119,14 @@ const SkillAssessmentScreen = () => {
 
         try {
           const skillDataObject = JSON.parse(existingSkillData);
-          const existingResponses = skillDataObject.responses || {};
-          actions.setResponses(existingResponses);
-
-          // If assessment is complete, show introduction for retake
+          // If assessment is complete, start fresh for retake
           if (skillDataObject.rating) {
             actions.setResponses({});
             actions.setQuestionIndex(0);
-            const initialQuestions = questionnaire.getConditionalQuestions({}) || [];
-            const expandedQuestions = expandSkillMatrixQuestions(initialQuestions);
-            actions.setQuestions(expandedQuestions);
           } else {
-            // Continue incomplete assessment
-            const nextQuestions = questionnaire.getConditionalQuestions(existingResponses) || [];
-            const expandedQuestions = expandSkillMatrixQuestions(nextQuestions);
-            actions.setQuestions(expandedQuestions);
+            // Continue incomplete assessment with existing responses
+            const existingResponses = skillDataObject.responses || {};
+            actions.setResponses(existingResponses);
             actions.setQuestionIndex(0);
           }
         } catch (error) {
@@ -127,27 +134,11 @@ const SkillAssessmentScreen = () => {
           // Start fresh if data is corrupted
           actions.setResponses({});
           actions.setQuestionIndex(0);
-          try {
-            const initialQuestions = questionnaire.getConditionalQuestions({}) || [];
-            const expandedQuestions = expandSkillMatrixQuestions(initialQuestions);
-            actions.setQuestions(expandedQuestions);
-          } catch (innerError) {
-            console.error('Failed to initialize questionnaire:', innerError);
-            toast.error('Failed to load questionnaire. Please try again.');
-          }
         }
       } else {
         // No existing data, start fresh
-        try {
-          actions.setResponses({});
-          actions.setQuestionIndex(0);
-          const initialQuestions = questionnaire.getConditionalQuestions({}) || [];
-          const expandedQuestions = expandSkillMatrixQuestions(initialQuestions);
-          actions.setQuestions(expandedQuestions);
-        } catch (error) {
-          console.error('Failed to initialize questionnaire:', error);
-          toast.error('Failed to load questionnaire. Please try again.');
-        }
+        actions.setResponses({});
+        actions.setQuestionIndex(0);
       }
     }
   }, [sport, data.skillAssessments, getCurrentQuestionnaire, actions]);
@@ -350,104 +341,85 @@ const SkillAssessmentScreen = () => {
     }
   }, [isComprehensive, state.currentPageIndex, currentSportIndex, selectedSports, actions]);
 
-  // Handle next question
+  // Handle next question - simplified with stable questions array
   const proceedToNextQuestion = useCallback(async () => {
-    if (isComprehensive) {
-      const currentQuestion = state.questions[state.currentQuestionIndex];
-      // Merge state with pending answers from ref (fixes race condition with skip button)
-      let finalPageAnswers = { ...state.currentPageAnswers, ...pendingAnswersRef.current };
-      // Clear the ref after reading
-      pendingAnswersRef.current = {};
+    if (!isComprehensive) return;
 
-      // Check if this is a skill question (has originalKey and skillKey)
-      if (currentQuestion && 'originalKey' in currentQuestion && 'skillKey' in currentQuestion) {
-        const originalKey = (currentQuestion as any).originalKey;
-        const skillKey = (currentQuestion as any).skillKey;
+    const currentQuestion = state.questions[state.currentQuestionIndex];
+    // Merge state with pending answers from ref (fixes race condition with skip button)
+    let finalPageAnswers = { ...state.currentPageAnswers, ...pendingAnswersRef.current };
+    pendingAnswersRef.current = {};
 
-        // Create new responses object without mutation
-        const skillMatrixResponse = state.responses[originalKey] || {};
-        const existingMatrix = typeof skillMatrixResponse === 'object' && skillMatrixResponse !== null
-          ? skillMatrixResponse as Record<string, unknown>
-          : {};
-        const updatedSkillMatrix = {
-          ...existingMatrix,
-          [skillKey]: state.currentPageAnswers[currentQuestion.key]
-        };
-
-        const newResponses = {
-          ...state.responses,
-          [originalKey]: updatedSkillMatrix
-        };
-
-        actions.setResponses(newResponses);
-
-        // Move to next question
-        if (state.currentQuestionIndex < state.questions.length - 1) {
-          actions.setQuestionIndex(state.currentQuestionIndex + 1);
-          actions.clearPageAnswers();
-          return;
-        }
-      }
-
-      const normalizedPageAnswers = Object.entries(finalPageAnswers).reduce(
-        (acc, [key, value]) => {
-          let normalizedValue = value;
-          if (
-            typeof value === 'string' &&
-            value.trim() !== '' &&
-            state.questions.some(
-              (question: any) => question.key === key && question.type === 'number'
-            )
-          ) {
-            const parsed = parseFloat(value.replace(',', '.'));
-            if (!isNaN(parsed)) {
-              normalizedValue = parsed;
-            }
-          }
-          acc[key] = normalizedValue;
-          return acc;
-        },
-        {} as Record<string, any>
-      );
-
-      const pageSnapshot = snapshot(normalizedPageAnswers);
-      const newResponses = { ...state.responses, ...normalizedPageAnswers };
-      actions.setResponses(newResponses);
-
-      const questionnaire = getCurrentQuestionnaire();
-      if (!questionnaire) return;
-
-      // Get next questions based on updated responses
-      const nextQuestions = questionnaire.getConditionalQuestions(newResponses);
-
-      // Check if questionnaire is complete
-      if (nextQuestions.length === 0) {
-        console.log('🎯 Questionnaire complete, calculating rating...');
-        if (state.currentQuestionnaireType === 'pickleball') {
-          await completePickleballAssessment(newResponses as QuestionnaireResponse);
-        } else if (state.currentQuestionnaireType === 'tennis') {
-          await completeTennisAssessment(newResponses as TennisQuestionnaireResponse);
-        } else {
-          await completePadelAssessment(newResponses as PadelQuestionnaireResponse);
-        }
-        return;
-      }
-
-      // Update questions and reset to first question of new set
-      const expandedQuestions = expandSkillMatrixQuestions(nextQuestions);
-      actions.pushHistory(
-        [...state.questions],
-        snapshot(newResponses),
-        state.currentQuestionIndex,
-        pageSnapshot
-      );
-      actions.clearPageAnswers();
-      actions.setQuestions(expandedQuestions);
-      actions.setQuestionIndex(0);
-      actions.incrementPageIndex();
-      console.log('📖 Moving to next question set:', expandedQuestions.length, 'questions');
+    // Handle skill matrix questions - aggregate into parent key
+    let newResponses = { ...state.responses };
+    if (currentQuestion && 'originalKey' in currentQuestion && 'skillKey' in currentQuestion) {
+      const originalKey = (currentQuestion as any).originalKey;
+      const skillKey = (currentQuestion as any).skillKey;
+      const existingMatrix = (newResponses[originalKey] as Record<string, unknown>) || {};
+      newResponses[originalKey] = {
+        ...existingMatrix,
+        [skillKey]: state.currentPageAnswers[currentQuestion.key]
+      };
     }
-  }, [isComprehensive, state, actions, getCurrentQuestionnaire, completePickleballAssessment, completeTennisAssessment, completePadelAssessment]);
+
+    // Normalize number inputs
+    const normalizedPageAnswers = Object.entries(finalPageAnswers).reduce(
+      (acc, [key, value]) => {
+        let normalizedValue = value;
+        if (typeof value === 'string' && value.trim() !== '') {
+          const isNumberQuestion = state.questions.some(
+            (q: any) => q.key === key && q.type === 'number'
+          );
+          if (isNumberQuestion) {
+            const parsed = parseFloat(value.replace(',', '.'));
+            if (!isNaN(parsed)) normalizedValue = parsed;
+          }
+        }
+        acc[key] = normalizedValue;
+        return acc;
+      },
+      {} as Record<string, any>
+    );
+
+    // Merge normalized answers into responses
+    newResponses = { ...newResponses, ...normalizedPageAnswers };
+    actions.setResponses(newResponses);
+
+    const questionnaire = getCurrentQuestionnaire();
+    if (!questionnaire) return;
+
+    // Check if questionnaire should complete (DUPR skip check for sport with DUPR)
+    const shouldSkip = sport === 'pickleball' &&
+      (questionnaire as PickleballQuestionnaire).shouldSkipQuestionnaire?.(newResponses);
+
+    // Calculate visible questions with new responses
+    const visibleQuestions = filterVisibleQuestions(state.questions, newResponses);
+    const currentVisibleIndex = visibleQuestions.findIndex(
+      q => q.key === currentQuestion?.key
+    );
+    const isLastVisibleQuestion = currentVisibleIndex >= visibleQuestions.length - 1;
+
+    // Check completion: DUPR skip OR all visible questions answered
+    if (shouldSkip || isLastVisibleQuestion) {
+      console.log('Questionnaire complete, calculating rating...');
+      if (state.currentQuestionnaireType === 'pickleball') {
+        await completePickleballAssessment(newResponses as QuestionnaireResponse);
+      } else if (state.currentQuestionnaireType === 'tennis') {
+        await completeTennisAssessment(newResponses as TennisQuestionnaireResponse);
+      } else {
+        await completePadelAssessment(newResponses as PadelQuestionnaireResponse);
+      }
+      return;
+    }
+
+    // Move to next visible question (QuestionnaireFlow handles carousel animation)
+    const nextVisibleQuestion = visibleQuestions[currentVisibleIndex + 1];
+    if (nextVisibleQuestion) {
+      const nextIndexInAll = state.questions.findIndex(q => q.key === nextVisibleQuestion.key);
+      actions.setQuestionIndex(nextIndexInAll);
+      actions.clearPageAnswers();
+    }
+  }, [isComprehensive, state, actions, getCurrentQuestionnaire, sport, completePickleballAssessment, completeTennisAssessment, completePadelAssessment]);
 
   const handleAnswer = useCallback(
     (key: string, value: any) => {
@@ -461,25 +433,24 @@ const SkillAssessmentScreen = () => {
 
   // Start fresh assessment
   const startFreshAssessment = useCallback(() => {
-    console.log('🔍 Starting fresh assessment...');
+    console.log('Starting fresh assessment...');
 
-    // Ensure we start from a clean slate even if the user previously completed another sport
+    // Ensure we start from a clean slate
     actions.resetQuestionnaire();
-
-    const emptyResponses = {};
-    actions.setResponses(emptyResponses);
+    actions.setResponses({});
     actions.setQuestionIndex(0);
 
+    // Questions are already loaded (stable array) - just need to reset state
     const questionnaire = getCurrentQuestionnaire();
-    if (!questionnaire) return;
-
-    const initialQuestions = questionnaire.getConditionalQuestions(emptyResponses);
-    const expandedQuestions = expandSkillMatrixQuestions(initialQuestions);
-    actions.setQuestions(expandedQuestions);
+    if (questionnaire) {
+      const allQuestions = questionnaire.getAllQuestions();
+      const expandedQuestions = expandSkillMatrixQuestions(allQuestions);
+      actions.setQuestions(expandedQuestions);
+    }
 
     actions.showIntroduction(false);
     actions.forceShowQuestionnaire(true);
-    console.log('✅ Introduction hidden - should now show questionnaire');
+    console.log('Introduction hidden - showing questionnaire');
   }, [actions, getCurrentQuestionnaire]);
 
   // Skip assessment
