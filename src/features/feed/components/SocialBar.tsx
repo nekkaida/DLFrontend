@@ -13,6 +13,7 @@ interface SocialBarProps {
   onLikePress: () => void;
   onCommentPress: () => void;
   onSharePress: () => void;
+  onLikeCountPress?: () => void;
 }
 
 export const SocialBar: React.FC<SocialBarProps> = ({
@@ -23,13 +24,20 @@ export const SocialBar: React.FC<SocialBarProps> = ({
   onLikePress,
   onCommentPress,
   onSharePress,
+  onLikeCountPress,
 }) => {
   return (
     <View style={styles.container}>
       {/* Stats Row */}
       <View style={styles.statsRow}>
         {likeCount > 0 && (
-          <Text style={styles.statsText}>{likeCount} {likeCount === 1 ? 'like' : 'likes'}</Text>
+          <TouchableOpacity
+            onPress={onLikeCountPress}
+            disabled={likeCount === 0}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.statsText}>{likeCount} {likeCount === 1 ? 'like' : 'likes'}</Text>
+          </TouchableOpacity>
         )}
         {likeCount > 0 && commentCount > 0 && (
           <Text style={styles.statsDot}> · </Text>
