@@ -160,6 +160,7 @@ export const FeedPostCard = forwardRef<View, FeedPostCardProps>(({
         onCommentPress={handleCommentPress}
         onSharePress={handleSharePress}
         onLikeCountPress={handleLikeCountPress}
+        showShareButton={showOptionsButton}
       />
     </View>
   );

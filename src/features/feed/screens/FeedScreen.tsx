@@ -1,7 +1,7 @@
 // src/features/feed/screens/FeedScreen.tsx
 
 import React, { useEffect, useCallback, useRef, useState } from 'react';
-import { View, StyleSheet, FlatList, RefreshControl, ActivityIndicator, Text } from 'react-native';
+import { View, StyleSheet, FlatList, RefreshControl, ActivityIndicator, Text, TouchableOpacity } from 'react-native';
 import { router } from 'expo-router';
 import BottomSheet from '@gorhom/bottom-sheet';
 import { getSportColors, SportType } from '@/constants/SportsColor';
@@ -266,7 +266,7 @@ export default function FeedScreen({ sport = 'default' }: FeedScreenProps) {
     if (isLoading) return null;
     return (
       <View style={styles.emptyContainer}>
-        <Text style={styles.emptyTitle}>No posts yet</Text>
+        <Text style={styles.emptyTitle}>Nothing to see here yet..</Text>
         <Text style={styles.emptySubtitle}>
           Match results from you and other players will appear here
         </Text>
@@ -286,6 +286,16 @@ export default function FeedScreen({ sport = 'default' }: FeedScreenProps) {
       {isLoading && posts.length === 0 ? (
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={feedTheme.colors.primary} />
+        </View>
+      ) : error && posts.length === 0 ? (
+        <View style={styles.errorContainer}>
+          <Text style={styles.errorTitle}>Something went wrong</Text>
+          <Text style={styles.errorSubtitle}>
+            We couldn't load the feed. Please try again.
+          </Text>
+          <TouchableOpacity style={styles.retryButton} onPress={fetchPosts} activeOpacity={0.7}>
+            <Text style={styles.retryButtonText}>Retry</Text>
+          </TouchableOpacity>
         </View>
       ) : (
         <FlatList
@@ -402,5 +412,36 @@ const styles = StyleSheet.create({
     color: feedTheme.colors.textSecondary,
     textAlign: 'center',
     lineHeight: 20,
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingTop: 60,
+    paddingHorizontal: 40,
+  },
+  errorTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: feedTheme.colors.textPrimary,
+    marginBottom: 8,
+  },
+  errorSubtitle: {
+    fontSize: 14,
+    color: feedTheme.colors.textSecondary,
+    textAlign: 'center',
+    lineHeight: 20,
+    marginBottom: 20,
+  },
+  retryButton: {
+    backgroundColor: feedTheme.colors.primary,
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 8,
+  },
+  retryButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '600',
   },
 });

@@ -15,6 +15,7 @@ interface SocialBarProps {
   onSharePress: () => void;
   onLikeCountPress?: () => void;
   onCommentCountPress?: () => void;
+  showShareButton?: boolean;
 }
 
 export const SocialBar: React.FC<SocialBarProps> = ({
@@ -27,6 +28,7 @@ export const SocialBar: React.FC<SocialBarProps> = ({
   onSharePress,
   onLikeCountPress,
   onCommentCountPress,
+  showShareButton = true,
 }) => {
   return (
     <View style={styles.container}>
@@ -88,18 +90,20 @@ export const SocialBar: React.FC<SocialBarProps> = ({
           <Text style={styles.actionText}>Comment</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity
-          style={[styles.actionButton, styles.shareButton]}
-          onPress={onSharePress}
-          activeOpacity={0.7}
-        >
-          <Ionicons
-            name="share-outline"
-            size={22}
-            color={feedTheme.colors.textSecondary}
-          />
-          <Text style={styles.actionText}>Share</Text>
-        </TouchableOpacity>
+        {showShareButton && (
+          <TouchableOpacity
+            style={[styles.actionButton, styles.shareButton]}
+            onPress={onSharePress}
+            activeOpacity={0.7}
+          >
+            <Ionicons
+              name="share-outline"
+              size={22}
+              color={feedTheme.colors.textSecondary}
+            />
+            <Text style={styles.actionText}>Share</Text>
+          </TouchableOpacity>
+        )}
       </View>
     </View>
   );

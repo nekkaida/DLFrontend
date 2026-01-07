@@ -175,7 +175,7 @@ export const CommentsSheet: React.FC<CommentsSheetProps> = ({
           showsVerticalScrollIndicator={false}
           ListEmptyComponent={
             <Text style={styles.emptyText}>
-              {isLoading ? 'Loading comments...' : 'No comments yet. Be the first!'}
+              {isLoading ? 'Loading comments...' : 'Be the first to comment!'}
             </Text>
           }
         />
