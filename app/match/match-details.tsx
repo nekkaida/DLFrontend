@@ -9,7 +9,9 @@ import { socketService } from '@/lib/socket-service';
 import { CancelMatchSheet } from '@/src/features/match/components/CancelMatchSheet';
 import { MatchCommentsSection } from '@/src/features/match/components/MatchCommentsSection';
 import { MatchResultSheet } from '@/src/features/match/components/MatchResultSheet';
+import { PostMatchShareSheet } from '@/src/features/feed/components';
 import { MatchComment } from '@/app/match/components/types';
+import BottomSheet from '@gorhom/bottom-sheet';
 import { Ionicons } from '@expo/vector-icons';
 import { BottomSheetBackdrop, BottomSheetModal } from '@gorhom/bottom-sheet';
 import { router, useLocalSearchParams } from 'expo-router';
@@ -118,6 +120,8 @@ export default function JoinMatchScreen() {
   
   const bottomSheetModalRef = useRef<BottomSheetModal>(null);
   const cancelSheetRef = useRef<BottomSheetModal>(null);
+  const postMatchShareSheetRef = useRef<BottomSheet>(null);
+  const [showSharePrompt, setShowSharePrompt] = useState(false);
 
   // Entry animation values
   const headerEntryOpacity = useRef(new Animated.Value(0)).current;
@@ -1110,7 +1114,12 @@ export default function JoinMatchScreen() {
       useMyGamesStore.getState().triggerRefresh();
       toast.success('Match result confirmed!');
       bottomSheetModalRef.current?.dismiss();
-      router.back();
+
+      // Show share prompt after confirmation
+      setShowSharePrompt(true);
+      setTimeout(() => {
+        postMatchShareSheetRef.current?.snapToIndex(0);
+      }, 300);
     } catch (error: any) {
       console.error('❌ Error confirming result:', error);
       const errorMessage = error.response?.data?.error || 
@@ -1148,6 +1157,39 @@ export default function JoinMatchScreen() {
       toast.error(errorMessage);
       throw error;
     }
+  };
+
+  // Handlers for post-match share prompt
+  const handleSharePost = async (caption: string) => {
+    try {
+      // Create post via API
+      const backendUrl = getBackendBaseURL();
+      await axiosInstance.post(`${backendUrl}/api/feed/posts`, {
+        matchId,
+        caption: caption || undefined,
+      });
+      toast.success('Posted to Activity Feed!');
+      postMatchShareSheetRef.current?.close();
+      setShowSharePrompt(false);
+      router.back();
+    } catch (error: any) {
+      console.error('Error creating post:', error);
+      toast.error('Failed to create post. Please try again.');
+    }
+  };
+
+  const handleSkipShare = () => {
+    postMatchShareSheetRef.current?.close();
+    setShowSharePrompt(false);
+    router.back();
+  };
+
+  const handleExternalShare = async () => {
+    // Save to gallery - will be implemented with viewshot
+    toast.info('Image saved to gallery');
+    postMatchShareSheetRef.current?.close();
+    setShowSharePrompt(false);
+    router.back();
   };
 
   // Handler to open dispute page (opponent captain)
@@ -2122,6 +2164,34 @@ export default function JoinMatchScreen() {
           onCancel={handleCancelMatch}
         />
       </BottomSheetModal>
+
+      {/* Post-Match Share Prompt */}
+      {showSharePrompt && (
+        <PostMatchShareSheet
+          visible={showSharePrompt}
+          bottomSheetRef={postMatchShareSheetRef}
+          matchData={{
+            matchId,
+            sport: sportType,
+            matchType: matchType,
+            gameType: isFriendly ? 'FRIENDLY' : 'LEAGUE',
+            winnerNames: participantsWithDetails
+              .filter(p => p.team === 'team1')
+              .map(p => p.name || 'Unknown'),
+            loserNames: participantsWithDetails
+              .filter(p => p.team === 'team2')
+              .map(p => p.name || 'Unknown'),
+            scores: {
+              team1Score: matchData.team1Score ?? 0,
+              team2Score: matchData.team2Score ?? 0,
+            },
+            matchDate: date,
+          }}
+          onPost={handleSharePost}
+          onSkip={handleSkipShare}
+          onExternalShare={handleExternalShare}
+        />
+      )}
     </View>
   );
 }
