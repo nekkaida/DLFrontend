@@ -6,7 +6,7 @@ import { router } from 'expo-router';
 import BottomSheet from '@gorhom/bottom-sheet';
 import { getSportColors, SportType } from '@/constants/SportsColor';
 import { useSession } from '@/lib/auth-client';
-import { useFeedPosts, usePostActions } from '../hooks';
+import { useFeedPosts, usePostActions, useSharePost } from '../hooks';
 import {
   FeedHeader,
   FeedPostCard,
@@ -15,6 +15,7 @@ import {
   LikersSheet,
   PostOptionsSheet,
   EditCaptionSheet,
+  ShareOptionsSheet,
 } from '../components';
 import { feedTheme } from '../theme';
 import { FeedPost } from '../types';
@@ -46,6 +47,12 @@ export default function FeedScreen({ sport = 'default' }: FeedScreenProps) {
   const [editingPostId, setEditingPostId] = useState<string | null>(null);
   const [editingCaption, setEditingCaption] = useState<string>('');
   const editCaptionRef = useRef<BottomSheet>(null);
+
+  // Share state
+  const [sharePostId, setSharePostId] = useState<string | null>(null);
+  const shareSheetRef = useRef<BottomSheet>(null);
+  const postRefs = useRef<Map<string, View>>(new Map());
+  const { captureAndShare, captureAndSave, shareLink, isCapturing, isSaving } = useSharePost();
 
   const [selectedSportFilter, setSelectedSportFilter] = useState<string | undefined>(sport);
 
@@ -168,10 +175,48 @@ export default function FeedScreen({ sport = 'default' }: FeedScreenProps) {
     }
   }, [editCaption, updatePostLocally]);
 
+  // Share handlers
+  const handleSharePress = useCallback((post: FeedPost) => {
+    setSharePostId(post.id);
+    shareSheetRef.current?.snapToIndex(0);
+  }, []);
+
+  const handleShareImage = useCallback(async () => {
+    if (!sharePostId) return;
+    const viewRef = postRefs.current.get(sharePostId);
+    if (viewRef) {
+      await captureAndShare({ current: viewRef });
+    }
+  }, [sharePostId, captureAndShare]);
+
+  const handleSaveImage = useCallback(async () => {
+    if (!sharePostId) return;
+    const viewRef = postRefs.current.get(sharePostId);
+    if (viewRef) {
+      await captureAndSave({ current: viewRef });
+    }
+  }, [sharePostId, captureAndSave]);
+
+  const handleShareLink = useCallback(async () => {
+    if (!sharePostId) return;
+    await shareLink(sharePostId);
+  }, [sharePostId, shareLink]);
+
+  const handleCloseShare = useCallback(() => {
+    setSharePostId(null);
+  }, []);
+
   const renderPost = useCallback(({ item }: { item: FeedPost }) => {
     const isOwnPost = currentUserId === item.authorId;
     return (
       <FeedPostCard
+        ref={(ref) => {
+          if (ref) {
+            postRefs.current.set(item.id, ref);
+          } else {
+            postRefs.current.delete(item.id);
+          }
+        }}
         post={item}
         sportColors={sportColors}
         isGameScoreSport={isGameScoreSport}
@@ -180,10 +225,11 @@ export default function FeedScreen({ sport = 'default' }: FeedScreenProps) {
         onAuthorPress={handleAuthorPress}
         onLikeCountPress={handleLikeCountPress}
         onOptionsPress={handleOptionsPress}
+        onSharePress={handleSharePress}
         showOptionsButton={isOwnPost}
       />
     );
-  }, [sportColors, isGameScoreSport, handleLikeUpdate, handleCommentPress, handleAuthorPress, handleLikeCountPress, handleOptionsPress, currentUserId]);
+  }, [sportColors, isGameScoreSport, handleLikeUpdate, handleCommentPress, handleAuthorPress, handleLikeCountPress, handleOptionsPress, handleSharePress, currentUserId]);
 
   const renderFooter = useCallback(() => {
     if (!isLoadingMore) return null;

@@ -1,7 +1,7 @@
 // src/features/feed/components/FeedPostCard.tsx
 
-import React, { useCallback, useMemo, useState } from 'react';
-import { View, Text, StyleSheet, Share, Dimensions, TouchableOpacity } from 'react-native';
+import React, { useCallback, useMemo, useState, forwardRef } from 'react';
+import { View, Text, StyleSheet, Dimensions, TouchableOpacity } from 'react-native';
 import { MatchResultCard } from '@/features/standings/components';
 import { SportColors, MatchResult } from '@/features/standings/types';
 import { FeedPost } from '../types';
@@ -23,10 +23,11 @@ interface FeedPostCardProps {
   onAuthorPress?: (authorId: string) => void;
   onLikeCountPress: (postId: string, likeCount: number) => void;
   onOptionsPress?: (post: FeedPost) => void;
+  onSharePress?: (post: FeedPost) => void;
   showOptionsButton?: boolean;
 }
 
-export const FeedPostCard: React.FC<FeedPostCardProps> = ({
+export const FeedPostCard = forwardRef<View, FeedPostCardProps>(({
   post,
   sportColors,
   isGameScoreSport,
@@ -35,8 +36,9 @@ export const FeedPostCard: React.FC<FeedPostCardProps> = ({
   onAuthorPress,
   onLikeCountPress,
   onOptionsPress,
+  onSharePress,
   showOptionsButton = false,
-}) => {
+}, ref) => {
   const { isLiking, toggleLike } = useLikes();
   const [captionExpanded, setCaptionExpanded] = useState(false);
 
@@ -77,16 +79,9 @@ export const FeedPostCard: React.FC<FeedPostCardProps> = ({
     onCommentPress(post.id);
   }, [post.id, onCommentPress]);
 
-  const handleSharePress = useCallback(async () => {
-    try {
-      await Share.share({
-        message: `Check out this match result on DEUCE League!`,
-        // Add deep link URL when available
-      });
-    } catch (err) {
-      console.error('Error sharing:', err);
-    }
-  }, []);
+  const handleSharePress = useCallback(() => {
+    onSharePress?.(post);
+  }, [post, onSharePress]);
 
   const handleAuthorPress = useCallback(() => {
     onAuthorPress?.(post.author.id);
@@ -101,7 +96,7 @@ export const FeedPostCard: React.FC<FeedPostCardProps> = ({
   }, [post, onOptionsPress]);
 
   return (
-    <View style={styles.container}>
+    <View ref={ref} style={styles.container} collapsable={false}>
       {/* Author Header */}
       <AuthorHeader
         author={post.author}
@@ -155,7 +150,9 @@ export const FeedPostCard: React.FC<FeedPostCardProps> = ({
       />
     </View>
   );
-};
+});
+
+FeedPostCard.displayName = 'FeedPostCard';
 
 const styles = StyleSheet.create({
   container: {
