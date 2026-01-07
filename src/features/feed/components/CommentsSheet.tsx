@@ -21,6 +21,7 @@ import { useSession } from '@/lib/auth-client';
 import { useComments } from '../hooks';
 import { PostComment } from '../types';
 import { feedTheme } from '../theme';
+import { processDisplayName } from '../utils/formatters';
 
 interface CommentsSheetProps {
   postId: string | null;
@@ -98,13 +99,15 @@ export const CommentsSheet: React.FC<CommentsSheetProps> = ({
       ) : (
         <View style={[styles.commentAvatar, styles.commentAvatarPlaceholder]}>
           <Text style={styles.commentAvatarText}>
-            {item.user.name.charAt(0).toUpperCase()}
+            {item.user.name?.trim() ? item.user.name.charAt(0).toUpperCase() : 'D'}
           </Text>
         </View>
       )}
       <View style={styles.commentContent}>
         <View style={styles.commentHeader}>
-          <Text style={styles.commentAuthor}>{item.user.name}</Text>
+          <Text style={styles.commentAuthor} numberOfLines={1}>
+            {processDisplayName(item.user.name, 20)}
+          </Text>
           <Text style={styles.commentTime}>
             {formatDistanceToNow(new Date(item.createdAt), { addSuffix: false })}
           </Text>
