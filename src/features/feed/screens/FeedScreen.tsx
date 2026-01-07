@@ -5,8 +5,17 @@ import { View, StyleSheet, FlatList, RefreshControl, ActivityIndicator, Text } f
 import { router } from 'expo-router';
 import BottomSheet from '@gorhom/bottom-sheet';
 import { getSportColors, SportType } from '@/constants/SportsColor';
-import { useFeedPosts } from '../hooks';
-import { FeedHeader, FeedPostCard, CommentsSheet, SportFilterSheet, LikersSheet } from '../components';
+import { useSession } from '@/lib/auth-client';
+import { useFeedPosts, usePostActions } from '../hooks';
+import {
+  FeedHeader,
+  FeedPostCard,
+  CommentsSheet,
+  SportFilterSheet,
+  LikersSheet,
+  PostOptionsSheet,
+  EditCaptionSheet,
+} from '../components';
 import { feedTheme } from '../theme';
 import { FeedPost } from '../types';
 
@@ -15,12 +24,28 @@ interface FeedScreenProps {
 }
 
 export default function FeedScreen({ sport = 'default' }: FeedScreenProps) {
+  // Session and post actions
+  const { data: session } = useSession();
+  const currentUserId = session?.user?.id;
+  const { deletePost, editCaption, isEditing } = usePostActions();
+
+  // Existing state
   const [selectedPostId, setSelectedPostId] = useState<string | null>(null);
   const commentsSheetRef = useRef<BottomSheet>(null);
   const sportFilterRef = useRef<BottomSheet>(null);
   const [selectedLikerPostId, setSelectedLikerPostId] = useState<string | null>(null);
   const [selectedLikerCount, setSelectedLikerCount] = useState(0);
   const likersSheetRef = useRef<BottomSheet>(null);
+
+  // Post options state
+  const [selectedOptionsPostId, setSelectedOptionsPostId] = useState<string | null>(null);
+  const [selectedOptionsPost, setSelectedOptionsPost] = useState<FeedPost | null>(null);
+  const postOptionsRef = useRef<BottomSheet>(null);
+
+  // Edit caption state
+  const [editingPostId, setEditingPostId] = useState<string | null>(null);
+  const [editingCaption, setEditingCaption] = useState<string>('');
+  const editCaptionRef = useRef<BottomSheet>(null);
 
   const [selectedSportFilter, setSelectedSportFilter] = useState<string | undefined>(sport);
 
@@ -46,6 +71,7 @@ export default function FeedScreen({ sport = 'default' }: FeedScreenProps) {
     fetchPosts,
     loadMorePosts,
     updatePostLocally,
+    removePostLocally,
   } = useFeedPosts({ sport: selectedSportFilter, limit: 10 });
 
   // Get sport colors using the utility function (convert to uppercase for SportType)
@@ -81,7 +107,7 @@ export default function FeedScreen({ sport = 'default' }: FeedScreenProps) {
   }, []);
 
   const handleAuthorPress = useCallback((authorId: string) => {
-    router.push(`/profile/${authorId}`);
+    router.push(`/player-profile/${authorId}` as any);
   }, []);
 
   const handleLikeCountPress = useCallback((postId: string, likeCount: number) => {
@@ -94,17 +120,70 @@ export default function FeedScreen({ sport = 'default' }: FeedScreenProps) {
     setSelectedLikerPostId(null);
   }, []);
 
-  const renderPost = useCallback(({ item }: { item: FeedPost }) => (
-    <FeedPostCard
-      post={item}
-      sportColors={sportColors}
-      isGameScoreSport={isGameScoreSport}
-      onLikeUpdate={handleLikeUpdate}
-      onCommentPress={handleCommentPress}
-      onAuthorPress={handleAuthorPress}
-      onLikeCountPress={handleLikeCountPress}
-    />
-  ), [sportColors, isGameScoreSport, handleLikeUpdate, handleCommentPress, handleAuthorPress, handleLikeCountPress]);
+  // Post options handlers
+  const handleOptionsPress = useCallback((post: FeedPost) => {
+    setSelectedOptionsPostId(post.id);
+    setSelectedOptionsPost(post);
+    postOptionsRef.current?.snapToIndex(0);
+  }, []);
+
+  const handleCloseOptions = useCallback(() => {
+    setSelectedOptionsPostId(null);
+    setSelectedOptionsPost(null);
+  }, []);
+
+  const handleEditPress = useCallback(() => {
+    if (selectedOptionsPost) {
+      setEditingPostId(selectedOptionsPost.id);
+      setEditingCaption(selectedOptionsPost.caption || '');
+      postOptionsRef.current?.close();
+      // Small delay to allow options sheet to close before opening edit sheet
+      setTimeout(() => {
+        editCaptionRef.current?.snapToIndex(0);
+      }, 100);
+    }
+  }, [selectedOptionsPost]);
+
+  const handleDeletePress = useCallback(async () => {
+    if (selectedOptionsPostId) {
+      const success = await deletePost(selectedOptionsPostId);
+      if (success) {
+        // Remove the deleted post from local state
+        removePostLocally(selectedOptionsPostId);
+        postOptionsRef.current?.close();
+      }
+    }
+  }, [selectedOptionsPostId, deletePost, removePostLocally]);
+
+  const handleCloseEdit = useCallback(() => {
+    setEditingPostId(null);
+    setEditingCaption('');
+  }, []);
+
+  const handleSaveCaption = useCallback(async (postId: string, newCaption: string) => {
+    const success = await editCaption(postId, newCaption);
+    if (success) {
+      updatePostLocally(postId, { caption: newCaption });
+      editCaptionRef.current?.close();
+    }
+  }, [editCaption, updatePostLocally]);
+
+  const renderPost = useCallback(({ item }: { item: FeedPost }) => {
+    const isOwnPost = currentUserId === item.authorId;
+    return (
+      <FeedPostCard
+        post={item}
+        sportColors={sportColors}
+        isGameScoreSport={isGameScoreSport}
+        onLikeUpdate={handleLikeUpdate}
+        onCommentPress={handleCommentPress}
+        onAuthorPress={handleAuthorPress}
+        onLikeCountPress={handleLikeCountPress}
+        onOptionsPress={handleOptionsPress}
+        showOptionsButton={isOwnPost}
+      />
+    );
+  }, [sportColors, isGameScoreSport, handleLikeUpdate, handleCommentPress, handleAuthorPress, handleLikeCountPress, handleOptionsPress, currentUserId]);
 
   const renderFooter = useCallback(() => {
     if (!isLoadingMore) return null;
@@ -183,6 +262,25 @@ export default function FeedScreen({ sport = 'default' }: FeedScreenProps) {
         bottomSheetRef={likersSheetRef}
         onClose={handleCloseLikers}
         onUserPress={handleAuthorPress}
+      />
+
+      {/* Post Options Bottom Sheet */}
+      <PostOptionsSheet
+        bottomSheetRef={postOptionsRef}
+        isOwnPost={selectedOptionsPost?.authorId === currentUserId}
+        onClose={handleCloseOptions}
+        onEdit={handleEditPress}
+        onDelete={handleDeletePress}
+      />
+
+      {/* Edit Caption Bottom Sheet */}
+      <EditCaptionSheet
+        postId={editingPostId}
+        initialCaption={editingCaption}
+        bottomSheetRef={editCaptionRef}
+        onClose={handleCloseEdit}
+        onSave={handleSaveCaption}
+        isSaving={isEditing}
       />
     </View>
   );

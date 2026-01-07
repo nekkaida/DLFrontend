@@ -3,6 +3,7 @@
 import React from 'react';
 import { View, Text, Image, StyleSheet, TouchableOpacity } from 'react-native';
 import { formatDistanceToNow } from 'date-fns';
+import { Ionicons } from '@expo/vector-icons';
 import { PostAuthor } from '../types';
 import { feedTheme } from '../theme';
 
@@ -10,12 +11,16 @@ interface AuthorHeaderProps {
   author: PostAuthor;
   createdAt: string;
   onAuthorPress?: (authorId: string) => void;
+  showOptionsButton?: boolean;
+  onOptionsPress?: () => void;
 }
 
 export const AuthorHeader: React.FC<AuthorHeaderProps> = ({
   author,
   createdAt,
   onAuthorPress,
+  showOptionsButton = false,
+  onOptionsPress,
 }) => {
   const timeAgo = formatDistanceToNow(new Date(createdAt), { addSuffix: false });
 
@@ -38,23 +43,35 @@ export const AuthorHeader: React.FC<AuthorHeaderProps> = ({
   };
 
   return (
-    <TouchableOpacity
-      style={styles.container}
-      onPress={() => onAuthorPress?.(author.id)}
-      activeOpacity={0.7}
-    >
-      {renderAvatar()}
-      <View style={styles.info}>
-        <View style={styles.nameRow}>
-          <Text style={styles.name}>{author.name}</Text>
-          <Text style={styles.dot}> · </Text>
-          <Text style={styles.timestamp}>{timeAgo}</Text>
+    <View style={styles.container}>
+      <TouchableOpacity
+        style={styles.authorTouchable}
+        onPress={() => onAuthorPress?.(author.id)}
+        activeOpacity={0.7}
+      >
+        {renderAvatar()}
+        <View style={styles.info}>
+          <View style={styles.nameRow}>
+            <Text style={styles.name}>{author.name}</Text>
+            <Text style={styles.dot}> . </Text>
+            <Text style={styles.timestamp}>{timeAgo}</Text>
+          </View>
+          {author.username && (
+            <Text style={styles.username}>@{author.username}</Text>
+          )}
         </View>
-        {author.username && (
-          <Text style={styles.username}>@{author.username}</Text>
-        )}
-      </View>
-    </TouchableOpacity>
+      </TouchableOpacity>
+      {showOptionsButton && (
+        <TouchableOpacity
+          style={styles.optionsButton}
+          onPress={onOptionsPress}
+          activeOpacity={0.7}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+        >
+          <Ionicons name="ellipsis-horizontal" size={20} color={feedTheme.colors.textSecondary} />
+        </TouchableOpacity>
+      )}
+    </View>
   );
 };
 
@@ -64,6 +81,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: feedTheme.spacing.cardPadding,
     paddingVertical: 10,
+  },
+  authorTouchable: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
   },
   avatar: {
     width: feedTheme.spacing.avatarSize,
@@ -102,5 +124,9 @@ const styles = StyleSheet.create({
   username: {
     ...feedTheme.typography.authorUsername,
     marginTop: 1,
+  },
+  optionsButton: {
+    padding: 4,
+    marginLeft: 8,
   },
 });
