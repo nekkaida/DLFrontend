@@ -10,3 +10,4 @@ export { LikersSheet } from './LikersSheet';
 export { PostOptionsSheet } from './PostOptionsSheet';
 export { EditCaptionSheet } from './EditCaptionSheet';
 export { ShareOptionsSheet } from './ShareOptionsSheet';
+export { PostMatchShareSheet } from './PostMatchShareSheet';
