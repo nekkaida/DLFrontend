@@ -10,6 +10,7 @@ import { feedTheme } from '../theme';
 interface AuthorHeaderProps {
   author: PostAuthor;
   createdAt: string;
+  updatedAt?: string;
   onAuthorPress?: (authorId: string) => void;
   showOptionsButton?: boolean;
   onOptionsPress?: () => void;
@@ -18,11 +19,15 @@ interface AuthorHeaderProps {
 export const AuthorHeader: React.FC<AuthorHeaderProps> = ({
   author,
   createdAt,
+  updatedAt,
   onAuthorPress,
   showOptionsButton = false,
   onOptionsPress,
 }) => {
   const timeAgo = formatDistanceToNow(new Date(createdAt), { addSuffix: false });
+
+  // Check if post was edited (updatedAt > createdAt)
+  const isEdited = updatedAt && new Date(updatedAt) > new Date(createdAt);
 
   const renderAvatar = () => {
     if (author.image) {
@@ -55,6 +60,12 @@ export const AuthorHeader: React.FC<AuthorHeaderProps> = ({
             <Text style={styles.name}>{author.name}</Text>
             <Text style={styles.dot}> . </Text>
             <Text style={styles.timestamp}>{timeAgo}</Text>
+            {isEdited && (
+              <>
+                <Text style={styles.dot}> . </Text>
+                <Text style={styles.editedIndicator}>(edited)</Text>
+              </>
+            )}
           </View>
           {author.username && (
             <Text style={styles.username}>@{author.username}</Text>
@@ -120,6 +131,11 @@ const styles = StyleSheet.create({
   },
   timestamp: {
     ...feedTheme.typography.timestamp,
+  },
+  editedIndicator: {
+    fontSize: 12,
+    fontStyle: 'italic',
+    color: feedTheme.colors.textTertiary,
   },
   username: {
     ...feedTheme.typography.authorUsername,

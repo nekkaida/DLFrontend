@@ -101,6 +101,7 @@ export const FeedPostCard = forwardRef<View, FeedPostCardProps>(({
       <AuthorHeader
         author={post.author}
         createdAt={post.createdAt}
+        updatedAt={post.updatedAt}
         onAuthorPress={handleAuthorPress}
         showOptionsButton={showOptionsButton}
         onOptionsPress={handleOptionsPress}
