@@ -6,6 +6,7 @@ import { formatDistanceToNow } from 'date-fns';
 import { Ionicons } from '@expo/vector-icons';
 import { PostAuthor } from '../types';
 import { feedTheme } from '../theme';
+import { processDisplayName } from '../utils/formatters';
 
 interface AuthorHeaderProps {
   author: PostAuthor;
@@ -30,6 +31,11 @@ export const AuthorHeader: React.FC<AuthorHeaderProps> = ({
   const isEdited = updatedAt && new Date(updatedAt) > new Date(createdAt);
 
   const renderAvatar = () => {
+    // Use actual name for initial if available, otherwise "D" for Deleted
+    const avatarInitial = author.name?.trim()
+      ? author.name.charAt(0).toUpperCase()
+      : 'D';
+
     if (author.image) {
       return (
         <Image
@@ -41,7 +47,7 @@ export const AuthorHeader: React.FC<AuthorHeaderProps> = ({
     return (
       <View style={[styles.avatar, styles.avatarPlaceholder]}>
         <Text style={styles.avatarText}>
-          {author.name.charAt(0).toUpperCase()}
+          {avatarInitial}
         </Text>
       </View>
     );
@@ -57,7 +63,9 @@ export const AuthorHeader: React.FC<AuthorHeaderProps> = ({
         {renderAvatar()}
         <View style={styles.info}>
           <View style={styles.nameRow}>
-            <Text style={styles.name}>{author.name}</Text>
+            <Text style={styles.name} numberOfLines={1}>
+              {processDisplayName(author.name, 20)}
+            </Text>
             <Text style={styles.dot}> . </Text>
             <Text style={styles.timestamp}>{timeAgo}</Text>
             {isEdited && (
@@ -67,7 +75,7 @@ export const AuthorHeader: React.FC<AuthorHeaderProps> = ({
               </>
             )}
           </View>
-          {author.username && (
+          {author.username && author.name && (
             <Text style={styles.username}>@{author.username}</Text>
           )}
         </View>
