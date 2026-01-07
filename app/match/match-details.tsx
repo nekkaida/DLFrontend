@@ -1192,6 +1192,14 @@ export default function JoinMatchScreen() {
     router.back();
   };
 
+  const handleInstagramShare = async () => {
+    // Share to Instagram - will be implemented with viewshot
+    toast.info('Opening Instagram...');
+    postMatchShareSheetRef.current?.close();
+    setShowSharePrompt(false);
+    router.back();
+  };
+
   // Handler to open dispute page (opponent captain)
   const handleOpenDisputeSheet = async () => {
     bottomSheetModalRef.current?.dismiss();
@@ -2190,6 +2198,7 @@ export default function JoinMatchScreen() {
           onPost={handleSharePost}
           onSkip={handleSkipShare}
           onExternalShare={handleExternalShare}
+          onInstagramShare={handleInstagramShare}
         />
       )}
     </View>

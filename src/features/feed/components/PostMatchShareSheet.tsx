@@ -10,6 +10,8 @@ import {
   KeyboardAvoidingView,
   Platform,
   ActivityIndicator,
+  Linking,
+  Alert,
 } from 'react-native';
 import BottomSheet, { BottomSheetBackdrop, BottomSheetScrollView } from '@gorhom/bottom-sheet';
 import { Ionicons } from '@expo/vector-icons';
@@ -32,6 +34,7 @@ interface PostMatchShareSheetProps {
   onPost: (caption: string) => void;
   onSkip: () => void;
   onExternalShare: () => void;
+  onInstagramShare?: () => void;
   isPosting?: boolean;
   bottomSheetRef: React.RefObject<BottomSheet | null>;
 }
@@ -41,6 +44,7 @@ export const PostMatchShareSheet: React.FC<PostMatchShareSheetProps> = ({
   onPost,
   onSkip,
   onExternalShare,
+  onInstagramShare,
   isPosting = false,
   bottomSheetRef,
 }) => {
@@ -64,6 +68,23 @@ export const PostMatchShareSheet: React.FC<PostMatchShareSheetProps> = ({
   const handleClose = useCallback(() => {
     setCaption('');
   }, []);
+
+  const handleInstagramShare = useCallback(async () => {
+    if (!onInstagramShare) return;
+
+    // Check if Instagram is installed
+    const canOpen = await Linking.canOpenURL('instagram://');
+    if (!canOpen) {
+      Alert.alert(
+        'Instagram Not Installed',
+        'Please install Instagram to share directly to your story.',
+        [{ text: 'OK' }]
+      );
+      return;
+    }
+
+    onInstagramShare();
+  }, [onInstagramShare]);
 
   const renderBackdrop = useCallback(
     (props: any) => (
@@ -230,6 +251,23 @@ export const PostMatchShareSheet: React.FC<PostMatchShareSheetProps> = ({
           </View>
 
           <View style={styles.externalShareRow}>
+            {onInstagramShare && (
+              <TouchableOpacity
+                style={styles.externalShareButton}
+                onPress={handleInstagramShare}
+                activeOpacity={0.7}
+                disabled={isPosting}
+              >
+                <View style={styles.externalShareIcon}>
+                  <Ionicons
+                    name="logo-instagram"
+                    size={24}
+                    color="#E4405F"
+                  />
+                </View>
+                <Text style={styles.externalShareLabel}>Instagram</Text>
+              </TouchableOpacity>
+            )}
             <TouchableOpacity
               style={styles.externalShareButton}
               onPress={onExternalShare}
