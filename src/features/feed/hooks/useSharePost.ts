@@ -1,21 +1,29 @@
 // src/features/feed/hooks/useSharePost.ts
 
 import { useState, useCallback } from 'react';
-import { View, Platform, Alert } from 'react-native';
+import { View, Platform, Alert, Linking } from 'react-native';
 import { captureRef } from 'react-native-view-shot';
 import * as Sharing from 'expo-sharing';
 import * as MediaLibrary from 'expo-media-library';
 import * as Haptics from 'expo-haptics';
+import * as FileSystem from 'expo-file-system';
 
 // Deep link configuration
 const WEB_BASE_URL = 'https://deuceleague.com';
 const APP_SCHEME = 'deuceleague';
 
+export type ShareStyle = 'transparent' | 'standard';
+
+interface CaptureOptions {
+  style?: ShareStyle;
+}
+
 interface UseSharePostReturn {
   isCapturing: boolean;
   isSaving: boolean;
-  captureAndShare: (viewRef: React.RefObject<View>) => Promise<boolean>;
-  captureAndSave: (viewRef: React.RefObject<View>) => Promise<boolean>;
+  captureAndShare: (viewRef: React.RefObject<View>, options?: CaptureOptions) => Promise<boolean>;
+  captureAndSave: (viewRef: React.RefObject<View>, options?: CaptureOptions) => Promise<boolean>;
+  shareToInstagram: (viewRef: React.RefObject<View>, options?: CaptureOptions) => Promise<boolean>;
   shareLink: (postId: string) => Promise<boolean>;
 }
 
@@ -24,10 +32,25 @@ export const useSharePost = (): UseSharePostReturn => {
   const [isSaving, setIsSaving] = useState(false);
 
   /**
+   * Get capture configuration based on style
+   */
+  const getCaptureConfig = useCallback((style: ShareStyle = 'transparent') => {
+    // Both styles use same dimensions, style affects rendering in the view component
+    return {
+      format: 'png' as const,
+      quality: 1,
+      result: 'tmpfile' as const,
+      width: 1080,
+      height: 1080,
+    };
+  }, []);
+
+  /**
    * Capture a view as an image and open the native share sheet
    */
   const captureAndShare = useCallback(async (
-    viewRef: React.RefObject<View>
+    viewRef: React.RefObject<View>,
+    options?: CaptureOptions
   ): Promise<boolean> => {
     if (!viewRef.current) {
       console.error('View ref is not available for capture');
@@ -45,13 +68,7 @@ export const useSharePost = (): UseSharePostReturn => {
       }
 
       // Capture the view as a PNG image (1080x1080 for optimal social sharing)
-      const uri = await captureRef(viewRef, {
-        format: 'png',
-        quality: 1,
-        result: 'tmpfile',
-        width: 1080,
-        height: 1080,
-      });
+      const uri = await captureRef(viewRef, getCaptureConfig(options?.style));
 
       // Open native share sheet
       await Sharing.shareAsync(uri, {
@@ -68,13 +85,14 @@ export const useSharePost = (): UseSharePostReturn => {
     } finally {
       setIsCapturing(false);
     }
-  }, []);
+  }, [getCaptureConfig]);
 
   /**
    * Capture a view as an image and save it to the camera roll
    */
   const captureAndSave = useCallback(async (
-    viewRef: React.RefObject<View>
+    viewRef: React.RefObject<View>,
+    options?: CaptureOptions
   ): Promise<boolean> => {
     if (!viewRef.current) {
       console.error('View ref is not available for capture');
@@ -96,13 +114,7 @@ export const useSharePost = (): UseSharePostReturn => {
       }
 
       // Capture the view as a PNG image (1080x1080 for optimal social sharing)
-      const uri = await captureRef(viewRef, {
-        format: 'png',
-        quality: 1,
-        result: 'tmpfile',
-        width: 1080,
-        height: 1080,
-      });
+      const uri = await captureRef(viewRef, getCaptureConfig(options?.style));
 
       // Save to camera roll
       await MediaLibrary.saveToLibraryAsync(uri);
@@ -118,7 +130,90 @@ export const useSharePost = (): UseSharePostReturn => {
     } finally {
       setIsSaving(false);
     }
-  }, []);
+  }, [getCaptureConfig]);
+
+  /**
+   * Share image directly to Instagram Stories
+   */
+  const shareToInstagram = useCallback(async (
+    viewRef: React.RefObject<View>,
+    options?: CaptureOptions
+  ): Promise<boolean> => {
+    if (!viewRef.current) {
+      console.error('View ref is not available for capture');
+      return false;
+    }
+
+    // Instagram sharing only works on iOS and Android
+    if (Platform.OS === 'web') {
+      Alert.alert('Unavailable', 'Instagram sharing is not available on web.');
+      return false;
+    }
+
+    try {
+      setIsCapturing(true);
+
+      // Request media library permissions first (needed for saving temp file)
+      const { status } = await MediaLibrary.requestPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert(
+          'Permission Required',
+          'Please grant media library access to share to Instagram.',
+          [{ text: 'OK' }]
+        );
+        return false;
+      }
+
+      // Capture the view as a PNG image
+      const uri = await captureRef(viewRef, getCaptureConfig(options?.style));
+
+      // Save to camera roll first (Instagram reads from there)
+      const asset = await MediaLibrary.createAssetAsync(uri);
+
+      // Try to open Instagram Stories with the image
+      // Instagram URL scheme for stories: instagram-stories://share
+      const instagramStoriesUrl = Platform.select({
+        ios: `instagram-stories://share?source_application=com.deuceleague.app&backgroundImage=${encodeURIComponent(asset.uri)}`,
+        android: `instagram-stories://share`,
+      });
+
+      if (instagramStoriesUrl) {
+        const canOpen = await Linking.canOpenURL('instagram://');
+        if (canOpen) {
+          // For Android, we need to use a different approach
+          if (Platform.OS === 'android') {
+            // Android uses intent system - open share sheet with Instagram filter
+            const { Share } = await import('react-native');
+            await Share.share({
+              message: 'Check out my Deuce League score!',
+              url: asset.uri,
+            });
+          } else {
+            // iOS can use the stories URL scheme
+            await Linking.openURL(instagramStoriesUrl);
+          }
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+          return true;
+        } else {
+          Alert.alert(
+            'Instagram Not Installed',
+            'Please install Instagram to share directly to your story.',
+            [{ text: 'OK' }]
+          );
+          return false;
+        }
+      }
+
+      return false;
+    } catch (err) {
+      console.error('Error sharing to Instagram:', err);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      Alert.alert('Error', 'Failed to share to Instagram. Please try again.');
+      return false;
+    } finally {
+      setIsCapturing(false);
+    }
+  }, [getCaptureConfig]);
 
   /**
    * Share a deep link to a specific post
@@ -184,6 +279,7 @@ export const useSharePost = (): UseSharePostReturn => {
     isSaving,
     captureAndShare,
     captureAndSave,
+    shareToInstagram,
     shareLink,
   };
 };

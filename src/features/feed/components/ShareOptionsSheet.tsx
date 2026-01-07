@@ -1,18 +1,22 @@
 // src/features/feed/components/ShareOptionsSheet.tsx
 
-import React, { useCallback } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
+import React, { useCallback, useState } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Linking, Alert } from 'react-native';
 import BottomSheet, { BottomSheetBackdrop, BottomSheetView } from '@gorhom/bottom-sheet';
 import { Ionicons } from '@expo/vector-icons';
 import { feedTheme } from '../theme';
 
+export type ShareStyle = 'transparent' | 'standard';
+
 interface ShareOptionsSheetProps {
   bottomSheetRef: React.RefObject<BottomSheet | null>;
   onClose: () => void;
-  onShareImage: () => void;
-  onSaveImage: () => void;
+  onShareImage: (style: ShareStyle) => void;
+  onSaveImage: (style: ShareStyle) => void;
   onShareLink: () => void;
+  onShareInstagram?: (style: ShareStyle) => void;
   isLoading?: boolean;
+  defaultStyle?: ShareStyle;
 }
 
 export const ShareOptionsSheet: React.FC<ShareOptionsSheetProps> = ({
@@ -21,8 +25,39 @@ export const ShareOptionsSheet: React.FC<ShareOptionsSheetProps> = ({
   onShareImage,
   onSaveImage,
   onShareLink,
+  onShareInstagram,
   isLoading = false,
+  defaultStyle = 'transparent',
 }) => {
+  const [selectedStyle, setSelectedStyle] = useState<ShareStyle>(defaultStyle);
+
+  const handleShareImage = useCallback(() => {
+    onShareImage(selectedStyle);
+  }, [onShareImage, selectedStyle]);
+
+  const handleSaveImage = useCallback(() => {
+    onSaveImage(selectedStyle);
+  }, [onSaveImage, selectedStyle]);
+
+  const handleShareInstagram = useCallback(async () => {
+    if (!onShareInstagram) return;
+
+    // Check if Instagram is installed
+    const instagramUrl = 'instagram://';
+    const canOpen = await Linking.canOpenURL(instagramUrl);
+
+    if (!canOpen) {
+      Alert.alert(
+        'Instagram Not Installed',
+        'Please install Instagram to share directly to your story.',
+        [{ text: 'OK' }]
+      );
+      return;
+    }
+
+    onShareInstagram(selectedStyle);
+  }, [onShareInstagram, selectedStyle]);
+
   const renderBackdrop = useCallback(
     (props: any) => (
       <BottomSheetBackdrop
@@ -39,15 +74,58 @@ export const ShareOptionsSheet: React.FC<ShareOptionsSheetProps> = ({
     <BottomSheet
       ref={bottomSheetRef}
       index={-1}
-      snapPoints={['30%']}
+      snapPoints={['45%']}
       enablePanDownToClose
       onClose={onClose}
       backdropComponent={renderBackdrop}
     >
       <BottomSheetView style={styles.container}>
+        {/* Style Selector */}
+        <View style={styles.styleSelector}>
+          <Text style={styles.styleSelectorLabel}>Image Style</Text>
+          <View style={styles.styleToggle}>
+            <TouchableOpacity
+              style={[
+                styles.styleOption,
+                selectedStyle === 'transparent' && styles.styleOptionSelected,
+              ]}
+              onPress={() => setSelectedStyle('transparent')}
+              activeOpacity={0.7}
+            >
+              <Text
+                style={[
+                  styles.styleOptionText,
+                  selectedStyle === 'transparent' && styles.styleOptionTextSelected,
+                ]}
+              >
+                Transparent
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[
+                styles.styleOption,
+                selectedStyle === 'standard' && styles.styleOptionSelected,
+              ]}
+              onPress={() => setSelectedStyle('standard')}
+              activeOpacity={0.7}
+            >
+              <Text
+                style={[
+                  styles.styleOptionText,
+                  selectedStyle === 'standard' && styles.styleOptionTextSelected,
+                ]}
+              >
+                Standard
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        <View style={styles.divider} />
+
         <TouchableOpacity
           style={styles.option}
-          onPress={onShareImage}
+          onPress={handleShareImage}
           activeOpacity={0.7}
           disabled={isLoading}
         >
@@ -62,9 +140,28 @@ export const ShareOptionsSheet: React.FC<ShareOptionsSheetProps> = ({
           {isLoading && <ActivityIndicator size="small" color={feedTheme.colors.primary} style={styles.loader} />}
         </TouchableOpacity>
 
+        {onShareInstagram && (
+          <TouchableOpacity
+            style={styles.option}
+            onPress={handleShareInstagram}
+            activeOpacity={0.7}
+            disabled={isLoading}
+          >
+            <Ionicons
+              name="logo-instagram"
+              size={24}
+              color={isLoading ? feedTheme.colors.textTertiary : '#E4405F'}
+            />
+            <Text style={[styles.optionText, isLoading && styles.disabledText]}>
+              Share to Instagram
+            </Text>
+            {isLoading && <ActivityIndicator size="small" color={feedTheme.colors.primary} style={styles.loader} />}
+          </TouchableOpacity>
+        )}
+
         <TouchableOpacity
           style={styles.option}
-          onPress={onSaveImage}
+          onPress={handleSaveImage}
           activeOpacity={0.7}
           disabled={isLoading}
         >
@@ -105,6 +202,50 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingHorizontal: feedTheme.spacing.screenPadding,
     paddingTop: 8,
+  },
+  styleSelector: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  styleSelectorLabel: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: feedTheme.colors.textSecondary,
+    marginBottom: 8,
+  },
+  styleToggle: {
+    flexDirection: 'row',
+    backgroundColor: feedTheme.colors.border,
+    borderRadius: 8,
+    padding: 3,
+  },
+  styleOption: {
+    flex: 1,
+    paddingVertical: 8,
+    alignItems: 'center',
+    borderRadius: 6,
+  },
+  styleOptionSelected: {
+    backgroundColor: '#FFFFFF',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  styleOptionText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: feedTheme.colors.textSecondary,
+  },
+  styleOptionTextSelected: {
+    color: feedTheme.colors.textPrimary,
+  },
+  divider: {
+    height: 1,
+    backgroundColor: feedTheme.colors.border,
+    marginVertical: 8,
+    marginHorizontal: 12,
   },
   option: {
     flexDirection: 'row',

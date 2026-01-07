@@ -5,3 +5,4 @@ export { useLikes } from './useLikes';
 export { useComments } from './useComments';
 export { usePostActions } from './usePostActions';
 export { useSharePost } from "./useSharePost";
+export type { ShareStyle } from "./useSharePost";
