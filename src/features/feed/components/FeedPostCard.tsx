@@ -1,7 +1,7 @@
 // src/features/feed/components/FeedPostCard.tsx
 
 import React, { useCallback, useMemo, useState, forwardRef } from 'react';
-import { View, Text, StyleSheet, Dimensions, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, Dimensions, TouchableOpacity, Pressable } from 'react-native';
 import { MatchResultCard } from '@/features/standings/components';
 import { SportColors, MatchResult } from '@/features/standings/types';
 import { FeedPost } from '../types';
@@ -24,6 +24,7 @@ interface FeedPostCardProps {
   onLikeCountPress: (postId: string, likeCount: number) => void;
   onOptionsPress?: (post: FeedPost) => void;
   onSharePress?: (post: FeedPost) => void;
+  onMatchPress?: (matchId: string) => void;
   showOptionsButton?: boolean;
 }
 
@@ -37,6 +38,7 @@ export const FeedPostCard = forwardRef<View, FeedPostCardProps>(({
   onLikeCountPress,
   onOptionsPress,
   onSharePress,
+  onMatchPress,
   showOptionsButton = false,
 }, ref) => {
   const { isLiking, toggleLike } = useLikes();
@@ -95,6 +97,10 @@ export const FeedPostCard = forwardRef<View, FeedPostCardProps>(({
     onOptionsPress?.(post);
   }, [post, onOptionsPress]);
 
+  const handleMatchPress = useCallback(() => {
+    onMatchPress?.(post.matchId);
+  }, [post.matchId, onMatchPress]);
+
   return (
     <View ref={ref} style={styles.container} collapsable={false}>
       {/* Author Header */}
@@ -123,8 +129,14 @@ export const FeedPostCard = forwardRef<View, FeedPostCardProps>(({
         </TouchableOpacity>
       )}
 
-      {/* Match Scorecard */}
-      <View style={styles.scorecardContainer}>
+      {/* Match Scorecard - Tappable to navigate to match detail */}
+      <Pressable
+        onPress={handleMatchPress}
+        style={({ pressed }) => [
+          styles.scorecardContainer,
+          pressed && styles.scorecardPressed,
+        ]}
+      >
         <MatchResultCard
           match={matchForCard}
           index={0}
@@ -136,7 +148,7 @@ export const FeedPostCard = forwardRef<View, FeedPostCardProps>(({
           expandedComments={new Set()}
           onToggleComments={() => {}}
         />
-      </View>
+      </Pressable>
 
       {/* Social Bar */}
       <SocialBar
@@ -176,5 +188,8 @@ const styles = StyleSheet.create({
   scorecardContainer: {
     paddingHorizontal: feedTheme.spacing.cardPadding,
     paddingBottom: 10,
+  },
+  scorecardPressed: {
+    opacity: 0.7,
   },
 });

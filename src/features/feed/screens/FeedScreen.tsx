@@ -117,6 +117,13 @@ export default function FeedScreen({ sport = 'default' }: FeedScreenProps) {
     router.push(`/player-profile/${authorId}` as any);
   }, []);
 
+  const handleMatchPress = useCallback((matchId: string) => {
+    router.push({
+      pathname: '/match/match-details',
+      params: { matchId },
+    } as any);
+  }, []);
+
   const handleLikeCountPress = useCallback((postId: string, likeCount: number) => {
     setSelectedLikerPostId(postId);
     setSelectedLikerCount(likeCount);
@@ -226,10 +233,11 @@ export default function FeedScreen({ sport = 'default' }: FeedScreenProps) {
         onLikeCountPress={handleLikeCountPress}
         onOptionsPress={handleOptionsPress}
         onSharePress={handleSharePress}
+        onMatchPress={handleMatchPress}
         showOptionsButton={isOwnPost}
       />
     );
-  }, [sportColors, isGameScoreSport, handleLikeUpdate, handleCommentPress, handleAuthorPress, handleLikeCountPress, handleOptionsPress, handleSharePress, currentUserId]);
+  }, [sportColors, isGameScoreSport, handleLikeUpdate, handleCommentPress, handleAuthorPress, handleLikeCountPress, handleOptionsPress, handleSharePress, handleMatchPress, currentUserId]);
 
   const renderFooter = useCallback(() => {
     if (!isLoadingMore) return null;
