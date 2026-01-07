@@ -20,11 +20,19 @@ export interface FeedPost {
   authorId: string;
   matchId: string;
   caption?: string | null;
+  sport: string;
+  matchType: string;
+  gameType: 'league' | 'friendly';
+  winnerIds: string[];
+  loserIds: string[];
+  matchDate: string;
+  leagueId?: string | null;
+  divisionId?: string | null;
   likeCount: number;
   commentCount: number;
   isLikedByUser: boolean;
   createdAt: string;
-  updatedAt: string;
+  updatedAt?: string;
   author: PostAuthor;
   match: FeedMatch;
 }
