@@ -1082,7 +1082,22 @@ export default function JoinMatchScreen() {
       useMyGamesStore.getState().triggerRefresh();
       toast.success(successMessage);
       bottomSheetModalRef.current?.dismiss();
-      router.back();
+
+      // Update matchData with submitted scores for share sheet
+      if (data.setScores && data.setScores.length > 0) {
+        const lastSet = data.setScores[data.setScores.length - 1];
+        setMatchData(prev => ({
+          ...prev,
+          team1Score: lastSet.team1Games ?? lastSet.team1Points ?? 0,
+          team2Score: lastSet.team2Games ?? lastSet.team2Points ?? 0,
+        }));
+      }
+
+      // Show share prompt after submission (same as confirmation flow)
+      setShowSharePrompt(true);
+      setTimeout(() => {
+        postMatchShareSheetRef.current?.snapToIndex(0);
+      }, 300);
     } catch (error: any) {
       console.error('❌ Error submitting result:', error);
       console.error('❌ Error response:', error.response?.data);
