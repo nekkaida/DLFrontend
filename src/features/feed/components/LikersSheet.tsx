@@ -6,6 +6,7 @@ import BottomSheet, { BottomSheetBackdrop, BottomSheetView } from '@gorhom/botto
 import { PostLiker } from '../types';
 import { useLikes } from '../hooks';
 import { feedTheme } from '../theme';
+import { processDisplayName } from '../utils/formatters';
 
 interface LikersSheetProps {
   postId: string | null;
@@ -46,13 +47,15 @@ export const LikersSheet: React.FC<LikersSheetProps> = ({
       ) : (
         <View style={[styles.avatar, styles.avatarPlaceholder]}>
           <Text style={styles.avatarText}>
-            {item.name.charAt(0).toUpperCase()}
+            {item.name?.trim() ? item.name.charAt(0).toUpperCase() : 'D'}
           </Text>
         </View>
       )}
       <View style={styles.likerInfo}>
-        <Text style={styles.likerName}>{item.name}</Text>
-        {item.username && (
+        <Text style={styles.likerName} numberOfLines={1}>
+          {processDisplayName(item.name, 20)}
+        </Text>
+        {item.username && item.name && (
           <Text style={styles.likerUsername}>@{item.username}</Text>
         )}
       </View>
