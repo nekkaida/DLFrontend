@@ -34,9 +34,15 @@ export const useSharePost = (): UseSharePostReturn => {
 
   /**
    * Get capture configuration based on style
+   *
+   * Style affects the background rendering:
+   * - 'transparent': Transparent background for Instagram story overlays
+   * - 'standard': Solid background for regular sharing
+   *
+   * Note: The actual background styling is handled by the view component being captured.
+   * The view should conditionally render transparent/solid background based on a style prop.
    */
   const getCaptureConfig = useCallback((style: ShareStyle = 'transparent') => {
-    // Both styles use same dimensions, style affects rendering in the view component
     return {
       format: 'png' as const,
       quality: 1,
