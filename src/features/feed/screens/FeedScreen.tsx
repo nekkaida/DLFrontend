@@ -96,6 +96,11 @@ export default function FeedScreen({ sport = 'default' }: FeedScreenProps) {
     router.push('/user-dashboard/friend-list');
   }, []);
 
+  const handleCreatePostPress = useCallback(() => {
+    // Navigate to My Games with share mode to select a match to share
+    router.push('/user-dashboard?view=myGames&tab=HISTORY&shareMode=true' as any);
+  }, []);
+
   const handleLikeUpdate = useCallback((postId: string, liked: boolean, likeCount: number) => {
     updatePostLocally(postId, { isLikedByUser: liked, likeCount });
   }, [updatePostLocally]);
@@ -266,6 +271,7 @@ export default function FeedScreen({ sport = 'default' }: FeedScreenProps) {
         selectedSport={selectedSportFilter}
         onFilterPress={handleFilterPress}
         onFriendListPress={handleFriendListPress}
+        onCreatePostPress={handleCreatePostPress}
       />
 
       {isLoading && posts.length === 0 ? (
