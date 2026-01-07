@@ -7,3 +7,4 @@ export { FeedHeader } from './FeedHeader';
 export { CommentsSheet } from './CommentsSheet';
 export { SportFilterSheet } from './SportFilterSheet';
 export { LikersSheet } from './LikersSheet';
+export { PostOptionsSheet } from './PostOptionsSheet';
