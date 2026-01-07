@@ -192,7 +192,7 @@ export const CommentsSheet: React.FC<CommentsSheetProps> = ({
               value={inputText}
               onChangeText={setInputText}
               multiline
-              maxLength={500}
+              maxLength={200}
             />
             <TouchableOpacity
               style={[styles.sendButton, !inputText.trim() && styles.sendButtonDisabled]}

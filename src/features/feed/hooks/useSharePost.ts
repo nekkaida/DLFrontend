@@ -44,11 +44,13 @@ export const useSharePost = (): UseSharePostReturn => {
         return false;
       }
 
-      // Capture the view as a PNG image
+      // Capture the view as a PNG image (1080x1080 for optimal social sharing)
       const uri = await captureRef(viewRef, {
         format: 'png',
         quality: 1,
         result: 'tmpfile',
+        width: 1080,
+        height: 1080,
       });
 
       // Open native share sheet
@@ -93,11 +95,13 @@ export const useSharePost = (): UseSharePostReturn => {
         return false;
       }
 
-      // Capture the view as a PNG image
+      // Capture the view as a PNG image (1080x1080 for optimal social sharing)
       const uri = await captureRef(viewRef, {
         format: 'png',
         quality: 1,
         result: 'tmpfile',
+        width: 1080,
+        height: 1080,
       });
 
       // Save to camera roll

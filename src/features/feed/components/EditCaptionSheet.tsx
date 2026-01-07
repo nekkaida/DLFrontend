@@ -86,7 +86,7 @@ export const EditCaptionSheet: React.FC<EditCaptionSheetProps> = ({
           <View style={styles.inputContainer}>
             <TextInput
               style={styles.input}
-              placeholder="Write a caption..."
+              placeholder="Add a caption..."
               placeholderTextColor={feedTheme.colors.textTertiary}
               value={caption}
               onChangeText={setCaption}
