@@ -1,6 +1,6 @@
 // src/features/feed/components/CommentsSheet.tsx
 
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -11,10 +11,13 @@ import {
   KeyboardAvoidingView,
   Platform,
   Image,
+  Animated,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { formatDistanceToNow } from 'date-fns';
 import BottomSheet, { BottomSheetBackdrop, BottomSheetView } from '@gorhom/bottom-sheet';
+import { Swipeable } from 'react-native-gesture-handler';
+import { useSession } from '@/lib/auth-client';
 import { useComments } from '../hooks';
 import { PostComment } from '../types';
 import { feedTheme } from '../theme';
@@ -33,8 +36,11 @@ export const CommentsSheet: React.FC<CommentsSheetProps> = ({
   onCommentCountChange,
 }) => {
   const [inputText, setInputText] = useState('');
+  const { data: session } = useSession();
+  const currentUserId = session?.user?.id;
   const { comments, isLoading, isSubmitting, fetchComments, addComment, deleteComment } =
     useComments(postId || '');
+  const swipeableRefs = useRef<Map<string, Swipeable | null>>(new Map());
 
   useEffect(() => {
     if (postId) {
@@ -55,13 +61,37 @@ export const CommentsSheet: React.FC<CommentsSheetProps> = ({
   const handleDelete = useCallback(async (commentId: string) => {
     if (!postId) return;
 
+    // Close the swipeable before deleting
+    const swipeableRef = swipeableRefs.current.get(commentId);
+    if (swipeableRef) {
+      swipeableRef.close();
+    }
+
     const success = await deleteComment(commentId);
     if (success) {
       onCommentCountChange(postId, comments.length - 1);
     }
   }, [postId, deleteComment, comments.length, onCommentCountChange]);
 
-  const renderComment = useCallback(({ item }: { item: PostComment }) => (
+  const renderRightActions = useCallback(
+    (commentId: string) =>
+      (
+        _progress: Animated.AnimatedInterpolation<number>,
+        _dragX: Animated.AnimatedInterpolation<number>
+      ) => (
+        <TouchableOpacity
+          style={styles.deleteAction}
+          onPress={() => handleDelete(commentId)}
+          activeOpacity={0.8}
+        >
+          <Ionicons name="trash-outline" size={20} color="#FFFFFF" />
+          <Text style={styles.deleteActionText}>Delete</Text>
+        </TouchableOpacity>
+      ),
+    [handleDelete]
+  );
+
+  const renderCommentContent = useCallback((item: PostComment) => (
     <View style={styles.commentItem}>
       {item.user.image ? (
         <Image source={{ uri: item.user.image }} style={styles.commentAvatar} />
@@ -83,6 +113,34 @@ export const CommentsSheet: React.FC<CommentsSheetProps> = ({
       </View>
     </View>
   ), []);
+
+  const renderComment = useCallback(
+    ({ item }: { item: PostComment }) => {
+      const isOwnComment = item.user.id === currentUserId;
+
+      if (isOwnComment) {
+        return (
+          <Swipeable
+            ref={(ref) => {
+              if (ref) {
+                swipeableRefs.current.set(item.id, ref);
+              } else {
+                swipeableRefs.current.delete(item.id);
+              }
+            }}
+            renderRightActions={renderRightActions(item.id)}
+            rightThreshold={40}
+            overshootRight={false}
+          >
+            {renderCommentContent(item)}
+          </Swipeable>
+        );
+      }
+
+      return renderCommentContent(item);
+    },
+    [currentUserId, renderRightActions, renderCommentContent]
+  );
 
   const renderBackdrop = useCallback(
     (props: any) => (
@@ -175,6 +233,7 @@ const styles = StyleSheet.create({
   commentItem: {
     flexDirection: 'row',
     marginBottom: 16,
+    backgroundColor: '#FFFFFF',
   },
   commentAvatar: {
     width: 36,
@@ -243,5 +302,19 @@ const styles = StyleSheet.create({
   },
   sendButtonDisabled: {
     opacity: 0.5,
+  },
+  deleteAction: {
+    backgroundColor: '#DC2626',
+    justifyContent: 'center',
+    alignItems: 'center',
+    width: 80,
+    marginBottom: 16,
+    borderRadius: 8,
+  },
+  deleteActionText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '600',
+    marginTop: 4,
   },
 });
