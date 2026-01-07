@@ -7,6 +7,7 @@ import * as Sharing from 'expo-sharing';
 import * as MediaLibrary from 'expo-media-library';
 import * as Haptics from 'expo-haptics';
 import * as FileSystem from 'expo-file-system';
+import { toast } from 'sonner-native';
 
 // Deep link configuration
 const WEB_BASE_URL = 'https://deuceleague.com';
@@ -120,12 +121,12 @@ export const useSharePost = (): UseSharePostReturn => {
       await MediaLibrary.saveToLibraryAsync(uri);
 
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      Alert.alert('Saved', 'Post saved to your camera roll.');
+      toast.success('Saved to Camera Roll');
       return true;
     } catch (err) {
       console.error('Error capturing and saving post:', err);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      Alert.alert('Error', 'Failed to save the post. Please try again.');
+      toast.error('Failed to save. Please try again.');
       return false;
     } finally {
       setIsSaving(false);
@@ -208,7 +209,7 @@ export const useSharePost = (): UseSharePostReturn => {
     } catch (err) {
       console.error('Error sharing to Instagram:', err);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      Alert.alert('Error', 'Failed to share to Instagram. Please try again.');
+      toast.error('Failed to share to Instagram. Please try again.');
       return false;
     } finally {
       setIsCapturing(false);
