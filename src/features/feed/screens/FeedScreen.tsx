@@ -193,21 +193,30 @@ export default function FeedScreen({ sport = 'default' }: FeedScreenProps) {
     shareSheetRef.current?.snapToIndex(0);
   }, []);
 
-  const handleShareImage = useCallback(async () => {
+  const handleShareImage = useCallback(async (style?: 'transparent' | 'standard') => {
     if (!sharePostId) return;
     const viewRef = postRefs.current.get(sharePostId);
     if (viewRef) {
-      await captureAndShare({ current: viewRef });
+      await captureAndShare({ current: viewRef }, { style });
     }
   }, [sharePostId, captureAndShare]);
 
-  const handleSaveImage = useCallback(async () => {
+  const handleSaveImage = useCallback(async (style?: 'transparent' | 'standard') => {
     if (!sharePostId) return;
     const viewRef = postRefs.current.get(sharePostId);
     if (viewRef) {
-      await captureAndSave({ current: viewRef });
+      await captureAndSave({ current: viewRef }, { style });
     }
   }, [sharePostId, captureAndSave]);
+
+  const handleShareToInstagram = useCallback(async (style?: 'transparent' | 'standard') => {
+    if (!sharePostId) return;
+    const viewRef = postRefs.current.get(sharePostId);
+    if (viewRef) {
+      // Instagram share saves and shares to Instagram
+      await captureAndShare({ current: viewRef }, { style });
+    }
+  }, [sharePostId, captureAndShare]);
 
   const handleShareLink = useCallback(async () => {
     if (!sharePostId) return;
@@ -341,6 +350,17 @@ export default function FeedScreen({ sport = 'default' }: FeedScreenProps) {
         onClose={handleCloseEdit}
         onSave={handleSaveCaption}
         isSaving={isEditing}
+      />
+
+      {/* Share Options Bottom Sheet */}
+      <ShareOptionsSheet
+        bottomSheetRef={shareSheetRef}
+        onClose={handleCloseShare}
+        onShareImage={handleShareImage}
+        onSaveImage={handleSaveImage}
+        onShareLink={handleShareLink}
+        onShareInstagram={handleShareToInstagram}
+        isLoading={isCapturing || isSaving}
       />
     </View>
   );

@@ -152,6 +152,8 @@ export default function JoinMatchScreen() {
     : (fetchedMatchDetails?.participants || []);
   const matchStatus = (params.status as string) || fetchedMatchDetails?.status || 'SCHEDULED';
   const isFriendly = params.isFriendly === 'true' || fetchedMatchDetails?.isFriendly || false;
+  // Share mode - auto-open share sheet when navigating from match history
+  const shareMode = params.shareMode === 'true';
   // Chat message params - used to update the message bubble after joining
   const chatMessageId = params.messageId as string | undefined;
   const chatThreadId = params.threadId as string | undefined;
@@ -572,6 +574,18 @@ export default function JoinMatchScreen() {
     contentEntryOpacity,
     contentEntryTranslateY,
   ]);
+
+  // Auto-open share sheet when navigating with shareMode=true (from match history)
+  useEffect(() => {
+    if (shareMode && participantsWithDetails.length > 0 && !isLoadingMatchDetails) {
+      // Small delay to ensure the page is fully rendered
+      const timer = setTimeout(() => {
+        setShowSharePrompt(true);
+        postMatchShareSheetRef.current?.snapToIndex(0);
+      }, 500);
+      return () => clearTimeout(timer);
+    }
+  }, [shareMode, participantsWithDetails, isLoadingMatchDetails]);
 
   const fetchParticipantDetails = async () => {
     try {
@@ -1199,21 +1213,7 @@ export default function JoinMatchScreen() {
     router.back();
   };
 
-  const handleExternalShare = async () => {
-    // Save to gallery - will be implemented with viewshot
-    toast.info('Image saved to gallery');
-    postMatchShareSheetRef.current?.close();
-    setShowSharePrompt(false);
-    router.back();
-  };
-
-  const handleInstagramShare = async () => {
-    // Share to Instagram - will be implemented with viewshot
-    toast.info('Opening Instagram...');
-    postMatchShareSheetRef.current?.close();
-    setShowSharePrompt(false);
-    router.back();
-  };
+  // External share handlers are now handled internally by PostMatchShareSheet using useSharePost hook
 
   // Handler to open dispute page (opponent captain)
   const handleOpenDisputeSheet = async () => {
@@ -2212,8 +2212,6 @@ export default function JoinMatchScreen() {
           }}
           onPost={handleSharePost}
           onSkip={handleSkipShare}
-          onExternalShare={handleExternalShare}
-          onInstagramShare={handleInstagramShare}
         />
       )}
     </View>

@@ -1,6 +1,6 @@
 // src/features/feed/components/PostMatchShareSheet.tsx
 
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo, useRef, useImperativeHandle, forwardRef } from 'react';
 import {
   View,
   Text,
@@ -16,6 +16,7 @@ import {
 import BottomSheet, { BottomSheetBackdrop, BottomSheetScrollView } from '@gorhom/bottom-sheet';
 import { Ionicons } from '@expo/vector-icons';
 import { feedTheme } from '../theme';
+import { useSharePost } from '../hooks';
 
 const MAX_CAPTION_LENGTH = 500;
 
@@ -33,7 +34,7 @@ interface PostMatchShareSheetProps {
   } | null;
   onPost: (caption: string) => void;
   onSkip: () => void;
-  onExternalShare: () => void;
+  onExternalShare?: () => void;
   onInstagramShare?: () => void;
   isPosting?: boolean;
   bottomSheetRef: React.RefObject<BottomSheet | null>;
@@ -49,6 +50,8 @@ export const PostMatchShareSheet: React.FC<PostMatchShareSheetProps> = ({
   bottomSheetRef,
 }) => {
   const [caption, setCaption] = useState('');
+  const shareableViewRef = useRef<View | null>(null);
+  const { captureAndSave, shareToInstagram, isCapturing, isSaving } = useSharePost();
 
   const isOverLimit = caption.length > MAX_CAPTION_LENGTH;
   const canPost = !isOverLimit && !isPosting;
@@ -70,8 +73,6 @@ export const PostMatchShareSheet: React.FC<PostMatchShareSheetProps> = ({
   }, []);
 
   const handleInstagramShare = useCallback(async () => {
-    if (!onInstagramShare) return;
-
     // Check if Instagram is installed
     const canOpen = await Linking.canOpenURL('instagram://');
     if (!canOpen) {
@@ -83,8 +84,28 @@ export const PostMatchShareSheet: React.FC<PostMatchShareSheetProps> = ({
       return;
     }
 
-    onInstagramShare();
-  }, [onInstagramShare]);
+    // If custom handler provided, use it; otherwise use internal shareToInstagram
+    if (onInstagramShare) {
+      onInstagramShare();
+    } else {
+      const success = await shareToInstagram(shareableViewRef);
+      if (success) {
+        bottomSheetRef.current?.close();
+      }
+    }
+  }, [onInstagramShare, shareToInstagram, bottomSheetRef]);
+
+  const handleSaveToGallery = useCallback(async () => {
+    // If custom handler provided, use it; otherwise use internal captureAndSave
+    if (onExternalShare) {
+      onExternalShare();
+    } else {
+      const success = await captureAndSave(shareableViewRef);
+      if (success) {
+        bottomSheetRef.current?.close();
+      }
+    }
+  }, [onExternalShare, captureAndSave, bottomSheetRef]);
 
   const renderBackdrop = useCallback(
     (props: any) => (
@@ -128,7 +149,7 @@ export const PostMatchShareSheet: React.FC<PostMatchShareSheetProps> = ({
     const isDoubles = matchData.matchType === 'doubles';
 
     return (
-      <View style={styles.previewCard}>
+      <View ref={shareableViewRef} style={styles.previewCard} collapsable={false}>
         <View style={styles.previewBadgeRow}>
           <View style={[styles.badge, isLeague ? styles.leagueBadge : styles.friendlyBadge]}>
             <Text style={styles.badgeText}>
@@ -251,35 +272,41 @@ export const PostMatchShareSheet: React.FC<PostMatchShareSheetProps> = ({
           </View>
 
           <View style={styles.externalShareRow}>
-            {onInstagramShare && (
-              <TouchableOpacity
-                style={styles.externalShareButton}
-                onPress={handleInstagramShare}
-                activeOpacity={0.7}
-                disabled={isPosting}
-              >
-                <View style={styles.externalShareIcon}>
+            <TouchableOpacity
+              style={styles.externalShareButton}
+              onPress={handleInstagramShare}
+              activeOpacity={0.7}
+              disabled={isPosting || isCapturing}
+            >
+              <View style={styles.externalShareIcon}>
+                {isCapturing ? (
+                  <ActivityIndicator size="small" color="#E4405F" />
+                ) : (
                   <Ionicons
                     name="logo-instagram"
                     size={24}
                     color="#E4405F"
                   />
-                </View>
-                <Text style={styles.externalShareLabel}>Instagram</Text>
-              </TouchableOpacity>
-            )}
+                )}
+              </View>
+              <Text style={styles.externalShareLabel}>Instagram</Text>
+            </TouchableOpacity>
             <TouchableOpacity
               style={styles.externalShareButton}
-              onPress={onExternalShare}
+              onPress={handleSaveToGallery}
               activeOpacity={0.7}
-              disabled={isPosting}
+              disabled={isPosting || isSaving}
             >
               <View style={styles.externalShareIcon}>
-                <Ionicons
-                  name="download-outline"
-                  size={24}
-                  color={feedTheme.colors.primary}
-                />
+                {isSaving ? (
+                  <ActivityIndicator size="small" color={feedTheme.colors.primary} />
+                ) : (
+                  <Ionicons
+                    name="download-outline"
+                    size={24}
+                    color={feedTheme.colors.primary}
+                  />
+                )}
               </View>
               <Text style={styles.externalShareLabel}>Save</Text>
             </TouchableOpacity>

@@ -21,9 +21,9 @@ interface CaptureOptions {
 interface UseSharePostReturn {
   isCapturing: boolean;
   isSaving: boolean;
-  captureAndShare: (viewRef: React.RefObject<View>, options?: CaptureOptions) => Promise<boolean>;
-  captureAndSave: (viewRef: React.RefObject<View>, options?: CaptureOptions) => Promise<boolean>;
-  shareToInstagram: (viewRef: React.RefObject<View>, options?: CaptureOptions) => Promise<boolean>;
+  captureAndShare: (viewRef: React.RefObject<View | null>, options?: CaptureOptions) => Promise<boolean>;
+  captureAndSave: (viewRef: React.RefObject<View | null>, options?: CaptureOptions) => Promise<boolean>;
+  shareToInstagram: (viewRef: React.RefObject<View | null>, options?: CaptureOptions) => Promise<boolean>;
   shareLink: (postId: string) => Promise<boolean>;
 }
 
@@ -49,7 +49,7 @@ export const useSharePost = (): UseSharePostReturn => {
    * Capture a view as an image and open the native share sheet
    */
   const captureAndShare = useCallback(async (
-    viewRef: React.RefObject<View>,
+    viewRef: React.RefObject<View | null>,
     options?: CaptureOptions
   ): Promise<boolean> => {
     if (!viewRef.current) {
@@ -91,7 +91,7 @@ export const useSharePost = (): UseSharePostReturn => {
    * Capture a view as an image and save it to the camera roll
    */
   const captureAndSave = useCallback(async (
-    viewRef: React.RefObject<View>,
+    viewRef: React.RefObject<View | null>,
     options?: CaptureOptions
   ): Promise<boolean> => {
     if (!viewRef.current) {
@@ -136,7 +136,7 @@ export const useSharePost = (): UseSharePostReturn => {
    * Share image directly to Instagram Stories
    */
   const shareToInstagram = useCallback(async (
-    viewRef: React.RefObject<View>,
+    viewRef: React.RefObject<View | null>,
     options?: CaptureOptions
   ): Promise<boolean> => {
     if (!viewRef.current) {
