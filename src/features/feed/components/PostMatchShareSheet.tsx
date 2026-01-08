@@ -35,6 +35,7 @@ interface PostMatchShareSheetProps {
   } | null;
   onPost: (caption: string) => void;
   onSkip: () => void;
+  onClose?: () => void;
   onExternalShare?: () => void;
   onInstagramShare?: () => void;
   isPosting?: boolean;
@@ -45,6 +46,7 @@ export const PostMatchShareSheet: React.FC<PostMatchShareSheetProps> = ({
   matchData,
   onPost,
   onSkip,
+  onClose,
   onExternalShare,
   onInstagramShare,
   isPosting = false,
@@ -71,8 +73,9 @@ export const PostMatchShareSheet: React.FC<PostMatchShareSheetProps> = ({
 
   const handleClose = useCallback(() => {
     setCaption('');
-    onSkip(); // Navigate away when swiped down to close
-  }, [onSkip]);
+    // Call onClose if provided (allows parent to reset state without navigation)
+    onClose?.();
+  }, [onClose]);
 
   const handleInstagramShare = useCallback(async () => {
     // Check if Instagram is installed

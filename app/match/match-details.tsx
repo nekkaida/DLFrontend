@@ -1226,6 +1226,12 @@ export default function JoinMatchScreen() {
     }
   };
 
+  // Handler when share sheet is closed by swiping down (not Skip button)
+  const handleCloseShareSheet = () => {
+    setShowSharePrompt(false);
+    // Don't navigate - just reset state so user can open again
+  };
+
   // Handler for manually opening share sheet from completed match
   const handleOpenShareSheet = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -2243,6 +2249,7 @@ export default function JoinMatchScreen() {
           }}
           onPost={handleSharePost}
           onSkip={handleSkipShare}
+          onClose={handleCloseShareSheet}
         />
       )}
     </View>
