@@ -65,6 +65,7 @@ export const useFriends = () => {
       const responseData = (response as any).data || response;
       if (responseData && responseData.message) {
         toast.success('Success', {
+          id: `friend-request-sent-${recipientId}`,
           description: 'Friend request sent!',
         });
         await fetchFriendRequests();
@@ -72,6 +73,7 @@ export const useFriends = () => {
     } catch (error) {
       console.error('Error sending friend request:', error);
       toast.error('Error', {
+        id: `friend-request-error-${recipientId}`,
         description: 'Failed to send friend request',
       });
       throw error;
@@ -93,6 +95,7 @@ export const useFriends = () => {
       const responseData = (response as any).data || response;
       if (responseData && responseData.message) {
         toast.success('Success', {
+          id: `friend-request-accepted-${friendshipId}`,
           description: 'Friend request accepted!',
         });
         await fetchFriendRequests();
@@ -101,6 +104,7 @@ export const useFriends = () => {
     } catch (error) {
       console.error('Error accepting friend request:', error);
       toast.error('Error', {
+        id: `friend-accept-error-${friendshipId}`,
         description: 'Failed to accept request',
       });
     } finally {
@@ -122,12 +126,15 @@ export const useFriends = () => {
 
       const responseData = (response as any).data || response;
       if (responseData && responseData.message) {
-        toast.success('Request rejected');
+        toast.success('Request rejected', {
+          id: `friend-request-rejected-${friendshipId}`,
+        });
         await fetchFriendRequests();
       }
     } catch (error) {
       console.error('Error rejecting friend request:', error);
       toast.error('Error', {
+        id: `friend-reject-error-${friendshipId}`,
         description: 'Failed to reject request',
       });
     } finally {
@@ -149,12 +156,15 @@ export const useFriends = () => {
 
       const responseData = (response as any).data || response;
       if (responseData && responseData.message) {
-        toast.success('Friend removed');
+        toast.success('Friend removed', {
+          id: `friend-removed-${friendshipId}`,
+        });
         await fetchFriends();
       }
     } catch (error) {
       console.error('Error removing friend:', error);
       toast.error('Error', {
+        id: `friend-remove-error-${friendshipId}`,
         description: 'Failed to remove friend',
       });
     } finally {
