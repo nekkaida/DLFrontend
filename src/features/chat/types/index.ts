@@ -126,6 +126,9 @@ export interface BackendThread {
   };
 }
 
+// Message sending status for optimistic UI updates
+export type MessageStatus = 'sending' | 'sent' | 'failed';
+
 export interface Message {
   id: string;
   threadId: string;
@@ -136,6 +139,8 @@ export interface Message {
   isDelivered: boolean;
   replyTo?: string;
   type?: 'text' | 'match'; // Add message type
+  status?: MessageStatus; // For optimistic UI updates
+  tempId?: string; // Temporary ID for optimistic messages
   matchData?: { // Add match-specific data
     matchId?: string; // Match ID for API calls
     matchType?: 'SINGLES' | 'DOUBLES'; // Match type from backend

@@ -147,9 +147,10 @@ export const SwipeableMessageBubble: React.FC<SwipeableMessageBubbleProps> = Rea
   }, []);
 
   // Pan gesture for swipe - LEFT TO RIGHT only for all messages
+  // activeOffsetX([15, 25]) requires intentional swipe, not micro-movements
   const panGesture = Gesture.Pan()
-    .activeOffsetX([1, 10]) // Only activate for right swipe (left-to-right)
-    .failOffsetY([-10, 10]) // Fail if vertical movement detected (allows FlatList scrolling)
+    .activeOffsetX([15, 25])
+    .failOffsetY([-15, 15]) // Fail if vertical movement detected (allows FlatList scrolling)
     .onUpdate((event) => {
       // Only allow swipe right (positive translation) for all messages
       if (event.translationX > 0) {
@@ -203,8 +204,9 @@ export const SwipeableMessageBubble: React.FC<SwipeableMessageBubbleProps> = Rea
       runOnJS(handleLongPress)();
     });
 
-  // Combined gesture
-  const composedGesture = Gesture.Race(longPressGesture, panGesture);
+  // Combined gesture using Exclusive - long press has priority over pan
+  // This prevents micro-movements from cancelling the long press
+  const composedGesture = Gesture.Exclusive(longPressGesture, panGesture);
 
   // Animated style for message container
   const animatedStyle = useAnimatedStyle(() => ({
