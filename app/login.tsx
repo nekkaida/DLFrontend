@@ -61,20 +61,29 @@ export default function LoginRoute() {
           }
         }
 
-        // Wait a moment for session to be established in SecureStore
-        await new Promise((resolve) => setTimeout(resolve, 300));
+        // Poll for session to be established in SecureStore
+        // Production builds may need more time than development
+        console.log("Waiting for session to be established...");
 
-        // Confirm session is saved
-        const sessionCheck = await authClient.getSession();
-        console.log("Session after login:", sessionCheck);
+        let attempts = 0;
+        const maxAttempts = 10;
 
-        if (sessionCheck.data) {
-          console.log("Session confirmed, redirecting to dashboard");
-          router.replace("/user-dashboard");
-        } else {
-          console.error("Session not established after login");
-          toast.error("Session not established. Please try again.");
+        while (attempts < maxAttempts) {
+          await new Promise((resolve) => setTimeout(resolve, 500));
+          const sessionCheck = await authClient.getSession();
+          console.log(`Session check attempt ${attempts + 1}:`, sessionCheck.data ? "Session found" : "No session");
+
+          if (sessionCheck.data) {
+            console.log("Session confirmed, redirecting to dashboard");
+            router.replace("/user-dashboard");
+            return;
+          }
+          attempts++;
         }
+
+        // Timeout - session not established
+        console.error("Session not established after login (timeout)");
+        toast.error("Session not established. Please try again.");
       } else {
         console.error("Login failed:", result.error);
         toast.error(result.error?.message || "Login failed. Please try again.");
