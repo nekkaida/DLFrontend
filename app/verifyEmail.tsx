@@ -83,7 +83,35 @@ export default function VerifyEmailScreen() {
       } else if (data) {
         console.log('Email verification successful');
         toast.success('Your email has been verified successfully.');
-        // NavigationInterceptor now handles redirecting verified users into onboarding.
+
+        // Wait for session to be established in SecureStore, then navigate
+        // This is needed because autoSignInAfterVerification creates a session,
+        // but the React state may not update immediately (race condition in production builds)
+        console.log('Waiting for session to be established...');
+
+        // Poll for session with timeout
+        let attempts = 0;
+        const maxAttempts = 10;
+        const checkSession = async (): Promise<boolean> => {
+          const sessionCheck = await authClient.getSession();
+          console.log(`Session check attempt ${attempts + 1}:`, sessionCheck.data ? 'Session found' : 'No session');
+          return !!sessionCheck.data?.user;
+        };
+
+        while (attempts < maxAttempts) {
+          await new Promise(resolve => setTimeout(resolve, 500));
+          const hasSession = await checkSession();
+          if (hasSession) {
+            console.log('Session established, navigating to onboarding');
+            router.replace('/onboarding/personal-info');
+            return;
+          }
+          attempts++;
+        }
+
+        // Fallback: Navigate anyway after timeout - NavigationInterceptor will handle if needed
+        console.log('Session check timed out, navigating to onboarding anyway');
+        router.replace('/onboarding/personal-info');
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : 'An unknown error occurred.';
