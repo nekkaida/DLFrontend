@@ -1486,7 +1486,7 @@ export const MatchResultSheet: React.FC<MatchResultSheetProps> = ({
                     )}
                   </View>
                   <View style={styles.stackedNames}>
-                    <Text style={styles.stackedNameText}>
+                    <Text style={styles.stackedNameText} numberOfLines={1} ellipsizeMode="tail">
                       {teamAPlayers[0]?.name.split(' ')[0]}
                     </Text>
                   </View>
@@ -1526,7 +1526,7 @@ export const MatchResultSheet: React.FC<MatchResultSheetProps> = ({
                     )}
                   </View>
                   <View style={styles.stackedNames}>
-                    <Text style={styles.stackedNameText}>
+                    <Text style={styles.stackedNameText} numberOfLines={1} ellipsizeMode="tail">
                       {teamBPlayers[0]?.name.split(' ')[0]}
                     </Text>
                   </View>
@@ -1842,12 +1842,12 @@ export const MatchResultSheet: React.FC<MatchResultSheetProps> = ({
           <View style={styles.stackedNames}>
             {matchType === 'DOUBLES' ? (
               teamAPlayers.map(player => (
-                <Text key={player.id} style={styles.stackedNameText}>
+                <Text key={player.id} style={styles.stackedNameText} numberOfLines={1} ellipsizeMode="tail">
                   {player.name.split(' ')[0]}
                 </Text>
               ))
             ) : (
-              <Text style={styles.stackedNameText}>
+              <Text style={styles.stackedNameText} numberOfLines={1} ellipsizeMode="tail">
                 {teamAPlayers[0]?.name.split(' ')[0]}
               </Text>
             )}
@@ -1937,12 +1937,12 @@ export const MatchResultSheet: React.FC<MatchResultSheetProps> = ({
           <View style={styles.stackedNames}>
             {matchType === 'DOUBLES' ? (
               teamBPlayers.map(player => (
-                <Text key={player.id} style={styles.stackedNameText}>
+                <Text key={player.id} style={styles.stackedNameText} numberOfLines={1} ellipsizeMode="tail">
                   {player.name.split(' ')[0]}
                 </Text>
               ))
             ) : (
-              <Text style={styles.stackedNameText}>
+              <Text style={styles.stackedNameText} numberOfLines={1} ellipsizeMode="tail">
                 {teamBPlayers[0]?.name.split(' ')[0]}
               </Text>
             )}
