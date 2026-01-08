@@ -521,6 +521,15 @@ export const NavigationInterceptor: React.FC<NavigationInterceptorProps> = ({ ch
         return true;
       }
 
+      // No navigation history - handle gracefully instead of exiting app
+      // This can happen when app is restored from background with lost state
+      // For authenticated users on non-exit pages, navigate to dashboard
+      if (session?.user && !isNoBackPage(currentRoute)) {
+        console.log('NavigationInterceptor: No navigation history, redirecting to dashboard');
+        router.replace('/user-dashboard');
+        return true;
+      }
+
       // No navigation history, let Android handle back (usually exits app)
       return false;
     };
