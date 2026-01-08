@@ -13,6 +13,23 @@ import { toast } from 'sonner-native';
 const WEB_BASE_URL = 'https://deuceleague.com';
 const APP_SCHEME = 'deuceleague';
 
+/**
+ * Opens the device Settings app for this application.
+ * iOS: Opens app-specific settings page
+ * Android: Opens app settings in system settings
+ */
+const openSettings = async (): Promise<void> => {
+  try {
+    if (Platform.OS === 'ios') {
+      await Linking.openURL('app-settings:');
+    } else {
+      await Linking.openSettings();
+    }
+  } catch (err) {
+    console.error('Failed to open settings:', err);
+  }
+};
+
 export type ShareStyle = 'transparent' | 'standard';
 
 interface CaptureOptions {
@@ -114,8 +131,11 @@ export const useSharePost = (): UseSharePostReturn => {
       if (status !== 'granted') {
         Alert.alert(
           'Permission Required',
-          'Please grant media library access to save images.',
-          [{ text: 'OK' }]
+          'Please grant photo library access to save images.',
+          [
+            { text: 'Cancel', style: 'cancel' },
+            { text: 'Settings', onPress: openSettings },
+          ]
         );
         return false;
       }
@@ -165,8 +185,11 @@ export const useSharePost = (): UseSharePostReturn => {
       if (status !== 'granted') {
         Alert.alert(
           'Permission Required',
-          'Please grant media library access to share to Instagram.',
-          [{ text: 'OK' }]
+          'Please grant photo library access to share to Instagram.',
+          [
+            { text: 'Cancel', style: 'cancel' },
+            { text: 'Settings', onPress: openSettings },
+          ]
         );
         return false;
       }
