@@ -15,6 +15,7 @@ import BottomSheet from '@gorhom/bottom-sheet';
 import { Ionicons } from '@expo/vector-icons';
 import { BottomSheetBackdrop, BottomSheetModal } from '@gorhom/bottom-sheet';
 import { router, useLocalSearchParams } from 'expo-router';
+import * as Haptics from 'expo-haptics';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -1139,6 +1140,14 @@ export default function JoinMatchScreen() {
         { confirmed: true }
       );
 
+      // Update local matchData state to COMPLETED to prevent race conditions
+      // This ensures the UI immediately shows view mode and prevents double-confirmation
+      setMatchData(prev => ({
+        ...prev,
+        status: 'COMPLETED',
+        isDisputed: false,
+      }));
+
       // Trigger My Games refresh so the confirmed match status is shown
       useMyGamesStore.getState().triggerRefresh();
       toast.success('Match result confirmed!');
@@ -1151,9 +1160,9 @@ export default function JoinMatchScreen() {
       }, 300);
     } catch (error: any) {
       console.error('❌ Error confirming result:', error);
-      const errorMessage = error.response?.data?.error || 
-                          error.response?.data?.message || 
-                          error.message || 
+      const errorMessage = error.response?.data?.error ||
+                          error.response?.data?.message ||
+                          error.message ||
                           'Failed to confirm result';
       toast.error(errorMessage);
       throw error;
@@ -1200,7 +1209,7 @@ export default function JoinMatchScreen() {
       toast.success('Posted to Activity Feed!');
       postMatchShareSheetRef.current?.close();
       setShowSharePrompt(false);
-      router.back();
+      // Don't navigate back - user can stay on match details or manually navigate
     } catch (error: any) {
       console.error('Error creating post:', error);
       toast.error('Failed to create post. Please try again.');
@@ -1210,7 +1219,20 @@ export default function JoinMatchScreen() {
   const handleSkipShare = () => {
     postMatchShareSheetRef.current?.close();
     setShowSharePrompt(false);
-    router.back();
+    // Only navigate back if this was shown automatically after confirmation
+    // Don't navigate if user manually opened share sheet from completed match
+    if (matchData.status !== 'COMPLETED') {
+      router.back();
+    }
+  };
+
+  // Handler for manually opening share sheet from completed match
+  const handleOpenShareSheet = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setShowSharePrompt(true);
+    setTimeout(() => {
+      postMatchShareSheetRef.current?.snapToIndex(0);
+    }, 100);
   };
 
   // External share handlers are now handled internally by PostMatchShareSheet using useSharePost hook
@@ -1985,15 +2007,24 @@ export default function JoinMatchScreen() {
                 );
               }
 
-              // Match COMPLETED - Show "View Scores" to everyone
+              // Match COMPLETED - Show "View Scores" and "Share to Feed" buttons
               if (status === 'COMPLETED' || status === 'FINISHED') {
                 return (
-                  <TouchableOpacity
-                    style={[styles.joinButton, { backgroundColor: "#F59E0B" }]}
-                    onPress={() => bottomSheetModalRef.current?.present()}
-                  >
-                    <Text style={styles.joinButtonText}>View Scores</Text>
-                  </TouchableOpacity>
+                  <View style={styles.completedMatchButtons}>
+                    <TouchableOpacity
+                      style={[styles.joinButton, styles.completedButton, { backgroundColor: "#F59E0B" }]}
+                      onPress={() => bottomSheetModalRef.current?.present()}
+                    >
+                      <Text style={styles.joinButtonText}>View Scores</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[styles.joinButton, styles.completedButton, styles.shareButton]}
+                      onPress={handleOpenShareSheet}
+                    >
+                      <Ionicons name="share-social-outline" size={18} color="#FFFFFF" style={{ marginRight: 6 }} />
+                      <Text style={styles.joinButtonText}>Share</Text>
+                    </TouchableOpacity>
+                  </View>
                 );
               }
 
@@ -2733,6 +2764,19 @@ const styles = StyleSheet.create({
     fontSize: 17,
     fontWeight: '700',
     color: '#2B2929',
+  },
+  completedMatchButtons: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  completedButton: {
+    flex: 1,
+  },
+  shareButton: {
+    backgroundColor: '#10B981',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   bottomSheetBackground: {
     backgroundColor: '#FFFFFF',
