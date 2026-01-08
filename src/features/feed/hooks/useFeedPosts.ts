@@ -47,7 +47,12 @@ export const useFeedPosts = (options: UseFeedPostsOptions = {}) => {
         if (refresh) {
           setPosts(feedData.posts);
         } else {
-          setPosts(prev => [...prev, ...feedData.posts]);
+          // Deduplicate posts to avoid key collisions in FlatList
+          setPosts(prev => {
+            const existingIds = new Set(prev.map(p => p.id));
+            const newPosts = feedData.posts.filter(p => !existingIds.has(p.id));
+            return [...prev, ...newPosts];
+          });
         }
 
         cursorRef.current = feedData.nextCursor;
