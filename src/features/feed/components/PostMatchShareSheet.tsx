@@ -1,6 +1,6 @@
 // src/features/feed/components/PostMatchShareSheet.tsx
 
-import React, { useState, useCallback, useMemo, useRef, useImperativeHandle, forwardRef } from 'react';
+import React, { useState, useCallback, useMemo, useRef } from 'react';
 import {
   View,
   Text,
@@ -43,6 +43,7 @@ interface PostMatchShareSheetProps {
 }
 
 export const PostMatchShareSheet: React.FC<PostMatchShareSheetProps> = ({
+  visible,
   matchData,
   onPost,
   onSkip,
@@ -112,6 +113,7 @@ export const PostMatchShareSheet: React.FC<PostMatchShareSheetProps> = ({
     }
   }, [onExternalShare, captureAndSave, bottomSheetRef]);
 
+  // Only render backdrop when visible to prevent touch blocking
   const renderBackdrop = useCallback(
     (props: any) => (
       <BottomSheetBackdrop
@@ -119,6 +121,7 @@ export const PostMatchShareSheet: React.FC<PostMatchShareSheetProps> = ({
         disappearsOnIndex={-1}
         appearsOnIndex={0}
         opacity={0.5}
+        pressBehavior="close"
       />
     ),
     []
@@ -201,10 +204,15 @@ export const PostMatchShareSheet: React.FC<PostMatchShareSheetProps> = ({
     );
   };
 
+  // Don't render anything if not visible - prevents touch blocking when closed
+  if (!visible) {
+    return null;
+  }
+
   return (
     <BottomSheet
       ref={bottomSheetRef}
-      index={-1}
+      index={0}
       snapPoints={['75%']}
       enablePanDownToClose
       onClose={handleClose}
