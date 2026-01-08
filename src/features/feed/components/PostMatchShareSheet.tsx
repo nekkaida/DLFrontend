@@ -17,6 +17,7 @@ import BottomSheet, { BottomSheetBackdrop, BottomSheetScrollView } from '@gorhom
 import { Ionicons } from '@expo/vector-icons';
 import { feedTheme } from '../theme';
 import { useSharePost } from '../hooks';
+import { processDisplayName } from '../utils/formatters';
 
 const MAX_CAPTION_LENGTH = 500;
 
@@ -143,8 +144,12 @@ export const PostMatchShareSheet: React.FC<PostMatchShareSheetProps> = ({
   const renderMatchPreview = () => {
     if (!matchData) return null;
 
-    const winnerText = matchData.winnerNames.join(' & ');
-    const loserText = matchData.loserNames.join(' & ');
+    const winnerText = matchData.winnerNames
+      .map(name => processDisplayName(name, 20))
+      .join(' & ');
+    const loserText = matchData.loserNames
+      .map(name => processDisplayName(name, 20))
+      .join(' & ');
     const isLeague = matchData.gameType === 'league';
     const isDoubles = matchData.matchType === 'doubles';
 
