@@ -6,7 +6,7 @@
 
 export interface PostAuthor {
   id: string;
-  name: string;
+  name: string | null;
   username?: string;
   image?: string | null;
 }
@@ -55,7 +55,7 @@ export interface FeedMatch {
 
 export interface MatchPlayer {
   id: string;
-  name: string;
+  name: string | null;
   username?: string;
   image?: string | null;
 }
@@ -87,7 +87,7 @@ export interface PostComment {
   createdAt: string;
   user: {
     id: string;
-    name: string;
+    name: string | null;
     username?: string;
     image?: string | null;
   };
@@ -99,7 +99,7 @@ export interface PostComment {
 
 export interface PostLiker {
   id: string;
-  name: string;
+  name: string | null;
   username?: string;
   image?: string | null;
 }
