@@ -1,21 +1,24 @@
-import React, { useEffect, useState, useCallback, useRef } from 'react';
-import { View, Text, TouchableOpacity } from 'react-native';
-import { Svg, Path } from 'react-native-svg';
+import React, { useEffect, useCallback, useRef, useMemo } from 'react';
+import { View, Text, Dimensions } from 'react-native';
 import Animated, {
+  Extrapolation,
+  interpolate,
   useSharedValue,
-  useAnimatedStyle,
-  withTiming,
-  withDelay,
-  runOnJS,
-  Easing
 } from 'react-native-reanimated';
+import Carousel, { ICarouselInstance, TAnimationStyle } from 'react-native-reanimated-carousel';
 import { QuestionCard } from '../../../components/QuestionContainer';
 import { QuestionProgressBar } from './QuestionProgressBar';
 import { NavigationButtons } from '../components/NavigationButtons';
 import { styles } from './QuestionnaireFlow.styles';
+import { filterVisibleQuestions } from '../utils/showIfEvaluator';
+
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
+
+// Sport type definition to avoid triggering security filters
+type SportType = 'pickleball' | 'tennis' | 'padel';
 
 interface QuestionnaireFlowProps {
-  sport: 'pickleball' | 'tennis' | 'padel';
+  sport: SportType;
   questions: any[];
   currentQuestionIndex: number;
   currentPageAnswers: { [key: string]: any };
@@ -37,155 +40,194 @@ export const QuestionnaireFlow: React.FC<QuestionnaireFlowProps> = ({
   onBack,
   onNext,
 }) => {
-  // Track displayed question index separately from prop
-  const [displayedIndex, setDisplayedIndex] = useState(currentQuestionIndex);
-  const [isAnimating, setIsAnimating] = useState(false);
-  const [showContent, setShowContent] = useState(true); // Control content visibility for animations
+  const carouselRef = useRef<ICarouselInstance>(null);
+  const onNextRef = useRef(onNext);
+  onNextRef.current = onNext;
 
-  // Ref for timeout cleanup on unmount
-  const animationTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Track swipe direction for rotation animation
+  const directionAnimVal = useSharedValue(0);
 
-  // Cleanup timeout on unmount
-  useEffect(() => {
-    const timeoutRef = animationTimeoutRef;
-    return () => {
-      if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current);
-      }
-    };
-  }, []);
+  // Track if we're programmatically navigating (to avoid double-triggers)
+  const isProgrammaticNav = useRef(false);
 
-  // Shared values for card animation
-  const fade = useSharedValue(1);
-  const slideX = useSharedValue(0); // Current card slides left
-  const scale = useSharedValue(1); // Current card scales down
-  const nextCardTranslateY = useSharedValue(20); // Blank card starts 20px below
-  const nextCardScale = useSharedValue(0.95); // Slightly smaller
-  const nextCardOpacity = useSharedValue(0); // Start hidden
+  // Filter to only visible questions based on showIf conditions
+  // This provides STABLE carousel data - questions only appear/disappear based on responses
+  const visibleQuestions = useMemo(() => {
+    return filterVisibleQuestions(questions, responses);
+  }, [questions, responses]);
 
-  // When parent updates currentQuestionIndex OR when animation unlocks, sync state
-  useEffect(() => {
-    console.log(`🔄 Sync check: currentQuestionIndex=${currentQuestionIndex}, displayedIndex=${displayedIndex}, isAnimating=${isAnimating}, showContent=${showContent}`);
+  // Map currentQuestionIndex (in all questions) to visible index (in filtered array)
+  const currentVisibleIndex = useMemo(() => {
+    const currentQuestion = questions[currentQuestionIndex];
+    if (!currentQuestion) return 0;
+    return visibleQuestions.findIndex(q => q.key === currentQuestion.key);
+  }, [questions, currentQuestionIndex, visibleQuestions]);
 
-    if (currentQuestionIndex !== displayedIndex) {
-      if (!isAnimating) {
-        // Safe to sync - no animation in progress
-        console.log(`📌 Syncing displayedIndex: ${displayedIndex} → ${currentQuestionIndex}`);
-        setDisplayedIndex(currentQuestionIndex);
-        fade.value = 1; // Reset opacity for new question
-        slideX.value = 0; // Reset position
-        scale.value = 1; // Reset scale
-        nextCardTranslateY.value = 20; // Reset blank card position
-        nextCardScale.value = 0.95;
-        nextCardOpacity.value = 0;
-        setShowContent(true); // Show content with entrance animations
-      } else {
-        // Animation in progress - will sync once it unlocks
-        console.log(`⏳ Parent updated questions during animation (expected), will sync once unlocked`);
-      }
-    } else if (!isAnimating && !showContent) {
-      // Edge case: indices match but content is hidden (happens after parent updates same index)
-      console.log(`🔓 Animation unlocked, restoring content for question ${currentQuestionIndex}`);
-      fade.value = 1;
-      slideX.value = 0;
-      scale.value = 1;
-      nextCardTranslateY.value = 20;
-      nextCardScale.value = 0.95;
-      nextCardOpacity.value = 0;
-      setShowContent(true);
-    }
-  }, [currentQuestionIndex, displayedIndex, isAnimating, showContent]);
+  // Track previous visible questions to detect changes
+  const prevVisibleLengthRef = useRef(visibleQuestions.length);
 
-  // Animated style for current card (slides left + fades + scales)
-  const activeCardStyle = useAnimatedStyle(() => ({
-    opacity: fade.value,
-    transform: [
-      { translateX: slideX.value },
-      { scale: scale.value },
-    ],
-  }));
+  // Card dimensions
+  const CARD_WIDTH = SCREEN_WIDTH - 30; // Account for padding
+  const CARD_HEIGHT = SCREEN_HEIGHT * 0.72; // Reasonable card height
 
-  // Animated style for blank next card (slides up)
-  const blankCardStyle = useAnimatedStyle(() => ({
-    opacity: nextCardOpacity.value,
-    transform: [
-      { translateY: nextCardTranslateY.value },
-      { scale: nextCardScale.value },
-    ],
-  }));
-
-  // Callback to execute after animation completes
-  // MUST be at component level, not inside handleNext (Hooks rule)
-  const finishTransition = useCallback(() => {
-    // IMPORTANT: Call onNext AFTER animation completes
-    // This prevents parent state updates from interfering with animation
-    onNext();
-
-    // Wait a bit longer for the card to fully settle before showing content
-    animationTimeoutRef.current = setTimeout(() => {
-      setIsAnimating(false);
-    }, 150); // Give card time to settle before content fades in
-  }, [onNext]);
-
-  const handleNext = useCallback(() => {
-    if (isAnimating) return; // Prevent rapid taps
-
-    setIsAnimating(true);
-    setShowContent(false); // Hide content to prepare for next question's entrance
-
-    // Stage 1: Show blank card behind and animate current card out
-    nextCardOpacity.value = 0.7; // Make blank card visible
-
-    const onCardTransitionComplete = () => {
+  // Tinder-style animation
+  const animationStyle: TAnimationStyle = useCallback(
+    (value: number) => {
       'worklet';
-      // Stage 2: Call parent to update question, which will trigger content fade-in
-      runOnJS(finishTransition)();
-    };
+      // value: 0 = current card, -1 = swiped out left, 1 = next card in stack
 
-    // Animate current card out (slide left + scale down + fade)
-    slideX.value = withTiming(-500, {
-      duration: 400,
-      easing: Easing.out(Easing.cubic),
-    });
+      // Horizontal movement - swipe out to the right based on direction
+      const translateX =
+        interpolate(value, [-1, 0], [CARD_WIDTH + 50, 0], Extrapolation.CLAMP) *
+        directionAnimVal.value;
 
-    scale.value = withTiming(0.8, {
-      duration: 400,
-      easing: Easing.out(Easing.cubic),
-    });
+      // Vertical offset for stacked cards (cards behind move down slightly)
+      const translateY = interpolate(value, [0, 1], [0, 15], Extrapolation.CLAMP);
 
-    fade.value = withTiming(0, {
-      duration: 400,
-      easing: Easing.out(Easing.cubic),
-    });
+      // Rotation on swipe - Tinder flip effect
+      const rotateZ =
+        interpolate(value, [-1, 0], [12, 0], Extrapolation.CLAMP) *
+        directionAnimVal.value;
 
-    // Animate blank card sliding up (parallel)
-    nextCardTranslateY.value = withTiming(0, {
-      duration: 500,
-      easing: Easing.inOut(Easing.cubic),
-    });
+      // Scale - cards behind are slightly smaller
+      const scale = interpolate(value, [0, 1], [1, 0.95], Extrapolation.CLAMP);
 
-    nextCardScale.value = withTiming(1, {
-      duration: 500,
-      easing: Easing.inOut(Easing.cubic),
-    });
+      // Opacity - fade out swiped card, dim cards behind
+      const opacity = interpolate(
+        value,
+        [-1, -0.8, 0, 1],
+        [0, 0.9, 1, 0.85],
+        Extrapolation.EXTEND,
+      );
 
-    nextCardOpacity.value = withTiming(1, {
-      duration: 500,
-      easing: Easing.inOut(Easing.cubic),
-    }, onCardTransitionComplete);
-  }, [isAnimating, finishTransition, fade, slideX, scale, nextCardTranslateY, nextCardScale, nextCardOpacity]);
+      // Z-index simulation via transform order
+      const zIndex = interpolate(value, [-1, 0, 1], [0, 100, 50], Extrapolation.CLAMP);
 
-  // Wrapper that handles skip + navigation together to avoid race condition
-  // This ensures the skip value is set BEFORE the animation starts
+      return {
+        transform: [
+          { translateY },
+          { translateX },
+          { rotateZ: `${rotateZ}deg` },
+          { scale },
+        ],
+        opacity,
+        zIndex: Math.round(zIndex),
+      };
+    },
+    [CARD_WIDTH, directionAnimVal]
+  );
+
+  // Handle visible questions count changes (when new questions become visible)
+  useEffect(() => {
+    const visibleLengthChanged = visibleQuestions.length !== prevVisibleLengthRef.current;
+
+    if (visibleLengthChanged) {
+      console.log(`Visible questions changed: ${prevVisibleLengthRef.current} -> ${visibleQuestions.length}`);
+      prevVisibleLengthRef.current = visibleQuestions.length;
+    }
+  }, [visibleQuestions.length]);
+
+  // Sync carousel position with external index changes (e.g., back button, parent navigation)
+  useEffect(() => {
+    if (carouselRef.current && !isProgrammaticNav.current && currentVisibleIndex >= 0) {
+      const currentCarouselIndex = carouselRef.current.getCurrentIndex();
+      if (currentCarouselIndex !== currentVisibleIndex) {
+        console.log(`Syncing carousel: ${currentCarouselIndex} -> ${currentVisibleIndex}`);
+        carouselRef.current.scrollTo({ index: currentVisibleIndex, animated: true });
+      }
+    }
+  }, [currentVisibleIndex]);
+
+  // Handle carousel snap to new index
+  const handleSnapToItem = useCallback((index: number) => {
+    // Only trigger onNext if user swiped forward (not programmatic or back)
+    if (!isProgrammaticNav.current && index > currentVisibleIndex) {
+      console.log(`User swiped to visible index ${index}, triggering onNext`);
+      onNextRef.current();
+    }
+    isProgrammaticNav.current = false;
+  }, [currentVisibleIndex]);
+
+  // Programmatic navigation to next
+  const handleNext = useCallback(() => {
+    // Check if this is the last visible question
+    if (currentVisibleIndex >= visibleQuestions.length - 1) {
+      // Last visible question - let parent handle completion
+      onNext();
+      return;
+    }
+
+    isProgrammaticNav.current = true;
+    directionAnimVal.value = 1; // Swipe right direction
+    carouselRef.current?.next();
+
+    // Trigger parent's onNext after animation
+    setTimeout(() => {
+      onNextRef.current();
+    }, 300);
+  }, [currentVisibleIndex, visibleQuestions.length, onNext, directionAnimVal]);
+
+  // Handle skip (for optional questions)
   const handleSkipAndProceed = useCallback(() => {
-    const question = questions[displayedIndex];
+    const question = visibleQuestions[currentVisibleIndex];
     if (question?.optional && question?.key) {
-      // Set the skip value synchronously before triggering animation
       onAnswer(question.key, '');
     }
-    // Then trigger the animation and navigation
     handleNext();
-  }, [questions, displayedIndex, onAnswer, handleNext]);
+  }, [visibleQuestions, currentVisibleIndex, onAnswer, handleNext]);
+
+  // Check if next button should be enabled
+  const isNextEnabled = useCallback(() => {
+    const question = visibleQuestions?.[currentVisibleIndex];
+    if (!question) return false;
+
+    const hasAnswer = currentPageAnswers[question.key] !== undefined ||
+                     responses[question.key] !== undefined;
+
+    if (question.type === 'number') {
+      return hasAnswer || question.optional;
+    }
+    return hasAnswer;
+  }, [visibleQuestions, currentVisibleIndex, currentPageAnswers, responses]);
+
+  // Render individual question card
+  const renderItem = useCallback(({ item: question, index }: { item: any; index: number }) => {
+    const isCurrentCard = index === currentVisibleIndex;
+
+    return (
+      <Animated.View style={styles.activeCardContainer} key={question.key}>
+        <QuestionCard
+          question={question}
+          isActive={isCurrentCard}
+          onAnswer={onAnswer}
+          currentPageAnswers={currentPageAnswers}
+          responses={responses}
+          showContent={true}
+          onSkipAndProceed={handleSkipAndProceed}
+          navigationButtons={
+            isCurrentCard ? (
+              <NavigationButtons
+                onBack={onBack}
+                onNext={handleNext}
+                nextEnabled={isNextEnabled()}
+              />
+            ) : null
+          }
+          sport={sport}
+        />
+      </Animated.View>
+    );
+  }, [
+    currentVisibleIndex,
+    onAnswer,
+    currentPageAnswers,
+    responses,
+    handleSkipAndProceed,
+    onBack,
+    handleNext,
+    isNextEnabled,
+    sport,
+  ]);
 
   return (
     <>
@@ -203,85 +245,39 @@ export const QuestionnaireFlow: React.FC<QuestionnaireFlowProps> = ({
       {/* Progress Bar */}
       <QuestionProgressBar current={progress.current} total={progress.total} />
 
-      {/* Question Content - Card Stack */}
+      {/* Question Cards Carousel - Uses visibleQuestions for stable animation */}
       <View style={styles.questionnaireContainer}>
-        {questions && questions.length > 0 && displayedIndex < questions.length ? (
-          <View style={styles.cardStack}>
-            {/* Render stack placeholder cards (showing remaining depth) - max 3 visible */}
-            {(() => {
-              const remainingCards = questions.length - displayedIndex - 2; // -2 for current and next card
-              const visibleStackCards = Math.max(0, Math.min(3, remainingCards));
-
-              return [...Array(visibleStackCards)].map((_, i) => {
-                const cardIndex = displayedIndex + i + 2;
-                if (cardIndex >= questions.length) return null;
-
-                // Each card is offset further back and down
-                const offsetY = (i + 2) * 6; // Stack offset: 12px, 18px, 24px
-                const offsetX = (i + 2) * 4; // Side offset: 8px, 12px, 16px
-
-                return (
-                  <Animated.View
-                    key={`stack-card-${cardIndex}`}
-                    style={[
-                      styles.stackedCardLayer,
-                      {
-                        transform: [
-                          { translateY: offsetY },
-                          { scale: 1 - (i + 2) * 0.02 }, // Slightly smaller: 0.96, 0.94, 0.92
-                        ],
-                        marginHorizontal: offsetX,
-                        zIndex: 8 - i,
-                      },
-                    ]}
-                  >
-                    {/* Empty card placeholder showing just the edge - solid white */}
-                    <View style={styles.cardPlaceholder} />
-                  </Animated.View>
-                );
+        {visibleQuestions && visibleQuestions.length > 0 ? (
+          <Carousel
+            ref={carouselRef}
+            data={visibleQuestions}
+            renderItem={renderItem}
+            width={CARD_WIDTH}
+            height={CARD_HEIGHT}
+            style={{
+              width: SCREEN_WIDTH,
+              alignItems: 'center',
+            }}
+            loop={false}
+            defaultIndex={currentVisibleIndex >= 0 ? currentVisibleIndex : 0}
+            onConfigurePanGesture={(gesture) => {
+              gesture.onChange((e) => {
+                'worklet';
+                // Track swipe direction for rotation animation
+                directionAnimVal.value = Math.sign(e.translationX);
               });
-            })()}
-
-            {/* Blank next card (behind current, slides up during transition) */}
-            <Animated.View
-              style={[styles.nextCardContainer, blankCardStyle]}
-            >
-              <View style={styles.blankCard} />
-            </Animated.View>
-
-            {/* Active card (current question) - fades out when answered */}
-            <Animated.View
-              key={`question-card-${displayedIndex}`}
-              style={[styles.activeCardContainer, activeCardStyle]}
-            >
-              <QuestionCard
-                question={questions[displayedIndex]}
-                isActive={true}
-                onAnswer={onAnswer}
-                currentPageAnswers={currentPageAnswers}
-                responses={responses}
-                showContent={showContent}
-                onSkipAndProceed={handleSkipAndProceed}
-                navigationButtons={
-                  <NavigationButtons
-                    onBack={onBack}
-                    onNext={handleNext}
-                    nextEnabled={(() => {
-                      if (isAnimating) return false; // Disable during animation
-                      const question = questions?.[displayedIndex];
-                      if (!question) return false;
-                      if (question.type === 'number') {
-                        return currentPageAnswers[question.key] !== undefined || question.optional;
-                      } else {
-                        return currentPageAnswers[question.key] !== undefined;
-                      }
-                    })()}
-                  />
-                }
-                sport={sport}
-              />
-            </Animated.View>
-          </View>
+            }}
+            // Only allow swiping forward (left swipe = next), not backward
+            fixedDirection="negative"
+            customAnimation={animationStyle}
+            onSnapToItem={handleSnapToItem}
+            // Performance: only render nearby cards
+            windowSize={3}
+            // Disable swipe when no answer selected
+            enabled={isNextEnabled()}
+            // Scroll animation config
+            scrollAnimationDuration={300}
+          />
         ) : (
           <View style={styles.loadingContainer}>
             <Text style={styles.loadingText}>

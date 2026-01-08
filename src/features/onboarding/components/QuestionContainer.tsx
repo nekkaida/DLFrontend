@@ -1,15 +1,12 @@
-import React, { useEffect } from 'react';
+import React from 'react';
 import {
   View,
   Text,
-  TouchableOpacity,
   StyleSheet,
   ViewStyle,
   Alert,
   ScrollView,
-  Platform,
 } from 'react-native';
-import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
 import OptionButton from './OptionButton';
 import NumberInput from './NumberInput';
 import { toast } from 'sonner-native';
@@ -118,7 +115,6 @@ const QuestionContainer: React.FC<QuestionContainerProps> = ({
   containerStyle,
   navigationButtons,
   questionKey,
-  showContent = true,
 }) => {
   const showTooltip = () => {
     if (tooltipText) {
@@ -130,52 +126,45 @@ const QuestionContainer: React.FC<QuestionContainerProps> = ({
   const effectiveContextText = contextText || getQuestionContext(questionKey)?.text;
   const effectiveTooltipText = tooltipText || getQuestionContext(questionKey)?.tooltip;
 
+  // Content is always rendered - the parent card handles visibility via animation
+  // This prevents the Android white line flicker caused by unmounting/remounting
   return (
     <View style={[styles.container, containerStyle]}>
-      {showContent ? (
-        <>
-          <ScrollView
-            key={`scroll-${questionKey}-${showContent}`} // Force remount for animations
-            style={styles.scrollContainer}
-            contentContainerStyle={styles.scrollContent}
-            showsVerticalScrollIndicator={false}
-            bounces={false}
-          >
-            <Animated.View entering={FadeIn.duration(300).delay(100)}>
-              <Text style={styles.instructionText}>Select an answer</Text>
-            </Animated.View>
+      <View style={styles.contentWrapper}>
+        <ScrollView
+          // Removed key to prevent unmount/remount that causes white line flicker on Android
+          style={styles.scrollContainer}
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+          bounces={false}
+        >
+          {/* Removed entering animations - parent Animated.View handles card-level animation */}
+          {/* This prevents white line flicker caused by unmount/remount cycles */}
+          <View>
+            <Text style={styles.instructionText}>Select an answer</Text>
+          </View>
 
-            <Animated.View entering={FadeInDown.duration(400).delay(150)}>
-              <Text style={styles.questionText}>{question}</Text>
-            </Animated.View>
+          <View>
+            <Text style={styles.questionText}>{question}</Text>
+          </View>
 
-            {effectiveContextText && (
-              <Animated.View entering={FadeIn.duration(300).delay(250)}>
-                <Text style={styles.contextText}>{effectiveContextText}</Text>
-              </Animated.View>
-            )}
-
-            <Animated.View
-              entering={FadeInDown.duration(400).delay(300)}
-              style={styles.contentContainer}
-            >
-              {children}
-            </Animated.View>
-          </ScrollView>
-
-          {navigationButtons && (
-            <Animated.View
-              entering={FadeIn.duration(200).delay(350)}
-              style={styles.navigationContainer}
-            >
-              {navigationButtons}
-            </Animated.View>
+          {effectiveContextText && (
+            <View>
+              <Text style={styles.contextText}>{effectiveContextText}</Text>
+            </View>
           )}
-        </>
-      ) : (
-        // Blank card - no content or buttons visible during transition
-        <View style={styles.blankCardContent} />
-      )}
+
+          <View style={styles.contentContainer}>
+            {children}
+          </View>
+        </ScrollView>
+
+        {navigationButtons && (
+          <View style={styles.navigationContainer}>
+            {navigationButtons}
+          </View>
+        )}
+      </View>
     </View>
   );
 };
@@ -209,7 +198,8 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
       case 'single_choice':
         return (
           <QuestionContainer
-            key={question.key} // Force re-mount for fade-in animation
+            // Removed key={question.key} to prevent unmount/remount white line flicker
+            // The parent Animated.View already has a key for proper animation
             question={question.question}
             helpText={question.help_text}
             questionKey={question.key}
@@ -218,7 +208,7 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
           >
             {question.options?.map((option: string, index: number) => (
               <OptionButton
-                key={index}
+                key={`${question.key}-${index}`}
                 title={option}
                 isSelected={currentPageAnswers[question.key] === option || responses[question.key] === option}
                 onPress={() => onAnswer(question.key, option)}
@@ -227,11 +217,11 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
             ))}
           </QuestionContainer>
         );
-      
+
       case 'number':
         return (
           <QuestionContainer
-            key={question.key} // Force re-mount for fade-in animation
+            // Removed key={question.key} to prevent unmount/remount white line flicker
             question={question.question}
             helpText={question.help_text}
             questionKey={question.key}
@@ -239,6 +229,7 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
             showContent={showContent}
           >
             <NumberInput
+              key={question.key}
               value={currentPageAnswers[question.key] ? String(currentPageAnswers[question.key]) : ''}
               onChangeText={(text) => {
                 const numValue = parseFloat(text);
@@ -295,6 +286,10 @@ const styles = StyleSheet.create({
     padding: 0,
     ...createShadow('#000', 0.1, 8, 5),
   },
+  // Wrapper for content that animates opacity (fixes Android white line flicker)
+  contentWrapper: {
+    flex: 1,
+  },
   scrollContainer: {
     flexGrow: 1, // Allow scroll to grow but not enforce full height
     paddingHorizontal: getResponsivePadding(isSmall ? 24 : 28),
@@ -341,9 +336,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderBottomLeftRadius: moderateScale(isSmall ? 24 : 30),
     borderBottomRightRadius: moderateScale(isSmall ? 24 : 30),
-  },
-  blankCardContent: {
-    flex: 1, // Fill space with nothing (truly blank)
   },
 });
 

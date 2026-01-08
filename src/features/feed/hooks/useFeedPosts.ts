@@ -1,0 +1,98 @@
+// src/features/feed/hooks/useFeedPosts.ts
+
+import { useState, useCallback, useRef } from 'react';
+import { useSession, authClient } from '@/lib/auth-client';
+import { getBackendBaseURL } from '@/config/network';
+import { FeedPost, FeedResponse } from '../types';
+
+interface UseFeedPostsOptions {
+  sport?: string;
+  limit?: number;
+}
+
+export const useFeedPosts = (options: UseFeedPostsOptions = {}) => {
+  const { data: session } = useSession();
+  const [posts, setPosts] = useState<FeedPost[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const cursorRef = useRef<string | null>(null);
+
+  const fetchPosts = useCallback(async (refresh = false) => {
+    try {
+      if (refresh) {
+        setIsLoading(true);
+        cursorRef.current = null;
+      } else {
+        setIsLoadingMore(true);
+      }
+      setError(null);
+
+      const backendUrl = getBackendBaseURL();
+      const params = new URLSearchParams();
+
+      if (options.sport) params.append('sport', options.sport);
+      if (options.limit) params.append('limit', options.limit.toString());
+      if (!refresh && cursorRef.current) params.append('cursor', cursorRef.current);
+
+      const url = `${backendUrl}/api/feed/posts${params.toString() ? `?${params}` : ''}`;
+
+      const response = await authClient.$fetch(url, { method: 'GET' });
+      const responseData = (response as any).data || response;
+
+      if (responseData?.data) {
+        const feedData: FeedResponse = responseData.data;
+
+        if (refresh) {
+          setPosts(feedData.posts);
+        } else {
+          setPosts(prev => [...prev, ...feedData.posts]);
+        }
+
+        cursorRef.current = feedData.nextCursor;
+        setHasMore(feedData.hasMore);
+      }
+    } catch (err) {
+      console.error('Error fetching feed posts:', err);
+      setError('Failed to load feed');
+    } finally {
+      setIsLoading(false);
+      setIsLoadingMore(false);
+    }
+  }, [options.sport, options.limit]);
+
+  const refreshPosts = useCallback(() => {
+    return fetchPosts(true);
+  }, [fetchPosts]);
+
+  const loadMorePosts = useCallback(() => {
+    if (!isLoadingMore && hasMore) {
+      return fetchPosts(false);
+    }
+  }, [fetchPosts, isLoadingMore, hasMore]);
+
+  // Update post in local state (for optimistic updates)
+  const updatePostLocally = useCallback((postId: string, updates: Partial<FeedPost>) => {
+    setPosts(prev => prev.map(post =>
+      post.id === postId ? { ...post, ...updates } : post
+    ));
+  }, []);
+
+  // Remove post from local state
+  const removePostLocally = useCallback((postId: string) => {
+    setPosts(prev => prev.filter(post => post.id !== postId));
+  }, []);
+
+  return {
+    posts,
+    isLoading,
+    isLoadingMore,
+    hasMore,
+    error,
+    fetchPosts: refreshPosts,
+    loadMorePosts,
+    updatePostLocally,
+    removePostLocally,
+  };
+};

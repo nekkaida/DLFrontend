@@ -9,10 +9,13 @@ import { socketService } from '@/lib/socket-service';
 import { CancelMatchSheet } from '@/src/features/match/components/CancelMatchSheet';
 import { MatchCommentsSection } from '@/src/features/match/components/MatchCommentsSection';
 import { MatchResultSheet } from '@/src/features/match/components/MatchResultSheet';
+import { PostMatchShareSheet } from '@/src/features/feed/components';
 import { MatchComment } from '@/app/match/components/types';
+import BottomSheet from '@gorhom/bottom-sheet';
 import { Ionicons } from '@expo/vector-icons';
 import { BottomSheetBackdrop, BottomSheetModal } from '@gorhom/bottom-sheet';
 import { router, useLocalSearchParams } from 'expo-router';
+import * as Haptics from 'expo-haptics';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -118,6 +121,8 @@ export default function JoinMatchScreen() {
   
   const bottomSheetModalRef = useRef<BottomSheetModal>(null);
   const cancelSheetRef = useRef<BottomSheetModal>(null);
+  const postMatchShareSheetRef = useRef<BottomSheet>(null);
+  const [showSharePrompt, setShowSharePrompt] = useState(false);
 
   // Entry animation values
   const headerEntryOpacity = useRef(new Animated.Value(0)).current;
@@ -148,6 +153,8 @@ export default function JoinMatchScreen() {
     : (fetchedMatchDetails?.participants || []);
   const matchStatus = (params.status as string) || fetchedMatchDetails?.status || 'SCHEDULED';
   const isFriendly = params.isFriendly === 'true' || fetchedMatchDetails?.isFriendly || false;
+  // Share mode - auto-open share sheet when navigating from match history
+  const shareMode = params.shareMode === 'true';
   // Chat message params - used to update the message bubble after joining
   const chatMessageId = params.messageId as string | undefined;
   const chatThreadId = params.threadId as string | undefined;
@@ -568,6 +575,18 @@ export default function JoinMatchScreen() {
     contentEntryOpacity,
     contentEntryTranslateY,
   ]);
+
+  // Auto-open share sheet when navigating with shareMode=true (from match history)
+  useEffect(() => {
+    if (shareMode && participantsWithDetails.length > 0 && !isLoadingMatchDetails) {
+      // Small delay to ensure the page is fully rendered
+      const timer = setTimeout(() => {
+        setShowSharePrompt(true);
+        postMatchShareSheetRef.current?.snapToIndex(0);
+      }, 500);
+      return () => clearTimeout(timer);
+    }
+  }, [shareMode, participantsWithDetails, isLoadingMatchDetails]);
 
   const fetchParticipantDetails = async () => {
     try {
@@ -1078,6 +1097,21 @@ export default function JoinMatchScreen() {
       useMyGamesStore.getState().triggerRefresh();
       toast.success(successMessage);
       bottomSheetModalRef.current?.dismiss();
+
+      // Update matchData with new status and submitter info to keep UI in sync
+      const lastSet = data.setScores && data.setScores.length > 0 ? data.setScores[data.setScores.length - 1] : null;
+      setMatchData(prev => ({
+        ...prev,
+        status: 'ONGOING',
+        resultSubmittedById: session?.user?.id || null,
+        ...(lastSet && {
+          team1Score: lastSet.team1Games ?? lastSet.team1Points ?? 0,
+          team2Score: lastSet.team2Games ?? lastSet.team2Points ?? 0,
+        }),
+      }));
+
+      // Don't show share prompt after submission - only show after opponent confirms
+      // This prevents sharing unverified/disputed scores
       router.back();
     } catch (error: any) {
       console.error('❌ Error submitting result:', error);
@@ -1106,16 +1140,29 @@ export default function JoinMatchScreen() {
         { confirmed: true }
       );
 
+      // Update local matchData state to COMPLETED to prevent race conditions
+      // This ensures the UI immediately shows view mode and prevents double-confirmation
+      setMatchData(prev => ({
+        ...prev,
+        status: 'COMPLETED',
+        isDisputed: false,
+      }));
+
       // Trigger My Games refresh so the confirmed match status is shown
       useMyGamesStore.getState().triggerRefresh();
       toast.success('Match result confirmed!');
       bottomSheetModalRef.current?.dismiss();
-      router.back();
+
+      // Show share prompt after confirmation
+      setShowSharePrompt(true);
+      setTimeout(() => {
+        postMatchShareSheetRef.current?.snapToIndex(0);
+      }, 300);
     } catch (error: any) {
       console.error('❌ Error confirming result:', error);
-      const errorMessage = error.response?.data?.error || 
-                          error.response?.data?.message || 
-                          error.message || 
+      const errorMessage = error.response?.data?.error ||
+                          error.response?.data?.message ||
+                          error.message ||
                           'Failed to confirm result';
       toast.error(errorMessage);
       throw error;
@@ -1149,6 +1196,49 @@ export default function JoinMatchScreen() {
       throw error;
     }
   };
+
+  // Handlers for post-match share prompt
+  const handleSharePost = async (caption: string) => {
+    try {
+      // Create post via API (axiosInstance already has baseURL configured)
+      await axiosInstance.post('/api/feed/posts', {
+        matchId,
+        caption: caption || undefined,
+      });
+      toast.success('Posted to Activity Feed!');
+      postMatchShareSheetRef.current?.close();
+      setShowSharePrompt(false);
+      // Don't navigate back - user can stay on match details or manually navigate
+    } catch (error: any) {
+      console.error('Error creating post:', error);
+      toast.error('Failed to create post. Please try again.');
+    }
+  };
+
+  const handleSkipShare = () => {
+    postMatchShareSheetRef.current?.close();
+    setShowSharePrompt(false);
+    // Only navigate back if this was shown automatically after confirmation
+    // Don't navigate if user manually opened share sheet from completed match
+    if (matchData.status !== 'COMPLETED') {
+      router.back();
+    }
+  };
+
+  // Handler when share sheet is closed by swiping down (not Skip button)
+  const handleCloseShareSheet = () => {
+    setShowSharePrompt(false);
+    // Don't navigate - just reset state so user can open again
+  };
+
+  // Handler for manually opening share sheet from completed match
+  const handleOpenShareSheet = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    // Just set the state - the useEffect in PostMatchShareSheet will handle opening
+    setShowSharePrompt(true);
+  };
+
+  // External share handlers are now handled internally by PostMatchShareSheet using useSharePost hook
 
   // Handler to open dispute page (opponent captain)
   const handleOpenDisputeSheet = async () => {
@@ -1920,15 +2010,24 @@ export default function JoinMatchScreen() {
                 );
               }
 
-              // Match COMPLETED - Show "View Scores" to everyone
+              // Match COMPLETED - Show "View Scores" and "Share to Feed" buttons
               if (status === 'COMPLETED' || status === 'FINISHED') {
                 return (
-                  <TouchableOpacity
-                    style={[styles.joinButton, { backgroundColor: "#F59E0B" }]}
-                    onPress={() => bottomSheetModalRef.current?.present()}
-                  >
-                    <Text style={styles.joinButtonText}>View Scores</Text>
-                  </TouchableOpacity>
+                  <View style={styles.completedMatchButtons}>
+                    <TouchableOpacity
+                      style={[styles.joinButton, styles.completedButton, { backgroundColor: "#F59E0B" }]}
+                      onPress={() => bottomSheetModalRef.current?.present()}
+                    >
+                      <Text style={styles.joinButtonText}>View Scores</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[styles.joinButton, styles.completedButton, styles.shareButton]}
+                      onPress={handleOpenShareSheet}
+                    >
+                      <Ionicons name="share-social-outline" size={18} color="#FFFFFF" style={{ marginRight: 6 }} />
+                      <Text style={styles.joinButtonText}>Share</Text>
+                    </TouchableOpacity>
+                  </View>
                 );
               }
 
@@ -2122,6 +2221,32 @@ export default function JoinMatchScreen() {
           onCancel={handleCancelMatch}
         />
       </BottomSheetModal>
+
+      {/* Post-Match Share Prompt - Always mounted, controlled via snapToIndex */}
+      <PostMatchShareSheet
+        visible={showSharePrompt}
+        bottomSheetRef={postMatchShareSheetRef}
+        matchData={{
+          matchId,
+          sport: sportType,
+          matchType: matchType,
+          gameType: isFriendly ? 'FRIENDLY' : 'LEAGUE',
+          winnerNames: participantsWithDetails
+            .filter(p => p.team === 'team1')
+            .map(p => p.name || 'Unknown'),
+          loserNames: participantsWithDetails
+            .filter(p => p.team === 'team2')
+            .map(p => p.name || 'Unknown'),
+          scores: {
+            team1Score: matchData.team1Score ?? 0,
+            team2Score: matchData.team2Score ?? 0,
+          },
+          matchDate: date,
+        }}
+        onPost={handleSharePost}
+        onSkip={handleSkipShare}
+        onClose={handleCloseShareSheet}
+      />
     </View>
   );
 }
@@ -2641,6 +2766,19 @@ const styles = StyleSheet.create({
     fontSize: 17,
     fontWeight: '700',
     color: '#2B2929',
+  },
+  completedMatchButtons: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  completedButton: {
+    flex: 1,
+  },
+  shareButton: {
+    backgroundColor: '#10B981',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   bottomSheetBackground: {
     backgroundColor: '#FFFFFF',

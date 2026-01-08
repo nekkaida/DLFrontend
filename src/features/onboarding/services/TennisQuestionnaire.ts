@@ -242,6 +242,57 @@ export class TennisQuestionnaire {
     return remainingQuestions;
   }
 
+  /**
+   * Returns ALL questions (no showIf conditions - tennis doesn't have DUPR branching).
+   * All questions are always visible.
+   */
+  getAllQuestions(): TennisQuestion[] {
+    const q = this.questions;
+    const questionKeys = [
+      'experience',
+      'frequency',
+      'competitive_level',
+      'coaching_background',
+      'tournament',
+      'skills',
+      'self_rating',
+    ];
+
+    return questionKeys.map(key => {
+      if (key === 'skills') {
+        const questionData = q[key as keyof typeof q] as any;
+        return {
+          key,
+          question: questionData.question,
+          type: 'skill_matrix' as const,
+          help_text: questionData.help_text,
+          contextText: questionData.context_text,
+          sub_questions: Object.fromEntries(
+            Object.entries(questionData.sub_questions).map(([skillKey, skillData]) => [
+              skillKey,
+              {
+                question: (skillData as any).question,
+                options: Object.keys((skillData as any).answers),
+                tooltip: (skillData as any).tooltip,
+              },
+            ])
+          ),
+        };
+      } else {
+        const questionData = q[key as keyof typeof q] as any;
+        return {
+          key,
+          question: questionData.question,
+          type: 'single_choice' as const,
+          options: Object.keys(questionData.answers),
+          help_text: questionData.help_text,
+          contextText: questionData.context_text,
+          tooltipText: questionData.tooltip,
+        };
+      }
+    });
+  }
+
   calculateInitialRating(responses: TennisQuestionnaireResponse): TennisRatingResult {
     try {
       if (!responses || Object.keys(responses).length === 0) {

@@ -83,22 +83,48 @@ export const styles = StyleSheet.create({
     zIndex: 15, // Behind active card
   },
 
-  // Active Card Container (animated, slides left)
+  // Active Card Container (used by carousel items)
   activeCardContainer: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0, // Use bottom instead of height: 100% for proper flex calculation
-    zIndex: 20, // In front of next card
+    flex: 1,
+    width: '100%',
+    height: '100%',
   },
 
-  // Blank card (white card for preview)
+  // Blank card (white card for when no next question)
   blankCard: {
     flex: 1,
     backgroundColor: '#FFFFFF',
     borderRadius: moderateScale(isSmall ? 24 : 30),
     ...createShadow('#000', 0.1, 8, 5),
+  },
+
+  // Preview card (shows next question text dimmed)
+  previewCard: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
+    borderRadius: moderateScale(isSmall ? 24 : 30),
+    ...createShadow('#000', 0.12, 10, 6),
+    overflow: 'hidden',
+  },
+  previewCardContent: {
+    flex: 1,
+    paddingHorizontal: getResponsivePadding(isSmall ? 24 : 28),
+    paddingTop: moderateScale(isSmall ? 24 : 28),
+  },
+  previewInstructionText: {
+    fontSize: scaleFontSize(isSmall ? 12 : 13),
+    color: '#8C8C8C',
+    marginBottom: moderateScale(isSmall ? 12 : 16),
+    fontFamily: 'Roboto',
+    textAlign: 'left',
+  },
+  previewQuestionText: {
+    fontSize: scaleFontSize(isSmall ? 18 : 20),
+    fontWeight: '600',
+    color: '#000000',
+    fontFamily: 'Roboto',
+    lineHeight: scaleFontSize(isSmall ? 24 : 28),
+    textAlign: 'left',
   },
 
   // Loading/Error

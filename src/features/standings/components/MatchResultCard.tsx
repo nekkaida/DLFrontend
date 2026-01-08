@@ -15,6 +15,7 @@ interface MatchResultCardProps {
   cardGap: number;
   expandedComments: Set<string>;
   onToggleComments: (matchId: string) => void;
+  onSharePress?: (matchId: string) => void;
 }
 
 export const MatchResultCard: React.FC<MatchResultCardProps> = ({
@@ -27,6 +28,7 @@ export const MatchResultCard: React.FC<MatchResultCardProps> = ({
   cardGap,
   expandedComments,
   onToggleComments,
+  onSharePress,
 }) => {
   const isTeam1Winner = match.outcome === 'team1';
   const isTeam2Winner = match.outcome === 'team2';
@@ -46,7 +48,7 @@ export const MatchResultCard: React.FC<MatchResultCardProps> = ({
     return (
       <View style={[styles.cardPlayerPhotoDefault, { width: size, height: size, borderRadius: size / 2 }]}>
         <Text style={[styles.cardPlayerPhotoDefaultText, { fontSize: size * 0.4 }]}>
-          {player.name.charAt(0).toUpperCase()}
+          {player.name?.charAt(0).toUpperCase() || 'D'}
         </Text>
       </View>
     );
@@ -319,6 +321,16 @@ export const MatchResultCard: React.FC<MatchResultCardProps> = ({
             {format(new Date(match.matchDate), 'd MMM yyyy')}
           </Text>
           {match.isWalkover && <Text style={styles.cardWalkover}>W/O</Text>}
+          {onSharePress && (
+            <TouchableOpacity
+              style={[styles.cardShareButton, { backgroundColor: sportColors.background }]}
+              onPress={() => onSharePress(match.id)}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="share-outline" size={14} color="#FFFFFF" />
+              <Text style={styles.cardShareButtonText}>Share</Text>
+            </TouchableOpacity>
+          )}
         </View>
 
         {/* Team 2 */}
@@ -428,6 +440,20 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#F59E0B',
     marginTop: 2,
+  },
+  cardShareButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 16,
+    marginTop: 8,
+  },
+  cardShareButtonText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#FFFFFF',
   },
   cardScoresTable: {
     borderRadius: 8,
