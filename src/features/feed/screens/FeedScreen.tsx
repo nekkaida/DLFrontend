@@ -52,7 +52,7 @@ export default function FeedScreen({ sport = 'default' }: FeedScreenProps) {
   const [sharePostId, setSharePostId] = useState<string | null>(null);
   const shareSheetRef = useRef<BottomSheet>(null);
   const postRefs = useRef<Map<string, View>>(new Map());
-  const { captureAndShare, captureAndSave, shareLink, isCapturing, isSaving } = useSharePost();
+  const { captureAndShare, captureAndSave, shareLink, isCapturing, isSaving, shareError, clearShareError } = useSharePost();
 
   const [selectedSportFilter, setSelectedSportFilter] = useState<string | undefined>(sport);
 
@@ -371,6 +371,8 @@ export default function FeedScreen({ sport = 'default' }: FeedScreenProps) {
         onShareLink={handleShareLink}
         onShareInstagram={handleShareToInstagram}
         isLoading={isCapturing || isSaving}
+        shareError={shareError}
+        onClearError={clearShareError}
       />
     </View>
   );
