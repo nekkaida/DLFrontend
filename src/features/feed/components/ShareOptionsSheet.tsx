@@ -5,6 +5,7 @@ import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Linking, A
 import BottomSheet, { BottomSheetBackdrop, BottomSheetView } from '@gorhom/bottom-sheet';
 import { Ionicons } from '@expo/vector-icons';
 import { feedTheme } from '../theme';
+import type { ShareError } from '../hooks/useSharePost';
 
 export type ShareStyle = 'transparent' | 'standard';
 
@@ -17,6 +18,8 @@ interface ShareOptionsSheetProps {
   onShareInstagram?: (style: ShareStyle) => void;
   isLoading?: boolean;
   defaultStyle?: ShareStyle;
+  shareError?: ShareError | null;
+  onClearError?: () => void;
 }
 
 export const ShareOptionsSheet: React.FC<ShareOptionsSheetProps> = ({
@@ -28,6 +31,8 @@ export const ShareOptionsSheet: React.FC<ShareOptionsSheetProps> = ({
   onShareInstagram,
   isLoading = false,
   defaultStyle = 'transparent',
+  shareError,
+  onClearError,
 }) => {
   const [selectedStyle, setSelectedStyle] = useState<ShareStyle>(defaultStyle);
 
@@ -58,6 +63,13 @@ export const ShareOptionsSheet: React.FC<ShareOptionsSheetProps> = ({
     onShareInstagram(selectedStyle);
   }, [onShareInstagram, selectedStyle]);
 
+  const handleRetry = useCallback(() => {
+    if (shareError?.retryAction) {
+      onClearError?.();
+      shareError.retryAction();
+    }
+  }, [shareError, onClearError]);
+
   const renderBackdrop = useCallback(
     (props: any) => (
       <BottomSheetBackdrop
@@ -80,6 +92,21 @@ export const ShareOptionsSheet: React.FC<ShareOptionsSheetProps> = ({
       backdropComponent={renderBackdrop}
     >
       <BottomSheetView style={styles.container}>
+        {/* Error Banner */}
+        {shareError && (
+          <View style={styles.errorBanner}>
+            <Ionicons name="alert-circle" size={20} color="#FF3B30" />
+            <Text style={styles.errorText}>{shareError.message}</Text>
+            <TouchableOpacity
+              style={styles.retryButton}
+              onPress={handleRetry}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.retryButtonText}>Retry</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
         {/* Style Selector */}
         <View style={styles.styleSelector}>
           <Text style={styles.styleSelectorLabel}>Image Style</Text>
@@ -264,5 +291,32 @@ const styles = StyleSheet.create({
   },
   loader: {
     marginLeft: 8,
+  },
+  errorBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFF0F0',
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    marginHorizontal: 12,
+    marginBottom: 8,
+  },
+  errorText: {
+    flex: 1,
+    fontSize: 13,
+    color: '#FF3B30',
+    marginLeft: 8,
+  },
+  retryButton: {
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    backgroundColor: '#FF3B30',
+    borderRadius: 6,
+  },
+  retryButtonText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#FFFFFF',
   },
 });
