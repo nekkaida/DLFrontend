@@ -1097,21 +1097,21 @@ export default function JoinMatchScreen() {
       toast.success(successMessage);
       bottomSheetModalRef.current?.dismiss();
 
-      // Update matchData with submitted scores for share sheet
-      if (data.setScores && data.setScores.length > 0) {
-        const lastSet = data.setScores[data.setScores.length - 1];
-        setMatchData(prev => ({
-          ...prev,
+      // Update matchData with new status and submitter info to keep UI in sync
+      const lastSet = data.setScores && data.setScores.length > 0 ? data.setScores[data.setScores.length - 1] : null;
+      setMatchData(prev => ({
+        ...prev,
+        status: 'ONGOING',
+        resultSubmittedById: session?.user?.id || null,
+        ...(lastSet && {
           team1Score: lastSet.team1Games ?? lastSet.team1Points ?? 0,
           team2Score: lastSet.team2Games ?? lastSet.team2Points ?? 0,
-        }));
-      }
+        }),
+      }));
 
-      // Show share prompt after submission (same as confirmation flow)
-      setShowSharePrompt(true);
-      setTimeout(() => {
-        postMatchShareSheetRef.current?.snapToIndex(0);
-      }, 300);
+      // Don't show share prompt after submission - only show after opponent confirms
+      // This prevents sharing unverified/disputed scores
+      router.back();
     } catch (error: any) {
       console.error('❌ Error submitting result:', error);
       console.error('❌ Error response:', error.response?.data);

@@ -71,7 +71,8 @@ export const PostMatchShareSheet: React.FC<PostMatchShareSheetProps> = ({
 
   const handleClose = useCallback(() => {
     setCaption('');
-  }, []);
+    onSkip(); // Navigate away when swiped down to close
+  }, [onSkip]);
 
   const handleInstagramShare = useCallback(async () => {
     // Check if Instagram is installed
