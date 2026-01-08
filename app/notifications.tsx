@@ -160,7 +160,13 @@ export default function NotificationsScreen() {
 
   const handleBack = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    router.back();
+    // Check if there's navigation history to go back to
+    // If not (e.g., app was restored from background with lost state), go to dashboard
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.replace('/user-dashboard');
+    }
   }, []);
 
   // Filter notifications
