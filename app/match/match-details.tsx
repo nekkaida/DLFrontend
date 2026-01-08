@@ -1235,10 +1235,8 @@ export default function JoinMatchScreen() {
   // Handler for manually opening share sheet from completed match
   const handleOpenShareSheet = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    // Just set the state - the useEffect in PostMatchShareSheet will handle opening
     setShowSharePrompt(true);
-    setTimeout(() => {
-      postMatchShareSheetRef.current?.snapToIndex(0);
-    }, 100);
   };
 
   // External share handlers are now handled internally by PostMatchShareSheet using useSharePost hook
@@ -2225,33 +2223,31 @@ export default function JoinMatchScreen() {
         />
       </BottomSheetModal>
 
-      {/* Post-Match Share Prompt */}
-      {showSharePrompt && (
-        <PostMatchShareSheet
-          visible={showSharePrompt}
-          bottomSheetRef={postMatchShareSheetRef}
-          matchData={{
-            matchId,
-            sport: sportType,
-            matchType: matchType,
-            gameType: isFriendly ? 'FRIENDLY' : 'LEAGUE',
-            winnerNames: participantsWithDetails
-              .filter(p => p.team === 'team1')
-              .map(p => p.name || 'Unknown'),
-            loserNames: participantsWithDetails
-              .filter(p => p.team === 'team2')
-              .map(p => p.name || 'Unknown'),
-            scores: {
-              team1Score: matchData.team1Score ?? 0,
-              team2Score: matchData.team2Score ?? 0,
-            },
-            matchDate: date,
-          }}
-          onPost={handleSharePost}
-          onSkip={handleSkipShare}
-          onClose={handleCloseShareSheet}
-        />
-      )}
+      {/* Post-Match Share Prompt - Always mounted, controlled via snapToIndex */}
+      <PostMatchShareSheet
+        visible={showSharePrompt}
+        bottomSheetRef={postMatchShareSheetRef}
+        matchData={{
+          matchId,
+          sport: sportType,
+          matchType: matchType,
+          gameType: isFriendly ? 'FRIENDLY' : 'LEAGUE',
+          winnerNames: participantsWithDetails
+            .filter(p => p.team === 'team1')
+            .map(p => p.name || 'Unknown'),
+          loserNames: participantsWithDetails
+            .filter(p => p.team === 'team2')
+            .map(p => p.name || 'Unknown'),
+          scores: {
+            team1Score: matchData.team1Score ?? 0,
+            team2Score: matchData.team2Score ?? 0,
+          },
+          matchDate: date,
+        }}
+        onPost={handleSharePost}
+        onSkip={handleSkipShare}
+        onClose={handleCloseShareSheet}
+      />
     </View>
   );
 }
