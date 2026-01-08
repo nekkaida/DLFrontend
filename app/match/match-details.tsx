@@ -1200,9 +1200,8 @@ export default function JoinMatchScreen() {
   // Handlers for post-match share prompt
   const handleSharePost = async (caption: string) => {
     try {
-      // Create post via API
-      const backendUrl = getBackendBaseURL();
-      await axiosInstance.post(`${backendUrl}/api/feed/posts`, {
+      // Create post via API (axiosInstance already has baseURL configured)
+      await axiosInstance.post('/api/feed/posts', {
         matchId,
         caption: caption || undefined,
       });
