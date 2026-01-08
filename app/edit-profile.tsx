@@ -71,6 +71,9 @@ export default function EditProfileScreen() {
     dateOfBirth: '',
   });
 
+  // Store original data to detect changes
+  const [originalData, setOriginalData] = useState<FormData | null>(null);
+
   // Entry animation values
   const headerEntryOpacity = useRef(new Animated.Value(0)).current;
   const headerEntryTranslateY = useRef(new Animated.Value(-20)).current;
@@ -114,7 +117,7 @@ export default function EditProfileScreen() {
 
         if (response && response.data && response.data.data) {
           const profileData = response.data.data;
-          setFormData({
+          const loadedData: FormData = {
             fullName: profileData.name || '',
             username: profileData.username || '',
             email: profileData.email || '',
@@ -129,7 +132,10 @@ export default function EditProfileScreen() {
                   ? profileData.dateOfBirth.split('T')[0]
                   : new Date(profileData.dateOfBirth).toISOString().split('T')[0])
               : '',
-          });
+          };
+          setFormData(loadedData);
+          // Store original data to detect changes later
+          setOriginalData(loadedData);
           // Also set the profile image in the shared hook for edit functionality
           if (profileData.image) {
             setProfileImage(profileData.image);
@@ -272,6 +278,26 @@ export default function EditProfileScreen() {
       if (!phoneRegex.test(formData.phoneNumber.trim())) {
         toast.error('Validation Error', {
           description: 'Please enter a valid phone number',
+        });
+        return;
+      }
+    }
+
+    // Check if any data has been changed
+    if (originalData) {
+      const hasChanges =
+        formData.fullName.trim() !== originalData.fullName ||
+        formData.username.trim() !== originalData.username ||
+        formData.email.trim() !== originalData.email ||
+        formData.phoneNumber.trim() !== originalData.phoneNumber ||
+        formData.location.trim() !== originalData.location ||
+        formData.bio.trim() !== originalData.bio ||
+        formData.profilePicture !== originalData.profilePicture;
+
+      if (!hasChanges) {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+        toast.warning('No Changes', {
+          description: 'No data has been modified. Make some changes before saving.',
         });
         return;
       }
