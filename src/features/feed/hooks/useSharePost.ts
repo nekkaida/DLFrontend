@@ -36,9 +36,16 @@ interface CaptureOptions {
   style?: ShareStyle;
 }
 
+export interface ShareError {
+  message: string;
+  retryAction: () => void;
+}
+
 interface UseSharePostReturn {
   isCapturing: boolean;
   isSaving: boolean;
+  shareError: ShareError | null;
+  clearShareError: () => void;
   captureAndShare: (viewRef: React.RefObject<View | null>, options?: CaptureOptions) => Promise<boolean>;
   captureAndSave: (viewRef: React.RefObject<View | null>, options?: CaptureOptions) => Promise<boolean>;
   shareToInstagram: (viewRef: React.RefObject<View | null>, options?: CaptureOptions) => Promise<boolean>;
@@ -48,6 +55,11 @@ interface UseSharePostReturn {
 export const useSharePost = (): UseSharePostReturn => {
   const [isCapturing, setIsCapturing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [shareError, setShareError] = useState<ShareError | null>(null);
+
+  const clearShareError = useCallback(() => {
+    setShareError(null);
+  }, []);
 
   /**
    * Get capture configuration based on style
@@ -105,6 +117,10 @@ export const useSharePost = (): UseSharePostReturn => {
     } catch (err) {
       console.error('Error capturing and sharing post:', err);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      setShareError({
+        message: 'Failed to generate image. Please try again.',
+        retryAction: () => captureAndShare(viewRef, options),
+      });
       return false;
     } finally {
       setIsCapturing(false);
@@ -152,7 +168,10 @@ export const useSharePost = (): UseSharePostReturn => {
     } catch (err) {
       console.error('Error capturing and saving post:', err);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      toast.error('Failed to save. Please try again.');
+      setShareError({
+        message: 'Failed to save image. Please try again.',
+        retryAction: () => captureAndSave(viewRef, options),
+      });
       return false;
     } finally {
       setIsSaving(false);
@@ -238,7 +257,10 @@ export const useSharePost = (): UseSharePostReturn => {
     } catch (err) {
       console.error('Error sharing to Instagram:', err);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      toast.error('Failed to share to Instagram. Please try again.');
+      setShareError({
+        message: 'Failed to share to Instagram. Please try again.',
+        retryAction: () => shareToInstagram(viewRef, options),
+      });
       return false;
     } finally {
       setIsCapturing(false);
@@ -307,6 +329,8 @@ export const useSharePost = (): UseSharePostReturn => {
   return {
     isCapturing,
     isSaving,
+    shareError,
+    clearShareError,
     captureAndShare,
     captureAndSave,
     shareToInstagram,
