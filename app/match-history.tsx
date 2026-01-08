@@ -243,9 +243,10 @@ const FilterChip = ({
 interface MatchCardProps {
   match: MatchHistoryItem;
   onPress: () => void;
+  onSharePress?: (matchId: string) => void;
 }
 
-const MatchCard: React.FC<MatchCardProps> = ({ match, onPress }) => {
+const MatchCard: React.FC<MatchCardProps> = ({ match, onPress, onSharePress }) => {
   const isWin = match.outcome === 'WIN';
   const isLoss = match.outcome === 'LOSS';
   const isDoubles = match.matchType === 'DOUBLES';
@@ -438,6 +439,24 @@ const MatchCard: React.FC<MatchCardProps> = ({ match, onPress }) => {
                 {match.ratingChange.delta > 0 ? '↗' : '↘'}
               </Text>
             </View>
+          )}
+          {/* Share Button */}
+          {onSharePress && (
+            <TouchableOpacity
+              style={[
+                styles.cardShareButton,
+                { backgroundColor: match.sportType ? getSportColors(match.sportType).background : theme.colors.primary },
+              ]}
+              onPress={(e) => {
+                e.stopPropagation();
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                onSharePress(match.id);
+              }}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="share-outline" size={14} color="#FFFFFF" />
+              <Text style={styles.cardShareButtonText}>Share</Text>
+            </TouchableOpacity>
           )}
         </View>
 
@@ -736,9 +755,24 @@ export default function MatchHistoryScreen() {
     });
   };
 
+  const handleSharePress = (matchId: string) => {
+    // Navigate to match-details with share mode enabled
+    router.push({
+      pathname: '/match/match-details',
+      params: {
+        matchId,
+        shareMode: 'true',
+      },
+    });
+  };
+
   const renderItem = useCallback(
     ({ item }: { item: MatchHistoryItem }) => (
-      <MatchCard match={item} onPress={() => handleMatchPress(item)} />
+      <MatchCard
+        match={item}
+        onPress={() => handleMatchPress(item)}
+        onSharePress={handleSharePress}
+      />
     ),
     []
   );
@@ -1176,6 +1210,23 @@ const styles = StyleSheet.create({
   },
   ratingChangeArrow: {
     fontSize: 11,
+    fontWeight: '600',
+  },
+
+  // Share button in card
+  cardShareButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 14,
+    marginTop: 8,
+    gap: 4,
+  },
+  cardShareButtonText: {
+    color: '#FFFFFF',
+    fontSize: 12,
     fontWeight: '600',
   },
 
