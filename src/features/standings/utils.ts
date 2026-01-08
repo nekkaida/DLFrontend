@@ -48,9 +48,10 @@ export function groupPlayersByTeam(players: StandingsPlayer[]): StandingsTeam[] 
  * Formats a player name, optionally abbreviated.
  * Full: "John Smith"
  * Abbreviated: "John S."
+ * Returns "[Deleted User]" for null/undefined names.
  */
-export function formatPlayerName(name: string, abbreviated: boolean = false): string {
-  if (!name) return 'Unknown';
+export function formatPlayerName(name: string | null | undefined, abbreviated: boolean = false): string {
+  if (!name) return '[Deleted User]';
 
   if (!abbreviated) return name;
 
@@ -64,7 +65,7 @@ export function formatPlayerName(name: string, abbreviated: boolean = false): st
  * Formats team names for display (comma-separated abbreviated names).
  * Example: "John S., Jane D."
  */
-export function formatTeamNames(players: Array<{ name: string }>): string {
+export function formatTeamNames(players: Array<{ name: string | null }>): string {
   return players
     .map((p) => formatPlayerName(p.name, true))
     .join(', ');

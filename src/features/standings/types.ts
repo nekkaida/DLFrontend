@@ -30,7 +30,7 @@ export interface StandingsTeam {
 
 export interface MatchPlayer {
   id: string;
-  name: string;
+  name: string | null;
   username?: string;
   image?: string | null;
 }

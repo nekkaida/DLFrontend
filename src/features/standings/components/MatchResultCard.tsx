@@ -48,7 +48,7 @@ export const MatchResultCard: React.FC<MatchResultCardProps> = ({
     return (
       <View style={[styles.cardPlayerPhotoDefault, { width: size, height: size, borderRadius: size / 2 }]}>
         <Text style={[styles.cardPlayerPhotoDefaultText, { fontSize: size * 0.4 }]}>
-          {player.name.charAt(0).toUpperCase()}
+          {player.name?.charAt(0).toUpperCase() || 'D'}
         </Text>
       </View>
     );
