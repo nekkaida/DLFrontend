@@ -21,6 +21,7 @@ import { QuestionnaireFlow } from '@/src/features/onboarding/screens/skill-asses
 import { useQuestionnaire } from '@/src/features/onboarding/screens/skill-assessment/hooks/useQuestionnaire';
 import { useQuestionProgress } from '@/src/features/onboarding/screens/skill-assessment/hooks/useQuestionProgress';
 import { expandSkillMatrixQuestions } from '@/src/features/onboarding/screens/skill-assessment/utils/skillMatrixExpander';
+import { filterVisibleQuestions } from '@/src/features/onboarding/screens/skill-assessment/utils/showIfEvaluator';
 
 // Keep QuestionnaireResults from dashboard-user as it's used for inline results display
 import { QuestionnaireResults } from '@/src/features/dashboard-user/components';
@@ -91,11 +92,20 @@ export default function CompleteQuestionnaireScreen() {
       setShowResults(false);
 
       if (currentQuestionnaire) {
-        actions.setResponses({});
-        actions.setQuestionIndex(0);
-        const initialQuestions = currentQuestionnaire.getConditionalQuestions({});
-        const expandedQuestions = expandSkillMatrixQuestions(initialQuestions);
-        actions.setQuestions(expandedQuestions);
+        // Load ALL questions upfront (with showIf conditions)
+        // This provides stable carousel data for smooth animations
+        // Visibility is controlled by filterVisibleQuestions at render time
+        try {
+          const allQuestions = currentQuestionnaire.getAllQuestions();
+          const expandedQuestions = expandSkillMatrixQuestions(allQuestions);
+          actions.setQuestions(expandedQuestions);
+          actions.setResponses({});
+          actions.setQuestionIndex(0);
+          console.log(`Loaded ${expandedQuestions.length} questions for ${sport} (stable array)`);
+        } catch (error) {
+          console.error('Failed to load all questions:', error);
+          toast.error('Failed to load questionnaire. Please try again.');
+        }
       }
     }
   }, [sport, currentQuestionnaire, actions]);
@@ -115,16 +125,21 @@ export default function CompleteQuestionnaireScreen() {
   const startFreshAssessment = useCallback(() => {
     if (!currentQuestionnaire) return;
 
+    console.log('Starting fresh assessment...');
+
+    // Ensure we start from a clean slate
     actions.resetQuestionnaire();
     actions.setResponses({});
     actions.setQuestionIndex(0);
 
-    const initialQuestions = currentQuestionnaire.getConditionalQuestions({});
-    const expandedQuestions = expandSkillMatrixQuestions(initialQuestions);
+    // Load ALL questions upfront (same as onboarding flow)
+    const allQuestions = currentQuestionnaire.getAllQuestions();
+    const expandedQuestions = expandSkillMatrixQuestions(allQuestions);
     actions.setQuestions(expandedQuestions);
 
     actions.showIntroduction(false);
     actions.forceShowQuestionnaire(true);
+    console.log('Introduction hidden - showing questionnaire');
   }, [actions, currentQuestionnaire]);
 
   const handleSkipIntroduction = useCallback(() => {
@@ -174,64 +189,58 @@ export default function CompleteQuestionnaireScreen() {
     router.back();
   }, []);
 
-  // Handle back navigation
+  // Handle back navigation - simplified with stable questions array
   const handleBack = useCallback(() => {
+    // Clear pending answers when navigating back
     pendingAnswersRef.current = {};
 
-    if (state.currentPageIndex > 0) {
-      actions.goBackHistory();
+    // With stable questions array, we navigate by visible question index
+    const visibleQuestions = filterVisibleQuestions(state.questions, state.responses);
+    const currentQuestion = state.questions[state.currentQuestionIndex];
+    const currentVisibleIndex = visibleQuestions.findIndex(q => q.key === currentQuestion?.key);
+
+    if (currentVisibleIndex > 0) {
+      // Go to previous visible question
+      const prevVisibleQuestion = visibleQuestions[currentVisibleIndex - 1];
+      const prevIndexInAll = state.questions.findIndex(q => q.key === prevVisibleQuestion.key);
+      actions.setQuestionIndex(prevIndexInAll);
     } else {
       // At first question, go back to introduction
       actions.showIntroduction(true);
+      actions.forceShowQuestionnaire(false);
     }
-  }, [state.currentPageIndex, actions]);
+  }, [state.questions, state.currentQuestionIndex, state.responses, actions]);
 
-  // Handle next question
+  // Handle next question - simplified with stable questions array (same as onboarding flow)
   const handleNext = useCallback(async () => {
     const currentQuestion = state.questions[state.currentQuestionIndex];
+    // Merge state with pending answers from ref (fixes race condition with skip button)
     let finalPageAnswers = { ...state.currentPageAnswers, ...pendingAnswersRef.current };
     pendingAnswersRef.current = {};
 
-    // Handle skill matrix questions
+    // Handle skill matrix questions - aggregate into parent key
+    let newResponses = { ...state.responses };
     if (currentQuestion && 'originalKey' in currentQuestion && 'skillKey' in currentQuestion) {
       const originalKey = (currentQuestion as any).originalKey;
       const skillKey = (currentQuestion as any).skillKey;
-
-      const skillMatrixResponse = state.responses[originalKey] || {};
-      const existingMatrix = typeof skillMatrixResponse === 'object' && skillMatrixResponse !== null
-        ? skillMatrixResponse as Record<string, unknown>
-        : {};
-      const updatedSkillMatrix = {
+      const existingMatrix = (newResponses[originalKey] as Record<string, unknown>) || {};
+      newResponses[originalKey] = {
         ...existingMatrix,
         [skillKey]: state.currentPageAnswers[currentQuestion.key]
       };
-
-      const newResponses = {
-        ...state.responses,
-        [originalKey]: updatedSkillMatrix
-      };
-
-      actions.setResponses(newResponses);
-
-      if (state.currentQuestionIndex < state.questions.length - 1) {
-        actions.setQuestionIndex(state.currentQuestionIndex + 1);
-        actions.clearPageAnswers();
-        return;
-      }
     }
 
-    // Normalize page answers
+    // Normalize number inputs
     const normalizedPageAnswers = Object.entries(finalPageAnswers).reduce(
       (acc, [key, value]) => {
         let normalizedValue = value;
-        if (
-          typeof value === 'string' &&
-          value.trim() !== '' &&
-          state.questions.some((q: any) => q.key === key && q.type === 'number')
-        ) {
-          const parsed = parseFloat(value.replace(',', '.'));
-          if (!isNaN(parsed)) {
-            normalizedValue = parsed;
+        if (typeof value === 'string' && value.trim() !== '') {
+          const isNumberQuestion = state.questions.some(
+            (q: any) => q.key === key && q.type === 'number'
+          );
+          if (isNumberQuestion) {
+            const parsed = parseFloat(value.replace(',', '.'));
+            if (!isNaN(parsed)) normalizedValue = parsed;
           }
         }
         acc[key] = normalizedValue;
@@ -240,34 +249,33 @@ export default function CompleteQuestionnaireScreen() {
       {} as Record<string, any>
     );
 
-    const pageSnapshot = snapshot(normalizedPageAnswers);
-    const newResponses = { ...state.responses, ...normalizedPageAnswers };
+    // Merge normalized answers into responses
+    newResponses = { ...newResponses, ...normalizedPageAnswers };
     actions.setResponses(newResponses);
 
     if (!currentQuestionnaire) return;
 
-    // Get next questions
-    const nextQuestions = currentQuestionnaire.getConditionalQuestions(newResponses);
+    // Calculate visible questions with new responses (using filterVisibleQuestions like onboarding)
+    const visibleQuestions = filterVisibleQuestions(state.questions, newResponses);
+    const currentVisibleIndex = visibleQuestions.findIndex(
+      q => q.key === currentQuestion?.key
+    );
+    const isLastVisibleQuestion = currentVisibleIndex >= visibleQuestions.length - 1;
 
-    // Check if questionnaire is complete
-    if (nextQuestions.length === 0) {
-      console.log('🎯 Questionnaire complete, submitting...');
+    // Check completion: all visible questions answered
+    if (isLastVisibleQuestion) {
+      console.log('🎯 Questionnaire complete, calculating rating...');
       await completeQuestionnaire(newResponses as QuestionnaireResponse);
       return;
     }
 
-    // Update questions and push to history
-    const expandedQuestions = expandSkillMatrixQuestions(nextQuestions);
-    actions.pushHistory(
-      [...state.questions],
-      snapshot(newResponses),
-      state.currentQuestionIndex,
-      pageSnapshot
-    );
-    actions.clearPageAnswers();
-    actions.setQuestions(expandedQuestions);
-    actions.setQuestionIndex(0);
-    actions.incrementPageIndex();
+    // Move to next visible question (QuestionnaireFlow handles carousel animation)
+    const nextVisibleQuestion = visibleQuestions[currentVisibleIndex + 1];
+    if (nextVisibleQuestion) {
+      const nextIndexInAll = state.questions.findIndex(q => q.key === nextVisibleQuestion.key);
+      actions.setQuestionIndex(nextIndexInAll);
+      actions.clearPageAnswers();
+    }
   }, [state, actions, currentQuestionnaire, completeQuestionnaire]);
 
   const handleAnswer = useCallback((key: string, value: any) => {

@@ -1,4 +1,4 @@
-import React, { useEffect, useCallback, useRef, useMemo } from 'react';
+import React, { useEffect, useCallback, useRef, useMemo, useState } from 'react';
 import { View, Text, Dimensions } from 'react-native';
 import Animated, {
   Extrapolation,
@@ -50,6 +50,10 @@ export const QuestionnaireFlow: React.FC<QuestionnaireFlowProps> = ({
   // Track if we're programmatically navigating (to avoid double-triggers)
   const isProgrammaticNav = useRef(false);
 
+  // Track the carousel's actual displayed index (independent of parent state)
+  // This is crucial because parent's currentQuestionIndex might not match carousel position
+  const [carouselDisplayIndex, setCarouselDisplayIndex] = useState(0);
+
   // Filter to only visible questions based on showIf conditions
   // This provides STABLE carousel data - questions only appear/disappear based on responses
   const visibleQuestions = useMemo(() => {
@@ -60,7 +64,14 @@ export const QuestionnaireFlow: React.FC<QuestionnaireFlowProps> = ({
   const currentVisibleIndex = useMemo(() => {
     const currentQuestion = questions[currentQuestionIndex];
     if (!currentQuestion) return 0;
-    return visibleQuestions.findIndex(q => q.key === currentQuestion.key);
+    const foundIndex = visibleQuestions.findIndex(q => q.key === currentQuestion.key);
+    // If current question is hidden (not in visible list), default to 0 to prevent -1
+    // This handles edge cases where showIf conditions hide the current question
+    if (foundIndex === -1) {
+      console.warn(`Question ${currentQuestion.key} not found in visible questions, defaulting to index 0`);
+      return 0;
+    }
+    return foundIndex;
   }, [questions, currentQuestionIndex, visibleQuestions]);
 
   // Track previous visible questions to detect changes
@@ -134,12 +145,22 @@ export const QuestionnaireFlow: React.FC<QuestionnaireFlowProps> = ({
       if (currentCarouselIndex !== currentVisibleIndex) {
         console.log(`Syncing carousel: ${currentCarouselIndex} -> ${currentVisibleIndex}`);
         carouselRef.current.scrollTo({ index: currentVisibleIndex, animated: true });
+        // Also sync our tracked index
+        setCarouselDisplayIndex(currentVisibleIndex);
       }
     }
   }, [currentVisibleIndex]);
 
+  // Initialize carouselDisplayIndex when currentVisibleIndex changes from parent
+  useEffect(() => {
+    setCarouselDisplayIndex(currentVisibleIndex);
+  }, [currentVisibleIndex]);
+
   // Handle carousel snap to new index
   const handleSnapToItem = useCallback((index: number) => {
+    // Always track the carousel's actual displayed index
+    setCarouselDisplayIndex(index);
+
     // Only trigger onNext if user swiped forward (not programmatic or back)
     if (!isProgrammaticNav.current && index > currentVisibleIndex) {
       console.log(`User swiped to visible index ${index}, triggering onNext`);
@@ -149,9 +170,10 @@ export const QuestionnaireFlow: React.FC<QuestionnaireFlowProps> = ({
   }, [currentVisibleIndex]);
 
   // Programmatic navigation to next
+  // Use carouselDisplayIndex for accurate last-question detection
   const handleNext = useCallback(() => {
     // Check if this is the last visible question
-    if (currentVisibleIndex >= visibleQuestions.length - 1) {
+    if (carouselDisplayIndex >= visibleQuestions.length - 1) {
       // Last visible question - let parent handle completion
       onNext();
       return;
@@ -165,20 +187,23 @@ export const QuestionnaireFlow: React.FC<QuestionnaireFlowProps> = ({
     setTimeout(() => {
       onNextRef.current();
     }, 300);
-  }, [currentVisibleIndex, visibleQuestions.length, onNext, directionAnimVal]);
+  }, [carouselDisplayIndex, visibleQuestions.length, onNext, directionAnimVal]);
 
   // Handle skip (for optional questions)
+  // Use carouselDisplayIndex to ensure we skip the correct displayed question
   const handleSkipAndProceed = useCallback(() => {
-    const question = visibleQuestions[currentVisibleIndex];
+    const question = visibleQuestions[carouselDisplayIndex];
     if (question?.optional && question?.key) {
       onAnswer(question.key, '');
     }
     handleNext();
-  }, [visibleQuestions, currentVisibleIndex, onAnswer, handleNext]);
+  }, [visibleQuestions, carouselDisplayIndex, onAnswer, handleNext]);
 
   // Check if next button should be enabled
+  // IMPORTANT: Use carouselDisplayIndex (actual carousel position) instead of currentVisibleIndex
+  // This ensures we check the ACTUAL question being displayed, not the parent's tracked index
   const isNextEnabled = useCallback(() => {
-    const question = visibleQuestions?.[currentVisibleIndex];
+    const question = visibleQuestions?.[carouselDisplayIndex];
     if (!question) return false;
 
     const hasAnswer = currentPageAnswers[question.key] !== undefined ||
@@ -188,11 +213,14 @@ export const QuestionnaireFlow: React.FC<QuestionnaireFlowProps> = ({
       return hasAnswer || question.optional;
     }
     return hasAnswer;
-  }, [visibleQuestions, currentVisibleIndex, currentPageAnswers, responses]);
+  }, [visibleQuestions, carouselDisplayIndex, currentPageAnswers, responses]);
 
   // Render individual question card
   const renderItem = useCallback(({ item: question, index }: { item: any; index: number }) => {
-    const isCurrentCard = index === currentVisibleIndex;
+    // Show navigation buttons on cards near the carousel's actual displayed index
+    // Use carouselDisplayIndex for accurate positioning regardless of parent state
+    const isCurrentCard = index === carouselDisplayIndex;
+    const isNearCurrent = Math.abs(index - carouselDisplayIndex) <= 1;
 
     return (
       <Animated.View style={styles.activeCardContainer} key={question.key}>
@@ -205,7 +233,7 @@ export const QuestionnaireFlow: React.FC<QuestionnaireFlowProps> = ({
           showContent={true}
           onSkipAndProceed={handleSkipAndProceed}
           navigationButtons={
-            isCurrentCard ? (
+            isNearCurrent ? (
               <NavigationButtons
                 onBack={onBack}
                 onNext={handleNext}
@@ -218,7 +246,7 @@ export const QuestionnaireFlow: React.FC<QuestionnaireFlowProps> = ({
       </Animated.View>
     );
   }, [
-    currentVisibleIndex,
+    carouselDisplayIndex,
     onAnswer,
     currentPageAnswers,
     responses,
