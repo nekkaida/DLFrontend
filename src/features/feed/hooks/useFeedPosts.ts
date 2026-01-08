@@ -32,7 +32,7 @@ export const useFeedPosts = (options: UseFeedPostsOptions = {}) => {
       const backendUrl = getBackendBaseURL();
       const params = new URLSearchParams();
 
-      if (options.sport) params.append('sport', options.sport);
+      if (options.sport && options.sport !== 'default') params.append('sport', options.sport);
       if (options.limit) params.append('limit', options.limit.toString());
       if (!refresh && cursorRef.current) params.append('cursor', cursorRef.current);
 
