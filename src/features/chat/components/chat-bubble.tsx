@@ -81,7 +81,9 @@ export const MessageBubble: React.FC<MessageBubbleProps> = React.memo(({
           } : {
             borderBottomLeftRadius: isLastInGroup ? 6 : 18,
             borderTopLeftRadius: showAvatar ? 18 : 6,
-          }
+          },
+          message.status === 'sending' && styles.sendingBubble,
+          message.status === 'failed' && styles.failedBubble,
         ]}>
           <Text style={[
             styles.messageText,
@@ -100,10 +102,16 @@ export const MessageBubble: React.FC<MessageBubbleProps> = React.memo(({
             
             {isCurrentUser && (
               <View style={styles.statusContainer}>
-                {message.isDelivered && (
+                {message.status === 'sending' && (
+                  <Text style={styles.sendingStatus}>○</Text>
+                )}
+                {message.status === 'failed' && (
+                  <Text style={styles.failedStatus}>!</Text>
+                )}
+                {message.status !== 'sending' && message.status !== 'failed' && message.isDelivered && (
                   <Text style={styles.deliveryStatus}>✓</Text>
                 )}
-                {message.isRead && (
+                {message.status !== 'sending' && message.status !== 'failed' && message.isRead && (
                   <Text style={styles.readStatus}>✓</Text>
                 )}
               </View>
@@ -181,6 +189,14 @@ const styles = StyleSheet.create({
     backgroundColor: '#F3F4F6',
     alignSelf: 'flex-start',
   },
+  sendingBubble: {
+    opacity: 0.7,
+  },
+  failedBubble: {
+    opacity: 0.5,
+    borderWidth: 1,
+    borderColor: '#EF4444',
+  },
   messageText: {
     fontSize: 15,
     lineHeight: 20,
@@ -219,5 +235,14 @@ const styles = StyleSheet.create({
     fontSize: 10,
     color: '#34D399',
     marginLeft: -2,
+  },
+  sendingStatus: {
+    fontSize: 10,
+    color: 'rgba(255, 255, 255, 0.5)',
+  },
+  failedStatus: {
+    fontSize: 10,
+    color: '#EF4444',
+    fontWeight: '700',
   },
 });

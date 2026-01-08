@@ -211,7 +211,7 @@ export const InvitePartnerBottomSheet: React.FC<InvitePartnerBottomSheetProps> =
 
   const handleConnectPress = useCallback(() => {
     onClose();
-    router.push({ pathname: '/user-dashboard', params: { view: 'connect' } });
+    router.push('/user-dashboard/friend-list');
   }, [onClose]);
 
   const renderBackdrop = useCallback(

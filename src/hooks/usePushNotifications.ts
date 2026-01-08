@@ -34,6 +34,7 @@ export function usePushNotifications(): UsePushNotificationsReturn {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [lastNotification, setLastNotification] = useState<Notifications.Notification | null>(null);
+  const hasAttemptedRegistration = useRef(false); // Track if we've already tried to register
 
   const notificationListener = useRef<Notifications.Subscription | undefined>(undefined);
   const responseListener = useRef<Notifications.Subscription | undefined>(undefined);
@@ -93,7 +94,14 @@ export function usePushNotifications(): UsePushNotificationsReturn {
       return;
     }
 
+    // Prevent duplicate registration attempts
+    if (hasAttemptedRegistration.current) {
+      console.log('⏭️ Push notification registration already attempted, skipping');
+      return;
+    }
+
     console.log('🔔 Registering push notifications for user:', session.user.id);
+    hasAttemptedRegistration.current = true; // Mark as attempted BEFORE async operation
     setIsLoading(true);
     setError(null);
 
@@ -105,12 +113,14 @@ export function usePushNotifications(): UsePushNotificationsReturn {
         setIsRegistered(true);
         console.log('✅ Push notifications registered successfully:', token);
       } else {
-        console.warn('⚠️ Failed to get push token');
+        console.warn('⚠️ Failed to get push token (permission denied or unavailable)');
         setError('Failed to get push token');
+        // Don't retry - user denied permission or device doesn't support push
       }
     } catch (err) {
       console.error('❌ Error registering for push notifications:', err);
       setError(err instanceof Error ? err.message : 'Unknown error');
+      // Don't retry on error - will retry on next app launch
     } finally {
       setIsLoading(false);
     }
@@ -124,12 +134,14 @@ export function usePushNotifications(): UsePushNotificationsReturn {
       setExpoPushToken(null);
       setIsRegistered(false);
       setError(null);
+      hasAttemptedRegistration.current = false; // Reset so next user can register
       console.log('✅ usePushNotifications: Cleanup completed');
     } catch (err) {
       console.error('❌ usePushNotifications: Error during cleanup:', err);
       // Still clear local state even on error
       setExpoPushToken(null);
       setIsRegistered(false);
+      hasAttemptedRegistration.current = false;
     }
   }, []);
 

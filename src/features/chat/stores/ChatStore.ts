@@ -55,6 +55,31 @@ export const useChatStore = create<ChatState & ChatActions>((set, get) => ({
       return;
     }
 
+    // Check if this is a real message that should replace an optimistic one
+    // (same content, same sender, sent within last 10 seconds)
+    const optimisticMatch = threadMessages.find(m =>
+      m.tempId &&
+      m.senderId === message.senderId &&
+      m.content === message.content &&
+      (m.status === 'sending' || m.status === 'sent') &&
+      Math.abs(new Date(m.timestamp).getTime() - new Date(message.timestamp).getTime()) < 10000
+    );
+
+    if (optimisticMatch) {
+      // Replace the optimistic message with the real one
+      chatLogger.debug('Replacing optimistic message with real one:', optimisticMatch.tempId, '->', message.id);
+      const updatedMessages = {
+        ...messages,
+        [message.threadId]: threadMessages.map(m =>
+          m.tempId === optimisticMatch.tempId
+            ? { ...message, status: 'sent' as const }
+            : m
+        ),
+      };
+      set({ messages: updatedMessages });
+      return;
+    }
+
     const updatedMessages = {
       ...messages,
       [message.threadId]: [...threadMessages, message],
@@ -237,9 +262,32 @@ export const useChatStore = create<ChatState & ChatActions>((set, get) => ({
 
   sendMessage: async (threadId, senderId, content, replyToId, type, matchData) => {
     chatLogger.debug('Sending message to thread:', threadId);
+
+    // Generate a temporary ID for optimistic update
+    const tempId = `temp-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+
+    // Create optimistic message
+    const optimisticMessage: Message = {
+      id: tempId,
+      tempId: tempId,
+      threadId,
+      senderId,
+      content,
+      timestamp: new Date(),
+      isRead: false,
+      isDelivered: false,
+      replyTo: replyToId,
+      type: type === 'match' ? 'match' : 'text',
+      status: 'sending',
+      matchData: matchData as Message['matchData'],
+    };
+
+    // Add optimistic message to UI immediately
+    get().addMessage(optimisticMessage);
+
     try {
       const messageType = type === 'match' ? 'MATCH' : 'TEXT';
-      await ChatService.sendMessage(
+      const sentMessage = await ChatService.sendMessage(
         threadId,
         senderId,
         content,
@@ -247,9 +295,43 @@ export const useChatStore = create<ChatState & ChatActions>((set, get) => ({
         messageType,
         matchData
       );
+
+      // Replace optimistic message with real message from server
+      const { messages } = get();
+      const threadMessages = messages[threadId] || [];
+      const updatedMessages = threadMessages.map(msg =>
+        msg.tempId === tempId
+          ? { ...sentMessage, status: 'sent' as const }
+          : msg
+      );
+
+      set({
+        messages: {
+          ...messages,
+          [threadId]: updatedMessages,
+        },
+      });
+
+      chatLogger.debug('Message sent successfully:', sentMessage.id);
     } catch (error) {
       chatLogger.error('Error sending message:', error);
-      set({ error: 'Failed to send message' });
+
+      // Mark the optimistic message as failed
+      const { messages } = get();
+      const threadMessages = messages[threadId] || [];
+      const updatedMessages = threadMessages.map(msg =>
+        msg.tempId === tempId
+          ? { ...msg, status: 'failed' as const }
+          : msg
+      );
+
+      set({
+        messages: {
+          ...messages,
+          [threadId]: updatedMessages,
+        },
+        error: 'Failed to send message',
+      });
     }
   },
 

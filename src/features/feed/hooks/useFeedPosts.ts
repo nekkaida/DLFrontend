@@ -32,7 +32,7 @@ export const useFeedPosts = (options: UseFeedPostsOptions = {}) => {
       const backendUrl = getBackendBaseURL();
       const params = new URLSearchParams();
 
-      if (options.sport) params.append('sport', options.sport);
+      if (options.sport && options.sport !== 'default') params.append('sport', options.sport);
       if (options.limit) params.append('limit', options.limit.toString());
       if (!refresh && cursorRef.current) params.append('cursor', cursorRef.current);
 
@@ -47,7 +47,12 @@ export const useFeedPosts = (options: UseFeedPostsOptions = {}) => {
         if (refresh) {
           setPosts(feedData.posts);
         } else {
-          setPosts(prev => [...prev, ...feedData.posts]);
+          // Deduplicate posts to avoid key collisions in FlatList
+          setPosts(prev => {
+            const existingIds = new Set(prev.map(p => p.id));
+            const newPosts = feedData.posts.filter(p => !existingIds.has(p.id));
+            return [...prev, ...newPosts];
+          });
         }
 
         cursorRef.current = feedData.nextCursor;

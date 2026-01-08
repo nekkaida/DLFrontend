@@ -1,5 +1,5 @@
 import React from 'react';
-import { StyleSheet, View, TextInput, Pressable, TouchableWithoutFeedback, Keyboard, ScrollView } from 'react-native';
+import { StyleSheet, View, TextInput, Pressable, TouchableWithoutFeedback, Keyboard, ScrollView, Text } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { ThemedText } from '@/components/ThemedText';
@@ -10,6 +10,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { authClient } from '@/lib/auth-client';
 import { toast } from 'sonner-native';
+import { validatePassword, PasswordStrength } from '@/features/auth/utils/passwordValidation';
 
 export default function ResetPasswordScreen() {
   const router = useRouter();
@@ -28,6 +29,17 @@ export default function ResetPasswordScreen() {
   
   const [isPasswordVisible, setPasswordVisible] = useState(false);
   const [isConfirmPasswordVisible, setConfirmPasswordVisible] = useState(false);
+
+  // Password validation state
+  const [passwordError, setPasswordError] = useState('');
+  const [passwordStrength, setPasswordStrength] = useState<PasswordStrength>(null);
+
+  const handlePasswordChange = (text: string) => {
+    setNewPassword(text);
+    const validation = validatePassword(text);
+    setPasswordError(validation.error);
+    setPasswordStrength(validation.strength);
+  };
 
   const handleSendOtp = async () => {
     if (!email.trim()) {
@@ -92,9 +104,11 @@ export default function ResetPasswordScreen() {
       return;
     }
 
-    if (newPassword.length < 8) {
+    // Use shared password validation
+    const validation = validatePassword(newPassword);
+    if (!validation.isValid) {
       toast.error('Error', {
-        description: 'Password must be at least 8 characters long.',
+        description: validation.error,
       });
       return;
     }
@@ -240,7 +254,7 @@ export default function ResetPasswordScreen() {
                     <TextInput
                       style={[styles.input, newPasswordFocused && styles.inputFocused]}
                       value={newPassword}
-                      onChangeText={setNewPassword}
+                      onChangeText={handlePasswordChange}
                       placeholder={newPasswordFocused ? "" : "Enter your new password"}
                       placeholderTextColor="#B0B8C1"
                       secureTextEntry={!isPasswordVisible}
@@ -253,6 +267,46 @@ export default function ResetPasswordScreen() {
                       <Ionicons name={isPasswordVisible ? 'eye-off-outline' : 'eye-outline'} size={24} color="#6C7278" />
                     </Pressable>
                   </View>
+
+                  {/* Password Validation Feedback */}
+                  {newPassword.length > 0 && (
+                    <View style={styles.validationContainer}>
+                      {/* Error Message */}
+                      {passwordError && (
+                        <Text style={styles.errorText}>{passwordError}</Text>
+                      )}
+
+                      {/* Password Strength Indicator */}
+                      {passwordStrength && (
+                        <View style={styles.strengthContainer}>
+                          <View style={styles.strengthBars}>
+                            <View style={[
+                              styles.strengthBar,
+                              { backgroundColor: passwordStrength === 'weak' ? '#EF4444' :
+                                               passwordStrength === 'medium' ? '#F59E0B' : '#10B981' }
+                            ]} />
+                            <View style={[
+                              styles.strengthBar,
+                              { backgroundColor: passwordStrength === 'medium' || passwordStrength === 'strong' ?
+                                               (passwordStrength === 'medium' ? '#F59E0B' : '#10B981') : '#E5E7EB' }
+                            ]} />
+                            <View style={[
+                              styles.strengthBar,
+                              { backgroundColor: passwordStrength === 'strong' ? '#10B981' : '#E5E7EB' }
+                            ]} />
+                          </View>
+                          <Text style={[
+                            styles.strengthText,
+                            { color: passwordStrength === 'weak' ? '#EF4444' :
+                                     passwordStrength === 'medium' ? '#F59E0B' : '#10B981' }
+                          ]}>
+                            {passwordStrength === 'weak' ? 'Weak' :
+                             passwordStrength === 'medium' ? 'Medium' : 'Strong'}
+                          </Text>
+                        </View>
+                      )}
+                    </View>
+                  )}
                 </View>
 
                 <View style={styles.inputContainer}>
@@ -425,6 +479,39 @@ const styles = StyleSheet.create({
   loginLink: {
     fontSize: 14,
     color: '#4D81E7',
+    fontWeight: '600',
+  },
+  // Password validation styles
+  validationContainer: {
+    marginTop: 8,
+    gap: 4,
+  },
+  errorText: {
+    fontFamily: 'Inter',
+    fontSize: 12,
+    lineHeight: 16,
+    color: '#EF4444',
+    fontWeight: '500',
+  },
+  strengthContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  strengthBars: {
+    flexDirection: 'row',
+    gap: 4,
+    flex: 1,
+  },
+  strengthBar: {
+    flex: 1,
+    height: 4,
+    borderRadius: 2,
+  },
+  strengthText: {
+    fontFamily: 'Inter',
+    fontSize: 12,
+    lineHeight: 16,
     fontWeight: '600',
   },
 });

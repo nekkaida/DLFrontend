@@ -364,8 +364,16 @@ export const MatchResultSheet: React.FC<MatchResultSheetProps> = ({
       // Tennis/Padel: Need tiebreak if either team has 7 (meaning 7-6 scenario)
       return team1 === 7 || team2 === 7;
     } else {
-      // Pickleball: Need "tiebreak" (extended score) when both scores >= 14
-      // This indicates a close game where win-by-2 is needed
+      // Pickleball: Check if there's already a clear winner (score >= 15 AND lead by 2+)
+      const team1Won = team1 >= 15 && team1 - team2 >= 2;
+      const team2Won = team2 >= 15 && team2 - team1 >= 2;
+
+      if (team1Won || team2Won) {
+        return false; // Clear winner exists, no tiebreak/extended score needed
+      }
+
+      // Only require extended score input when game is still close (deuce scenario)
+      // Both at 14+, or one at 15+ but not winning by 2
       return (team1 >= 14 && team2 >= 14) ||
              (team1 >= 15 && team2 >= 14) ||
              (team1 >= 14 && team2 >= 15);
@@ -1478,7 +1486,7 @@ export const MatchResultSheet: React.FC<MatchResultSheetProps> = ({
                     )}
                   </View>
                   <View style={styles.stackedNames}>
-                    <Text style={styles.stackedNameText}>
+                    <Text style={styles.stackedNameText} numberOfLines={1} ellipsizeMode="tail">
                       {teamAPlayers[0]?.name.split(' ')[0]}
                     </Text>
                   </View>
@@ -1518,7 +1526,7 @@ export const MatchResultSheet: React.FC<MatchResultSheetProps> = ({
                     )}
                   </View>
                   <View style={styles.stackedNames}>
-                    <Text style={styles.stackedNameText}>
+                    <Text style={styles.stackedNameText} numberOfLines={1} ellipsizeMode="tail">
                       {teamBPlayers[0]?.name.split(' ')[0]}
                     </Text>
                   </View>
@@ -1834,12 +1842,12 @@ export const MatchResultSheet: React.FC<MatchResultSheetProps> = ({
           <View style={styles.stackedNames}>
             {matchType === 'DOUBLES' ? (
               teamAPlayers.map(player => (
-                <Text key={player.id} style={styles.stackedNameText}>
+                <Text key={player.id} style={styles.stackedNameText} numberOfLines={1} ellipsizeMode="tail">
                   {player.name.split(' ')[0]}
                 </Text>
               ))
             ) : (
-              <Text style={styles.stackedNameText}>
+              <Text style={styles.stackedNameText} numberOfLines={1} ellipsizeMode="tail">
                 {teamAPlayers[0]?.name.split(' ')[0]}
               </Text>
             )}
@@ -1929,12 +1937,12 @@ export const MatchResultSheet: React.FC<MatchResultSheetProps> = ({
           <View style={styles.stackedNames}>
             {matchType === 'DOUBLES' ? (
               teamBPlayers.map(player => (
-                <Text key={player.id} style={styles.stackedNameText}>
+                <Text key={player.id} style={styles.stackedNameText} numberOfLines={1} ellipsizeMode="tail">
                   {player.name.split(' ')[0]}
                 </Text>
               ))
             ) : (
-              <Text style={styles.stackedNameText}>
+              <Text style={styles.stackedNameText} numberOfLines={1} ellipsizeMode="tail">
                 {teamBPlayers[0]?.name.split(' ')[0]}
               </Text>
             )}

@@ -345,34 +345,41 @@ export const MessageWindow: React.FC<MessageWindowProps> = ({
     );
   }
 
+  // Render empty state outside FlatList to avoid inverted transform issues across Android devices
+  // The inverted FlatList applies scaleY: -1 which behaves inconsistently on different Android versions
+  const isEmpty = groupedMessages.length === 0;
+
   return (
     <View style={styles.container}>
-      <FlatList
-        ref={flatListRef}
-        data={groupedMessages}
-        renderItem={renderItem}
-        keyExtractor={keyExtractor}
-        style={styles.messagesList}
-        contentContainerStyle={[
-          styles.contentContainer,
-          groupedMessages.length === 0 && styles.emptyContentContainer
-        ]}
-        inverted
-        showsVerticalScrollIndicator={false}
-        onEndReached={onLoadMore}
-        onEndReachedThreshold={0.1}
-        onScroll={handleScroll}
-        scrollEventThrottle={16}
-        ListEmptyComponent={EmptyMessages}
-        keyboardShouldPersistTaps="handled"
-        onScrollBeginDrag={Keyboard.dismiss}
-        onScrollToIndexFailed={handleScrollToIndexFailed}
-        // Performance optimizations
-        initialNumToRender={FLATLIST_CONFIG.INITIAL_NUM_TO_RENDER}
-        maxToRenderPerBatch={FLATLIST_CONFIG.MAX_TO_RENDER_PER_BATCH}
-        windowSize={FLATLIST_CONFIG.WINDOW_SIZE}
-        removeClippedSubviews={Platform.OS === 'android'}
-      />
+      {isEmpty ? (
+        // Render empty state outside the inverted FlatList for consistent display
+        <View style={styles.emptyStateWrapper}>
+          <EmptyMessages />
+        </View>
+      ) : (
+        <FlatList
+          ref={flatListRef}
+          data={groupedMessages}
+          renderItem={renderItem}
+          keyExtractor={keyExtractor}
+          style={styles.messagesList}
+          contentContainerStyle={styles.contentContainer}
+          inverted
+          showsVerticalScrollIndicator={false}
+          onEndReached={onLoadMore}
+          onEndReachedThreshold={0.1}
+          onScroll={handleScroll}
+          scrollEventThrottle={16}
+          keyboardShouldPersistTaps="handled"
+          onScrollBeginDrag={Keyboard.dismiss}
+          onScrollToIndexFailed={handleScrollToIndexFailed}
+          // Performance optimizations
+          initialNumToRender={FLATLIST_CONFIG.INITIAL_NUM_TO_RENDER}
+          maxToRenderPerBatch={FLATLIST_CONFIG.MAX_TO_RENDER_PER_BATCH}
+          windowSize={FLATLIST_CONFIG.WINDOW_SIZE}
+          removeClippedSubviews={Platform.OS === 'android'}
+        />
+      )}
 
       {/* Loading indicator for sending messages */}
       {loading && messages.length > 0 && (
@@ -415,9 +422,6 @@ const styles = StyleSheet.create({
     paddingBottom: isSmallScreen ? 8 : isTablet ? 16 : 12, // Space at top for oldest messages
     flexGrow: 1,
   },
-  emptyContentContainer: {
-    justifyContent: 'center',
-  },
   dateDivider: {
     flexDirection: 'row',
     justifyContent: 'center',
@@ -435,12 +439,15 @@ const styles = StyleSheet.create({
     color: '#6B7280',
     fontWeight: '500',
   },
-  emptyContainer: {
+  emptyStateWrapper: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  emptyContainer: {
+    justifyContent: 'center',
+    alignItems: 'center',
     paddingVertical: 50,
-    transform: [{ rotate: '180deg' }], // Counteract FlatList inverted prop (rotates both X and Y)
   },
   emptyEmoji: {
     fontSize: isSmallScreen ? 50 : isTablet ? 70 : 60,

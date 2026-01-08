@@ -283,9 +283,13 @@ export const CreateFriendlyMatchScreen: React.FC<CreateFriendlyMatchScreenProps>
     setIsSubmitting(true);
     try {
       await onCreateMatch({ ...formData, sport });
-      toast.success('Friendly match created successfully');
+      // Success toast is handled by the parent component (create.tsx)
     } catch (error: any) {
-      toast.error(error?.message || 'Failed to create friendly match');
+      // Error toast is handled by the parent component (create.tsx)
+      // Only show error here if it's not already from the parent
+      if (!error?.message?.includes('Failed')) {
+        toast.error(error?.message || 'Failed to create friendly match');
+      }
     } finally {
       setIsSubmitting(false);
     }
