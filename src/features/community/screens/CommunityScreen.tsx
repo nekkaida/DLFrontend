@@ -300,6 +300,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     paddingTop: 12,
+    backgroundColor: '#F6FAFC',
   },
   searchSection: {
     paddingHorizontal: 16,

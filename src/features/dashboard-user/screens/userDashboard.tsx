@@ -9,13 +9,13 @@ import { SportSwitcher } from "@/shared/components/ui/SportSwitcher";
 import { ChatScreen } from "@/src/features/chat/ChatScreen";
 import { useUnreadCount } from "@/src/features/chat/hooks/useUnreadCount";
 import { useChatSocketEvents } from "@/src/features/chat/hooks/useChatSocketEvents";
-import CommunityScreen from "@/src/features/community/screens/CommunityScreen";
 import { LeagueCard, LeagueGrid, useLeagues, useUserActiveLeagues, ActiveLeaguesCarousel } from "@/src/features/leagues";
 import { useNotifications } from "@/src/hooks/useNotifications";
 import NotificationBell from "@/src/shared/components/NotificationBell";
 import MyGamesScreen from "./MyGamesScreen";
 import { FilterTab } from './my-games';
 import { FriendlyScreen } from "@/src/features/friendly/screens";
+import { FeedScreen } from "@/src/features/feed";
 import * as Haptics from "expo-haptics";
 import { router, useLocalSearchParams, useFocusEffect } from "expo-router";
 import { default as React, useCallback, useEffect } from "react";
@@ -419,7 +419,7 @@ export default function DashboardScreen() {
         </View>
         <View style={styles.contentContainer}>
           <View style={styles.contentBox}>
-            <CommunityScreen onTabPress={handleTabPress} sport={selectedSport} />
+            <FeedScreen sport={selectedSport} />
           </View>
         </View>
         <NavBar
