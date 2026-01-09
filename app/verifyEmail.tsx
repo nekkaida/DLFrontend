@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { StyleSheet, View, TextInput, Pressable, TouchableWithoutFeedback, Keyboard, ScrollView, Animated } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
@@ -6,39 +6,89 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { ThemedText } from '@/components/ThemedText';
 import { Colors } from '@/constants/Colors';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useRouter } from 'expo-router';
 import { authClient } from '@/lib/auth-client';
-import { navigateAndClearStack, clearAuthPagesFromHistory } from '@core/navigation';
 import { toast } from 'sonner-native';
 import { AuthStorage } from '@/src/core/storage';
+import { useEmailVerificationStore } from '@/src/stores/emailVerificationStore';
+import * as Haptics from 'expo-haptics';
+
+// Constants
+const RESEND_COOLDOWN = 60;
+
+// Safe haptics wrapper
+const triggerHaptic = async (style: Haptics.ImpactFeedbackStyle = Haptics.ImpactFeedbackStyle.Light) => {
+  try {
+    await Haptics.impactAsync(style);
+  } catch {
+    // Haptics not supported
+  }
+};
+
+const triggerNotification = async (type: Haptics.NotificationFeedbackType) => {
+  try {
+    await Haptics.notificationAsync(type);
+  } catch {
+    // Haptics not supported
+  }
+};
 
 export default function VerifyEmailScreen() {
   const router = useRouter();
-  const params = useLocalSearchParams();
-  const [email, setEmail] = useState(typeof params.email === 'string' ? params.email : '');
+  const { email, clearAll: clearEmailStore, isSessionValid } = useEmailVerificationStore();
+
   const [otp, setOtp] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [otpSent, setOtpSent] = useState(false);
   const [isFocused, setIsFocused] = useState(false);
+  const [resendCooldown, setResendCooldown] = useState(RESEND_COOLDOWN);
   const hiddenInputRef = useRef<TextInput>(null);
   const cursorAnimation = useRef(new Animated.Value(1)).current;
+  const blinkAnimationRef = useRef<Animated.CompositeAnimation | null>(null);
+  const isMountedRef = useRef<boolean>(true);
 
-  console.log('VerifyEmailScreen: Component mounted');
-  console.log('VerifyEmailScreen: Email param:', params.email);
+  // Safe email for display and API calls
+  const safeEmail = email || '';
 
+  if (__DEV__) {
+    console.log('VerifyEmailScreen: Component mounted');
+    console.log('VerifyEmailScreen: Email from store:', email);
+  }
+
+  // Cleanup on unmount
   useEffect(() => {
-    console.log('VerifyEmailScreen: useEffect triggered');
-    if (typeof params.email === 'string' && params.email) {
-      console.log('VerifyEmailScreen: Setting email from params:', params.email);
-      setEmail(params.email);
-      setOtpSent(true); // Mark as sent - OTP is sent from register.tsx after successful signup
-      console.log('VerifyEmailScreen: Email verification code was sent during registration');
-    } else {
-      console.log('VerifyEmailScreen: No valid email param, email is:', params.email);
-    }
-  }, [params.email]);
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+      blinkAnimationRef.current?.stop();
+    };
+  }, []);
 
-  // Cursor blinking animation
+  // Validate email from store - redirect if missing or session expired
+  useEffect(() => {
+    if (!email || !isSessionValid()) {
+      toast.error('Session Expired', {
+        description: 'Please start the registration process again.',
+      });
+      router.replace('/register');
+    }
+  }, [email, isSessionValid, router]);
+
+  // Resend cooldown timer
+  useEffect(() => {
+    let interval: ReturnType<typeof setInterval> | null = null;
+    if (resendCooldown > 0) {
+      interval = setInterval(() => {
+        if (isMountedRef.current) {
+          setResendCooldown((prev) => Math.max(0, prev - 1));
+        }
+      }, 1000);
+    }
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [resendCooldown]);
+
+  // Cursor blinking animation with proper cleanup
   useEffect(() => {
     if (isFocused) {
       const blinkAnimation = Animated.loop(
@@ -55,8 +105,15 @@ export default function VerifyEmailScreen() {
           }),
         ])
       );
+      blinkAnimationRef.current = blinkAnimation;
       blinkAnimation.start();
-      return () => blinkAnimation.stop();
+      return () => {
+        blinkAnimation.stop();
+        blinkAnimationRef.current = null;
+      };
+    } else {
+      blinkAnimationRef.current?.stop();
+      blinkAnimationRef.current = null;
     }
   }, [isFocused, cursorAnimation]);
 
@@ -68,6 +125,7 @@ export default function VerifyEmailScreen() {
 
   const handleVerifyOtp = async () => {
     if (!otp || otp.length < 6) {
+      triggerHaptic(Haptics.ImpactFeedbackStyle.Medium);
       toast.error('Please enter a valid 6-digit verification code.');
       return;
     }
@@ -75,27 +133,32 @@ export default function VerifyEmailScreen() {
     setIsLoading(true);
     try {
       const { data, error } = await authClient.emailOtp.verifyEmail({
-        email,
+        email: safeEmail,
         otp,
       });
 
       if (error) {
+        triggerNotification(Haptics.NotificationFeedbackType.Error);
         toast.error(error.message || 'The code is incorrect. Please try again.');
       } else if (data) {
-        console.log('Email verification successful');
+        triggerNotification(Haptics.NotificationFeedbackType.Success);
+        if (__DEV__) console.log('Email verification successful');
         toast.success('Your email has been verified successfully.');
+
+        // Stop animation before navigation
+        blinkAnimationRef.current?.stop();
 
         // Wait for session to be established in SecureStore, then navigate
         // This is needed because autoSignInAfterVerification creates a session,
         // but the React state may not update immediately (race condition in production builds)
-        console.log('Waiting for session to be established...');
+        if (__DEV__) console.log('Waiting for session to be established...');
 
         // Poll for session with timeout
         let attempts = 0;
         const maxAttempts = 10;
         const checkSession = async (): Promise<boolean> => {
           const sessionCheck = await authClient.getSession();
-          console.log(`Session check attempt ${attempts + 1}:`, sessionCheck.data ? 'Session found' : 'No session');
+          if (__DEV__) console.log(`Session check attempt ${attempts + 1}:`, sessionCheck.data ? 'Session found' : 'No session');
           return !!sessionCheck.data?.user;
         };
 
@@ -103,7 +166,7 @@ export default function VerifyEmailScreen() {
           await new Promise(resolve => setTimeout(resolve, 500));
           const hasSession = await checkSession();
           if (hasSession) {
-            console.log('Session established, marking as logged in and navigating to onboarding');
+            if (__DEV__) console.log('Session established, marking as logged in and navigating to onboarding');
             await AuthStorage.markLoggedIn();
             router.replace('/onboarding/personal-info');
             return;
@@ -112,7 +175,7 @@ export default function VerifyEmailScreen() {
         }
 
         // Fallback: Navigate anyway after timeout - NavigationInterceptor will handle if needed
-        console.log('Session check timed out, marking as logged in and navigating to onboarding anyway');
+        if (__DEV__) console.log('Session check timed out, marking as logged in and navigating to onboarding anyway');
         await AuthStorage.markLoggedIn();
         router.replace('/onboarding/personal-info');
       }
@@ -125,31 +188,43 @@ export default function VerifyEmailScreen() {
   };
 
   const handleResendOtp = async () => {
+    // Check cooldown
+    if (resendCooldown > 0 || isLoading) return;
+
     setIsLoading(true);
     try {
-      console.log('VerifyEmailScreen: Manually resending verification email to:', email);
+      if (__DEV__) console.log('VerifyEmailScreen: Manually resending verification email to:', safeEmail);
       const result = await authClient.emailOtp.sendVerificationOtp({
-        email: email,
+        email: safeEmail,
         type: "email-verification",
       });
 
-      console.log('VerifyEmailScreen: Resend OTP result:', result);
+      if (__DEV__) console.log('VerifyEmailScreen: Resend OTP result:', result);
+
+      if (!isMountedRef.current) return;
 
       if (result.error) {
-        console.error('VerifyEmailScreen: Error from backend:', result.error);
+        if (__DEV__) console.error('VerifyEmailScreen: Error from backend:', result.error);
+        triggerNotification(Haptics.NotificationFeedbackType.Error);
         toast.error(result.error.message || 'Failed to send verification code. Please check your email address.');
         return;
       }
 
-      setOtpSent(true);
-      console.log('VerifyEmailScreen: Resend OTP request completed successfully');
-      toast.success(`A new verification code has been sent to ${email}.`);
+      triggerNotification(Haptics.NotificationFeedbackType.Success);
+      if (__DEV__) console.log('VerifyEmailScreen: Resend OTP request completed successfully');
+      toast.success('A new verification code has been sent to your email.');
+      setResendCooldown(RESEND_COOLDOWN);
+      setOtp('');
     } catch (err) {
+      if (!isMountedRef.current) return;
       const message = err instanceof Error ? err.message : 'An unknown error occurred.';
-      console.error('VerifyEmailScreen: Exception resending OTP:', err);
+      if (__DEV__) console.error('VerifyEmailScreen: Exception resending OTP:', err);
+      triggerNotification(Haptics.NotificationFeedbackType.Error);
       toast.error(message);
     } finally {
-      setIsLoading(false);
+      if (isMountedRef.current) {
+        setIsLoading(false);
+      }
     }
   };
 
@@ -268,14 +343,28 @@ export default function VerifyEmailScreen() {
             </Pressable>
 
             <View style={styles.footerContainer}>
-              <ThemedText style={styles.footerText}>Didn't receive a code? </ThemedText>
-              <Pressable
-                onPress={handleResendOtp}
-                disabled={isLoading}
-                style={({ pressed }) => [{ opacity: pressed ? 0.6 : 1 }]}
-              >
-                <ThemedText style={styles.footerLink}>Resend Code</ThemedText>
-              </Pressable>
+              {resendCooldown > 0 ? (
+                <ThemedText style={styles.footerText}>
+                  Resend code in {resendCooldown}s
+                </ThemedText>
+              ) : (
+                <>
+                  <ThemedText style={styles.footerText}>Didn't receive a code? </ThemedText>
+                  <Pressable
+                    onPress={handleResendOtp}
+                    disabled={isLoading}
+                    style={({ pressed }) => [{ opacity: pressed || isLoading ? 0.6 : 1 }]}
+                    accessibilityLabel="Resend verification code"
+                    accessibilityRole="button"
+                    accessibilityHint="Sends a new verification code to your email"
+                    accessibilityState={{ disabled: isLoading }}
+                  >
+                    <ThemedText style={[styles.footerLink, isLoading && styles.linkDisabled]}>
+                      Resend Code
+                    </ThemedText>
+                  </Pressable>
+                </>
+              )}
             </View>
           </View>
         </ScrollView>
@@ -469,5 +558,8 @@ const styles = StyleSheet.create({
     color: '#FEA04D',
     fontWeight: '600',
     textDecorationLine: 'underline',
+  },
+  linkDisabled: {
+    opacity: 0.5,
   },
 });
