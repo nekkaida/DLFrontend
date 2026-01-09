@@ -12,24 +12,62 @@ export default function RegisterRoute() {
       console.log('📱 Register Route - Received signup data:', {
         email: data.email,
         username: data.username,
-        // phone: data.phone,
         password: '***'
       });
-      
+
       const signupPayload = {
         email: data.email,
         password: data.password,
         name: data.username,
-        username: data.username, // Add username field
-        phoneNumber: '', // Phone number is optional, set to empty string
+        username: data.username,
+        phoneNumber: '',
       };
-      
+
       console.log('📤 Register Route:', {
         ...signupPayload,
         password: '***'
       });
-      
-      await authClient.signUp.email(signupPayload);
+
+      // Better Auth returns { data, error } - must check error explicitly
+      const result = await authClient.signUp.email(signupPayload);
+
+      console.log('📥 Register Route - Signup result:', {
+        hasData: !!result.data,
+        hasError: !!result.error,
+        error: result.error
+      });
+
+      // Check for errors (including duplicate email)
+      if (result.error) {
+        console.error('Sign up error:', result.error);
+        const errorMessage = result.error.message || 'Sign up failed';
+        // Handle specific error cases
+        if (errorMessage.toLowerCase().includes('email') &&
+            (errorMessage.toLowerCase().includes('exist') || errorMessage.toLowerCase().includes('already'))) {
+          toast.error('This email is already registered. Please login instead.');
+        } else if (errorMessage.toLowerCase().includes('username') &&
+                   (errorMessage.toLowerCase().includes('exist') || errorMessage.toLowerCase().includes('taken'))) {
+          toast.error('This username is already taken. Please choose another.');
+        } else {
+          toast.error(errorMessage);
+        }
+        return;
+      }
+
+      // Success - send verification OTP manually since overrideDefaultEmailVerification is true
+      console.log('📧 Register Route - Sending verification OTP...');
+      const otpResult = await authClient.emailOtp.sendVerificationOtp({
+        email: data.email,
+        type: "email-verification",
+      });
+
+      if (otpResult.error) {
+        console.error('Failed to send verification OTP:', otpResult.error);
+        toast.warning('Account created but verification email failed. You can resend it on the next screen.');
+      } else {
+        console.log('✅ Register Route - Verification OTP sent successfully');
+      }
+
       toast.success('Account created! Please check your email to verify.');
       router.push(`/verifyEmail?email=${encodeURIComponent(data.email)}`);
     } catch (error) {

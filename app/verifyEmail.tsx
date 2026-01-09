@@ -30,8 +30,8 @@ export default function VerifyEmailScreen() {
     if (typeof params.email === 'string' && params.email) {
       console.log('VerifyEmailScreen: Setting email from params:', params.email);
       setEmail(params.email);
-      setOtpSent(true); // Mark as sent since better-auth already sent it during signup
-      console.log('VerifyEmailScreen: Email verification code was already sent during signup');
+      setOtpSent(true); // Mark as sent - OTP is sent from register.tsx after successful signup
+      console.log('VerifyEmailScreen: Email verification code was sent during registration');
     } else {
       console.log('VerifyEmailScreen: No valid email param, email is:', params.email);
     }
