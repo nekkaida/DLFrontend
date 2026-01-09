@@ -106,7 +106,10 @@ export default function LoginRoute() {
 
   const handleSocialLogin = async (provider: "facebook" | "google" | "apple") => {
     try {
-      // Only Google is currently configured
+      // TODO: Social Login Configuration Status
+      // ✅ Google OAuth - Configured and working
+      // ❌ Facebook Login - Needs configuration (see app/index.tsx for details)
+      // ❌ Apple Sign-In - Needs configuration (see app/index.tsx for details)
       if (provider !== "google") {
         toast.info(`${provider.charAt(0).toUpperCase() + provider.slice(1)} sign-in coming soon!`);
         return;
