@@ -196,6 +196,9 @@ export const LandingScreen: React.FC<LandingScreenProps> = ({
             <Pressable
               style={dynamicStyles.getStartedButton}
               onPress={() => handleDebouncedPress(onGetStarted)}
+              accessibilityLabel="Get started with registration"
+              accessibilityRole="button"
+              accessibilityHint="Navigates to the sign up screen"
             >
               <LinearGradient
                 colors={[COLORS.GRADIENT_START, COLORS.GRADIENT_END]}
@@ -219,6 +222,9 @@ export const LandingScreen: React.FC<LandingScreenProps> = ({
             <Pressable
               onPress={() => handleDebouncedPress(onLogin)}
               style={dynamicStyles.loginLinkButton}
+              accessibilityLabel="Log in to existing account"
+              accessibilityRole="button"
+              accessibilityHint="Navigates to the login screen"
             >
               <Text style={dynamicStyles.loginLinkButtonText}>Log in</Text>
             </Pressable>
