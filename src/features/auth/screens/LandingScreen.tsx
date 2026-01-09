@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { View, Text, Image, Pressable, Dimensions, Platform, StyleSheet, AppState } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { StatusBar } from 'expo-status-bar';
@@ -8,19 +8,22 @@ import { SocialButton } from '../components/AuthComponents';
 import DeuceLogo from '../../onboarding/components/DeuceLogo';
 import DeuceSvg from '@/assets/images/DEUCE.svg';
 
-// Layout constants - percentages of screen height
+// Base width for scaling (iPhone 6/7/8 reference)
+const BASE_WIDTH = 375;
+
+// Device breakpoints
+const BREAKPOINTS = {
+  SMALL_PHONE: 360,
+  TABLET: 768,
+} as const;
+
+// Layout constants - percentages of screen
 const LAYOUT = {
-  /** Logo positioned at 15% from top */
   LOGO_TOP_POSITION: 0.15,
-  /** Tagline positioned at 73% from top */
   TAGLINE_TOP_POSITION: 0.73,
-  /** Tagline width as percentage of screen */
   TAGLINE_WIDTH: 0.8,
-  /** Tagline left margin as percentage of screen */
   TAGLINE_LEFT_MARGIN: 0.07,
-  /** CTA button max width as percentage of screen */
   CTA_BUTTON_MAX_WIDTH: 0.55,
-  /** Horizontal padding for bottom container */
   CONTAINER_HORIZONTAL_PADDING: 0.05,
 } as const;
 
@@ -34,6 +37,59 @@ const COLORS = {
   LINK_TEXT: '#404040',
   ACCENT: '#FEA04D',
 } as const;
+
+// Responsive scaling helper - scales based on screen width with tablet cap
+const createScaler = (screenWidth: number) => {
+  const scaleRatio = screenWidth / BASE_WIDTH;
+  // Cap scaling at 1.4x for tablets to prevent oversized elements
+  const cappedRatio = Math.min(scaleRatio, 1.4);
+
+  return {
+    // Standard scale for most elements
+    scale: (size: number) => Math.round(size * cappedRatio),
+    // Moderate scale for elements that shouldn't grow too much (factor 0-1)
+    moderateScale: (size: number, factor: number = 0.5) => {
+      const scaledSize = Math.round(size * cappedRatio);
+      return Math.round(size + (scaledSize - size) * factor);
+    },
+    // Check device type
+    isSmallPhone: screenWidth < BREAKPOINTS.SMALL_PHONE,
+    isTablet: screenWidth >= BREAKPOINTS.TABLET,
+  };
+};
+
+// Get responsive logo sizes based on screen width
+const getResponsiveLogoSizes = (screenWidth: number) => {
+  const { scale, moderateScale } = createScaler(screenWidth);
+
+  return {
+    // DEUCE text SVG - scales with screen but moderate for tablets
+    deuceSvg: {
+      width: moderateScale(260, 0.6),
+      height: moderateScale(94, 0.6),
+    },
+    // Logo icon - slightly smaller scaling
+    deuceLogo: {
+      width: moderateScale(100, 0.5),
+      height: moderateScale(100, 0.5),
+    },
+    // Tagline font - moderate scaling
+    taglineFontSize: moderateScale(22, 0.4),
+    taglineLineHeight: moderateScale(29, 0.4),
+    // Button text - minimal scaling
+    buttonFontSize: moderateScale(Platform.OS === 'ios' ? 16 : 15, 0.3),
+    buttonLineHeight: moderateScale(Platform.OS === 'ios' ? 20 : 18, 0.3),
+    // Link text - minimal scaling
+    linkFontSize: moderateScale(Platform.OS === 'ios' ? 14 : 13, 0.3),
+    linkLineHeight: moderateScale(Platform.OS === 'ios' ? 18 : 17, 0.3),
+    // Spacing
+    logoMarginBottom: scale(20),
+    // Button height - moderate scaling
+    buttonHeight: moderateScale(Platform.OS === 'ios' ? 44 : 40, 0.4),
+    // Bottom container min height
+    bottomContainerMinHeight: moderateScale(Platform.OS === 'ios' ? 140 : 120, 0.3),
+  };
+};
 
 interface LandingScreenProps {
   onGetStarted: () => void;
@@ -53,7 +109,6 @@ export const LandingScreen: React.FC<LandingScreenProps> = ({
     return { width, height };
   });
 
-  // Force re-render when app comes to foreground to fix Android layout issues
   const [, forceUpdate] = useState(0);
 
   useEffect(() => {
@@ -76,7 +131,17 @@ export const LandingScreen: React.FC<LandingScreenProps> = ({
   }, []);
 
   const { width: screenWidth, height: screenHeight } = dimensions;
-  const dynamicStyles = getStyles(screenWidth, screenHeight, insets.bottom);
+
+  // Compute responsive sizes based on current screen width
+  const responsiveSizes = useMemo(
+    () => getResponsiveLogoSizes(screenWidth),
+    [screenWidth]
+  );
+
+  const dynamicStyles = useMemo(
+    () => getStyles(screenWidth, screenHeight, insets.bottom, responsiveSizes),
+    [screenWidth, screenHeight, insets.bottom, responsiveSizes]
+  );
 
   const handleSocialPress = (provider: 'facebook' | 'google' | 'apple') => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -95,10 +160,16 @@ export const LandingScreen: React.FC<LandingScreenProps> = ({
 
         <View style={dynamicStyles.logoContainer}>
           <View style={dynamicStyles.textShadowContainer}>
-            <DeuceSvg width={260} height={94} />
+            <DeuceSvg
+              width={responsiveSizes.deuceSvg.width}
+              height={responsiveSizes.deuceSvg.height}
+            />
           </View>
           <View style={dynamicStyles.logoShadowContainer}>
-            <DeuceLogo width={100} height={100} />
+            <DeuceLogo
+              width={responsiveSizes.deuceLogo.width}
+              height={responsiveSizes.deuceLogo.height}
+            />
           </View>
         </View>
 
@@ -150,7 +221,14 @@ export const LandingScreen: React.FC<LandingScreenProps> = ({
   );
 };
 
-const getStyles = (screenWidth: number, screenHeight: number, bottomInset: number) => StyleSheet.create({
+type ResponsiveSizes = ReturnType<typeof getResponsiveLogoSizes>;
+
+const getStyles = (
+  screenWidth: number,
+  screenHeight: number,
+  bottomInset: number,
+  sizes: ResponsiveSizes
+) => StyleSheet.create({
   container: {
     flex: 1,
     width: screenWidth,
@@ -186,7 +264,7 @@ const getStyles = (screenWidth: number, screenHeight: number, bottomInset: numbe
     shadowOpacity: 0.15,
     shadowRadius: 2,
     elevation: 2,
-    marginBottom: 20,
+    marginBottom: sizes.logoMarginBottom,
   },
   logoShadowContainer: {
     shadowColor: COLORS.BACKGROUND,
@@ -206,15 +284,15 @@ const getStyles = (screenWidth: number, screenHeight: number, bottomInset: numbe
     }),
     fontStyle: 'italic',
     fontWeight: '400',
-    fontSize: 22,
-    lineHeight: 29,
+    fontSize: sizes.taglineFontSize,
+    lineHeight: sizes.taglineLineHeight,
     letterSpacing: -0.01,
     color: COLORS.TAGLINE,
   },
   bottomContainer: {
     position: 'absolute',
     width: screenWidth,
-    minHeight: Platform.OS === 'ios' ? 140 : 120,
+    minHeight: sizes.bottomContainerMinHeight,
     left: 0,
     bottom: 0,
     backgroundColor: COLORS.WHITE,
@@ -237,7 +315,7 @@ const getStyles = (screenWidth: number, screenHeight: number, bottomInset: numbe
   getStartedButton: {
     flex: 1,
     maxWidth: screenWidth * LAYOUT.CTA_BUTTON_MAX_WIDTH,
-    height: Platform.OS === 'ios' ? 44 : 40,
+    height: sizes.buttonHeight,
     marginRight: 10,
     borderRadius: 20,
     shadowColor: COLORS.BACKGROUND,
@@ -258,8 +336,8 @@ const getStyles = (screenWidth: number, screenHeight: number, bottomInset: numbe
   getStartedButtonText: {
     fontFamily: 'Inter',
     fontWeight: '600',
-    fontSize: Platform.OS === 'ios' ? 16 : 15,
-    lineHeight: Platform.OS === 'ios' ? 20 : 18,
+    fontSize: sizes.buttonFontSize,
+    lineHeight: sizes.buttonLineHeight,
     color: COLORS.WHITE,
     textAlign: 'center',
     flexShrink: 1,
@@ -279,8 +357,8 @@ const getStyles = (screenWidth: number, screenHeight: number, bottomInset: numbe
   loginLinkText: {
     fontFamily: 'Inter',
     fontWeight: '500',
-    fontSize: Platform.OS === 'ios' ? 14 : 13,
-    lineHeight: Platform.OS === 'ios' ? 18 : 17,
+    fontSize: sizes.linkFontSize,
+    lineHeight: sizes.linkLineHeight,
     letterSpacing: -0.01,
     color: COLORS.LINK_TEXT,
   },
@@ -294,8 +372,8 @@ const getStyles = (screenWidth: number, screenHeight: number, bottomInset: numbe
   loginLinkButtonText: {
     fontFamily: 'Inter',
     fontWeight: '600',
-    fontSize: Platform.OS === 'ios' ? 14 : 13,
-    lineHeight: Platform.OS === 'ios' ? 18 : 17,
+    fontSize: sizes.linkFontSize,
+    lineHeight: sizes.linkLineHeight,
     letterSpacing: -0.01,
     color: COLORS.ACCENT,
   },
