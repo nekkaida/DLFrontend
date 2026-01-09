@@ -301,9 +301,15 @@ export const PrimaryButton: React.FC<PrimaryButtonProps> = ({ title, onPress, st
 interface SocialButtonProps {
   type: 'facebook' | 'google' | 'apple';
   onPress: () => void;
+  disabled?: boolean;
 }
 
-export const SocialButton: React.FC<SocialButtonProps> = ({ type, onPress }) => {
+// Debounce delay for social buttons
+const SOCIAL_BUTTON_DEBOUNCE = 500;
+
+export const SocialButton: React.FC<SocialButtonProps> = ({ type, onPress, disabled = false }) => {
+  const lastPressRef = useRef<number>(0);
+
   const getButtonStyle = () => {
     switch (type) {
       case 'facebook':
@@ -325,13 +331,36 @@ export const SocialButton: React.FC<SocialButtonProps> = ({ type, onPress }) => 
     }
   };
 
+  const getAccessibilityLabel = () => {
+    switch (type) {
+      case 'facebook':
+        return 'Sign in with Facebook';
+      case 'google':
+        return 'Sign in with Google';
+      case 'apple':
+        return 'Sign in with Apple';
+    }
+  };
+
+  const handlePress = () => {
+    const now = Date.now();
+    if (now - lastPressRef.current < SOCIAL_BUTTON_DEBOUNCE || disabled) {
+      return;
+    }
+    lastPressRef.current = now;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    onPress();
+  };
+
   return (
-    <TouchableOpacity 
-      style={[AuthStyles.socialButton, getButtonStyle()]} 
-      onPress={() => {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-        onPress();
-      }}
+    <TouchableOpacity
+      style={[AuthStyles.socialButton, getButtonStyle(), disabled && { opacity: 0.5 }]}
+      onPress={handlePress}
+      disabled={disabled}
+      accessibilityLabel={getAccessibilityLabel()}
+      accessibilityRole="button"
+      accessibilityHint={`Authenticates using your ${type} account`}
+      accessibilityState={{ disabled }}
     >
       {getIcon()}
     </TouchableOpacity>
