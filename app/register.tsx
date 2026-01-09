@@ -82,7 +82,7 @@ export default function RegisterRoute() {
   };
 
   const handleLogin = () => {
-    router.push('/login');
+    router.replace('/login');
   };
 
   const handleSocialSignUp = async (provider: 'facebook' | 'google' | 'apple') => {
