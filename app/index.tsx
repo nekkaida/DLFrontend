@@ -33,7 +33,20 @@ export default function LandingPage() {
 
   const handleSocialLogin = async (provider: 'facebook' | 'google' | 'apple') => {
     try {
-      // Only Google is currently configured
+      // TODO: Social Login Configuration Status
+      // ✅ Google OAuth - Configured and working
+      // ❌ Facebook Login - Needs configuration:
+      //    1. Create Facebook App at https://developers.facebook.com
+      //    2. Add Facebook Login product
+      //    3. Configure OAuth redirect URIs (deuceleague://oauth/facebook)
+      //    4. Add Facebook App ID/Secret to Better Auth config
+      //    5. Test on iOS and Android (requires native SDK setup)
+      // ❌ Apple Sign-In - Needs configuration:
+      //    1. Enable Sign in with Apple capability in Apple Developer Console
+      //    2. Create Service ID for web authentication
+      //    3. Configure OAuth redirect URIs
+      //    4. Add Apple credentials to Better Auth config
+      //    5. Required for iOS App Store (if other social logins are offered)
       if (provider !== 'google') {
         toast.info(`${provider.charAt(0).toUpperCase() + provider.slice(1)} sign-in coming soon!`);
         return;
