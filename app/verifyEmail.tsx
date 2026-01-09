@@ -10,6 +10,7 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import { authClient } from '@/lib/auth-client';
 import { navigateAndClearStack, clearAuthPagesFromHistory } from '@core/navigation';
 import { toast } from 'sonner-native';
+import { AuthStorage } from '@/src/core/storage';
 
 export default function VerifyEmailScreen() {
   const router = useRouter();
@@ -102,7 +103,8 @@ export default function VerifyEmailScreen() {
           await new Promise(resolve => setTimeout(resolve, 500));
           const hasSession = await checkSession();
           if (hasSession) {
-            console.log('Session established, navigating to onboarding');
+            console.log('Session established, marking as logged in and navigating to onboarding');
+            await AuthStorage.markLoggedIn();
             router.replace('/onboarding/personal-info');
             return;
           }
@@ -110,7 +112,8 @@ export default function VerifyEmailScreen() {
         }
 
         // Fallback: Navigate anyway after timeout - NavigationInterceptor will handle if needed
-        console.log('Session check timed out, navigating to onboarding anyway');
+        console.log('Session check timed out, marking as logged in and navigating to onboarding anyway');
+        await AuthStorage.markLoggedIn();
         router.replace('/onboarding/personal-info');
       }
     } catch (err) {
