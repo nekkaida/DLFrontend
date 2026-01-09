@@ -3,6 +3,7 @@ import { useRouter } from 'expo-router';
 import { SignUpScreen, SignUpData } from '@/src/features/auth/screens/SignUpScreen';
 import { authClient } from '@/lib/auth-client';
 import { toast } from 'sonner-native';
+import { AuthStorage } from '@/src/core/storage';
 
 export default function RegisterRoute() {
   const router = useRouter();
@@ -54,6 +55,9 @@ export default function RegisterRoute() {
         return;
       }
 
+      // Mark that user has registered (so they see login screen on return, not landing)
+      await AuthStorage.markLoggedIn();
+
       // Success - send verification OTP manually since overrideDefaultEmailVerification is true
       console.log('📧 Register Route - Sending verification OTP...');
       const otpResult = await authClient.emailOtp.sendVerificationOtp({
@@ -89,6 +93,9 @@ export default function RegisterRoute() {
       }
 
       console.log(`Social sign-up with ${provider}`);
+
+      // Mark that user has registered (so they see login screen on return, not landing)
+      await AuthStorage.markLoggedIn();
 
       // Social sign-in automatically creates account if user doesn't exist
       const result = await authClient.signIn.social({
