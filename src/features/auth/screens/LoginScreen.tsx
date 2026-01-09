@@ -1,5 +1,5 @@
 import * as Haptics from "expo-haptics";
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import {
   Dimensions,
   KeyboardAvoidingView,
@@ -9,16 +9,21 @@ import {
   ScrollView,
   Text,
   TouchableOpacity,
+  AppState,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import Svg, { G, Path, Defs, ClipPath, Rect } from 'react-native-svg';
 import { toast } from 'sonner-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   CircleArrowButton,
   InputField,
   SocialButton,
 } from "../components/AuthComponents";
 import { AuthColors, AuthStyles } from "../styles/AuthStyles";
+
+// Debounce delay in milliseconds
+const DEBOUNCE_DELAY = 500;
 
 interface LoginScreenProps {
   onLogin: (email: string, password: string) => void | Promise<void>;
@@ -33,12 +38,50 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
   onForgotPassword,
   onSocialLogin,
 }) => {
+  const insets = useSafeAreaInsets();
+  const lastPressTimeRef = useRef<number>(0);
+
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
-  const { width: screenWidth, height: screenHeight } = Dimensions.get("window");
+  // Responsive dimensions with listeners
+  const [dimensions, setDimensions] = useState(() => {
+    const { width, height } = Dimensions.get('window');
+    return { width, height };
+  });
+
+  useEffect(() => {
+    const subscription = Dimensions.addEventListener('change', ({ window }) => {
+      setDimensions({ width: window.width, height: window.height });
+    });
+
+    const appStateSubscription = AppState.addEventListener('change', (nextAppState) => {
+      if (nextAppState === 'active') {
+        const { width, height } = Dimensions.get('window');
+        setDimensions({ width, height });
+      }
+    });
+
+    return () => {
+      subscription?.remove();
+      appStateSubscription?.remove();
+    };
+  }, []);
+
+  const { width: screenWidth, height: screenHeight } = dimensions;
+
+  // Debounced press handler to prevent double-clicks
+  const handleDebouncedPress = useCallback((callback: () => void) => {
+    const now = Date.now();
+    if (now - lastPressTimeRef.current < DEBOUNCE_DELAY) {
+      return;
+    }
+    lastPressTimeRef.current = now;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    callback();
+  }, []);
 
   const handleLogin = async () => {
     if (email && password && !isLoading) {
@@ -174,7 +217,10 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                 alignSelf: "flex-end",
                 marginBottom: screenHeight * 0.03,
               }}
-              onPress={onForgotPassword}
+              onPress={() => handleDebouncedPress(onForgotPassword)}
+              accessibilityLabel="Forgot password"
+              accessibilityRole="button"
+              accessibilityHint="Navigates to password reset screen"
             >
               <Text
                 style={{
@@ -209,7 +255,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
               }}>
                 Sign In
               </Text>
-              <TouchableOpacity 
+              <TouchableOpacity
                 onPress={handleLogin}
                 disabled={isLoading}
                 style={{
@@ -224,6 +270,10 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                   shadowRadius: 8,
                   elevation: 6,
                 }}
+                accessibilityLabel="Sign in"
+                accessibilityRole="button"
+                accessibilityHint="Submits login credentials"
+                accessibilityState={{ disabled: isLoading }}
               >
                 <LinearGradient
                   colors={[AuthColors.primary, AuthColors.primaryDark]}
@@ -344,10 +394,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                 color: '#404040',
               }}>Don't have an account yet?</Text>
               <TouchableOpacity
-                onPress={() => {
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                  onSignUp();
-                }}
+                onPress={() => handleDebouncedPress(onSignUp)}
                 style={{
                   paddingTop: Platform.OS === 'ios' ? 1 : 0.5,
                   paddingBottom: Platform.OS === 'ios' ? 1 : 0.5,
@@ -355,6 +402,9 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                   borderBottomWidth: 1,
                   borderBottomColor: AuthColors.primary,
                 }}
+                accessibilityLabel="Create new account"
+                accessibilityRole="button"
+                accessibilityHint="Navigates to the sign up screen"
               >
                 <Text style={{
                   fontFamily: 'Inter',
