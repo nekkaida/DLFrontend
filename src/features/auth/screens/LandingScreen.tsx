@@ -20,7 +20,7 @@ const BREAKPOINTS = {
 // Layout constants - percentages of screen
 const LAYOUT = {
   LOGO_TOP_POSITION: 0.15,
-  TAGLINE_TOP_POSITION: 0.73,
+  TAGLINE_TOP_POSITION: 0.80,
   TAGLINE_WIDTH: 0.8,
   TAGLINE_LEFT_MARGIN: 0.07,
   CTA_BUTTON_MAX_WIDTH: 0.55,
@@ -65,13 +65,13 @@ const getResponsiveLogoSizes = (screenWidth: number) => {
   return {
     // DEUCE text SVG - scales with screen but moderate for tablets
     deuceSvg: {
-      width: moderateScale(260, 0.6),
-      height: moderateScale(94, 0.6),
+      width: moderateScale(200, 0.6),
+      height: moderateScale(72, 0.6),
     },
     // Logo icon - slightly smaller scaling
     deuceLogo: {
-      width: moderateScale(100, 0.5),
-      height: moderateScale(100, 0.5),
+      width: moderateScale(75, 0.5),
+      height: moderateScale(75, 0.5),
     },
     // Tagline font - moderate scaling
     taglineFontSize: moderateScale(22, 0.4),
