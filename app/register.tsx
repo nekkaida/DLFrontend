@@ -4,18 +4,22 @@ import { SignUpScreen, SignUpData } from '@/src/features/auth/screens/SignUpScre
 import { authClient } from '@/lib/auth-client';
 import { toast } from 'sonner-native';
 import { AuthStorage } from '@/src/core/storage';
+import { useEmailVerificationStore } from '@/src/stores/emailVerificationStore';
 
 export default function RegisterRoute() {
   const router = useRouter();
   const [isSocialLoading, setIsSocialLoading] = useState(false);
+  const { setEmail: storeEmail } = useEmailVerificationStore();
 
   const handleSignUp = async (data: SignUpData) => {
     try {
-      console.log('📱 Register Route - Received signup data:', {
-        email: data.email,
-        username: data.username,
-        password: '***'
-      });
+      if (__DEV__) {
+        console.log('📱 Register Route - Received signup data:', {
+          email: data.email,
+          username: data.username,
+          password: '***'
+        });
+      }
 
       const signupPayload = {
         email: data.email,
@@ -25,23 +29,27 @@ export default function RegisterRoute() {
         phoneNumber: '',
       };
 
-      console.log('📤 Register Route:', {
-        ...signupPayload,
-        password: '***'
-      });
+      if (__DEV__) {
+        console.log('📤 Register Route:', {
+          ...signupPayload,
+          password: '***'
+        });
+      }
 
       // Better Auth returns { data, error } - must check error explicitly
       const result = await authClient.signUp.email(signupPayload);
 
-      console.log('📥 Register Route - Signup result:', {
-        hasData: !!result.data,
-        hasError: !!result.error,
-        error: result.error
-      });
+      if (__DEV__) {
+        console.log('📥 Register Route - Signup result:', {
+          hasData: !!result.data,
+          hasError: !!result.error,
+          error: result.error
+        });
+      }
 
       // Check for errors (including duplicate email)
       if (result.error) {
-        console.error('Sign up error:', result.error);
+        if (__DEV__) console.error('Sign up error:', result.error);
         const errorMessage = result.error.message || 'Sign up failed';
         // Handle specific error cases
         if (errorMessage.toLowerCase().includes('email') &&
@@ -60,23 +68,25 @@ export default function RegisterRoute() {
       await AuthStorage.markLoggedIn();
 
       // Success - send verification OTP manually since overrideDefaultEmailVerification is true
-      console.log('📧 Register Route - Sending verification OTP...');
+      if (__DEV__) console.log('📧 Register Route - Sending verification OTP...');
       const otpResult = await authClient.emailOtp.sendVerificationOtp({
         email: data.email,
         type: "email-verification",
       });
 
       if (otpResult.error) {
-        console.error('Failed to send verification OTP:', otpResult.error);
+        if (__DEV__) console.error('Failed to send verification OTP:', otpResult.error);
         toast.warning('Account created but verification email failed. You can resend it on the next screen.');
       } else {
-        console.log('✅ Register Route - Verification OTP sent successfully');
+        if (__DEV__) console.log('✅ Register Route - Verification OTP sent successfully');
       }
 
       toast.success('Account created! Please check your email to verify.');
-      router.push(`/verifyEmail?email=${encodeURIComponent(data.email)}`);
+      // Store email securely (not in URL) and navigate
+      storeEmail(data.email);
+      router.push('/verifyEmail');
     } catch (error) {
-      console.error('Sign up failed:', error);
+      if (__DEV__) console.error('Sign up failed:', error);
       toast.error('Sign up failed. Please try again.');
     }
   };
@@ -100,7 +110,7 @@ export default function RegisterRoute() {
         return;
       }
 
-      console.log(`Social sign-up with ${provider}`);
+      if (__DEV__) console.log(`Social sign-up with ${provider}`);
 
       // Mark that user has registered (so they see login screen on return, not landing)
       await AuthStorage.markLoggedIn();
@@ -111,16 +121,17 @@ export default function RegisterRoute() {
         callbackURL: '/onboarding/personal-info', // New users go to onboarding
       });
 
-      console.log('Social sign-up result:', result);
+      if (__DEV__) console.log('Social sign-up result:', result);
 
       if (result.error) {
-        console.error('Social sign-up failed:', result.error);
+        if (__DEV__) console.error('Social sign-up failed:', result.error);
         toast.error(result.error.message || 'Social sign-up failed. Please try again.');
       }
       // Success handling is done via the callbackURL redirect
-    } catch (error: any) {
-      console.error('Social sign-up error:', error);
-      toast.error(error.message || 'Social sign-up failed. Please try again.');
+    } catch (error) {
+      if (__DEV__) console.error('Social sign-up error:', error);
+      const message = error instanceof Error ? error.message : 'Social sign-up failed. Please try again.';
+      toast.error(message);
     } finally {
       setIsSocialLoading(false);
     }
