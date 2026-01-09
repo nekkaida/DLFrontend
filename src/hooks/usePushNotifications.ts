@@ -38,14 +38,26 @@ export function usePushNotifications(): UsePushNotificationsReturn {
 
   const notificationListener = useRef<Notifications.Subscription | undefined>(undefined);
   const responseListener = useRef<Notifications.Subscription | undefined>(undefined);
+  const lastHandledResponseId = useRef<string | null>(null); // Track last handled notification to prevent duplicate handling
 
   // Handle notification tap - navigate based on notification data
   // Using router.navigate() for push notifications so they go directly to the target screen
   // without stacking intermediate screens. Back navigation will go to the logical parent.
   const handleNotificationResponse = useCallback(
-    (response: Notifications.NotificationResponse) => {
+    (response: Notifications.NotificationResponse, isFromLastResponse: boolean = false) => {
+      const notificationId = response.notification.request.identifier;
+
+      // Skip if we've already handled this notification (prevents duplicate navigation on app restore)
+      if (lastHandledResponseId.current === notificationId) {
+        console.log('Notification already handled, skipping:', notificationId);
+        return;
+      }
+
+      // Mark as handled
+      lastHandledResponseId.current = notificationId;
+
       const data = response.notification.request.content.data as NotificationData;
-      console.log('Notification tapped:', data);
+      console.log('Notification tapped:', data, isFromLastResponse ? '(from last response)' : '');
 
       // Navigate based on notification metadata (priority order)
       // Priority 1: Match notifications → go to match-details
@@ -135,6 +147,7 @@ export function usePushNotifications(): UsePushNotificationsReturn {
       setIsRegistered(false);
       setError(null);
       hasAttemptedRegistration.current = false; // Reset so next user can register
+      lastHandledResponseId.current = null; // Reset so new notifications can be handled
       console.log('✅ usePushNotifications: Cleanup completed');
     } catch (err) {
       console.error('❌ usePushNotifications: Error during cleanup:', err);
@@ -142,6 +155,7 @@ export function usePushNotifications(): UsePushNotificationsReturn {
       setExpoPushToken(null);
       setIsRegistered(false);
       hasAttemptedRegistration.current = false;
+      lastHandledResponseId.current = null;
     }
   }, []);
 
@@ -176,10 +190,11 @@ export function usePushNotifications(): UsePushNotificationsReturn {
     );
 
     // Check for notification that launched the app
+    // Note: This can return the same notification on app restore, so we track handled IDs
     pushNotificationService.getLastNotificationResponse().then((response) => {
       if (response) {
         console.log('App launched from notification:', response);
-        handleNotificationResponse(response);
+        handleNotificationResponse(response, true);
       }
     });
 
