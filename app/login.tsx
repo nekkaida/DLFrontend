@@ -98,7 +98,7 @@ export default function LoginRoute() {
   };
 
   const handleSignUp = () => {
-    router.push("/register");
+    router.replace("/register");
   };
 
   const handleForgotPassword = () => {
