@@ -30,6 +30,45 @@ import { validatePassword, PasswordStrength } from '../utils/passwordValidation'
 // Debounce delay in milliseconds
 const DEBOUNCE_DELAY = 500;
 
+// Validation constants
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const USERNAME_REGEX = /^[a-zA-Z0-9_]+$/;
+const MIN_USERNAME_LENGTH = 3;
+const MAX_USERNAME_LENGTH = 30;
+const MAX_EMAIL_LENGTH = 255;
+
+// Validation functions
+const validateEmail = (email: string): { isValid: boolean; error: string } => {
+  const trimmed = email.trim();
+  if (!trimmed) {
+    return { isValid: false, error: 'Email is required' };
+  }
+  if (trimmed.length > MAX_EMAIL_LENGTH) {
+    return { isValid: false, error: 'Email address is too long' };
+  }
+  if (!EMAIL_REGEX.test(trimmed)) {
+    return { isValid: false, error: 'Please enter a valid email address' };
+  }
+  return { isValid: true, error: '' };
+};
+
+const validateUsername = (username: string): { isValid: boolean; error: string } => {
+  const trimmed = username.trim();
+  if (!trimmed) {
+    return { isValid: false, error: 'Username is required' };
+  }
+  if (trimmed.length < MIN_USERNAME_LENGTH) {
+    return { isValid: false, error: `Username must be at least ${MIN_USERNAME_LENGTH} characters` };
+  }
+  if (trimmed.length > MAX_USERNAME_LENGTH) {
+    return { isValid: false, error: `Username must be less than ${MAX_USERNAME_LENGTH} characters` };
+  }
+  if (!USERNAME_REGEX.test(trimmed)) {
+    return { isValid: false, error: 'Username can only contain letters, numbers, and underscores' };
+  }
+  return { isValid: true, error: '' };
+};
+
 interface SignUpScreenProps {
   onSignUp: (data: SignUpData) => void | Promise<void>;
   onLogin: () => void;
@@ -110,12 +149,35 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({
   };
 
   const handleSignUp = async () => {
-    const validation = validatePassword(password);
-    if (email && username && password && !isLoading && validation.isValid) {
-      try {
-        setIsLoading(true);
-        // Phone number is now optional - use empty string if not provided
-        const fullPhoneNumber = phone ? `+${countryCode}${phone}` : '';
+    // Validate all fields
+    const emailValidation = validateEmail(email);
+    if (!emailValidation.isValid) {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      toast.error('Invalid Email', { description: emailValidation.error });
+      return;
+    }
+
+    const usernameValidation = validateUsername(username);
+    if (!usernameValidation.isValid) {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      toast.error('Invalid Username', { description: usernameValidation.error });
+      return;
+    }
+
+    const passwordValidation = validatePassword(password);
+    if (!passwordValidation.isValid) {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      toast.error('Invalid Password', { description: passwordValidation.error || 'Please enter a valid password' });
+      return;
+    }
+
+    if (isLoading) return;
+
+    try {
+      setIsLoading(true);
+      // Phone number is now optional - use empty string if not provided
+      const fullPhoneNumber = phone ? `+${countryCode}${phone}` : '';
+      if (__DEV__) {
         console.log('🔢 Signup Data:', {
           email,
           username,
@@ -124,12 +186,12 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({
           fullPhoneNumber: fullPhoneNumber,
           password: '***'
         });
-        await onSignUp({ email, username, password });
-      } catch (error) {
-        console.error('Sign up error:', error);
-      } finally {
-        setIsLoading(false);
       }
+      await onSignUp({ email: email.trim(), username: username.trim(), password });
+    } catch (error) {
+      if (__DEV__) console.error('Sign up error:', error);
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -541,41 +603,17 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({
               alignItems: 'center',
               gap: screenWidth * 0.015
             }}>
-              <SocialButton 
-                type="facebook" 
-                onPress={() => {
-                  try {
-                    onSocialSignUp('facebook');
-                  } catch (error) {
-                    toast.error("Facebook sign up failed", {
-                      description: "Please try again later.",
-                    });
-                  }
-                }} 
+              <SocialButton
+                type="facebook"
+                onPress={() => onSocialSignUp('facebook')}
               />
-              <SocialButton 
-                type="apple" 
-                onPress={() => {
-                  try {
-                    onSocialSignUp('apple');
-                  } catch (error) {
-                    toast.error("Apple sign up failed", {
-                      description: "Please try again later.",
-                    });
-                  }
-                }} 
+              <SocialButton
+                type="apple"
+                onPress={() => onSocialSignUp('apple')}
               />
-              <SocialButton 
-                type="google" 
-                onPress={() => {
-                  try {
-                    onSocialSignUp('google');
-                  } catch (error) {
-                    toast.error("Google sign up failed", {
-                      description: "Please try again later.",
-                    });
-                  }
-                }} 
+              <SocialButton
+                type="google"
+                onPress={() => onSocialSignUp('google')}
               />
             </View>
 
