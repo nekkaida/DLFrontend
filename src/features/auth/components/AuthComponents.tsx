@@ -100,6 +100,11 @@ interface InputFieldProps {
   onEyePress?: () => void;
   keyboardType?: 'default' | 'email-address' | 'phone-pad';
   containerStyle?: ViewStyle;
+  accessibilityLabel?: string;
+  accessibilityHint?: string;
+  maxLength?: number;
+  autoComplete?: 'off' | 'email' | 'username' | 'password' | 'password-new';
+  textContentType?: 'none' | 'emailAddress' | 'username' | 'password' | 'newPassword';
 }
 
 export const InputField: React.FC<InputFieldProps> = ({
@@ -113,6 +118,11 @@ export const InputField: React.FC<InputFieldProps> = ({
   onEyePress,
   keyboardType = 'default',
   containerStyle,
+  accessibilityLabel,
+  accessibilityHint,
+  maxLength,
+  autoComplete,
+  textContentType,
 }) => {
   const [isFocused, setIsFocused] = useState(false);
 
@@ -147,6 +157,11 @@ export const InputField: React.FC<InputFieldProps> = ({
           onChangeText={onChangeText}
           secureTextEntry={secureTextEntry}
           keyboardType={keyboardType}
+          accessibilityLabel={accessibilityLabel || label}
+          accessibilityHint={accessibilityHint}
+          maxLength={maxLength}
+          autoComplete={autoComplete}
+          textContentType={textContentType}
           onFocus={() => {
             setIsFocused(true);
             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -156,12 +171,15 @@ export const InputField: React.FC<InputFieldProps> = ({
           }}
         />
         {showEyeIcon && (
-          <TouchableOpacity 
+          <TouchableOpacity
             onPress={() => {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
               onEyePress?.();
-            }} 
+            }}
             style={AuthStyles.eyeIcon}
+            accessibilityLabel={secureTextEntry ? "Show password" : "Hide password"}
+            accessibilityRole="button"
+            accessibilityHint="Toggles password visibility"
           >
             <Ionicons
               name={secureTextEntry ? "eye-off-outline" : "eye-outline"}
