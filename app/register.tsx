@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useRouter } from 'expo-router';
 import { SignUpScreen, SignUpData } from '@/src/features/auth/screens/SignUpScreen';
 import { authClient } from '@/lib/auth-client';
@@ -7,6 +7,7 @@ import { AuthStorage } from '@/src/core/storage';
 
 export default function RegisterRoute() {
   const router = useRouter();
+  const [isSocialLoading, setIsSocialLoading] = useState(false);
 
   const handleSignUp = async (data: SignUpData) => {
     try {
@@ -85,7 +86,11 @@ export default function RegisterRoute() {
   };
 
   const handleSocialSignUp = async (provider: 'facebook' | 'google' | 'apple') => {
+    // Prevent double-clicks while OAuth is in progress
+    if (isSocialLoading) return;
+
     try {
+      setIsSocialLoading(true);
       // TODO: Social Login Configuration Status
       // ✅ Google OAuth - Configured and working
       // ❌ Facebook Login - Needs configuration (see app/index.tsx for details)
@@ -116,6 +121,8 @@ export default function RegisterRoute() {
     } catch (error: any) {
       console.error('Social sign-up error:', error);
       toast.error(error.message || 'Social sign-up failed. Please try again.');
+    } finally {
+      setIsSocialLoading(false);
     }
   };
 
