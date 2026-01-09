@@ -2,7 +2,7 @@ import { authClient } from "@/lib/auth-client";
 import axiosInstance, { endpoints } from "@/lib/endpoints";
 import { LoginScreen } from "@/src/features/auth/screens/LoginScreen";
 import { useRouter, useNavigation, useLocalSearchParams } from "expo-router";
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { toast } from "sonner-native";
 import { useSession } from "@/lib/auth-client";
 import { AuthStorage } from "@/src/core/storage";
@@ -12,6 +12,7 @@ export default function LoginRoute() {
   const navigation = useNavigation();
   const { data: session } = useSession();
   const { from } = useLocalSearchParams<{ from?: string }>();
+  const [isSocialLoading, setIsSocialLoading] = useState(false);
 
   // Conditionally enable gesture navigation:
   // - Allow swipe back when coming from landing page (from=landing)
@@ -105,7 +106,11 @@ export default function LoginRoute() {
   };
 
   const handleSocialLogin = async (provider: "facebook" | "google" | "apple") => {
+    // Prevent double-clicks while OAuth is in progress
+    if (isSocialLoading) return;
+
     try {
+      setIsSocialLoading(true);
       // TODO: Social Login Configuration Status
       // ✅ Google OAuth - Configured and working
       // ❌ Facebook Login - Needs configuration (see app/index.tsx for details)
@@ -135,6 +140,8 @@ export default function LoginRoute() {
     } catch (error: any) {
       console.error("Social login error:", error);
       toast.error(error.message || "Social login failed. Please try again.");
+    } finally {
+      setIsSocialLoading(false);
     }
   };
 
