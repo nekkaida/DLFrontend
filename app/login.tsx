@@ -5,6 +5,7 @@ import { useRouter, useNavigation, useLocalSearchParams } from "expo-router";
 import React, { useEffect } from "react";
 import { toast } from "sonner-native";
 import { useSession } from "@/lib/auth-client";
+import { AuthStorage } from "@/src/core/storage";
 
 export default function LoginRoute() {
   const router = useRouter();
@@ -74,7 +75,8 @@ export default function LoginRoute() {
           console.log(`Session check attempt ${attempts + 1}:`, sessionCheck.data ? "Session found" : "No session");
 
           if (sessionCheck.data) {
-            console.log("Session confirmed, redirecting to dashboard");
+            console.log("Session confirmed, marking as logged in and redirecting to dashboard");
+            await AuthStorage.markLoggedIn();
             router.replace("/user-dashboard");
             return;
           }
@@ -111,6 +113,9 @@ export default function LoginRoute() {
       }
 
       console.log(`Social login with ${provider}`);
+
+      // Mark that user has logged in (so they see login screen on return, not landing)
+      await AuthStorage.markLoggedIn();
 
       const result = await authClient.signIn.social({
         provider,
