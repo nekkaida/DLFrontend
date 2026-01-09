@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { View, Text, Image, Pressable, Dimensions, Platform, StyleSheet, AppState } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { StatusBar } from 'expo-status-bar';
@@ -97,12 +97,16 @@ interface LandingScreenProps {
   onSocialLogin?: (provider: 'facebook' | 'google' | 'apple') => void;
 }
 
+// Debounce delay in milliseconds
+const DEBOUNCE_DELAY = 500;
+
 export const LandingScreen: React.FC<LandingScreenProps> = ({
   onGetStarted,
   onLogin,
   onSocialLogin,
 }) => {
   const insets = useSafeAreaInsets();
+  const lastPressTimeRef = useRef<number>(0);
 
   const [dimensions, setDimensions] = useState(() => {
     const { width, height } = Dimensions.get('window');
@@ -110,6 +114,17 @@ export const LandingScreen: React.FC<LandingScreenProps> = ({
   });
 
   const [, forceUpdate] = useState(0);
+
+  // Debounced press handler to prevent double-clicks
+  const handleDebouncedPress = useCallback((callback: () => void) => {
+    const now = Date.now();
+    if (now - lastPressTimeRef.current < DEBOUNCE_DELAY) {
+      return; // Ignore rapid clicks
+    }
+    lastPressTimeRef.current = now;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    callback();
+  }, []);
 
   useEffect(() => {
     const subscription = Dimensions.addEventListener('change', ({ window }) => {
@@ -143,10 +158,9 @@ export const LandingScreen: React.FC<LandingScreenProps> = ({
     [screenWidth, screenHeight, insets.bottom, responsiveSizes]
   );
 
-  const handleSocialPress = (provider: 'facebook' | 'google' | 'apple') => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    onSocialLogin?.(provider);
-  };
+  const handleSocialPress = useCallback((provider: 'facebook' | 'google' | 'apple') => {
+    handleDebouncedPress(() => onSocialLogin?.(provider));
+  }, [handleDebouncedPress, onSocialLogin]);
 
   return (
     <View style={dynamicStyles.container}>
@@ -181,10 +195,7 @@ export const LandingScreen: React.FC<LandingScreenProps> = ({
           <View style={dynamicStyles.topRow}>
             <Pressable
               style={dynamicStyles.getStartedButton}
-              onPress={() => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                onGetStarted();
-              }}
+              onPress={() => handleDebouncedPress(onGetStarted)}
             >
               <LinearGradient
                 colors={[COLORS.GRADIENT_START, COLORS.GRADIENT_END]}
@@ -206,10 +217,7 @@ export const LandingScreen: React.FC<LandingScreenProps> = ({
           <View style={dynamicStyles.loginLinkContainer}>
             <Text style={dynamicStyles.loginLinkText}>Already have an account? </Text>
             <Pressable
-              onPress={() => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                onLogin();
-              }}
+              onPress={() => handleDebouncedPress(onLogin)}
               style={dynamicStyles.loginLinkButton}
             >
               <Text style={dynamicStyles.loginLinkButtonText}>Log in</Text>
