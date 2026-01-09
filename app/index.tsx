@@ -21,6 +21,7 @@ import { toast } from 'sonner-native';
 export default function LandingPage() {
   const router = useRouter();
   const [showSplash, setShowSplash] = useState(true);
+  const [isSocialLoading, setIsSocialLoading] = useState(false);
   const fadeAnim = useRef(new Animated.Value(0)).current;
 
   const handleGetStarted = () => {
@@ -32,7 +33,11 @@ export default function LandingPage() {
   };
 
   const handleSocialLogin = async (provider: 'facebook' | 'google' | 'apple') => {
+    // Prevent double-clicks while OAuth is in progress
+    if (isSocialLoading) return;
+
     try {
+      setIsSocialLoading(true);
       // TODO: Social Login Configuration Status
       // ✅ Google OAuth - Configured and working
       // ❌ Facebook Login - Needs configuration:
@@ -72,6 +77,8 @@ export default function LandingPage() {
     } catch (error: any) {
       console.error('Social login error:', error);
       toast.error(error.message || 'Social login failed. Please try again.');
+    } finally {
+      setIsSocialLoading(false);
     }
   };
 
