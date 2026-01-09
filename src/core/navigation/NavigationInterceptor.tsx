@@ -3,7 +3,7 @@ import { useRouter, useSegments, Href } from 'expo-router';
 import { BackHandler } from 'react-native';
 import { useSession, signOut } from '@/lib/auth-client';
 import { getBackendBaseURL } from '@/src/config/network';
-import { LandingStorage, OnboardingStorage } from '@/src/core/storage';
+import { AuthStorage, OnboardingStorage } from '@/src/core/storage';
 
 // Only block these specific auth pages after login - NOT the home page
 const BLOCKED_AUTH_PAGES = ['/login', '/register', '/resetPassword', '/verifyEmail'];
@@ -112,7 +112,7 @@ export const NavigationInterceptor: React.FC<NavigationInterceptorProps> = ({ ch
     backendError?: boolean; // True when backend is unavailable (not 404)
   } | null>(null);
   const [isCheckingOnboarding, setIsCheckingOnboarding] = useState(false);
-  const [hasSeenLanding, setHasSeenLanding] = useState<boolean | null>(null); // null = checking, true/false = result
+  const [hasEverLoggedIn, setHasEverLoggedIn] = useState<boolean | null>(null); // null = checking, true/false = result
 
   // Check onboarding completion status from backend (using existing APIs)
   const checkOnboardingStatus = async (userId: string, forceRefresh: boolean = false) => {
@@ -140,23 +140,23 @@ export const NavigationInterceptor: React.FC<NavigationInterceptorProps> = ({ ch
       if (!onboardingResponse.ok) {
         if (onboardingResponse.status === 404) {
           // User not found in backend - their account was likely deleted
-          // Sign them out and clear all local data to redirect to landing page
+          // Sign them out and clear onboarding data, but KEEP hasEverLoggedIn
+          // so they go to login screen instead of landing page
           console.log('User not found in backend (404) - account may have been deleted, signing out');
           try {
-            // Clear all local data
+            // Clear onboarding data but NOT auth storage (hasEverLoggedIn persists)
             await Promise.all([
               OnboardingStorage.clearData(),
               OnboardingStorage.clearProgress(),
-              LandingStorage.clearLandingSeen(),
             ]);
             // Sign out the user
             await signOut();
-            console.log('User signed out and local data cleared - will redirect to landing page');
+            console.log('User signed out and onboarding data cleared - will redirect to login');
           } catch (signOutError) {
             console.error('Error during sign out cleanup:', signOutError);
           }
           // Set status to trigger redirect - the signOut will cause session to become null
-          // which will reset onboardingStatus via the useEffect on line 237-240
+          // which will reset onboardingStatus via the useEffect
           setOnboardingStatus(null);
           return;
         } else {
@@ -264,14 +264,14 @@ export const NavigationInterceptor: React.FC<NavigationInterceptorProps> = ({ ch
     }
   };
 
-  // Check if user has seen the landing page on app start
+  // Check if user has ever logged in on app start
   useEffect(() => {
-    const checkLandingSeen = async () => {
-      const seen = await LandingStorage.hasSeenLanding();
-      console.log('NavigationInterceptor: Has seen landing:', seen);
-      setHasSeenLanding(seen);
+    const checkEverLoggedIn = async () => {
+      const loggedIn = await AuthStorage.hasEverLoggedIn();
+      console.log('NavigationInterceptor: Has ever logged in:', loggedIn);
+      setHasEverLoggedIn(loggedIn);
     };
-    checkLandingSeen();
+    checkEverLoggedIn();
   }, []);
 
   // Check onboarding status when user session changes
@@ -292,8 +292,8 @@ export const NavigationInterceptor: React.FC<NavigationInterceptorProps> = ({ ch
       return;
     }
 
-    if (hasSeenLanding === null) {
-      console.log('NavigationInterceptor: Checking if user has seen landing...');
+    if (hasEverLoggedIn === null) {
+      console.log('NavigationInterceptor: Checking if user has ever logged in...');
       return;
     }
 
@@ -302,20 +302,20 @@ export const NavigationInterceptor: React.FC<NavigationInterceptorProps> = ({ ch
 
     // Handle landing page routing
     if (currentRoute === '/') {
-      // Let unauthenticated users stay on landing page - they can navigate manually
+      // Check if user is NOT authenticated
       if (!session?.user) {
-        console.log('NavigationInterceptor: Unauthenticated user on landing page, staying here');
+        // User has logged in before → go to Login screen (returning user)
+        if (hasEverLoggedIn) {
+          console.log('NavigationInterceptor: Returning user (logged out), redirecting to login');
+          setTimeout(() => router.replace('/login'), 100);
+          return;
+        }
+        // First-time user → stay on landing page
+        console.log('NavigationInterceptor: First-time user on landing page, staying here');
         return;
       }
 
-      // IMPORTANT: If user hasn't seen the landing page yet, let them see it first
-      // This ensures first-time TestFlight users see "Ready? Start Now" before any redirects
-      if (!hasSeenLanding) {
-        console.log('NavigationInterceptor: User has not seen landing page yet, staying here');
-        return;
-      }
-
-      // Authenticated users who have seen landing - check onboarding status
+      // Authenticated users - check onboarding status
       if (isCheckingOnboarding || !onboardingStatus) {
         // Still checking onboarding status, don't redirect yet
         console.log('NavigationInterceptor: Checking onboarding status...');
@@ -465,7 +465,7 @@ export const NavigationInterceptor: React.FC<NavigationInterceptorProps> = ({ ch
         refreshOnboardingStatus();
       }
     }
-  }, [segments, router, session, onboardingStatus, isCheckingOnboarding, isPending, hasSeenLanding]);
+  }, [segments, router, session, onboardingStatus, isCheckingOnboarding, isPending, hasEverLoggedIn]);
 
   // Handle Android back button
   useEffect(() => {
