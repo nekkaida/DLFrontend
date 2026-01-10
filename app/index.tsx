@@ -1,130 +1,85 @@
 import React, { useState, useRef } from 'react';
-import { useRouter, type Href } from 'expo-router';
-import { useSession } from '@/lib/auth-client';
-import { LoadingScreen, SplashScreen } from '@/src/features/auth';
+import { useRouter } from 'expo-router';
+import { LandingScreen, SplashScreen } from '@/src/features/auth';
 import { Animated } from 'react-native';
-import { LandingStorage } from '@/src/core/storage';
-import { getBackendBaseURL } from '@/src/config/network';
+import { authClient } from '@/lib/auth-client';
+import { AuthStorage } from '@/src/core/storage';
+import { toast } from 'sonner-native';
 
-// Map onboarding step to the NEXT route the user should go to
-const STEP_TO_NEXT_ROUTE: Record<string, string> = {
-  'PERSONAL_INFO': '/onboarding/location',
-  'LOCATION': '/onboarding/game-select',
-  'GAME_SELECT': '/onboarding/skill-assessment',
-  'SKILL_ASSESSMENT': '/onboarding/assessment-results',
-  'ASSESSMENT_RESULTS': '/onboarding/profile-picture',
-  'PROFILE_PICTURE': '/user-dashboard',
-};
-
-// Get the next route for a user based on their onboarding step
-// For GAME_SELECT and SKILL_ASSESSMENT steps, we need to determine which sport to resume with
-const getNextOnboardingRoute = (
-  step: string | null | undefined,
-  selectedSports?: string[],
-  completedSports?: string[]
-): Href => {
-  if (!step) return '/onboarding/personal-info';
-
-  // Special handling for steps that involve sport selection
-  // GAME_SELECT: User has selected sports, needs to start questionnaires
-  // SKILL_ASSESSMENT: User has completed at least one questionnaire, may need to do more
-  if ((step === 'GAME_SELECT' || step === 'SKILL_ASSESSMENT') && selectedSports && selectedSports.length > 0) {
-    // Find the first sport that hasn't been completed yet
-    const nextSportIndex = selectedSports.findIndex(
-      sport => !completedSports?.includes(sport)
-    );
-
-    if (nextSportIndex >= 0) {
-      // Found an incomplete sport - go to its questionnaire introduction
-      const nextSport = selectedSports[nextSportIndex];
-      console.log(`HomeRoute: Resuming at sport ${nextSport} (index ${nextSportIndex})`);
-      return `/onboarding/skill-assessment?sport=${nextSport}&sportIndex=${nextSportIndex}`;
-    } else {
-      // All sports completed - move to assessment results for the last sport
-      const lastSport = selectedSports[selectedSports.length - 1];
-      const lastIndex = selectedSports.length - 1;
-      console.log(`HomeRoute: All sports completed, going to assessment results`);
-      return `/onboarding/assessment-results?sport=${lastSport}&sportIndex=${lastIndex}`;
-    }
-  }
-
-  return (STEP_TO_NEXT_ROUTE[step] || '/onboarding/personal-info') as Href;
-};
-
-export default function HomeRoute() {
+/**
+ * Landing Page (index.tsx)
+ *
+ * This is the entry point of the app. It shows:
+ * 1. Splash screen (1.5s animation)
+ * 2. Landing page with "Get Started" and "Login" buttons
+ *
+ * Navigation logic is handled by NavigationInterceptor:
+ * - First-time users see this landing page
+ * - Returning logged-out users are redirected to /login
+ * - Authenticated users are redirected to dashboard/onboarding
+ */
+export default function LandingPage() {
   const router = useRouter();
-  const { data: session, isPending } = useSession();
   const [showSplash, setShowSplash] = useState(true);
+  const [isSocialLoading, setIsSocialLoading] = useState(false);
   const fadeAnim = useRef(new Animated.Value(0)).current;
 
-  const handleGetStarted = async () => {
-    // Mark that user has seen the landing page before navigating
-    await LandingStorage.markLandingSeen();
-
-    // If user is already authenticated, check their onboarding step to resume
-    if (session?.user) {
-      try {
-        const baseUrl = getBackendBaseURL();
-        const response = await fetch(`${baseUrl}/api/onboarding/status/${session.user.id}`, {
-          headers: { 'Content-Type': 'application/json' }
-        });
-
-        if (response.ok) {
-          const data = await response.json();
-          console.log('HomeRoute: Onboarding status:', data);
-
-          if (data.completedOnboarding) {
-            // Already completed, go to dashboard
-            router.push('/user-dashboard');
-            return;
-          }
-
-          if (data.onboardingStep) {
-            // Resume from last completed step, using sport info for GAME_SELECT step
-            const nextRoute = getNextOnboardingRoute(
-              data.onboardingStep,
-              data.selectedSports,
-              data.completedSports
-            );
-            console.log('HomeRoute: Resuming onboarding at:', nextRoute);
-            console.log('HomeRoute: Selected sports:', data.selectedSports);
-            console.log('HomeRoute: Completed sports:', data.completedSports);
-            router.push(nextRoute);
-            return;
-          }
-
-          // No step saved - start from beginning (legitimate new user)
-          router.push('/onboarding/personal-info');
-          return;
-        }
-
-        // Handle non-OK responses
-        if (response.status === 404) {
-          // User account deleted - go to register
-          console.warn('HomeRoute: User not found (404), redirecting to register');
-          router.push('/register');
-          return;
-        }
-
-        // Backend error (5xx, etc.) - stay on landing page, let user retry
-        console.warn(`HomeRoute: Backend error (${response.status}), staying on landing page`);
-        // Don't navigate - user will see the landing page and can retry
-        return;
-      } catch (error) {
-        // Network error - stay on landing page, let user retry
-        console.error('HomeRoute: Network error fetching onboarding status:', error);
-        // Don't navigate - user will see the landing page and can retry
-        return;
-      }
-    } else {
-      router.push('/register');
-    }
+  const handleGetStarted = () => {
+    router.push('/register');
   };
 
-  const handleLogin = async () => {
-    // Mark that user has seen the landing page before navigating
-    await LandingStorage.markLandingSeen();
-    router.push('/login?from=landing');
+  const handleLogin = () => {
+    router.push('/login');
+  };
+
+  const handleSocialLogin = async (provider: 'facebook' | 'google' | 'apple') => {
+    // Prevent double-clicks while OAuth is in progress
+    if (isSocialLoading) return;
+
+    try {
+      setIsSocialLoading(true);
+      // TODO: Social Login Configuration Status
+      // ✅ Google OAuth - Configured and working
+      // ❌ Facebook Login - Needs configuration:
+      //    1. Create Facebook App at https://developers.facebook.com
+      //    2. Add Facebook Login product
+      //    3. Configure OAuth redirect URIs (deuceleague://oauth/facebook)
+      //    4. Add Facebook App ID/Secret to Better Auth config
+      //    5. Test on iOS and Android (requires native SDK setup)
+      // ❌ Apple Sign-In - Needs configuration:
+      //    1. Enable Sign in with Apple capability in Apple Developer Console
+      //    2. Create Service ID for web authentication
+      //    3. Configure OAuth redirect URIs
+      //    4. Add Apple credentials to Better Auth config
+      //    5. Required for iOS App Store (if other social logins are offered)
+      if (provider !== 'google') {
+        toast.info(`${provider.charAt(0).toUpperCase() + provider.slice(1)} sign-in coming soon!`);
+        return;
+      }
+
+      console.log(`Landing page: Social login with ${provider}`);
+
+      // Mark that user has interacted with auth (so they see login screen on return, not landing)
+      await AuthStorage.markLoggedIn();
+
+      const result = await authClient.signIn.social({
+        provider,
+        callbackURL: '/onboarding/personal-info', // New users from landing go to onboarding
+      });
+
+      console.log('Social login result:', result);
+
+      if (result.error) {
+        console.error('Social login failed:', result.error);
+        toast.error(result.error.message || 'Social login failed. Please try again.');
+      }
+      // Success handling is done via the callbackURL redirect
+    } catch (error: any) {
+      console.error('Social login error:', error);
+      toast.error(error.message || 'Social login failed. Please try again.');
+    } finally {
+      setIsSocialLoading(false);
+    }
   };
 
   const handleSplashComplete = () => {
@@ -140,14 +95,12 @@ export default function HomeRoute() {
     return <SplashScreen onComplete={handleSplashComplete} />;
   }
 
-  // Let NavigationInterceptor handle auth redirects - keep this route simple
-  console.log('HomeRoute: Showing loading screen, auth status:', { isPending, hasUser: !!session?.user });
-
   return (
     <Animated.View style={{ flex: 1, opacity: fadeAnim }}>
-      <LoadingScreen
+      <LandingScreen
         onGetStarted={handleGetStarted}
         onLogin={handleLogin}
+        onSocialLogin={handleSocialLogin}
       />
     </Animated.View>
   );

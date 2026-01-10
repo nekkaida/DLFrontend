@@ -11,7 +11,8 @@ const STORAGE_KEYS = {
   ONBOARDING_DATA: '@onboarding_data',
   ONBOARDING_PROGRESS: '@onboarding_progress',
   USER_PREFERENCES: '@user_preferences',
-  HAS_SEEN_LANDING: '@has_seen_landing',
+  HAS_SEEN_LANDING: '@has_seen_landing', // Deprecated - use HAS_EVER_LOGGED_IN
+  HAS_EVER_LOGGED_IN: '@has_ever_logged_in',
 } as const;
 
 /**
@@ -162,27 +163,57 @@ export const OnboardingStorage = {
 
 /**
  * Landing page storage methods
+ * @deprecated Use AuthStorage instead
  */
 export const LandingStorage = {
   /**
-   * Check if user has seen the landing page
+   * @deprecated Use AuthStorage.hasEverLoggedIn() instead
    */
   async hasSeenLanding(): Promise<boolean> {
     return storageService.exists(STORAGE_KEYS.HAS_SEEN_LANDING);
   },
 
   /**
-   * Mark that user has seen the landing page
+   * @deprecated Use AuthStorage.markLoggedIn() instead
    */
   async markLandingSeen(): Promise<void> {
     return storageService.save(STORAGE_KEYS.HAS_SEEN_LANDING, true);
   },
 
   /**
-   * Clear landing seen flag (useful for testing or logout)
+   * @deprecated No longer needed - hasEverLoggedIn persists forever
    */
   async clearLandingSeen(): Promise<void> {
     return storageService.remove(STORAGE_KEYS.HAS_SEEN_LANDING);
+  },
+};
+
+/**
+ * Auth-related storage methods
+ * Tracks whether user has ever logged in (persists across logout)
+ */
+export const AuthStorage = {
+  /**
+   * Check if user has ever logged in on this device
+   * Returns true if user has registered, logged in, or verified email before
+   */
+  async hasEverLoggedIn(): Promise<boolean> {
+    return storageService.exists(STORAGE_KEYS.HAS_EVER_LOGGED_IN);
+  },
+
+  /**
+   * Mark that user has logged in
+   * Call this after successful: registration, login, or email verification
+   */
+  async markLoggedIn(): Promise<void> {
+    return storageService.save(STORAGE_KEYS.HAS_EVER_LOGGED_IN, true);
+  },
+
+  /**
+   * Clear the logged in flag (only for testing/dev purposes)
+   */
+  async clearLoggedIn(): Promise<void> {
+    return storageService.remove(STORAGE_KEYS.HAS_EVER_LOGGED_IN);
   },
 };
 

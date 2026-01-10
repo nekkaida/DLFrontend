@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View,
   Text,
@@ -8,8 +8,10 @@ import {
   Platform,
   Dimensions,
   ActivityIndicator,
+  AppState,
 } from 'react-native';
 import * as Haptics from 'expo-haptics';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import Svg, { G, Path, Defs, ClipPath, Rect } from 'react-native-svg';
 import { toast } from 'sonner-native';
@@ -24,6 +26,48 @@ import { AuthStyles, AuthColors } from '../styles/AuthStyles';
 import { PrivacyPolicyModal } from '../components/PrivacyPolicyModal';
 import { TermsOfServiceModal } from '../components/TermsOfServiceModal';
 import { validatePassword, PasswordStrength } from '../utils/passwordValidation';
+
+// Debounce delay in milliseconds
+const DEBOUNCE_DELAY = 500;
+
+// Validation constants
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const USERNAME_REGEX = /^[a-zA-Z0-9_]+$/;
+const MIN_USERNAME_LENGTH = 3;
+const MAX_USERNAME_LENGTH = 30;
+const MAX_EMAIL_LENGTH = 255;
+
+// Validation functions
+const validateEmail = (email: string): { isValid: boolean; error: string } => {
+  const trimmed = email.trim();
+  if (!trimmed) {
+    return { isValid: false, error: 'Email is required' };
+  }
+  if (trimmed.length > MAX_EMAIL_LENGTH) {
+    return { isValid: false, error: 'Email address is too long' };
+  }
+  if (!EMAIL_REGEX.test(trimmed)) {
+    return { isValid: false, error: 'Please enter a valid email address' };
+  }
+  return { isValid: true, error: '' };
+};
+
+const validateUsername = (username: string): { isValid: boolean; error: string } => {
+  const trimmed = username.trim();
+  if (!trimmed) {
+    return { isValid: false, error: 'Username is required' };
+  }
+  if (trimmed.length < MIN_USERNAME_LENGTH) {
+    return { isValid: false, error: `Username must be at least ${MIN_USERNAME_LENGTH} characters` };
+  }
+  if (trimmed.length > MAX_USERNAME_LENGTH) {
+    return { isValid: false, error: `Username must be less than ${MAX_USERNAME_LENGTH} characters` };
+  }
+  if (!USERNAME_REGEX.test(trimmed)) {
+    return { isValid: false, error: 'Username can only contain letters, numbers, and underscores' };
+  }
+  return { isValid: true, error: '' };
+};
 
 interface SignUpScreenProps {
   onSignUp: (data: SignUpData) => void | Promise<void>;
@@ -43,6 +87,9 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({
   onLogin,
   onSocialSignUp,
 }) => {
+  const insets = useSafeAreaInsets();
+  const lastPressTimeRef = useRef<number>(0);
+
   const [email, setEmail] = useState('');
   const [username, setUsername] = useState('');
   const [phone, setPhone] = useState('');
@@ -57,7 +104,42 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({
   const [showPrivacyPolicy, setShowPrivacyPolicy] = useState(false);
   const [showTermsOfService, setShowTermsOfService] = useState(false);
 
-  const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
+  // Responsive dimensions with listeners
+  const [dimensions, setDimensions] = useState(() => {
+    const { width, height } = Dimensions.get('window');
+    return { width, height };
+  });
+
+  useEffect(() => {
+    const subscription = Dimensions.addEventListener('change', ({ window }) => {
+      setDimensions({ width: window.width, height: window.height });
+    });
+
+    const appStateSubscription = AppState.addEventListener('change', (nextAppState) => {
+      if (nextAppState === 'active') {
+        const { width, height } = Dimensions.get('window');
+        setDimensions({ width, height });
+      }
+    });
+
+    return () => {
+      subscription?.remove();
+      appStateSubscription?.remove();
+    };
+  }, []);
+
+  const { width: screenWidth, height: screenHeight } = dimensions;
+
+  // Debounced press handler to prevent double-clicks
+  const handleDebouncedPress = useCallback((callback: () => void) => {
+    const now = Date.now();
+    if (now - lastPressTimeRef.current < DEBOUNCE_DELAY) {
+      return;
+    }
+    lastPressTimeRef.current = now;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    callback();
+  }, []);
 
   const handlePasswordChange = (text: string) => {
     setPassword(text);
@@ -67,12 +149,35 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({
   };
 
   const handleSignUp = async () => {
-    const validation = validatePassword(password);
-    if (email && username && password && !isLoading && validation.isValid) {
-      try {
-        setIsLoading(true);
-        // Phone number is now optional - use empty string if not provided
-        const fullPhoneNumber = phone ? `+${countryCode}${phone}` : '';
+    // Validate all fields
+    const emailValidation = validateEmail(email);
+    if (!emailValidation.isValid) {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      toast.error('Invalid Email', { description: emailValidation.error });
+      return;
+    }
+
+    const usernameValidation = validateUsername(username);
+    if (!usernameValidation.isValid) {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      toast.error('Invalid Username', { description: usernameValidation.error });
+      return;
+    }
+
+    const passwordValidation = validatePassword(password);
+    if (!passwordValidation.isValid) {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      toast.error('Invalid Password', { description: passwordValidation.error || 'Please enter a valid password' });
+      return;
+    }
+
+    if (isLoading) return;
+
+    try {
+      setIsLoading(true);
+      // Phone number is now optional - use empty string if not provided
+      const fullPhoneNumber = phone ? `+${countryCode}${phone}` : '';
+      if (__DEV__) {
         console.log('🔢 Signup Data:', {
           email,
           username,
@@ -81,12 +186,12 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({
           fullPhoneNumber: fullPhoneNumber,
           password: '***'
         });
-        await onSignUp({ email, username, password });
-      } catch (error) {
-        console.error('Sign up error:', error);
-      } finally {
-        setIsLoading(false);
       }
+      await onSignUp({ email: email.trim(), username: username.trim(), password });
+    } catch (error) {
+      if (__DEV__) console.error('Sign up error:', error);
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -345,10 +450,7 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({
                 {' '}button, you agree to our{' '}
               </Text>
               <TouchableOpacity
-                onPress={() => {
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                  setShowPrivacyPolicy(true);
-                }}
+                onPress={() => handleDebouncedPress(() => setShowPrivacyPolicy(true))}
                 style={{
                   paddingTop: Platform.OS === 'ios' ? 0.5 : 0.5,
                   paddingBottom: Platform.OS === 'ios' ? 0.5 : 0.5,
@@ -356,6 +458,9 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({
                   borderBottomWidth: 1,
                   borderBottomColor: '#4DABFE',
                 }}
+                accessibilityLabel="Privacy policy"
+                accessibilityRole="button"
+                accessibilityHint="Opens the privacy policy"
               >
                 <Text style={{
                   fontFamily: 'Inter',
@@ -381,10 +486,7 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({
                 {' '}and{' '}
               </Text>
               <TouchableOpacity
-                onPress={() => {
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                  setShowTermsOfService(true);
-                }}
+                onPress={() => handleDebouncedPress(() => setShowTermsOfService(true))}
                 style={{
                   paddingTop: Platform.OS === 'ios' ? 1 : 0.5,
                   paddingBottom: Platform.OS === 'ios' ? 1 : 0.5,
@@ -392,6 +494,9 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({
                   borderBottomWidth: 1,
                   borderBottomColor: '#4DABFE',
                 }}
+                accessibilityLabel="Terms of service"
+                accessibilityRole="button"
+                accessibilityHint="Opens the terms of service"
               >
                 <Text style={{
                   fontFamily: 'Inter',
@@ -437,7 +542,7 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({
               }}>
                 Sign Up
               </Text>
-              <TouchableOpacity 
+              <TouchableOpacity
                 onPress={handleSignUp}
                 disabled={isLoading}
                 style={{
@@ -452,6 +557,10 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({
                   shadowRadius: 8,
                   elevation: 6,
                 }}
+                accessibilityLabel="Sign up"
+                accessibilityRole="button"
+                accessibilityHint="Creates your account"
+                accessibilityState={{ disabled: isLoading }}
               >
                 <LinearGradient
                   colors={[AuthColors.primary, AuthColors.primaryDark]}
@@ -494,41 +603,17 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({
               alignItems: 'center',
               gap: screenWidth * 0.015
             }}>
-              <SocialButton 
-                type="facebook" 
-                onPress={() => {
-                  try {
-                    onSocialSignUp('facebook');
-                  } catch (error) {
-                    toast.error("Facebook sign up failed", {
-                      description: "Please try again later.",
-                    });
-                  }
-                }} 
+              <SocialButton
+                type="facebook"
+                onPress={() => onSocialSignUp('facebook')}
               />
-              <SocialButton 
-                type="apple" 
-                onPress={() => {
-                  try {
-                    onSocialSignUp('apple');
-                  } catch (error) {
-                    toast.error("Apple sign up failed", {
-                      description: "Please try again later.",
-                    });
-                  }
-                }} 
+              <SocialButton
+                type="apple"
+                onPress={() => onSocialSignUp('apple')}
               />
-              <SocialButton 
-                type="google" 
-                onPress={() => {
-                  try {
-                    onSocialSignUp('google');
-                  } catch (error) {
-                    toast.error("Google sign up failed", {
-                      description: "Please try again later.",
-                    });
-                  }
-                }} 
+              <SocialButton
+                type="google"
+                onPress={() => onSocialSignUp('google')}
               />
             </View>
 
@@ -547,11 +632,8 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({
                 letterSpacing: -0.01,
                 color: '#404040',
               }}>Already have an account?</Text>
-              <TouchableOpacity 
-                onPress={() => {
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                  onLogin();
-                }}
+              <TouchableOpacity
+                onPress={() => handleDebouncedPress(onLogin)}
                 style={{
                   paddingTop: Platform.OS === 'ios' ? 2 : 1,
                   paddingBottom: Platform.OS === 'ios' ? 2 : 1,
@@ -559,6 +641,9 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({
                   borderBottomWidth: 1,
                   borderBottomColor: AuthColors.primary,
                 }}
+                accessibilityLabel="Log in to existing account"
+                accessibilityRole="button"
+                accessibilityHint="Navigates to the login screen"
               >
                 <Text style={{
                   fontFamily: 'Inter',

@@ -31,14 +31,18 @@ axiosInstance.interceptors.request.use(
         // console.log("✅ Authorization Bearer token attached!");
       }
 
-      if (!userId && !token) {
+      if (!userId && !token && __DEV__) {
         console.warn("⚠️ No session found - request will be unauthenticated");
       }
     } catch (err) {
-      console.error("❌ Failed to get session:", err);
+      if (__DEV__) {
+        console.error("❌ Failed to get session:", err);
+      }
     }
 
-    console.log("📤 Final headers:", config.headers);
+    if (__DEV__) {
+      console.log("📤 Final headers:", config.headers);
+    }
     return config;
   },
   (err) => Promise.reject(err)
@@ -66,6 +70,10 @@ export const fetcher = async (args: unknown) => {
 };
 
 export const endpoints = {
+  auth: {
+    verifyResetOtp: "/api/auth-custom/verify-reset-otp",
+  },
+
   user: {
     trackLogin: "/api/player/track-login",
   },
