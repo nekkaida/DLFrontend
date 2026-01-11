@@ -1,5 +1,5 @@
 import * as Haptics from "expo-haptics";
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import {
   Dimensions,
   KeyboardAvoidingView,
@@ -9,16 +9,33 @@ import {
   ScrollView,
   Text,
   TouchableOpacity,
+  AppState,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import Svg, { G, Path, Defs, ClipPath, Rect } from 'react-native-svg';
 import { toast } from 'sonner-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   CircleArrowButton,
   InputField,
   SocialButton,
 } from "../components/AuthComponents";
 import { AuthColors, AuthStyles } from "../styles/AuthStyles";
+
+// Constants
+const DEBOUNCE_DELAY = 500;
+const LOGIN_TIMEOUT = 30000; // 30 seconds
+const MAX_EMAIL_LENGTH = 255;
+const MAX_PASSWORD_LENGTH = 128;
+
+// Safe haptics wrapper - handles unsupported devices gracefully
+const triggerHaptic = async (style: Haptics.ImpactFeedbackStyle = Haptics.ImpactFeedbackStyle.Light) => {
+  try {
+    await Haptics.impactAsync(style);
+  } catch {
+    // Haptics not supported on this device, ignore
+  }
+};
 
 interface LoginScreenProps {
   onLogin: (email: string, password: string) => void | Promise<void>;
@@ -33,25 +50,174 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
   onForgotPassword,
   onSocialLogin,
 }) => {
+  const insets = useSafeAreaInsets();
+  const lastPressTimeRef = useRef<number>(0);
+  const isMountedRef = useRef<boolean>(true);
+
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [isSocialLoading, setIsSocialLoading] = useState(false);
 
-  const { width: screenWidth, height: screenHeight } = Dimensions.get("window");
+  // Responsive dimensions with listeners
+  const [dimensions, setDimensions] = useState(() => {
+    const { width, height } = Dimensions.get('window');
+    return { width, height };
+  });
+
+  useEffect(() => {
+    isMountedRef.current = true;
+
+    const subscription = Dimensions.addEventListener('change', ({ window }) => {
+      if (isMountedRef.current) {
+        setDimensions({ width: window.width, height: window.height });
+      }
+    });
+
+    const appStateSubscription = AppState.addEventListener('change', (nextAppState) => {
+      if (nextAppState === 'active' && isMountedRef.current) {
+        const { width, height } = Dimensions.get('window');
+        setDimensions({ width, height });
+      }
+    });
+
+    return () => {
+      isMountedRef.current = false;
+      subscription?.remove();
+      appStateSubscription?.remove();
+    };
+  }, []);
+
+  const { width: screenWidth, height: screenHeight } = dimensions;
+
+  // Debounced press handler to prevent double-clicks
+  const handleDebouncedPress = useCallback((callback: () => void) => {
+    const now = Date.now();
+    if (now - lastPressTimeRef.current < DEBOUNCE_DELAY) {
+      return;
+    }
+    lastPressTimeRef.current = now;
+    triggerHaptic();
+    callback();
+  }, []);
 
   const handleLogin = async () => {
-    if (email && password && !isLoading) {
+    // Validate inputs
+    const trimmedEmail = email.trim();
+
+    if (!trimmedEmail) {
+      triggerHaptic(Haptics.ImpactFeedbackStyle.Medium);
+      toast.error('Invalid Input', { description: 'Email or username is required' });
+      return;
+    }
+
+    if (trimmedEmail.length < 3) {
+      triggerHaptic(Haptics.ImpactFeedbackStyle.Medium);
+      toast.error('Invalid Input', { description: 'Email or username must be at least 3 characters' });
+      return;
+    }
+
+    // Max length validation
+    if (trimmedEmail.length > MAX_EMAIL_LENGTH) {
+      triggerHaptic(Haptics.ImpactFeedbackStyle.Medium);
+      toast.error('Invalid Input', { description: 'Email or username is too long' });
+      return;
+    }
+
+    // Basic email format check if it looks like an email
+    if (trimmedEmail.includes('@')) {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(trimmedEmail)) {
+        triggerHaptic(Haptics.ImpactFeedbackStyle.Medium);
+        toast.error('Invalid Input', { description: 'Please enter a valid email address' });
+        return;
+      }
+    }
+
+    if (!password) {
+      triggerHaptic(Haptics.ImpactFeedbackStyle.Medium);
+      toast.error('Invalid Input', { description: 'Password is required' });
+      return;
+    }
+
+    if (password.length < 6) {
+      triggerHaptic(Haptics.ImpactFeedbackStyle.Medium);
+      toast.error('Invalid Input', { description: 'Password must be at least 6 characters' });
+      return;
+    }
+
+    // Max length validation for password
+    if (password.length > MAX_PASSWORD_LENGTH) {
+      triggerHaptic(Haptics.ImpactFeedbackStyle.Medium);
+      toast.error('Invalid Input', { description: 'Password is too long' });
+      return;
+    }
+
+    if (!isLoading) {
       try {
         setIsLoading(true);
-        await onLogin(email, password);
+
+        // Create timeout promise
+        const timeoutPromise = new Promise<never>((_, reject) => {
+          setTimeout(() => reject(new Error('Request timed out. Please try again.')), LOGIN_TIMEOUT);
+        });
+
+        // Race between login and timeout
+        await Promise.race([
+          onLogin(trimmedEmail, password),
+          timeoutPromise
+        ]);
       } catch (error) {
-        console.error("Login error:", error);
+        // Only update state if still mounted
+        if (isMountedRef.current) {
+          // Don't log sensitive data - only log error type
+          if (__DEV__) {
+            console.error("Login error:", error instanceof Error ? error.message : 'Unknown error');
+          }
+          toast.error('Login Failed', {
+            description: error instanceof Error
+              ? error.message
+              : 'Unable to log in. Please check your credentials and try again.',
+          });
+        }
       } finally {
-        setIsLoading(false);
+        // Only update state if still mounted
+        if (isMountedRef.current) {
+          setIsLoading(false);
+        }
       }
     }
   };
+
+  // Handle social login with proper async error handling
+  const handleSocialLogin = useCallback(async (provider: 'facebook' | 'google' | 'apple') => {
+    if (!onSocialLogin) {
+      toast.error("Social login not available", {
+        description: "This feature is coming soon.",
+      });
+      return;
+    }
+
+    if (isSocialLoading || isLoading) {
+      return;
+    }
+
+    try {
+      setIsSocialLoading(true);
+      await onSocialLogin(provider);
+    } catch {
+      if (isMountedRef.current) {
+        toast.error(`${provider.charAt(0).toUpperCase() + provider.slice(1)} login failed`, {
+          description: "Please try again later.",
+        });
+      }
+    } finally {
+      if (isMountedRef.current) {
+        setIsSocialLoading(false);
+      }
+    }
+  }, [onSocialLogin, isSocialLoading, isLoading]);
 
   return (
     <KeyboardAvoidingView
@@ -71,6 +237,8 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
             AuthStyles.screenContainer,
             {
               paddingHorizontal: screenWidth * 0.09,
+              paddingTop: insets.top,
+              paddingBottom: insets.bottom,
               backgroundColor: AuthColors.white,
             },
           ]}
@@ -153,6 +321,11 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                 onChangeText={setEmail}
                 icon="user"
                 keyboardType="email-address"
+                accessibilityLabel="Username or email input"
+                accessibilityHint="Enter your username or email address to log in"
+                maxLength={MAX_EMAIL_LENGTH}
+                autoComplete="email"
+                textContentType="emailAddress"
               />
 
               {/* Password Input */}
@@ -165,6 +338,11 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                 secureTextEntry={!showPassword}
                 showEyeIcon
                 onEyePress={() => setShowPassword(!showPassword)}
+                accessibilityLabel="Password input"
+                accessibilityHint="Enter your account password"
+                maxLength={MAX_PASSWORD_LENGTH}
+                autoComplete="password"
+                textContentType="password"
               />
             </View>
 
@@ -173,8 +351,14 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
               style={{
                 alignSelf: "flex-end",
                 marginBottom: screenHeight * 0.03,
+                opacity: isLoading || isSocialLoading ? 0.5 : 1,
               }}
-              onPress={onForgotPassword}
+              onPress={() => handleDebouncedPress(onForgotPassword)}
+              disabled={isLoading || isSocialLoading}
+              accessibilityLabel="Forgot password"
+              accessibilityRole="button"
+              accessibilityHint="Navigates to password reset screen"
+              accessibilityState={{ disabled: isLoading || isSocialLoading }}
             >
               <Text
                 style={{
@@ -209,8 +393,8 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
               }}>
                 Sign In
               </Text>
-              <TouchableOpacity 
-                onPress={handleLogin}
+              <TouchableOpacity
+                onPress={() => handleDebouncedPress(handleLogin)}
                 disabled={isLoading}
                 style={{
                   width: 56,
@@ -224,6 +408,10 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                   shadowRadius: 8,
                   elevation: 6,
                 }}
+                accessibilityLabel="Sign in"
+                accessibilityRole="button"
+                accessibilityHint="Submits login credentials"
+                accessibilityState={{ disabled: isLoading }}
               >
                 <LinearGradient
                   colors={[AuthColors.primary, AuthColors.primaryDark]}
@@ -274,57 +462,18 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
             >
               <SocialButton
                 type="facebook"
-                onPress={() => {
-                  if (onSocialLogin) {
-                    try {
-                      onSocialLogin("facebook");
-                    } catch (error) {
-                      toast.error("Facebook login failed", {
-                        description: "Please try again later.",
-                      });
-                    }
-                  } else {
-                    toast.error("Social login not available", {
-                      description: "This feature is coming soon.",
-                    });
-                  }
-                }}
+                onPress={() => handleSocialLogin("facebook")}
+                disabled={isLoading || isSocialLoading}
               />
               <SocialButton
                 type="apple"
-                onPress={() => {
-                  if (onSocialLogin) {
-                    try {
-                      onSocialLogin("apple");
-                    } catch (error) {
-                      toast.error("Apple login failed", {
-                        description: "Please try again later.",
-                      });
-                    }
-                  } else {
-                    toast.error("Social login not available", {
-                      description: "This feature is coming soon.",
-                    });
-                  }
-                }}
+                onPress={() => handleSocialLogin("apple")}
+                disabled={isLoading || isSocialLoading}
               />
               <SocialButton
                 type="google"
-                onPress={() => {
-                  if (onSocialLogin) {
-                    try {
-                      onSocialLogin("google");
-                    } catch (error) {
-                      toast.error("Google login failed", {
-                        description: "Please try again later.",
-                      });
-                    }
-                  } else {
-                    toast.error("Social login not available", {
-                      description: "This feature is coming soon.",
-                    });
-                  }
-                }}
+                onPress={() => handleSocialLogin("google")}
+                disabled={isLoading || isSocialLoading}
               />
             </View>
 
@@ -344,17 +493,20 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                 color: '#404040',
               }}>Don't have an account yet?</Text>
               <TouchableOpacity
-                onPress={() => {
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                  onSignUp();
-                }}
+                onPress={() => handleDebouncedPress(onSignUp)}
+                disabled={isLoading || isSocialLoading}
                 style={{
                   paddingTop: Platform.OS === 'ios' ? 1 : 0.5,
                   paddingBottom: Platform.OS === 'ios' ? 1 : 0.5,
                   paddingHorizontal: Platform.OS === 'ios' ? 2 : 1,
                   borderBottomWidth: 1,
                   borderBottomColor: AuthColors.primary,
+                  opacity: isLoading || isSocialLoading ? 0.5 : 1,
                 }}
+                accessibilityLabel="Create new account"
+                accessibilityRole="button"
+                accessibilityHint="Navigates to the sign up screen"
+                accessibilityState={{ disabled: isLoading || isSocialLoading }}
               >
                 <Text style={{
                   fontFamily: 'Inter',

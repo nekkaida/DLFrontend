@@ -1,14 +1,14 @@
 import React, { useState } from 'react';
 import { View } from 'react-native';
 import {
-  LoadingScreen,
+  LandingScreen,
   LoginScreen,
   SignUpScreen,
   VerificationScreen,
   SignUpData,
 } from './index';
 
-type AuthScreen = 'loading' | 'login' | 'signup' | 'verification';
+type AuthScreen = 'landing' | 'login' | 'signup' | 'verification';
 
 /**
  * Example Authentication Navigator
@@ -18,7 +18,7 @@ type AuthScreen = 'loading' | 'login' | 'signup' | 'verification';
  * (React Navigation, Expo Router, etc.) and authentication logic.
  */
 export const AuthNavigator: React.FC = () => {
-  const [currentScreen, setCurrentScreen] = useState<AuthScreen>('loading');
+  const [currentScreen, setCurrentScreen] = useState<AuthScreen>('landing');
   const [verificationEmail, setVerificationEmail] = useState('');
 
   // Handle navigation between screens
@@ -75,11 +75,12 @@ export const AuthNavigator: React.FC = () => {
   // Render the appropriate screen based on current state
   const renderScreen = () => {
     switch (currentScreen) {
-      case 'loading':
+      case 'landing':
         return (
-          <LoadingScreen
+          <LandingScreen
             onGetStarted={handleGetStarted}
             onLogin={handleGoToLogin}
+            onSocialLogin={(provider) => handleSocialAuth(provider, false)}
           />
         );
 
@@ -123,13 +124,14 @@ export const AuthNavigator: React.FC = () => {
 /**
  * Usage with Expo Router:
  *
- * In your app/(auth)/loading.tsx:
- * export default function LoadingRoute() {
+ * In your app/index.tsx (landing page):
+ * export default function LandingRoute() {
  *   const router = useRouter();
  *   return (
- *     <LoadingScreen
- *       onGetStarted={() => router.push('/auth/signup')}
- *       onLogin={() => router.push('/auth/login')}
+ *     <LandingScreen
+ *       onGetStarted={() => router.push('/register')}
+ *       onLogin={() => router.push('/login')}
+ *       onSocialLogin={(provider) => handleSocialAuth(provider)}
  *     />
  *   );
  * }

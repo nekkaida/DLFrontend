@@ -2,15 +2,17 @@ import { authClient } from "@/lib/auth-client";
 import axiosInstance, { endpoints } from "@/lib/endpoints";
 import { LoginScreen } from "@/src/features/auth/screens/LoginScreen";
 import { useRouter, useNavigation, useLocalSearchParams } from "expo-router";
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { toast } from "sonner-native";
 import { useSession } from "@/lib/auth-client";
+import { AuthStorage } from "@/src/core/storage";
 
 export default function LoginRoute() {
   const router = useRouter();
   const navigation = useNavigation();
   const { data: session } = useSession();
   const { from } = useLocalSearchParams<{ from?: string }>();
+  const [isSocialLoading, setIsSocialLoading] = useState(false);
 
   // Conditionally enable gesture navigation:
   // - Allow swipe back when coming from landing page (from=landing)
@@ -74,7 +76,8 @@ export default function LoginRoute() {
           console.log(`Session check attempt ${attempts + 1}:`, sessionCheck.data ? "Session found" : "No session");
 
           if (sessionCheck.data) {
-            console.log("Session confirmed, redirecting to dashboard");
+            console.log("Session confirmed, marking as logged in and redirecting to dashboard");
+            await AuthStorage.markLoggedIn();
             router.replace("/user-dashboard");
             return;
           }
@@ -95,7 +98,7 @@ export default function LoginRoute() {
   };
 
   const handleSignUp = () => {
-    router.push("/register");
+    router.replace("/register");
   };
 
   const handleForgotPassword = () => {
@@ -103,14 +106,24 @@ export default function LoginRoute() {
   };
 
   const handleSocialLogin = async (provider: "facebook" | "google" | "apple") => {
+    // Prevent double-clicks while OAuth is in progress
+    if (isSocialLoading) return;
+
     try {
-      // Only Google is currently configured
+      setIsSocialLoading(true);
+      // TODO: Social Login Configuration Status
+      // ✅ Google OAuth - Configured and working
+      // ❌ Facebook Login - Needs configuration (see app/index.tsx for details)
+      // ❌ Apple Sign-In - Needs configuration (see app/index.tsx for details)
       if (provider !== "google") {
         toast.info(`${provider.charAt(0).toUpperCase() + provider.slice(1)} sign-in coming soon!`);
         return;
       }
 
       console.log(`Social login with ${provider}`);
+
+      // Mark that user has logged in (so they see login screen on return, not landing)
+      await AuthStorage.markLoggedIn();
 
       const result = await authClient.signIn.social({
         provider,
@@ -127,6 +140,8 @@ export default function LoginRoute() {
     } catch (error: any) {
       console.error("Social login error:", error);
       toast.error(error.message || "Social login failed. Please try again.");
+    } finally {
+      setIsSocialLoading(false);
     }
   };
 

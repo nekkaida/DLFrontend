@@ -100,6 +100,11 @@ interface InputFieldProps {
   onEyePress?: () => void;
   keyboardType?: 'default' | 'email-address' | 'phone-pad';
   containerStyle?: ViewStyle;
+  accessibilityLabel?: string;
+  accessibilityHint?: string;
+  maxLength?: number;
+  autoComplete?: 'off' | 'email' | 'username' | 'password' | 'password-new';
+  textContentType?: 'none' | 'emailAddress' | 'username' | 'password' | 'newPassword';
 }
 
 export const InputField: React.FC<InputFieldProps> = ({
@@ -113,6 +118,11 @@ export const InputField: React.FC<InputFieldProps> = ({
   onEyePress,
   keyboardType = 'default',
   containerStyle,
+  accessibilityLabel,
+  accessibilityHint,
+  maxLength,
+  autoComplete,
+  textContentType,
 }) => {
   const [isFocused, setIsFocused] = useState(false);
 
@@ -147,6 +157,11 @@ export const InputField: React.FC<InputFieldProps> = ({
           onChangeText={onChangeText}
           secureTextEntry={secureTextEntry}
           keyboardType={keyboardType}
+          accessibilityLabel={accessibilityLabel || label}
+          accessibilityHint={accessibilityHint}
+          maxLength={maxLength}
+          autoComplete={autoComplete}
+          textContentType={textContentType}
           onFocus={() => {
             setIsFocused(true);
             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -156,12 +171,15 @@ export const InputField: React.FC<InputFieldProps> = ({
           }}
         />
         {showEyeIcon && (
-          <TouchableOpacity 
+          <TouchableOpacity
             onPress={() => {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
               onEyePress?.();
-            }} 
+            }}
             style={AuthStyles.eyeIcon}
+            accessibilityLabel={secureTextEntry ? "Show password" : "Hide password"}
+            accessibilityRole="button"
+            accessibilityHint="Toggles password visibility"
           >
             <Ionicons
               name={secureTextEntry ? "eye-off-outline" : "eye-outline"}
@@ -301,9 +319,15 @@ export const PrimaryButton: React.FC<PrimaryButtonProps> = ({ title, onPress, st
 interface SocialButtonProps {
   type: 'facebook' | 'google' | 'apple';
   onPress: () => void;
+  disabled?: boolean;
 }
 
-export const SocialButton: React.FC<SocialButtonProps> = ({ type, onPress }) => {
+// Debounce delay for social buttons
+const SOCIAL_BUTTON_DEBOUNCE = 500;
+
+export const SocialButton: React.FC<SocialButtonProps> = ({ type, onPress, disabled = false }) => {
+  const lastPressRef = useRef<number>(0);
+
   const getButtonStyle = () => {
     switch (type) {
       case 'facebook':
@@ -325,13 +349,36 @@ export const SocialButton: React.FC<SocialButtonProps> = ({ type, onPress }) => 
     }
   };
 
+  const getAccessibilityLabel = () => {
+    switch (type) {
+      case 'facebook':
+        return 'Sign in with Facebook';
+      case 'google':
+        return 'Sign in with Google';
+      case 'apple':
+        return 'Sign in with Apple';
+    }
+  };
+
+  const handlePress = () => {
+    const now = Date.now();
+    if (now - lastPressRef.current < SOCIAL_BUTTON_DEBOUNCE || disabled) {
+      return;
+    }
+    lastPressRef.current = now;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    onPress();
+  };
+
   return (
-    <TouchableOpacity 
-      style={[AuthStyles.socialButton, getButtonStyle()]} 
-      onPress={() => {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-        onPress();
-      }}
+    <TouchableOpacity
+      style={[AuthStyles.socialButton, getButtonStyle(), disabled && { opacity: 0.5 }]}
+      onPress={handlePress}
+      disabled={disabled}
+      accessibilityLabel={getAccessibilityLabel()}
+      accessibilityRole="button"
+      accessibilityHint={`Authenticates using your ${type} account`}
+      accessibilityState={{ disabled }}
     >
       {getIcon()}
     </TouchableOpacity>

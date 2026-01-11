@@ -28,6 +28,7 @@ import * as SecureStore from 'expo-secure-store';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { toast } from 'sonner-native';
 import { usePushNotifications } from '@/src/hooks/usePushNotifications';
+import { navigateAndClearStack } from '@core/navigation';
 
 // BackgroundGradient Component (consistent with profile)
 const BackgroundGradient = () => {
@@ -288,8 +289,9 @@ export default function SettingsScreen() {
                 description: 'You have been successfully signed out.',
               });
 
-              // Navigation to login is handled automatically by NavigationInterceptor
-              // when it detects session is null and user is on a protected route
+              // Clear navigation stack and navigate to login
+              // This prevents back-navigation to protected routes after logout
+              navigateAndClearStack('/login');
 
             } catch (error) {
               console.error('Logout error:', error);
