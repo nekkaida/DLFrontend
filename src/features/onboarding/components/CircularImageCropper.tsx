@@ -1,25 +1,17 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React from 'react';
 import {
   View,
   Modal,
-  Image,
   StyleSheet,
   TouchableOpacity,
   Text,
   Dimensions,
-  ActivityIndicator,
+  Image,
+  Platform,
 } from 'react-native';
-import { manipulateAsync, SaveFormat } from 'expo-image-manipulator';
-import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler';
-import Animated, {
-  useAnimatedStyle,
-  useSharedValue,
-} from 'react-native-reanimated';
 
-const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
-const CROP_SIZE = Math.min(SCREEN_WIDTH, SCREEN_HEIGHT) * 0.75;
-const MIN_SCALE = 1;
-const MAX_SCALE = 3;
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const PREVIEW_SIZE = Math.min(SCREEN_WIDTH * 0.7, 300);
 
 interface CircularImageCropperProps {
   visible: boolean;
@@ -28,372 +20,56 @@ interface CircularImageCropperProps {
   onCancel: () => void;
 }
 
+/**
+ * Simple preview modal that shows how the cropped image will look
+ * as a circular profile picture. The actual cropping is done by
+ * expo-image-picker's native editor (square aspect ratio).
+ */
 const CircularImageCropper: React.FC<CircularImageCropperProps> = ({
   visible,
   imageUri,
   onCropComplete,
   onCancel,
 }) => {
-  const [imageSize, setImageSize] = useState({ width: 0, height: 0 });
-  const [isCropping, setIsCropping] = useState(false);
-  const [isImageLoaded, setIsImageLoaded] = useState(false);
-
-  // Separate previous/current state prevents transform drift
-  const scalePrevious = useSharedValue(1);
-  const scaleCurrent = useSharedValue(1);
-  const translateXPrevious = useSharedValue(0);
-  const translateYPrevious = useSharedValue(0);
-  const translateXCurrent = useSharedValue(0);
-  const translateYCurrent = useSharedValue(0);
-  const focalX = useSharedValue(0);
-  const focalY = useSharedValue(0);
-  const renderedWidth = useSharedValue(CROP_SIZE);
-  const renderedHeight = useSharedValue(CROP_SIZE);
-
-  // Memoize rendered dimensions to avoid recalculation on every render
-  const renderedDimensions = useMemo(() => {
-    if (!imageSize.width || !imageSize.height) {
-      return { width: CROP_SIZE, height: CROP_SIZE };
-    }
-
-    const imageAspect = imageSize.width / imageSize.height;
-
-    if (imageAspect > 1) {
-      // Landscape - height matches container
-      return {
-        width: CROP_SIZE * imageAspect,
-        height: CROP_SIZE,
-      };
-    } else {
-      // Portrait - width matches container
-      return {
-        width: CROP_SIZE,
-        height: CROP_SIZE / imageAspect,
-      };
-    }
-  }, [imageSize.width, imageSize.height]);
-
-  // Reset transforms when modal opens
-  useEffect(() => {
-    if (visible && imageUri) {
-      scalePrevious.value = 1;
-      scaleCurrent.value = 1;
-      translateXPrevious.value = 0;
-      translateYPrevious.value = 0;
-      translateXCurrent.value = 0;
-      translateYCurrent.value = 0;
-      focalX.value = 0;
-      focalY.value = 0;
-      setIsImageLoaded(false);
-
-      Image.getSize(imageUri, (width, height) => {
-        setImageSize({ width, height });
-        setIsImageLoaded(true);
-      });
-    }
-  }, [visible, imageUri]);
-
-  // Center the image when dimensions are calculated
-  useEffect(() => {
-    if (isImageLoaded && renderedDimensions.width > 0) {
-      const imageCenterX = renderedDimensions.width / 2;
-      const imageCenterY = renderedDimensions.height / 2;
-      const cropCenterX = CROP_SIZE / 2;
-      const cropCenterY = CROP_SIZE / 2;
-
-      const initialTranslateX = cropCenterX - imageCenterX;
-      const initialTranslateY = cropCenterY - imageCenterY;
-
-      translateXPrevious.value = initialTranslateX;
-      translateYPrevious.value = initialTranslateY;
-      translateXCurrent.value = 0;
-      translateYCurrent.value = 0;
-    }
-  }, [isImageLoaded, renderedDimensions.width, renderedDimensions.height]);
-
-  // Update shared values when dimensions change
-  useEffect(() => {
-    renderedWidth.value = renderedDimensions.width;
-    renderedHeight.value = renderedDimensions.height;
-  }, [renderedDimensions]);
-
-  const clampScale = (value: number) => {
-    'worklet';
-    return Math.min(Math.max(value, MIN_SCALE), MAX_SCALE);
-  };
-
-  const getClampLimits = (currentScale: number) => {
-    'worklet';
-
-    const baseWidth = renderedWidth.value;
-    const baseHeight = renderedHeight.value;
-    const scaledWidth = baseWidth * currentScale;
-    const scaledHeight = baseHeight * currentScale;
-
-    const maxTranslateX = (scaledWidth - baseWidth) / 2;
-    const maxTranslateY = (scaledHeight - baseHeight) / 2;
-    const minTranslateX = CROP_SIZE - (baseWidth + scaledWidth) / 2;
-    const minTranslateY = CROP_SIZE - (baseHeight + scaledHeight) / 2;
-
-    return {
-      minX: minTranslateX,
-      maxX: maxTranslateX,
-      minY: minTranslateY,
-      maxY: maxTranslateY,
-    };
-  };
-
-  const pinchGesture = Gesture.Pinch()
-    .onStart((e) => {
-      if (e.numberOfPointers === 2) {
-        focalX.value = e.focalX;
-        focalY.value = e.focalY;
-      }
-    })
-    .onUpdate((e) => {
-      const newScale = clampScale(scalePrevious.value * e.scale);
-      scaleCurrent.value = newScale;
-
-      // Focal point scaling formula
-      const focalOffsetX = (1 - newScale) * (focalX.value - CROP_SIZE / 2);
-      const focalOffsetY = (1 - newScale) * (focalY.value - CROP_SIZE / 2);
-
-      const newTranslateX = translateXPrevious.value + focalOffsetX;
-      const newTranslateY = translateYPrevious.value + focalOffsetY;
-
-      const limits = getClampLimits(newScale);
-      translateXCurrent.value = Math.min(Math.max(newTranslateX, limits.minX), limits.maxX);
-      translateYCurrent.value = Math.min(Math.max(newTranslateY, limits.minY), limits.maxY);
-    })
-    .onEnd(() => {
-      scalePrevious.value = scaleCurrent.value;
-      scaleCurrent.value = 1;
-
-      translateXPrevious.value = translateXCurrent.value;
-      translateYPrevious.value = translateYCurrent.value;
-      translateXCurrent.value = 0;
-      translateYCurrent.value = 0;
-    });
-
-  const panGesture = Gesture.Pan()
-    .onUpdate((e) => {
-      const currentScale = scalePrevious.value * scaleCurrent.value;
-      const limits = getClampLimits(currentScale);
-
-      const newTranslateX = translateXPrevious.value + e.translationX;
-      const newTranslateY = translateYPrevious.value + e.translationY;
-
-      translateXCurrent.value = Math.min(Math.max(newTranslateX, limits.minX), limits.maxX);
-      translateYCurrent.value = Math.min(Math.max(newTranslateY, limits.minY), limits.maxY);
-    })
-    .onEnd(() => {
-      if (translateXCurrent.value !== 0 || translateYCurrent.value !== 0) {
-        translateXPrevious.value = translateXCurrent.value;
-        translateYPrevious.value = translateYCurrent.value;
-        translateXCurrent.value = 0;
-        translateYCurrent.value = 0;
-      }
-    });
-
-  const composedGesture = Gesture.Simultaneous(pinchGesture, panGesture);
-
-  const animatedStyle = useAnimatedStyle(() => {
-    const totalScale = scalePrevious.value * scaleCurrent.value;
-    const totalTranslateX = translateXPrevious.value + translateXCurrent.value;
-    const totalTranslateY = translateYPrevious.value + translateYCurrent.value;
-
-    return {
-      transform: [
-        { scale: totalScale },
-        { translateX: totalTranslateX },
-        { translateY: totalTranslateY },
-      ],
-    };
-  });
-
-  const handleCrop = async () => {
-    if (isCropping) return; // Prevent double-tap
-
-    setIsCropping(true);
-    try {
-      if (!imageSize.width || !imageSize.height || !imageUri) {
-        return;
-      }
-
-      const currentScale = scalePrevious.value;
-      const currentTranslateX = translateXPrevious.value;
-      const currentTranslateY = translateYPrevious.value;
-
-      const rendered = renderedDimensions;
-
-      const imageCenterX = rendered.width / 2;
-      const imageCenterY = rendered.height / 2;
-
-      // Transform order is [scale, translateX, translateY]
-      // Scale is applied around center, then translation moves in screen pixels (not scaled)
-      const imageCenterInContainerX = imageCenterX + currentTranslateX;
-      const imageCenterInContainerY = imageCenterY + currentTranslateY;
-
-      const cropCircleCenterX = CROP_SIZE / 2;
-      const cropCircleCenterY = CROP_SIZE / 2;
-
-      const centerToCropX = cropCircleCenterX - imageCenterInContainerX;
-      const centerToCropY = cropCircleCenterY - imageCenterInContainerY;
-
-      const cropCenterInImageX = imageCenterX + (centerToCropX / currentScale);
-      const cropCenterInImageY = imageCenterY + (centerToCropY / currentScale);
-
-      const visibleWidth = CROP_SIZE / currentScale;
-      const visibleHeight = CROP_SIZE / currentScale;
-
-      const visibleLeft = cropCenterInImageX - (visibleWidth / 2);
-      const visibleTop = cropCenterInImageY - (visibleHeight / 2);
-
-      const scaleX = imageSize.width / rendered.width;
-      const scaleY = imageSize.height / rendered.height;
-
-      const cropX = Math.max(0, visibleLeft * scaleX);
-      const cropY = Math.max(0, visibleTop * scaleY);
-      const cropWidth = Math.min(imageSize.width - cropX, visibleWidth * scaleX);
-      const cropHeight = Math.min(imageSize.height - cropY, visibleHeight * scaleY);
-
-      // Handle EXIF dimension mismatch
-      const testRead = await manipulateAsync(imageUri, [], { compress: 1, format: SaveFormat.JPEG });
-
-      const dimensionScaleX = testRead.width / imageSize.width;
-      const dimensionScaleY = testRead.height / imageSize.height;
-
-      const adjustedCropX = Math.round(cropX * dimensionScaleX);
-      const adjustedCropY = Math.round(cropY * dimensionScaleY);
-      const adjustedCropWidth = Math.round(cropWidth * dimensionScaleX);
-      const adjustedCropHeight = Math.round(cropHeight * dimensionScaleY);
-
-      // Log crop calculations for debugging
-      console.log('[CircularImageCropper] Crop calculation:', {
-        transforms: { currentScale, currentTranslateX, currentTranslateY },
-        rendered: { width: rendered.width, height: rendered.height },
-        imageSize: { width: imageSize.width, height: imageSize.height },
-        imageCenterInContainer: { x: imageCenterInContainerX, y: imageCenterInContainerY },
-        cropRegion: { visibleLeft, visibleTop, visibleWidth, visibleHeight },
-        beforeExif: { cropX, cropY, cropWidth, cropHeight },
-        exifScale: { dimensionScaleX, dimensionScaleY },
-        afterExif: { adjustedCropX, adjustedCropY, adjustedCropWidth, adjustedCropHeight },
-      });
-
-      // Validate crop dimensions
-      if (adjustedCropWidth <= 0 || adjustedCropHeight <= 0) {
-        throw new Error(`Invalid crop dimensions: width=${adjustedCropWidth}, height=${adjustedCropHeight}`);
-      }
-
-      const croppedOnly = await manipulateAsync(
-        testRead.uri,
-        [
-          {
-            crop: {
-              originX: adjustedCropX,
-              originY: adjustedCropY,
-              width: adjustedCropWidth,
-              height: adjustedCropHeight,
-            },
-          },
-        ],
-        { compress: 1, format: SaveFormat.JPEG }
-      );
-
-      const croppedImage = await manipulateAsync(
-        croppedOnly.uri,
-        [
-          {
-            resize: {
-              width: 500,
-              height: 500,
-            },
-          },
-        ],
-        { compress: 1, format: SaveFormat.PNG, base64: false }
-      );
-
-      console.log('[CircularImageCropper] Crop successful, output URI:', croppedImage.uri);
-      onCropComplete(croppedImage.uri);
-    } catch (error) {
-      // Log the error for debugging
-      // Detailed crop params are logged before the crop attempt
-      console.error('[CircularImageCropper] Crop failed:', error);
-      console.error('[CircularImageCropper] Error context:', {
-        imageSize,
-        renderedDimensions,
-        scale: scalePrevious.value,
-        translateX: translateXPrevious.value,
-        translateY: translateYPrevious.value,
-      });
-    } finally {
-      setIsCropping(false);
-    }
+  const handleConfirm = () => {
+    // Image is already cropped by expo-image-picker, just confirm
+    onCropComplete(imageUri);
   };
 
   return (
     <Modal visible={visible} transparent animationType="fade" statusBarTranslucent>
-      <GestureHandlerRootView style={{ flex: 1 }}>
-        <View style={styles.container}>
-          <View style={styles.header}>
-            <TouchableOpacity onPress={onCancel} style={styles.cancelButton}>
-              <Text style={styles.cancelText}>Cancel</Text>
-            </TouchableOpacity>
-            <Text style={styles.title}>Adjust Photo</Text>
-            <TouchableOpacity
-              onPress={handleCrop}
-              style={styles.doneButton}
-              disabled={isCropping || !isImageLoaded}
-            >
-              {isCropping ? (
-                <ActivityIndicator color="#FE9F4D" size="small" />
-              ) : (
-                <Text style={[styles.doneText, !isImageLoaded && styles.disabledText]}>Done</Text>
-              )}
-            </TouchableOpacity>
+      <View style={styles.container}>
+        {/* Header */}
+        <View style={styles.header}>
+          <TouchableOpacity onPress={onCancel} style={styles.cancelButton}>
+            <Text style={styles.cancelText}>Cancel</Text>
+          </TouchableOpacity>
+          <Text style={styles.title}>Profile Picture Preview</Text>
+          <TouchableOpacity onPress={handleConfirm} style={styles.doneButton}>
+            <Text style={styles.doneText}>Use Photo</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Preview Area */}
+        <View style={styles.previewArea}>
+          <Text style={styles.instructionText}>
+            This is how your profile picture will look
+          </Text>
+          
+          {/* Circular Preview */}
+          <View style={styles.circularPreviewContainer}>
+            <Image
+              source={{ uri: imageUri }}
+              style={styles.circularPreview}
+              resizeMode="cover"
+            />
           </View>
 
-          <View style={styles.cropArea}>
-            <View style={styles.cropContainer}>
-              <View style={styles.imageContainer}>
-                <GestureDetector gesture={composedGesture}>
-                  <Animated.Image
-                    source={{ uri: imageUri }}
-                    style={[
-                      {
-                        width: renderedDimensions.width,
-                        height: renderedDimensions.height,
-                        position: 'absolute',
-                        top: 0,
-                        left: 0,
-                      },
-                      animatedStyle,
-                    ]}
-                    resizeMode="stretch"
-                  />
-                </GestureDetector>
-              </View>
-
-              {/* Circular crop overlay */}
-              <View style={styles.overlay} pointerEvents="none">
-                <View style={styles.overlayTop} />
-                <View style={styles.overlayMiddle}>
-                  <View style={styles.overlaySide} />
-                  <View style={styles.circularCrop}>
-                    <View style={styles.circularBorder} />
-                  </View>
-                  <View style={styles.overlaySide} />
-                </View>
-                <View style={styles.overlayBottom} />
-              </View>
-            </View>
-          </View>
-
-          <Text style={styles.instructions}>
-            Pinch to zoom • Drag to reposition
+          <Text style={styles.hintText}>
+            Tip: Make sure your face is centered in the photo
           </Text>
         </View>
-      </GestureHandlerRootView>
+      </View>
     </Modal>
   );
 };
@@ -401,14 +77,14 @@ const CircularImageCropper: React.FC<CircularImageCropperProps> = ({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#000000',
+    backgroundColor: 'rgba(0, 0, 0, 0.95)',
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 20,
-    paddingTop: 60,
+    paddingTop: Platform.select({ ios: 60, android: 40 }),
     paddingBottom: 20,
   },
   cancelButton: {
@@ -425,75 +101,40 @@ const styles = StyleSheet.create({
   },
   doneButton: {
     padding: 8,
-    minWidth: 60,
-    alignItems: 'center',
   },
   doneText: {
     color: '#FE9F4D',
     fontSize: 16,
     fontWeight: '600',
   },
-  disabledText: {
-    opacity: 0.5,
-  },
-  cropArea: {
+  previewArea: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    paddingHorizontal: 20,
   },
-  cropContainer: {
-    width: CROP_SIZE,
-    height: CROP_SIZE,
-    position: 'relative',
+  instructionText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '500',
+    marginBottom: 30,
+    textAlign: 'center',
   },
-  imageContainer: {
-    width: CROP_SIZE,
-    height: CROP_SIZE,
-    overflow: 'hidden',
-    justifyContent: 'center',
-    alignItems: 'center',
+  circularPreviewContainer: {
+    marginBottom: 30,
   },
-  overlay: {
-    ...StyleSheet.absoluteFillObject,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  overlayTop: {
-    flex: 1,
-    width: '100%',
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
-  },
-  overlayMiddle: {
-    flexDirection: 'row',
-    width: '100%',
-  },
-  overlaySide: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
-  },
-  circularCrop: {
-    width: CROP_SIZE,
-    height: CROP_SIZE,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  circularBorder: {
-    width: CROP_SIZE,
-    height: CROP_SIZE,
-    borderRadius: CROP_SIZE / 2,
-    borderWidth: 2,
+  circularPreview: {
+    width: PREVIEW_SIZE,
+    height: PREVIEW_SIZE,
+    borderRadius: PREVIEW_SIZE / 2,
+    borderWidth: 4,
     borderColor: '#FFFFFF',
   },
-  overlayBottom: {
-    flex: 1,
-    width: '100%',
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
-  },
-  instructions: {
-    color: '#FFFFFF',
+  hintText: {
+    color: '#AAAAAA',
     fontSize: 14,
     textAlign: 'center',
-    paddingBottom: 40,
+    fontStyle: 'italic',
   },
 });
 
