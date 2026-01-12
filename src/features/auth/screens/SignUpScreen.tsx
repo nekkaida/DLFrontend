@@ -26,6 +26,7 @@ import { AuthStyles, AuthColors } from '../styles/AuthStyles';
 import { PrivacyPolicyModal } from '../components/PrivacyPolicyModal';
 import { TermsOfServiceModal } from '../components/TermsOfServiceModal';
 import { validatePassword, PasswordStrength } from '../utils/passwordValidation';
+import axiosInstance, { endpoints } from '@/lib/endpoints';
 
 // Debounce delay in milliseconds
 const DEBOUNCE_DELAY = 500;
@@ -100,9 +101,21 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({
   const [passwordError, setPasswordError] = useState('');
   const [passwordStrength, setPasswordStrength] = useState<PasswordStrength>(null);
 
+  // Email validation state
+  const [emailStatus, setEmailStatus] = useState<'idle' | 'checking' | 'available' | 'taken'>('idle');
+  const [emailError, setEmailError] = useState('');
+  
+  // Username validation state
+  const [usernameStatus, setUsernameStatus] = useState<'idle' | 'checking' | 'available' | 'taken'>('idle');
+  const [usernameError, setUsernameError] = useState('');
+
   // Modal states
   const [showPrivacyPolicy, setShowPrivacyPolicy] = useState(false);
   const [showTermsOfService, setShowTermsOfService] = useState(false);
+
+  // Debounce timers
+  const emailDebounceTimer = useRef<NodeJS.Timeout | null>(null);
+  const usernameDebounceTimer = useRef<NodeJS.Timeout | null>(null);
 
   // Responsive dimensions with listeners
   const [dimensions, setDimensions] = useState(() => {
@@ -148,6 +161,118 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({
     setPasswordStrength(validation.strength);
   };
 
+  // Check email availability with debouncing
+  const checkEmailAvailability = useCallback(async (emailValue: string) => {
+    const validation = validateEmail(emailValue);
+    
+    if (!validation.isValid) {
+      setEmailStatus('idle');
+      setEmailError(validation.error);
+      return;
+    }
+
+    setEmailStatus('checking');
+    setEmailError('');
+
+    try {
+      const response = await axiosInstance.post(endpoints.auth.checkEmail, {
+        email: emailValue.trim().toLowerCase(),
+      });
+
+      if (response.data?.data?.available) {
+        setEmailStatus('available');
+        setEmailError('');
+      } else {
+        setEmailStatus('taken');
+        setEmailError(response.data?.message || 'This email is already registered');
+      }
+    } catch (error: any) {
+      if (__DEV__) console.error('Email check error:', error);
+      setEmailStatus('idle');
+      setEmailError(error.response?.data?.message || 'Could not verify email');
+    }
+  }, []);
+
+  // Check username availability with debouncing
+  const checkUsernameAvailability = useCallback(async (usernameValue: string) => {
+    const validation = validateUsername(usernameValue);
+    
+    if (!validation.isValid) {
+      setUsernameStatus('idle');
+      setUsernameError(validation.error);
+      return;
+    }
+
+    setUsernameStatus('checking');
+    setUsernameError('');
+
+    try {
+      const response = await axiosInstance.post(endpoints.auth.checkUsername, {
+        username: usernameValue.trim(),
+      });
+
+      if (response.data?.data?.available) {
+        setUsernameStatus('available');
+        setUsernameError('');
+      } else {
+        setUsernameStatus('taken');
+        setUsernameError(response.data?.message || 'This username is already taken');
+      }
+    } catch (error: any) {
+      if (__DEV__) console.error('Username check error:', error);
+      setUsernameStatus('idle');
+      setUsernameError(error.response?.data?.message || 'Could not verify username');
+    }
+  }, []);
+
+  // Handle email change with debounced validation
+  const handleEmailChange = useCallback((text: string) => {
+    setEmail(text);
+    setEmailStatus('idle');
+    setEmailError('');
+
+    // Clear previous timer
+    if (emailDebounceTimer.current) {
+      clearTimeout(emailDebounceTimer.current);
+    }
+
+    // Only check if email looks valid
+    const trimmed = text.trim();
+    if (trimmed.length > 0 && EMAIL_REGEX.test(trimmed)) {
+      emailDebounceTimer.current = setTimeout(() => {
+        checkEmailAvailability(text);
+      }, DEBOUNCE_DELAY);
+    }
+  }, [checkEmailAvailability]);
+
+  // Handle username change with debounced validation
+  const handleUsernameChange = useCallback((text: string) => {
+    setUsername(text);
+    setUsernameStatus('idle');
+    setUsernameError('');
+
+    // Clear previous timer
+    if (usernameDebounceTimer.current) {
+      clearTimeout(usernameDebounceTimer.current);
+    }
+
+    // Only check if username looks valid
+    const trimmed = text.trim();
+    if (trimmed.length >= MIN_USERNAME_LENGTH && USERNAME_REGEX.test(trimmed)) {
+      usernameDebounceTimer.current = setTimeout(() => {
+        checkUsernameAvailability(text);
+      }, DEBOUNCE_DELAY);
+    }
+  }, [checkUsernameAvailability]);
+
+  // Cleanup timers on unmount
+  useEffect(() => {
+    return () => {
+      if (emailDebounceTimer.current) clearTimeout(emailDebounceTimer.current);
+      if (usernameDebounceTimer.current) clearTimeout(usernameDebounceTimer.current);
+    };
+  }, []);
+
   const handleSignUp = async () => {
     // Validate all fields
     const emailValidation = validateEmail(email);
@@ -157,10 +282,40 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({
       return;
     }
 
+    // Check email availability status
+    if (emailStatus === 'taken') {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      toast.error('Email Already Registered', { 
+        description: 'This email is already registered. Please use a different email or login instead.' 
+      });
+      return;
+    }
+
+    if (emailStatus === 'checking') {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      toast.info('Please Wait', { description: 'Checking email availability...' });
+      return;
+    }
+
     const usernameValidation = validateUsername(username);
     if (!usernameValidation.isValid) {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
       toast.error('Invalid Username', { description: usernameValidation.error });
+      return;
+    }
+
+    // Check username availability status
+    if (usernameStatus === 'taken') {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      toast.error('Username Taken', { 
+        description: 'This username is already taken. Please choose a different username.' 
+      });
+      return;
+    }
+
+    if (usernameStatus === 'checking') {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      toast.info('Please Wait', { description: 'Checking username availability...' });
       return;
     }
 
@@ -258,9 +413,11 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({
               label="Email"
               placeholder="yourname@gmail.com"
               value={email}
-              onChangeText={setEmail}
+              onChangeText={handleEmailChange}
               icon="mail"
               keyboardType="email-address"
+              validationStatus={emailStatus}
+              validationError={emailError}
             />
 
             {/* Username Input */}
@@ -268,8 +425,10 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({
               label="Username"
               placeholder="Choose a username"
               value={username}
-              onChangeText={setUsername}
+              onChangeText={handleUsernameChange}
               icon="user"
+              validationStatus={usernameStatus}
+              validationError={usernameError}
             />
 
             {/* Phone Input */}

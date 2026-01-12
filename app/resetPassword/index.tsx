@@ -156,9 +156,12 @@ export default function ResetPasswordEmailScreen() {
         description: `If ${trimmedEmail.substring(0, 3)}***@${trimmedEmail.split('@')[1] || 'email'} is registered, you'll receive a verification code.`,
       });
 
-      // Store email in secure store and navigate to OTP screen
+      // Store email in secure store and navigate to OTP screen with email param
       storeEmail(trimmedEmail);
-      router.push('/resetPassword/otp');
+      router.push({
+        pathname: '/resetPassword/otp',
+        params: { email: trimmedEmail }
+      });
 
       if (__DEV__ && error) {
         console.log('OTP send error (dev only):', error.message);

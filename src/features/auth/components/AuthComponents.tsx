@@ -105,6 +105,9 @@ interface InputFieldProps {
   maxLength?: number;
   autoComplete?: 'off' | 'email' | 'username' | 'password' | 'password-new';
   textContentType?: 'none' | 'emailAddress' | 'username' | 'password' | 'newPassword';
+  // Validation props
+  validationStatus?: 'idle' | 'checking' | 'available' | 'taken';
+  validationError?: string;
 }
 
 export const InputField: React.FC<InputFieldProps> = ({
@@ -123,6 +126,8 @@ export const InputField: React.FC<InputFieldProps> = ({
   maxLength,
   autoComplete,
   textContentType,
+  validationStatus = 'idle',
+  validationError,
 }) => {
   const [isFocused, setIsFocused] = useState(false);
 
@@ -141,12 +146,32 @@ export const InputField: React.FC<InputFieldProps> = ({
     }
   };
 
+  const getValidationIcon = () => {
+    switch (validationStatus) {
+      case 'checking':
+        return <ActivityIndicator size="small" color={AuthColors.primary} />;
+      case 'available':
+        return <Ionicons name="checkmark-circle" size={16} color="#10B981" />;
+      case 'taken':
+        return <Ionicons name="close-circle" size={16} color="#EF4444" />;
+      default:
+        return null;
+    }
+  };
+
+  const getBorderColor = () => {
+    if (validationStatus === 'available') return '#10B981';
+    if (validationStatus === 'taken') return '#EF4444';
+    if (isFocused || value) return AuthColors.primary;
+    return AuthColors.gray[200];
+  };
+
   return (
     <View style={[AuthStyles.inputFieldContainer, containerStyle]}>
       <Text style={AuthStyles.inputLabel}>{label}</Text>
       <View style={[
         AuthStyles.inputArea, 
-        (isFocused || value) ? AuthStyles.inputAreaActive : {}
+        { borderColor: getBorderColor(), borderWidth: 1 }
       ]}>
         {icon && <View style={AuthStyles.inputIcon}>{getIcon()}</View>}
         <TextInput
@@ -170,6 +195,11 @@ export const InputField: React.FC<InputFieldProps> = ({
             setIsFocused(false);
           }}
         />
+        {getValidationIcon() && (
+          <View style={{ marginRight: 8 }}>
+            {getValidationIcon()}
+          </View>
+        )}
         {showEyeIcon && (
           <TouchableOpacity
             onPress={() => {
@@ -189,6 +219,16 @@ export const InputField: React.FC<InputFieldProps> = ({
           </TouchableOpacity>
         )}
       </View>
+      {validationError && (
+        <Text style={{ 
+          fontSize: 12, 
+          color: '#EF4444', 
+          marginTop: 4,
+          fontFamily: 'Inter'
+        }}>
+          {validationError}
+        </Text>
+      )}
     </View>
   );
 };

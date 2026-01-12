@@ -55,6 +55,7 @@ export default function ResetPasswordNewScreen() {
   const isMountedRef = useRef<boolean>(true);
   const lastPressTimeRef = useRef<number>(0);
   const navigationTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const hasCheckedOtp = useRef<boolean>(false);
 
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -81,14 +82,33 @@ export default function ResetPasswordNewScreen() {
   }, []);
 
   // Redirect if missing or expired OTP data
+  // Wait for store to hydrate from AsyncStorage before checking
   useEffect(() => {
-    if (!email || !otp || !isOtpValid()) {
-      toast.error('Session Expired', {
-        description: 'Your verification has expired. Please start again.',
+    // Give store time to load from AsyncStorage (500ms)
+    const checkOtp = setTimeout(() => {
+      // Only check once
+      if (hasCheckedOtp.current) return;
+      hasCheckedOtp.current = true;
+
+      console.log('🔍 [Password Screen] OTP check:', {
+        email,
+        hasOtp: !!otp,
+        isValid: isOtpValid(),
       });
-      clearPasswordResetStore();
-      router.replace('/resetPassword/');
-    }
+
+      if (!email || !otp || !isOtpValid()) {
+        console.log('❌ [Password Screen] OTP missing or invalid, redirecting back...');
+        toast.error('Session Expired', {
+          description: 'Your verification has expired. Please start again.',
+        });
+        clearPasswordResetStore();
+        router.replace('/resetPassword/');
+      } else {
+        console.log('✅ [Password Screen] OTP validated successfully');
+      }
+    }, 500);
+
+    return () => clearTimeout(checkOtp);
   }, [email, otp, router, isOtpValid, clearPasswordResetStore]);
 
   // Debounced press handler

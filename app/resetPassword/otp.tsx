@@ -15,7 +15,7 @@ import { StatusBar } from 'expo-status-bar';
 import { ThemedText } from '@/components/ThemedText';
 import { Colors } from '@/constants/Colors';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { authClient } from '@/lib/auth-client';
 import { toast } from 'sonner-native';
 import * as Haptics from 'expo-haptics';
@@ -47,18 +47,33 @@ const triggerNotification = async (type: Haptics.NotificationFeedbackType) => {
 
 export default function ResetPasswordVerifyScreen() {
   const router = useRouter();
-  const { email, setVerifiedOtp } = usePasswordResetStore();
+  const params = useLocalSearchParams<{ email?: string }>();
+  const { email: storeEmail, setEmail, setVerifiedOtp } = usePasswordResetStore();
 
   const isMountedRef = useRef<boolean>(true);
   const lastPressTimeRef = useRef<number>(0);
   const hiddenInputRef = useRef<TextInput>(null);
   const cursorAnimation = useRef(new Animated.Value(1)).current;
   const blinkAnimationRef = useRef<Animated.CompositeAnimation | null>(null);
+  const hasCheckedEmail = useRef<boolean>(false);
 
   const [otp, setOtp] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isFocused, setIsFocused] = useState(false);
   const [resendCooldown, setResendCooldown] = useState(RESEND_COOLDOWN);
+
+  // Get email from params (more reliable) or store (fallback)
+  const email = params.email || storeEmail;
+
+  // Update store with email from params if available
+  useEffect(() => {
+    if (params.email && params.email !== storeEmail) {
+      if (__DEV__) {
+        console.log('📧 [OTP Screen] Updating store with email from params');
+      }
+      setEmail(params.email);
+    }
+  }, [params.email, storeEmail, setEmail]);
 
   // Cleanup on unmount and auto-focus
   useEffect(() => {
@@ -79,16 +94,39 @@ export default function ResetPasswordVerifyScreen() {
     };
   }, []);
 
-  // Validate email from store - redirect if missing or invalid
+  // Validate email - redirect if missing or invalid
+  // Since email now comes from params, it's immediately available
   useEffect(() => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    
+    // Only check once on mount
+    if (hasCheckedEmail.current) return;
+    hasCheckedEmail.current = true;
+    
+    if (__DEV__) {
+      console.log('🔍 [OTP Screen] Email validation check:', {
+        email,
+        fromParams: !!params.email,
+        fromStore: !!storeEmail,
+        isValid: email && emailRegex.test(email),
+      });
+    }
+    
     if (!email || !emailRegex.test(email)) {
+      if (__DEV__) {
+        console.log('❌ [OTP Screen] Email missing or invalid, redirecting...');
+      }
       toast.error('Session Expired', {
         description: 'Please start the password reset process again.',
       });
-      router.replace('/resetPassword');
+      
+      // Use setTimeout to avoid navigation conflicts
+      setTimeout(() => {
+        router.replace('/resetPassword');
+      }, 100);
     }
-  }, [email, router]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Only run once on mount
 
   // Resend cooldown timer
   useEffect(() => {
@@ -190,8 +228,17 @@ export default function ResetPasswordVerifyScreen() {
 
       if (!isMountedRef.current) return;
 
+      // ALWAYS log response for debugging
+      console.log('✅ [OTP Screen] Backend response:', {
+        status: response.status,
+        data: JSON.stringify(response.data),
+        success: response.data?.success,
+      });
+
       // Check if verification was successful
       if (response.data?.success) {
+        console.log('🎉 [OTP Screen] Verification successful, storing OTP and navigating...');
+        
         triggerNotification(Haptics.NotificationFeedbackType.Success);
 
         // Store verified OTP securely (not in URL)
@@ -200,10 +247,15 @@ export default function ResetPasswordVerifyScreen() {
         // Stop animation before navigation to prevent memory leak
         blinkAnimationRef.current?.stop();
 
-        // Navigate to password screen (OTP stored securely, not in URL)
-        router.push('/resetPassword/password');
+        // Wait longer to ensure AsyncStorage persist completes before navigation
+        setTimeout(() => {
+          console.log('📍 [OTP Screen] Store updated, navigating to password screen...');
+          router.push('/resetPassword/password');
+        }, 300);
       } else {
         // Shouldn't reach here if backend returns proper error status
+        console.log('❌ [OTP Screen] Verification failed, response:', JSON.stringify(response.data));
+        
         triggerNotification(Haptics.NotificationFeedbackType.Error);
         toast.error('Verification Failed', {
           description: response.data?.message || 'Invalid verification code.',
@@ -211,6 +263,12 @@ export default function ResetPasswordVerifyScreen() {
       }
     } catch (err: any) {
       if (!isMountedRef.current) return;
+
+      console.log('💥 [OTP Screen] Exception caught:', {
+        message: err.message,
+        response: err.response ? JSON.stringify(err.response.data) : 'No response',
+        status: err.response?.status,
+      });
 
       triggerNotification(Haptics.NotificationFeedbackType.Error);
 

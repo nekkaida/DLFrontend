@@ -67,19 +67,9 @@ export default function RegisterRoute() {
       // Mark that user has registered (so they see login screen on return, not landing)
       await AuthStorage.markLoggedIn();
 
-      // Success - send verification OTP manually since overrideDefaultEmailVerification is true
-      if (__DEV__) console.log('📧 Register Route - Sending verification OTP...');
-      const otpResult = await authClient.emailOtp.sendVerificationOtp({
-        email: data.email,
-        type: "email-verification",
-      });
-
-      if (otpResult.error) {
-        if (__DEV__) console.error('Failed to send verification OTP:', otpResult.error);
-        toast.warning('Account created but verification email failed. You can resend it on the next screen.');
-      } else {
-        if (__DEV__) console.log('✅ Register Route - Verification OTP sent successfully');
-      }
+      // Note: better-auth automatically sends verification email during signup
+      // via the sendVerificationOTP callback configured in auth.ts
+      if (__DEV__) console.log('✅ Register Route - Account created, verification email sent automatically by better-auth');
 
       toast.success('Account created! Please check your email to verify.');
       // Store email securely (not in URL) and navigate

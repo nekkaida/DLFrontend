@@ -72,6 +72,8 @@ export const fetcher = async (args: unknown) => {
 export const endpoints = {
   auth: {
     verifyResetOtp: "/api/auth-custom/verify-reset-otp",
+    checkEmail: "/api/auth-custom/check-email",
+    checkUsername: "/api/auth-custom/check-username",
   },
 
   user: {
