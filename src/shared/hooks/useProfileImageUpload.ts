@@ -1,10 +1,10 @@
-import { useState, useCallback } from 'react';
-import { Image, Platform, Alert } from 'react-native';
-import * as ImagePicker from 'expo-image-picker';
-import { manipulateAsync, SaveFormat } from 'expo-image-manipulator';
-import { toast } from 'sonner-native';
-import { authClient } from '@/lib/auth-client';
 import { getBackendBaseURL } from '@/config/network';
+import { authClient } from '@/lib/auth-client';
+import { manipulateAsync, SaveFormat } from 'expo-image-manipulator';
+import * as ImagePicker from 'expo-image-picker';
+import { useCallback, useState } from 'react';
+import { Alert, Image, Platform } from 'react-native';
+import { toast } from 'sonner-native';
 
 interface UseProfileImageUploadOptions {
   userId?: string;
@@ -224,7 +224,7 @@ export function useProfileImageUpload(options: UseProfileImageUploadOptions = {}
   }, [userId, onUploadSuccess, onUploadError]);
 
   /**
-   * Open image library picker.
+   * Open image library picker with built-in square crop.
    */
   const pickImageFromLibrary = useCallback(async () => {
     if (isPickerActive) return; // Prevent multiple pickers
@@ -245,8 +245,9 @@ export function useProfileImageUpload(options: UseProfileImageUploadOptions = {}
 
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ['images'],
-        allowsEditing: false, // Disable native editing, we'll use custom crop
-        quality: 1.0, // Max quality before cropping
+        allowsEditing: true, // Enable native editing with square crop
+        aspect: [1, 1], // Square aspect ratio for circular display
+        quality: 1.0,
       });
 
       if (!result.canceled && result.assets[0]) {
@@ -283,7 +284,7 @@ export function useProfileImageUpload(options: UseProfileImageUploadOptions = {}
   }, [isPickerActive]);
 
   /**
-   * Open camera to take photo.
+   * Open camera to take photo with built-in square crop.
    */
   const openCamera = useCallback(async () => {
     if (isPickerActive) return; // Prevent multiple pickers
@@ -303,9 +304,9 @@ export function useProfileImageUpload(options: UseProfileImageUploadOptions = {}
 
       const result = await ImagePicker.launchCameraAsync({
         mediaTypes: ['images'],
-        allowsEditing: false, // Disable native editing, we'll use custom crop
-        quality: 1.0, // Max quality before cropping
-        exif: false, // Don't include EXIF to avoid rotation issues
+        allowsEditing: true, // Enable native editing with square crop
+        aspect: [1, 1], // Square aspect ratio for circular display
+        quality: 1.0,
       });
 
       if (!result.canceled && result.assets[0]) {
@@ -342,13 +343,26 @@ export function useProfileImageUpload(options: UseProfileImageUploadOptions = {}
   }, [isPickerActive]);
 
   /**
-   * Handle crop completion - upload the cropped image.
+   * Handle crop completion - resize and upload the cropped image.
    */
   const handleCropComplete = useCallback(async (croppedUri: string) => {
     console.log('[useProfileImageUpload] handleCropComplete called with URI:', croppedUri);
     setShowCropper(false);
     setSelectedImageUri(null);
-    await uploadProfileImage(croppedUri);
+    
+    // Resize to 500x500 for consistent profile pictures
+    try {
+      const resized = await manipulateAsync(
+        croppedUri,
+        [{ resize: { width: 500, height: 500 } }],
+        { compress: 0.9, format: SaveFormat.JPEG }
+      );
+      await uploadProfileImage(resized.uri);
+    } catch (error) {
+      console.error('[useProfileImageUpload] Error resizing image:', error);
+      // Fallback to uploading original cropped image
+      await uploadProfileImage(croppedUri);
+    }
   }, [uploadProfileImage]);
 
   /**

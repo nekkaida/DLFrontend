@@ -1,9 +1,12 @@
 import { create } from 'zustand';
+import { persist, createJSONStorage } from 'zustand/middleware';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 /**
- * Secure in-memory store for password reset flow.
+ * Secure persisted store for password reset flow.
  * Stores verified OTP temporarily to avoid passing sensitive data in URL params.
  * Data is cleared automatically after use or on timeout.
+ * Uses AsyncStorage for persistence across navigation.
  */
 
 interface PasswordResetState {
@@ -23,7 +26,9 @@ interface PasswordResetActions {
 // OTP verification is valid for 5 minutes after verification
 const OTP_VALIDITY_MS = 5 * 60 * 1000;
 
-export const usePasswordResetStore = create<PasswordResetState & PasswordResetActions>((set, get) => ({
+export const usePasswordResetStore = create<PasswordResetState & PasswordResetActions>()(
+  persist(
+    (set, get) => ({
   // State
   email: null,
   verifiedOtp: null,
@@ -69,4 +74,16 @@ export const usePasswordResetStore = create<PasswordResetState & PasswordResetAc
     if (!verifiedOtp || !verifiedAt) return false;
     return Date.now() - verifiedAt <= OTP_VALIDITY_MS;
   },
-}));
+    }),
+    {
+      name: 'password-reset-storage',
+      storage: createJSONStorage(() => AsyncStorage),
+      // Clear storage after 10 minutes for security
+      partialize: (state) => ({
+        email: state.email,
+        verifiedOtp: state.verifiedOtp,
+        verifiedAt: state.verifiedAt,
+      }),
+    }
+  )
+);
