@@ -12,12 +12,18 @@ interface TermsOfServiceModalProps {
   onClose: () => void;
 }
 
+// TODO: Verify these email addresses are configured and monitored before production launch:
+// - legal@deuceleague.com
+// - support@deuceleague.com
+// TODO: Update "Last Updated" date whenever these terms are modified
+
 export const TermsOfServiceModal: React.FC<TermsOfServiceModalProps> = ({
   visible,
   onClose,
 }) => {
   return (
     <LegalModal visible={visible} onClose={onClose} title="Terms of Service">
+      {/* TODO: Keep this date updated when terms change */}
       <LegalSectionTitle isFirst>Last Updated: January 15, 2025</LegalSectionTitle>
 
       <LegalText>
@@ -209,7 +215,7 @@ export const TermsOfServiceModal: React.FC<TermsOfServiceModalProps> = ({
 
       <LegalSubTitle>Governing Law</LegalSubTitle>
       <LegalText>
-        These Terms shall be governed by and construed in accordance with the laws of [Your Jurisdiction], without regard to its conflict of law provisions.
+        These Terms shall be governed by and construed in accordance with the laws of Malaysia, without regard to its conflict of law provisions.
       </LegalText>
 
       <LegalSectionTitle>12. Changes to Terms</LegalSectionTitle>

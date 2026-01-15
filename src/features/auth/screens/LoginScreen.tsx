@@ -1,7 +1,6 @@
 import * as Haptics from "expo-haptics";
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import {
-  Dimensions,
   KeyboardAvoidingView,
   Platform,
   ActivityIndicator,
@@ -9,18 +8,21 @@ import {
   ScrollView,
   Text,
   TouchableOpacity,
-  AppState,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import Svg, { G, Path, Defs, ClipPath, Rect } from 'react-native-svg';
 import { toast } from 'sonner-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
-  CircleArrowButton,
   InputField,
   SocialButton,
 } from "../components/AuthComponents";
 import { AuthColors, AuthStyles } from "../styles/AuthStyles";
+import {
+  scale,
+  verticalScale,
+  moderateScale,
+} from '@/core/utils/responsive';
 
 // Constants
 const DEBOUNCE_DELAY = 500;
@@ -60,36 +62,12 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
   const [isLoading, setIsLoading] = useState(false);
   const [isSocialLoading, setIsSocialLoading] = useState(false);
 
-  // Responsive dimensions with listeners
-  const [dimensions, setDimensions] = useState(() => {
-    const { width, height } = Dimensions.get('window');
-    return { width, height };
-  });
-
   useEffect(() => {
     isMountedRef.current = true;
-
-    const subscription = Dimensions.addEventListener('change', ({ window }) => {
-      if (isMountedRef.current) {
-        setDimensions({ width: window.width, height: window.height });
-      }
-    });
-
-    const appStateSubscription = AppState.addEventListener('change', (nextAppState) => {
-      if (nextAppState === 'active' && isMountedRef.current) {
-        const { width, height } = Dimensions.get('window');
-        setDimensions({ width, height });
-      }
-    });
-
     return () => {
       isMountedRef.current = false;
-      subscription?.remove();
-      appStateSubscription?.remove();
     };
   }, []);
-
-  const { width: screenWidth, height: screenHeight } = dimensions;
 
   // Debounced press handler to prevent double-clicks
   const handleDebouncedPress = useCallback((callback: () => void) => {
@@ -236,7 +214,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
           style={[
             AuthStyles.screenContainer,
             {
-              paddingHorizontal: screenWidth * 0.09,
+              paddingHorizontal: scale(34),
               paddingTop: insets.top,
               paddingBottom: insets.bottom,
               backgroundColor: AuthColors.white,
@@ -247,13 +225,13 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
           <View
             style={{
               position: "absolute",
-              width: 67,
-              height: 71,
-              right: screenWidth * 0.09,
-              top: screenHeight * 0.1,
+              width: scale(67),
+              height: verticalScale(71),
+              right: scale(34),
+              top: verticalScale(80),
             }}
           >
-            <Svg width="67" height="71" viewBox="0 0 67 71" fill="none">
+            <Svg width={scale(67)} height={verticalScale(71)} viewBox="0 0 67 71" fill="none">
               <Defs>
                 <ClipPath id="clip0_1273_1964">
                   <Rect width="67" height="71" fill="white" />
@@ -293,8 +271,8 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
           <View
             style={{
               flex: 1,
-              marginTop: screenHeight * 0.18,
-              gap: screenHeight * 0.025,
+              marginTop: verticalScale(144),
+              gap: verticalScale(20),
             }}
           >
             {/* Header Title */}
@@ -302,8 +280,8 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
               style={{
                 fontFamily: "Inter",
                 fontWeight: "700",
-                fontSize: screenWidth * 0.08,
-                lineHeight: screenWidth * 0.1,
+                fontSize: moderateScale(30),
+                lineHeight: moderateScale(38),
                 color: "#000000",
               }}
             >
@@ -312,7 +290,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
             </Text>
 
             {/* Input Section */}
-            <View style={{ gap: 16 }}>
+            <View style={{ gap: verticalScale(16) }}>
               {/* Username or Email Input */}
               <InputField
                 label="Username or email"
@@ -350,7 +328,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
             <TouchableOpacity
               style={{
                 alignSelf: "flex-end",
-                marginBottom: screenHeight * 0.03,
+                marginBottom: verticalScale(24),
                 opacity: isLoading || isSocialLoading ? 0.5 : 1,
               }}
               onPress={() => handleDebouncedPress(onForgotPassword)}
@@ -364,8 +342,8 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                 style={{
                   fontFamily: "Inter",
                   fontWeight: "500",
-                  fontSize: screenWidth * 0.035,
-                  lineHeight: screenWidth * 0.045,
+                  fontSize: moderateScale(13),
+                  lineHeight: moderateScale(17),
                   letterSpacing: -0.01,
                   color: AuthColors.primary,
                 }}
@@ -379,15 +357,15 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
               flexDirection: 'row',
               justifyContent: 'space-between',
               alignItems: 'center',
-              marginBottom: screenHeight * 0.02,
+              marginBottom: verticalScale(16),
               width: '100%',
             }}>
               <Text style={{
                 fontFamily: 'Inter',
                 fontStyle: 'normal',
                 fontWeight: '600',
-                fontSize: 22,
-                lineHeight: 28,
+                fontSize: moderateScale(22),
+                lineHeight: moderateScale(28),
                 letterSpacing: -0.01,
                 color: '#000000',
               }}>
@@ -397,15 +375,15 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                 onPress={() => handleDebouncedPress(handleLogin)}
                 disabled={isLoading}
                 style={{
-                  width: 56,
-                  height: 56,
-                  borderRadius: 28,
+                  width: scale(56),
+                  height: scale(56),
+                  borderRadius: moderateScale(28),
                   justifyContent: 'center',
                   alignItems: 'center',
                   shadowColor: AuthColors.primary,
-                  shadowOffset: { width: 0, height: 4 },
+                  shadowOffset: { width: 0, height: verticalScale(4) },
                   shadowOpacity: 0.3,
-                  shadowRadius: 8,
+                  shadowRadius: moderateScale(8),
                   elevation: 6,
                 }}
                 accessibilityLabel="Sign in"
@@ -418,9 +396,9 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 1 }}
                   style={{
-                    width: 56,
-                    height: 56,
-                    borderRadius: 28,
+                    width: scale(56),
+                    height: scale(56),
+                    borderRadius: moderateScale(28),
                     justifyContent: 'center',
                     alignItems: 'center',
                   }}
@@ -428,7 +406,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                   {isLoading ? (
                     <ActivityIndicator size="small" color="white" />
                   ) : (
-                    <Svg width="42" height="42" viewBox="0 0 42 42" fill="none">
+                    <Svg width={moderateScale(42)} height={moderateScale(42)} viewBox="0 0 42 42" fill="none">
                       <Path d="M8.75 21H33.25M33.25 21L26.25 28M33.25 21L26.25 14" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
                     </Svg>
                   )}
@@ -442,8 +420,8 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                 textAlign: "center",
                 fontFamily: "Inter",
                 fontWeight: "500",
-                fontSize: screenWidth * 0.03,
-                lineHeight: screenWidth * 0.042,
+                fontSize: moderateScale(11),
+                lineHeight: moderateScale(16),
                 letterSpacing: -0.01,
                 color: "#404040",
               }}
@@ -457,7 +435,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                 flexDirection: "row",
                 justifyContent: "center",
                 alignItems: "center",
-                gap: screenWidth * 0.015,
+                gap: scale(6),
               }}
             >
               <SocialButton
@@ -482,13 +460,13 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
               flexDirection: 'row',
               justifyContent: 'center',
               alignItems: 'center',
-              gap: screenWidth * 0.015
+              gap: scale(6)
             }}>
               <Text style={{
                 fontFamily: 'Inter',
                 fontWeight: '500',
-                fontSize: 14,
-                lineHeight: 22,
+                fontSize: moderateScale(14),
+                lineHeight: moderateScale(22),
                 letterSpacing: -0.01,
                 color: '#404040',
               }}>Don't have an account yet?</Text>
@@ -496,9 +474,9 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                 onPress={() => handleDebouncedPress(onSignUp)}
                 disabled={isLoading || isSocialLoading}
                 style={{
-                  paddingTop: Platform.OS === 'ios' ? 1 : 0.5,
-                  paddingBottom: Platform.OS === 'ios' ? 1 : 0.5,
-                  paddingHorizontal: Platform.OS === 'ios' ? 2 : 1,
+                  paddingTop: verticalScale(1),
+                  paddingBottom: verticalScale(1),
+                  paddingHorizontal: scale(2),
                   borderBottomWidth: 1,
                   borderBottomColor: AuthColors.primary,
                   opacity: isLoading || isSocialLoading ? 0.5 : 1,
@@ -511,8 +489,8 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                 <Text style={{
                   fontFamily: 'Inter',
                   fontWeight: '600',
-                  fontSize: 14,
-                  lineHeight: 22,
+                  fontSize: moderateScale(14),
+                  lineHeight: moderateScale(22),
                   letterSpacing: -0.01,
                   color: AuthColors.primary,
                 }}>Create now!</Text>

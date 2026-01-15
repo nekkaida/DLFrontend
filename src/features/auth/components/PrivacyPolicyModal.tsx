@@ -12,12 +12,17 @@ interface PrivacyPolicyModalProps {
   onClose: () => void;
 }
 
+// TODO: Verify these email addresses are configured and monitored before production launch:
+// - privacy@deuceleague.com
+// TODO: Update "Last Updated" date whenever this policy is modified
+
 export const PrivacyPolicyModal: React.FC<PrivacyPolicyModalProps> = ({
   visible,
   onClose,
 }) => {
   return (
     <LegalModal visible={visible} onClose={onClose} title="Privacy Policy">
+      {/* TODO: Keep this date updated when policy changes */}
       <LegalSectionTitle isFirst>Last Updated: January 15, 2025</LegalSectionTitle>
 
       <LegalText>
