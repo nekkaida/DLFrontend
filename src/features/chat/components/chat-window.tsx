@@ -1,7 +1,7 @@
 import { useSession } from '@/lib/auth-client';
 import { Ionicons } from '@expo/vector-icons';
 import { format, isToday, isYesterday } from 'date-fns';
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -13,6 +13,7 @@ import {
   Pressable,
   StyleSheet,
   Text,
+  useWindowDimensions,
   View
 } from 'react-native';
 import { Message } from '../types';
@@ -20,6 +21,11 @@ import { MatchMessageBubble } from './MatchMessageBubble';
 import { SwipeableMessageBubble } from './SwipeableMessageBubble';
 import { BREAKPOINTS, FLATLIST_CONFIG } from '../constants';
 import { getSportColors, SportType } from '@/constants/SportsColor';
+import {
+  scale,
+  verticalScale,
+  moderateScale,
+} from '@/core/utils/responsive';
 
 interface MessageWindowProps {
   messages: Message[];
@@ -32,10 +38,6 @@ interface MessageWindowProps {
   onDeleteMessage?: (messageId: string) => void;
   onLongPress?: (message: Message, position?: { x: number; y: number; width: number; height: number }) => void;
 }
-
-const { width } = require('react-native').Dimensions.get('window');
-const isSmallScreen = width < BREAKPOINTS.SMALL;
-const isTablet = width > BREAKPOINTS.TABLET;
 
 interface GroupedMessage {
   id: string;
@@ -107,6 +109,30 @@ export const MessageWindow: React.FC<MessageWindowProps> = ({
   const [showScrollButton, setShowScrollButton] = useState(false);
   const [highlightedMessageId, setHighlightedMessageId] = useState<string | null>(null);
   const highlightTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const highlightStartTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const scrollRetryTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isMountedRef = useRef(true);
+
+  // Responsive dimensions - updates on rotation/resize
+  const { width: windowWidth } = useWindowDimensions();
+  const isSmallScreen = windowWidth < BREAKPOINTS.SMALL;
+  const isTablet = windowWidth > BREAKPOINTS.TABLET;
+
+  // Responsive styles that update with dimension changes
+  const responsiveStyles = useMemo(() => ({
+    contentContainer: {
+      paddingHorizontal: isSmallScreen ? scale(12) : isTablet ? scale(24) : scale(16),
+      paddingBottom: isSmallScreen ? verticalScale(8) : isTablet ? verticalScale(16) : verticalScale(12),
+    },
+    scrollToBottomButton: {
+      width: isSmallScreen ? scale(36) : isTablet ? scale(48) : scale(44), // Minimum 44 for touch target
+      height: isSmallScreen ? verticalScale(36) : isTablet ? verticalScale(48) : verticalScale(44),
+      borderRadius: isSmallScreen ? moderateScale(18) : isTablet ? moderateScale(24) : moderateScale(22),
+    },
+    sendingText: {
+      fontSize: isSmallScreen ? moderateScale(13) : isTablet ? moderateScale(16) : moderateScale(14),
+    },
+  }), [isSmallScreen, isTablet]);
 
   const user = session?.user;
 
@@ -123,11 +149,22 @@ export const MessageWindow: React.FC<MessageWindowProps> = ({
     return map;
   }, [messages]);
 
-  // Cleanup highlight timeout on unmount
+  // Cleanup all timeouts on unmount
   useEffect(() => {
+    isMountedRef.current = true;
     return () => {
+      isMountedRef.current = false;
       if (highlightTimeoutRef.current) {
         clearTimeout(highlightTimeoutRef.current);
+        highlightTimeoutRef.current = null;
+      }
+      if (highlightStartTimeoutRef.current) {
+        clearTimeout(highlightStartTimeoutRef.current);
+        highlightStartTimeoutRef.current = null;
+      }
+      if (scrollRetryTimeoutRef.current) {
+        clearTimeout(scrollRetryTimeoutRef.current);
+        scrollRetryTimeoutRef.current = null;
       }
     };
   }, []);
@@ -165,10 +202,14 @@ export const MessageWindow: React.FC<MessageWindowProps> = ({
 
         // Add date divider after messages (appears above messages visually in inverted list)
         const lastMessage = sortedMessages[sortedMessages.length - 1];
+        // Handle timestamp that could be Date or string
+        const timestampDate = lastMessage.timestamp instanceof Date
+          ? lastMessage.timestamp
+          : new Date(lastMessage.timestamp);
         flatData.push({
-          id: `date-${format(new Date(lastMessage.timestamp), 'yyyy-MM-dd')}`,
+          id: `date-${format(timestampDate, 'yyyy-MM-dd')}`,
           type: 'date',
-          date: lastMessage.timestamp.toISOString(),
+          date: timestampDate.toISOString(),
         });
       });
 
@@ -201,9 +242,14 @@ export const MessageWindow: React.FC<MessageWindowProps> = ({
     );
 
     if (index !== -1) {
-      // Clear any existing highlight timeout
+      // Clear any existing highlight timeouts
       if (highlightTimeoutRef.current) {
         clearTimeout(highlightTimeoutRef.current);
+        highlightTimeoutRef.current = null;
+      }
+      if (highlightStartTimeoutRef.current) {
+        clearTimeout(highlightStartTimeoutRef.current);
+        highlightStartTimeoutRef.current = null;
       }
 
       // Scroll to the message
@@ -214,13 +260,19 @@ export const MessageWindow: React.FC<MessageWindowProps> = ({
       });
 
       // Highlight the message after a short delay to allow scroll to complete
-      setTimeout(() => {
-        setHighlightedMessageId(messageId);
+      highlightStartTimeoutRef.current = setTimeout(() => {
+        if (isMountedRef.current) {
+          setHighlightedMessageId(messageId);
+        }
+        highlightStartTimeoutRef.current = null;
       }, 300);
 
       // Clear highlight after animation completes (150ms fade in + 800ms hold + 500ms fade out = 1450ms)
       highlightTimeoutRef.current = setTimeout(() => {
-        setHighlightedMessageId(null);
+        if (isMountedRef.current) {
+          setHighlightedMessageId(null);
+        }
+        highlightTimeoutRef.current = null;
       }, 1800);
     }
   }, [groupedMessages]);
@@ -322,13 +374,21 @@ export const MessageWindow: React.FC<MessageWindowProps> = ({
       animated: true,
     });
 
+    // Clear any existing retry timeout
+    if (scrollRetryTimeoutRef.current) {
+      clearTimeout(scrollRetryTimeoutRef.current);
+    }
+
     // Retry scrolling after a delay
-    setTimeout(() => {
-      flatListRef.current?.scrollToIndex({
-        index: info.index,
-        animated: true,
-        viewPosition: 0.5,
-      });
+    scrollRetryTimeoutRef.current = setTimeout(() => {
+      if (isMountedRef.current) {
+        flatListRef.current?.scrollToIndex({
+          index: info.index,
+          animated: true,
+          viewPosition: 0.5,
+        });
+      }
+      scrollRetryTimeoutRef.current = null;
     }, 100);
   }, []);
 
@@ -363,7 +423,7 @@ export const MessageWindow: React.FC<MessageWindowProps> = ({
           renderItem={renderItem}
           keyExtractor={keyExtractor}
           style={styles.messagesList}
-          contentContainerStyle={styles.contentContainer}
+          contentContainerStyle={[styles.contentContainer, responsiveStyles.contentContainer]}
           inverted
           showsVerticalScrollIndicator={false}
           onEndReached={onLoadMore}
@@ -385,7 +445,7 @@ export const MessageWindow: React.FC<MessageWindowProps> = ({
       {loading && messages.length > 0 && (
         <View style={styles.sendingIndicator}>
           <ActivityIndicator size="small" color="#6B7280" />
-          <Text style={styles.sendingText}>Sending...</Text>
+          <Text style={[styles.sendingText, responsiveStyles.sendingText]}>Sending...</Text>
         </View>
       )}
 
@@ -394,12 +454,16 @@ export const MessageWindow: React.FC<MessageWindowProps> = ({
         <Pressable
           style={({ pressed }) => [
             styles.scrollToBottomButton,
+            responsiveStyles.scrollToBottomButton,
             { backgroundColor: sportColors.buttonColor },
             pressed && styles.scrollButtonPressed
           ]}
           onPress={scrollToBottom}
+          accessibilityLabel="Scroll to latest messages"
+          accessibilityRole="button"
+          accessibilityHint="Jump to the most recent messages"
         >
-          <Ionicons name="chevron-down" size={20} color="#FFFFFF" />
+          <Ionicons name="chevron-down" size={moderateScale(20)} color="#FFFFFF" />
         </Pressable>
       )}
     </View>
@@ -415,27 +479,27 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   contentContainer: {
-    paddingHorizontal: isSmallScreen ? 12 : isTablet ? 24 : 16,
+    paddingHorizontal: scale(16),
     // For inverted list: paddingTop adds space at visual bottom (above input)
     // paddingBottom adds space at visual top (oldest messages)
-    paddingTop: 4, // Minimal gap above input (WhatsApp style)
-    paddingBottom: isSmallScreen ? 8 : isTablet ? 16 : 12, // Space at top for oldest messages
+    paddingTop: verticalScale(4), // Minimal gap above input (WhatsApp style)
+    paddingBottom: verticalScale(12), // Space at top for oldest messages
     flexGrow: 1,
   },
   dateDivider: {
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    paddingVertical: isSmallScreen ? 12 : isTablet ? 20 : 16,
+    paddingVertical: verticalScale(16),
   },
   dateDividerBadge: {
     backgroundColor: '#F3F4F6',
-    paddingHorizontal: isSmallScreen ? 10 : isTablet ? 16 : 12,
-    paddingVertical: isSmallScreen ? 3 : isTablet ? 6 : 4,
-    borderRadius: 16,
+    paddingHorizontal: scale(12),
+    paddingVertical: verticalScale(4),
+    borderRadius: moderateScale(16),
   },
   dateDividerText: {
-    fontSize: isSmallScreen ? 11 : isTablet ? 14 : 12,
+    fontSize: moderateScale(12),
     color: '#6B7280',
     fontWeight: '500',
   },
@@ -447,83 +511,83 @@ const styles = StyleSheet.create({
   emptyContainer: {
     justifyContent: 'center',
     alignItems: 'center',
-    paddingVertical: 50,
+    paddingVertical: verticalScale(50),
   },
   emptyEmoji: {
-    fontSize: isSmallScreen ? 50 : isTablet ? 70 : 60,
-    marginBottom: isSmallScreen ? 12 : isTablet ? 20 : 16,
+    fontSize: moderateScale(60),
+    marginBottom: verticalScale(16),
   },
   emptyText: {
-    fontSize: isSmallScreen ? 16 : isTablet ? 20 : 18,
+    fontSize: moderateScale(18),
     fontWeight: '600',
     color: '#6B7280',
-    marginBottom: isSmallScreen ? 6 : isTablet ? 10 : 8,
+    marginBottom: verticalScale(8),
   },
   emptySubtext: {
-    fontSize: isSmallScreen ? 13 : isTablet ? 16 : 14,
+    fontSize: moderateScale(14),
     color: '#9CA3AF',
     textAlign: 'center',
-    lineHeight: isSmallScreen ? 18 : isTablet ? 22 : 20,
-    paddingHorizontal: 20,
+    lineHeight: verticalScale(20),
+    paddingHorizontal: scale(20),
   },
   loadingContainer: {
     flex: 1,
-    paddingVertical: 16,
+    paddingVertical: verticalScale(16),
   },
   skeletonContainer: {
     flexDirection: 'row',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    gap: 12,
+    paddingHorizontal: scale(16),
+    paddingVertical: verticalScale(8),
+    gap: scale(12),
   },
   skeletonAvatar: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: scale(32),
+    height: verticalScale(32),
+    borderRadius: moderateScale(16),
     backgroundColor: '#E5E7EB',
   },
   skeletonContent: {
     flex: 1,
-    gap: 8,
+    gap: verticalScale(8),
   },
   skeletonNameLine: {
-    height: 12,
-    width: 80,
+    height: verticalScale(12),
+    width: scale(80),
     backgroundColor: '#E5E7EB',
-    borderRadius: 6,
+    borderRadius: moderateScale(6),
   },
   skeletonMessageLine: {
-    height: 16,
-    width: 200,
+    height: verticalScale(16),
+    width: scale(200),
     backgroundColor: '#E5E7EB',
-    borderRadius: 8,
+    borderRadius: moderateScale(8),
   },
   sendingIndicator: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 16,
-    gap: 8,
+    paddingVertical: verticalScale(16),
+    gap: scale(8),
   },
   sendingText: {
-    fontSize: isSmallScreen ? 13 : isTablet ? 16 : 14,
+    fontSize: moderateScale(14),
     color: '#6B7280',
   },
   scrollToBottomButton: {
     position: 'absolute',
-    bottom: 16,
-    right: 16,
-    width: isSmallScreen ? 36 : isTablet ? 48 : 40,
-    height: isSmallScreen ? 36 : isTablet ? 48 : 40,
-    borderRadius: isSmallScreen ? 18 : isTablet ? 24 : 20,
+    bottom: verticalScale(16),
+    right: scale(16),
+    width: scale(44), // Minimum touch target
+    height: verticalScale(44),
+    borderRadius: moderateScale(22),
     justifyContent: 'center',
     alignItems: 'center',
     ...Platform.select({
       ios: {
         shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
+        shadowOffset: { width: 0, height: verticalScale(2) },
         shadowOpacity: 0.25,
-        shadowRadius: 3.84,
+        shadowRadius: moderateScale(3.84),
       },
       android: {
         elevation: 5,

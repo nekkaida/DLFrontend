@@ -1,4 +1,9 @@
 import { getSportColors, SportType } from '@/constants/SportsColor';
+import {
+  scale,
+  verticalScale,
+  moderateScale,
+} from '@/core/utils/responsive';
 import { format } from 'date-fns';
 import React, { useMemo } from 'react';
 import { Image, StyleSheet, Text, View } from 'react-native';
@@ -76,11 +81,11 @@ export const MessageBubble: React.FC<MessageBubbleProps> = React.memo(({
           isCurrentUser ? styles.currentUserBubble : styles.otherUserBubble,
           isCurrentUser && { backgroundColor: bubbleColor },
           isCurrentUser ? {
-            borderBottomRightRadius: isLastInGroup ? 6 : 18,
-            borderTopRightRadius: showAvatar ? 18 : 6,
+            borderBottomRightRadius: isLastInGroup ? moderateScale(6) : moderateScale(18),
+            borderTopRightRadius: showAvatar ? moderateScale(18) : moderateScale(6),
           } : {
-            borderBottomLeftRadius: isLastInGroup ? 6 : 18,
-            borderTopLeftRadius: showAvatar ? 18 : 6,
+            borderBottomLeftRadius: isLastInGroup ? moderateScale(6) : moderateScale(18),
+            borderTopLeftRadius: showAvatar ? moderateScale(18) : moderateScale(6),
           },
           message.status === 'sending' && styles.sendingBubble,
           message.status === 'failed' && styles.failedBubble,
@@ -128,8 +133,8 @@ MessageBubble.displayName = 'MessageBubble';
 const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
-    marginVertical: 1,
-    paddingHorizontal: 4,
+    marginVertical: verticalScale(1),
+    paddingHorizontal: scale(4),
   },
   currentUserContainer: {
     justifyContent: 'flex-end',
@@ -138,47 +143,47 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-start',
   },
   avatarContainer: {
-    marginRight: 8,
+    marginRight: scale(8),
     alignSelf: 'flex-end',
-    marginBottom: 2,
+    marginBottom: verticalScale(2),
   },
   avatarSpacer: {
-    width: 40,
+    width: scale(40),
   },
   avatar: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: scale(32),
+    height: verticalScale(32),
+    borderRadius: moderateScale(16),
     backgroundColor: '#E5E7EB',
     justifyContent: 'center',
     alignItems: 'center',
   },
   avatarImage: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: scale(32),
+    height: verticalScale(32),
+    borderRadius: moderateScale(16),
   },
   avatarText: {
     color: '#6B7280',
-    fontSize: 12,
+    fontSize: moderateScale(12),
     fontWeight: '600',
   },
   messageContainer: {
     maxWidth: '75%',
-    marginBottom: 2,
+    marginBottom: verticalScale(2),
   },
   senderName: {
-    fontSize: 12,
+    fontSize: moderateScale(12),
     color: '#6B7280',
-    marginBottom: 2,
-    marginLeft: 4,
+    marginBottom: verticalScale(2),
+    marginLeft: scale(4),
     fontWeight: '500',
   },
   bubble: {
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderRadius: 20,
-    minHeight: 40,
+    paddingHorizontal: scale(14),
+    paddingVertical: verticalScale(10),
+    borderRadius: moderateScale(20),
+    minHeight: verticalScale(40),
     justifyContent: 'center',
   },
   currentUserBubble: {
@@ -198,8 +203,8 @@ const styles = StyleSheet.create({
     borderColor: '#EF4444',
   },
   messageText: {
-    fontSize: 15,
-    lineHeight: 20,
+    fontSize: moderateScale(15),
+    lineHeight: verticalScale(20),
   },
   currentUserText: {
     color: '#FFFFFF',
@@ -211,11 +216,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'flex-end',
-    marginTop: 2,
+    marginTop: verticalScale(2),
   },
   timestamp: {
-    fontSize: 11,
-    marginTop: 2,
+    fontSize: moderateScale(11),
+    marginTop: verticalScale(2),
   },
   currentUserTimestamp: {
     color: 'rgba(255, 255, 255, 0.7)',
@@ -225,23 +230,23 @@ const styles = StyleSheet.create({
   },
   statusContainer: {
     flexDirection: 'row',
-    marginLeft: 4,
+    marginLeft: scale(4),
   },
   deliveryStatus: {
-    fontSize: 10,
+    fontSize: moderateScale(10),
     color: 'rgba(255, 255, 255, 0.7)',
   },
   readStatus: {
-    fontSize: 10,
+    fontSize: moderateScale(10),
     color: '#34D399',
-    marginLeft: -2,
+    marginLeft: scale(-2),
   },
   sendingStatus: {
-    fontSize: 10,
+    fontSize: moderateScale(10),
     color: 'rgba(255, 255, 255, 0.5)',
   },
   failedStatus: {
-    fontSize: 10,
+    fontSize: moderateScale(10),
     color: '#EF4444',
     fontWeight: '700',
   },

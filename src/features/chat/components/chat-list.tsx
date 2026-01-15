@@ -1,4 +1,9 @@
 import { useSession } from "@/lib/auth-client";
+import {
+  scale,
+  verticalScale,
+  moderateScale,
+} from '@/core/utils/responsive';
 import { Ionicons } from "@expo/vector-icons";
 import React, { useCallback, useMemo } from "react";
 import {
@@ -148,7 +153,7 @@ const ThreadItem = React.memo<{
           <GroupAvatarStack
             participants={item.participants}
             sportColor={sportColors.primary}
-            size={38}
+            size={moderateScale(38)}
           />
         ) : avatarImage ? (
           <Image source={{ uri: avatarImage }} style={styles.avatarImage} />
@@ -217,7 +222,7 @@ const EmptyList = React.memo(() => (
   <View style={styles.emptyContainer}>
     <Ionicons
       name="chatbubble-outline"
-      size={56}
+      size={moderateScale(56)}
       color="#888"
       style={styles.emptyIcon}
     />
@@ -304,7 +309,7 @@ const styles = StyleSheet.create({
   },
   listContainer: {
     flexGrow: 1,
-    paddingBottom: UI_DIMENSIONS.NAV_BAR_HEIGHT + 17,
+    paddingBottom: UI_DIMENSIONS.NAV_BAR_HEIGHT + verticalScale(17),
   },
   emptyListContainer: {
     flexGrow: 1,
@@ -313,7 +318,7 @@ const styles = StyleSheet.create({
   },
   threadItem: {
     flexDirection: 'row',
-    padding: 16,
+    padding: moderateScale(16),
     borderBottomWidth: 1,
     borderBottomColor: '#F1F5F9',
     backgroundColor: '#FFFFFF',
@@ -324,81 +329,81 @@ const styles = StyleSheet.create({
   },
   avatarContainer: {
     position: 'relative',
-    marginRight: 12,
-    minWidth: 48,
-    minHeight: 48,
+    marginRight: scale(12),
+    minWidth: scale(48),
+    minHeight: verticalScale(48),
     justifyContent: 'center',
     alignItems: 'flex-start',
   },
   avatarPlaceholder: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: scale(48),
+    height: verticalScale(48),
+    borderRadius: moderateScale(24),
     backgroundColor: '#6de9a0',
     justifyContent: 'center',
     alignItems: 'center',
   },
   avatarImage: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: scale(48),
+    height: verticalScale(48),
+    borderRadius: moderateScale(24),
   },
   emptyIcon: {
-    marginBottom: 12,
+    marginBottom: verticalScale(12),
   },
   avatarText: {
     color: '#FFFFFF',
-    fontSize: 16,
+    fontSize: moderateScale(16),
     fontWeight: '600',
   },
   unreadBadge: {
     backgroundColor: "#DC2626",
-    borderRadius: 10,
-    minWidth: 20,
-    height: 20,
+    borderRadius: moderateScale(10),
+    minWidth: scale(20),
+    height: verticalScale(20),
     justifyContent: "center",
     alignItems: "center",
-    paddingHorizontal: 6,
+    paddingHorizontal: scale(6),
   },
   unreadText: {
     color: "#FFFFFF",
-    fontSize: 12,
+    fontSize: moderateScale(12),
     fontWeight: "600",
   },
   threadContent: {
     flex: 1,
     justifyContent: 'center',
-    marginRight: 12,
+    marginRight: scale(12),
   },
   nameRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 4,
+    marginBottom: verticalScale(4),
   },
   threadName: {
-    fontSize: 16,
+    fontSize: moderateScale(16),
     fontWeight: "600",
     color: "#111827",
     flex: 1,
-    marginRight: 8,
+    marginRight: scale(8),
   },
   badgeRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    marginBottom: 4,
+    gap: scale(6),
+    marginBottom: verticalScale(4),
   },
   sportBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 10,
+    paddingHorizontal: scale(8),
+    paddingVertical: verticalScale(2),
+    borderRadius: moderateScale(10),
     backgroundColor: 'transparent',
     borderWidth: 1.5,
     alignSelf: 'flex-start',
   },
   sportBadgeText: {
-    fontSize: 10,
+    fontSize: moderateScale(10),
     fontWeight: '600',
     textTransform: 'uppercase',
   },
@@ -409,23 +414,23 @@ const styles = StyleSheet.create({
     color: '#6B7280',
   },
   timestamp: {
-    fontSize: 12,
+    fontSize: moderateScale(12),
     color: "#86868B",
     fontWeight: '500',
   },
   messageRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 2,
+    marginTop: verticalScale(2),
   },
   messageContainer: {
     flex: 1,
-    marginRight: 8,
+    marginRight: scale(8),
   },
   lastMessage: {
-    fontSize: 14,
+    fontSize: moderateScale(14),
     color: "#6B7280",
-    lineHeight: 20,
+    lineHeight: verticalScale(20),
   },
   senderName: {
     fontWeight: '600',
@@ -436,23 +441,23 @@ const styles = StyleSheet.create({
     color: "#9CA3AF",
   },
   emptyMessage: {
-    fontSize: 14,
+    fontSize: moderateScale(14),
     color: "#9CA3AF",
     fontStyle: 'italic',
   },
   emptyContainer: {
     justifyContent: "center",
     alignItems: "center",
-    paddingVertical: 60,
+    paddingVertical: verticalScale(60),
   },
   emptyText: {
-    fontSize: 18,
+    fontSize: moderateScale(18),
     fontWeight: "600",
     color: "#6B7280",
-    marginBottom: 4,
+    marginBottom: verticalScale(4),
   },
   emptySubtext: {
-    fontSize: 14,
+    fontSize: moderateScale(14),
     color: "#9CA3AF",
   },
 });

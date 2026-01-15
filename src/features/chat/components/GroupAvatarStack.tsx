@@ -1,7 +1,20 @@
 import React, { useMemo } from 'react';
 import { Image, Platform, StyleSheet, Text, View, ViewStyle } from 'react-native';
+import {
+  scale,
+  verticalScale,
+  moderateScale,
+} from '@/core/utils/responsive';
 import { filterOutAdmins, isAdminUser, User } from '../types';
 import { getUserNameColor } from '../utils/userColors';
+
+// Responsive size constants
+const DEFAULT_SIZE = moderateScale(40);
+const SOLO_SIZE = moderateScale(56);
+const DUO_AVATAR_SIZE = moderateScale(42);
+const BORDER_WIDTH = moderateScale(2);
+const SHADOW_RADIUS = moderateScale(2);
+const ELEVATION = moderateScale(3);
 
 interface GroupAvatarStackProps {
   participants: User[];
@@ -27,7 +40,7 @@ const SingleAvatar: React.FC<{
           width: size,
           height: size,
           borderRadius: size / 2,
-          borderWidth: 2,
+          borderWidth: BORDER_WIDTH,
           borderColor: '#FFFFFF',
           overflow: 'hidden',
         },
@@ -67,7 +80,7 @@ const SingleAvatar: React.FC<{
 export const GroupAvatarStack: React.FC<GroupAvatarStackProps> = React.memo(({
   participants,
   sportColor,
-  size = 40,
+  size = DEFAULT_SIZE,
 }) => {
   // Filter out admin users from display
   const visibleParticipants = useMemo(() => filterOutAdmins(participants), [participants]);
@@ -81,16 +94,17 @@ export const GroupAvatarStack: React.FC<GroupAvatarStackProps> = React.memo(({
 
   // Size scaling based on CSS: Avatar 1 (32px), Avatar 2 (22px smallest), Avatar 3 (34px biggest)
   // Ratio from CSS: size1=32/34=0.94, size2=22/34=0.65, size3=34/34=1.0
-  const { size1, size2, size3, badgeSize, scale, containerWidth, containerHeight, soloSize, duoAvatarSize, duoOverlap, duoContainerWidth } = useMemo(() => {
+  const { size1, size2, size3, badgeSize, scaleFactor, containerWidth, containerHeight, soloSize, duoAvatarSize, duoOverlap, duoContainerWidth } = useMemo(() => {
     const s3 = size;              // Avatar 3: biggest (34px ratio, front, most visible)
     const s1 = size * 0.94;       // Avatar 1: medium (32px ratio)
     const s2 = size * 0.65;       // Avatar 2: smallest (22px ratio)
     const badge = size * 0.7;     // Badge (24px ratio)
-    const sc = size / 34;         // Scale factor
-    const cw = 52 * sc;           // Container width
-    const ch = 67 * sc;           // Container height
-    const solo = 56;              // Full size avatar matching groupAvatarCircle
-    const duoAvatar = 42;         // Size for each avatar in duo
+    const baseSize = moderateScale(34);  // Base size for scaling
+    const sc = size / baseSize;   // Scale factor
+    const cw = moderateScale(52) * sc;   // Container width
+    const ch = moderateScale(67) * sc;   // Container height
+    const solo = SOLO_SIZE;       // Full size avatar matching groupAvatarCircle
+    const duoAvatar = DUO_AVATAR_SIZE;   // Size for each avatar in duo
     const overlap = duoAvatar * 0.35;
     const duoCW = duoAvatar * 2 - overlap;
 
@@ -99,7 +113,7 @@ export const GroupAvatarStack: React.FC<GroupAvatarStackProps> = React.memo(({
       size2: s2,
       size3: s3,
       badgeSize: badge,
-      scale: sc,
+      scaleFactor: sc,
       containerWidth: cw,
       containerHeight: ch,
       soloSize: solo,
@@ -173,7 +187,7 @@ export const GroupAvatarStack: React.FC<GroupAvatarStackProps> = React.memo(({
         style={{
           position: 'absolute',
           top: 0,
-          left: 1 * scale,
+          left: scale(1) * scaleFactor,
           zIndex: 1,
         }}
       />
@@ -184,8 +198,8 @@ export const GroupAvatarStack: React.FC<GroupAvatarStackProps> = React.memo(({
         sportColor={sportColor}
         style={{
           position: 'absolute',
-          top: 27 * scale,
-          left: 3 * scale,
+          top: verticalScale(27) * scaleFactor,
+          left: scale(3) * scaleFactor,
           zIndex: 2,
         }}
       />
@@ -196,8 +210,8 @@ export const GroupAvatarStack: React.FC<GroupAvatarStackProps> = React.memo(({
         sportColor={sportColor}
         style={{
           position: 'absolute',
-          top: 16 * scale,
-          left: 19 * scale,
+          top: verticalScale(16) * scaleFactor,
+          left: scale(19) * scaleFactor,
           zIndex: 3,
         }}
       />
@@ -211,8 +225,8 @@ export const GroupAvatarStack: React.FC<GroupAvatarStackProps> = React.memo(({
               width: badgeSize,
               height: badgeSize,
               borderRadius: badgeSize / 2,
-              top: 43 * scale,
-              left: 14 * scale,
+              top: verticalScale(43) * scaleFactor,
+              left: scale(14) * scaleFactor,
               zIndex: 4,
             },
           ]}
@@ -237,17 +251,17 @@ const styles = StyleSheet.create({
     backgroundColor: '#E5E7EB',
     justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 2,
+    borderWidth: BORDER_WIDTH,
     borderColor: '#FFFFFF',
     ...Platform.select({
       ios: {
         shadowColor: '#000',
-        shadowOffset: { width: 0, height: 1 },
+        shadowOffset: { width: 0, height: verticalScale(1) },
         shadowOpacity: 0.2,
-        shadowRadius: 2,
+        shadowRadius: SHADOW_RADIUS,
       },
       android: {
-        elevation: 3,
+        elevation: ELEVATION,
       },
     }),
   },

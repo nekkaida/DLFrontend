@@ -2,6 +2,11 @@ import { Ionicons } from "@expo/vector-icons";
 import React from "react";
 import { StyleSheet, Text, View } from "react-native";
 import { SPORT_COLORS, getSportColors } from "@/constants/SportsColor";
+import {
+  scale,
+  verticalScale,
+  moderateScale,
+} from "@/core/utils/responsive";
 
 interface LeagueMatchAttachmentProps {
   isFromCurrentUser?: boolean;
@@ -21,7 +26,7 @@ export const LeagueMatchAttachment: React.FC<LeagueMatchAttachmentProps> = ({
 
   return (
     <View style={styles.container}>
-      <Ionicons name="calendar" size={14} color={iconColor} style={styles.icon} />
+      <Ionicons name="calendar" size={moderateScale(14)} color={iconColor} style={styles.icon} />
       <Text style={styles.text}>
         {isFromCurrentUser ? "You posted a league match" : "Posted a league match"}
       </Text>
@@ -35,11 +40,11 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   icon: {
-    marginRight: 6,
+    marginRight: scale(6),
   },
   text: {
-    fontSize: 14,
+    fontSize: moderateScale(14),
     color: "#6B7280",
-    lineHeight: 20,
+    lineHeight: verticalScale(20),
   },
 });

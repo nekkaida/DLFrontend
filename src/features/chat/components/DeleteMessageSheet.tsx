@@ -15,6 +15,21 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import {
+  scale,
+  verticalScale,
+  moderateScale,
+} from '@/core/utils/responsive';
+
+// Safe haptics wrapper
+const triggerNotification = async (type: Haptics.NotificationFeedbackType) => {
+  try {
+    await Haptics.notificationAsync(type);
+  } catch {
+    // Haptics not supported on this device
+  }
+};
+
 interface DeleteMessageSheetProps {
   visible: boolean;
   onClose: () => void;
@@ -29,7 +44,7 @@ export const DeleteMessageSheet: React.FC<DeleteMessageSheetProps> = ({
   const bottomSheetModalRef = useRef<BottomSheetModal>(null);
   const insets = useSafeAreaInsets();
 
-  const snapPoints = useMemo(() => [180 + insets.bottom], [insets.bottom]);
+  const snapPoints = useMemo(() => [verticalScale(180) + insets.bottom], [insets.bottom]);
 
   useEffect(() => {
     if (visible) {
@@ -60,7 +75,7 @@ export const DeleteMessageSheet: React.FC<DeleteMessageSheetProps> = ({
 
   const handleDelete = useCallback(() => {
     if (Platform.OS !== 'web') {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+      triggerNotification(Haptics.NotificationFeedbackType.Warning);
     }
     onConfirmDelete();
   }, [onConfirmDelete]);
@@ -77,7 +92,7 @@ export const DeleteMessageSheet: React.FC<DeleteMessageSheetProps> = ({
       enablePanDownToClose={true}
       enableDismissOnClose={true}
     >
-      <BottomSheetView style={[styles.content, { paddingBottom: insets.bottom + 12 }]}>
+      <BottomSheetView style={[styles.content, { paddingBottom: insets.bottom + verticalScale(12) }]}>
         <Text style={styles.title}>Delete message?</Text>
         <Text style={styles.subtitle}>This can't be undone.</Text>
 
@@ -86,6 +101,9 @@ export const DeleteMessageSheet: React.FC<DeleteMessageSheetProps> = ({
             style={[styles.button, styles.deleteButton]}
             onPress={handleDelete}
             activeOpacity={0.7}
+            accessibilityLabel="Delete message"
+            accessibilityRole="button"
+            accessibilityHint="Permanently delete this message"
           >
             <Text style={styles.deleteButtonText}>Delete</Text>
           </TouchableOpacity>
@@ -94,6 +112,9 @@ export const DeleteMessageSheet: React.FC<DeleteMessageSheetProps> = ({
             style={[styles.button, styles.cancelButton]}
             onPress={onClose}
             activeOpacity={0.7}
+            accessibilityLabel="Cancel"
+            accessibilityRole="button"
+            accessibilityHint="Go back without deleting"
           >
             <Text style={styles.cancelButtonText}>Cancel</Text>
           </TouchableOpacity>
@@ -106,37 +127,37 @@ export const DeleteMessageSheet: React.FC<DeleteMessageSheetProps> = ({
 const styles = StyleSheet.create({
   bottomSheetBackground: {
     backgroundColor: '#FFFFFF',
-    borderTopLeftRadius: 16,
-    borderTopRightRadius: 16,
+    borderTopLeftRadius: moderateScale(16),
+    borderTopRightRadius: moderateScale(16),
   },
   handleIndicator: {
     backgroundColor: '#D1D5DB',
-    width: 36,
-    height: 4,
+    width: scale(36),
+    height: verticalScale(4),
   },
   content: {
-    paddingHorizontal: 20,
-    paddingTop: 4,
+    paddingHorizontal: scale(20),
+    paddingTop: verticalScale(4),
   },
   title: {
-    fontSize: 17,
+    fontSize: moderateScale(17),
     fontWeight: '600',
     color: '#111827',
     textAlign: 'center',
   },
   subtitle: {
-    fontSize: 14,
+    fontSize: moderateScale(14),
     color: '#6B7280',
     textAlign: 'center',
-    marginTop: 4,
-    marginBottom: 20,
+    marginTop: verticalScale(4),
+    marginBottom: verticalScale(20),
   },
   buttonContainer: {
-    gap: 8,
+    gap: verticalScale(8),
   },
   button: {
-    paddingVertical: 14,
-    borderRadius: 12,
+    paddingVertical: verticalScale(14),
+    borderRadius: moderateScale(12),
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -144,7 +165,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#DC2626',
   },
   deleteButtonText: {
-    fontSize: 16,
+    fontSize: moderateScale(16),
     fontWeight: '600',
     color: '#FFFFFF',
   },
@@ -152,7 +173,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#F3F4F6',
   },
   cancelButtonText: {
-    fontSize: 16,
+    fontSize: moderateScale(16),
     fontWeight: '600',
     color: '#374151',
   },

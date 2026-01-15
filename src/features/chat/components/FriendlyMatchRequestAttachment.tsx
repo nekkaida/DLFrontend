@@ -1,6 +1,11 @@
 import { Ionicons } from "@expo/vector-icons";
 import React from "react";
 import { StyleSheet, Text, View } from "react-native";
+import {
+  scale,
+  verticalScale,
+  moderateScale,
+} from '@/core/utils/responsive';
 import { SPORT_COLORS, getSportColors } from "@/constants/SportsColor";
 
 interface FriendlyMatchRequestAttachmentProps {
@@ -21,7 +26,7 @@ export const FriendlyMatchRequestAttachment: React.FC<FriendlyMatchRequestAttach
 
   return (
     <View style={styles.container}>
-      <Ionicons name="tennisball" size={14} color={iconColor} style={styles.icon} />
+      <Ionicons name="tennisball" size={moderateScale(14)} color={iconColor} style={styles.icon} />
       <Text style={styles.text}>
         {isFromCurrentUser ? "You sent a friendly match request" : "Sent a friendly match request"}
       </Text>
@@ -35,11 +40,11 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   icon: {
-    marginRight: 6,
+    marginRight: scale(6),
   },
   text: {
-    fontSize: 14,
+    fontSize: moderateScale(14),
     color: "#6B7280",
-    lineHeight: 20,
+    lineHeight: verticalScale(20),
   },
 });

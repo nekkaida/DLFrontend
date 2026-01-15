@@ -1,5 +1,10 @@
 import { getBackendBaseURL } from '@/config/network';
 import { getSportColors } from '@/constants/SportsColor';
+import {
+  scale,
+  verticalScale,
+  moderateScale,
+} from '@/core/utils/responsive';
 import { authClient, useSession } from '@/lib/auth-client';
 import { chatLogger } from '@/utils/logger';
 import { Ionicons } from '@expo/vector-icons';
@@ -10,7 +15,6 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   AppState,
   AppStateStatus,
-  Dimensions,
   Image,
   KeyboardAvoidingView,
   Platform,
@@ -18,6 +22,7 @@ import {
   StatusBar,
   StyleSheet,
   Text,
+  useWindowDimensions,
   View
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -48,9 +53,20 @@ interface MatchParticipant {
   };
 }
 
-const { width } = Dimensions.get('window');
-const isSmallScreen = width < 375;
-const isTablet = width > 768;
+// Breakpoint constants for responsive design
+const BREAKPOINTS = {
+  SMALL: 375,
+  TABLET: 768,
+};
+
+// Safe haptics wrapper
+const triggerHaptic = async (style: Haptics.ImpactFeedbackStyle = Haptics.ImpactFeedbackStyle.Light) => {
+  try {
+    await Haptics.impactAsync(style);
+  } catch {
+    // Haptics not supported on this device
+  }
+};
 
 interface ChatThreadScreenProps {
   threadId: string;
@@ -67,7 +83,42 @@ export const ChatThreadScreen: React.FC<ChatThreadScreenProps> = ({ threadId, da
   const [isLoadingThread, setIsLoadingThread] = useState(true);
   const appStateRef = useRef<AppStateStatus>(AppState.currentState);
   const messageInputRef = useRef<MessageInputRef>(null);
+  // Refs to prevent memory leaks and race conditions
+  const isMountedRef = useRef(true);
+  const replyFocusTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const actionBarFocusTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const insets = useSafeAreaInsets();
+
+  // Responsive dimensions - updates on rotation/resize
+  const { width: windowWidth } = useWindowDimensions();
+  const isSmallScreen = windowWidth < BREAKPOINTS.SMALL;
+  const isTablet = windowWidth > BREAKPOINTS.TABLET;
+
+  // Responsive styles that update with dimension changes
+  const responsiveStyles = useMemo(() => ({
+    loadingText: {
+      fontSize: moderateScale(isSmallScreen ? 14 : isTablet ? 18 : 16),
+    },
+    chatHeader: {
+      paddingHorizontal: scale(isSmallScreen ? 12 : isTablet ? 24 : 16),
+    },
+    chatHeaderAvatar: {
+      width: scale(isSmallScreen ? 40 : isTablet ? 48 : 44),
+      height: scale(isSmallScreen ? 40 : isTablet ? 48 : 44),
+      borderRadius: moderateScale(isSmallScreen ? 20 : isTablet ? 24 : 22),
+    },
+    chatHeaderTitle: {
+      fontSize: moderateScale(isSmallScreen ? 16 : isTablet ? 20 : 18),
+      lineHeight: verticalScale(isSmallScreen ? 20 : isTablet ? 24 : 22),
+    },
+    chatHeaderSubtitle: {
+      fontSize: moderateScale(isSmallScreen ? 12 : isTablet ? 16 : 14),
+      lineHeight: verticalScale(isSmallScreen ? 14 : isTablet ? 18 : 16),
+    },
+    defaultChatHeaderAvatarText: {
+      fontSize: moderateScale(isSmallScreen ? 16 : isTablet ? 20 : 18),
+    },
+  }), [isSmallScreen, isTablet]);
 
   const { setThreadMetadata, pendingMatchData, clearPendingMatch } = useCreateMatchStore();
 
@@ -93,6 +144,23 @@ export const ChatThreadScreen: React.FC<ChatThreadScreenProps> = ({ threadId, da
     user?.id || ''
   );
 
+  // Cleanup on unmount
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+      // Clear all timeout refs
+      if (replyFocusTimeoutRef.current) {
+        clearTimeout(replyFocusTimeoutRef.current);
+        replyFocusTimeoutRef.current = null;
+      }
+      if (actionBarFocusTimeoutRef.current) {
+        clearTimeout(actionBarFocusTimeoutRef.current);
+        actionBarFocusTimeoutRef.current = null;
+      }
+    };
+  }, []);
+
   // Load thread data when component mounts
   useEffect(() => {
     const loadThread = async () => {
@@ -105,21 +173,30 @@ export const ChatThreadScreen: React.FC<ChatThreadScreenProps> = ({ threadId, da
       if (existingThread && hasValidParticipants) {
         // Set thread immediately - no loading state needed for cached threads
         setCurrentThread(existingThread);
-        setIsLoadingThread(false);
+        if (isMountedRef.current) {
+          setIsLoadingThread(false);
+        }
 
         // Mark as read in background
         if (existingThread.unreadCount > 0) {
           ChatService.markAllAsRead(threadId, user.id)
-            .then(() => updateThread({ ...existingThread, unreadCount: 0 }))
+            .then(() => {
+              if (isMountedRef.current) {
+                updateThread({ ...existingThread, unreadCount: 0 });
+              }
+            })
             .catch((error) => chatLogger.error('Error marking thread as read:', error));
         }
       } else {
         // Only show loading for threads not in cache
-        setIsLoadingThread(true);
+        if (isMountedRef.current) {
+          setIsLoadingThread(true);
+        }
 
         // Fetch thread from API (either not in store or missing participants)
         try {
           const thread = await ChatService.getThread(threadId);
+          if (!isMountedRef.current) return;
           if (thread) {
             setCurrentThread(thread);
             // Also update the thread in the store if it exists but was incomplete
@@ -128,12 +205,15 @@ export const ChatThreadScreen: React.FC<ChatThreadScreenProps> = ({ threadId, da
             }
           }
         } catch (error) {
+          if (!isMountedRef.current) return;
           chatLogger.error('Error fetching thread:', error);
           toast.error('Failed to load conversation');
           router.back();
           return;
         }
-        setIsLoadingThread(false);
+        if (isMountedRef.current) {
+          setIsLoadingThread(false);
+        }
       }
 
       // Load messages in background (MessageWindow has its own skeleton loading)
@@ -474,8 +554,14 @@ export const ChatThreadScreen: React.FC<ChatThreadScreenProps> = ({ threadId, da
   const handleReply = useCallback((message: Message) => {
     setReplyingTo(message);
     // Focus input to bring up keyboard
-    setTimeout(() => {
-      messageInputRef.current?.focus();
+    if (replyFocusTimeoutRef.current) {
+      clearTimeout(replyFocusTimeoutRef.current);
+    }
+    replyFocusTimeoutRef.current = setTimeout(() => {
+      if (isMountedRef.current) {
+        messageInputRef.current?.focus();
+      }
+      replyFocusTimeoutRef.current = null;
     }, 50);
   }, [setReplyingTo]);
 
@@ -500,8 +586,14 @@ export const ChatThreadScreen: React.FC<ChatThreadScreenProps> = ({ threadId, da
     if (selectedMessage) {
       setReplyingTo(selectedMessage);
       // Focus input to bring up keyboard
-      setTimeout(() => {
-        messageInputRef.current?.focus();
+      if (actionBarFocusTimeoutRef.current) {
+        clearTimeout(actionBarFocusTimeoutRef.current);
+      }
+      actionBarFocusTimeoutRef.current = setTimeout(() => {
+        if (isMountedRef.current) {
+          messageInputRef.current?.focus();
+        }
+        actionBarFocusTimeoutRef.current = null;
       }, 50);
     }
   }, [selectedMessage, setReplyingTo]);
@@ -627,7 +719,7 @@ export const ChatThreadScreen: React.FC<ChatThreadScreenProps> = ({ threadId, da
   // Memoize navigation handlers for group chat header
   const handleViewStandings = useCallback(() => {
     if (!currentThread) return;
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    triggerHaptic(Haptics.ImpactFeedbackStyle.Light);
     router.push({
       pathname: '/match/divisionstandings',
       params: {
@@ -646,7 +738,7 @@ export const ChatThreadScreen: React.FC<ChatThreadScreenProps> = ({ threadId, da
 
   const handleViewAllMatches = useCallback(() => {
     if (!currentThread) return;
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    triggerHaptic(Haptics.ImpactFeedbackStyle.Light);
     router.push({
       pathname: '/match/all-matches',
       params: {
@@ -660,7 +752,7 @@ export const ChatThreadScreen: React.FC<ChatThreadScreenProps> = ({ threadId, da
 
   // Memoize menu button handler
   const handleGroupMenuPress = useCallback(() => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    triggerHaptic(Haptics.ImpactFeedbackStyle.Light);
     // TODO: Show menu options
   }, []);
 
@@ -678,7 +770,7 @@ export const ChatThreadScreen: React.FC<ChatThreadScreenProps> = ({ threadId, da
       <View style={styles.container}>
         <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
         <View style={styles.centerContainer}>
-          <Text style={styles.loadingText}>{isLoadingThread ? 'Loading...' : 'Conversation not found'}</Text>
+          <Text style={[styles.loadingText, responsiveStyles.loadingText]}>{isLoadingThread ? 'Loading...' : 'Conversation not found'}</Text>
         </View>
       </View>
     );
@@ -693,12 +785,15 @@ export const ChatThreadScreen: React.FC<ChatThreadScreenProps> = ({ threadId, da
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           keyboardVerticalOffset={0}
         >
-          <View style={[styles.chatHeader, { paddingTop: STATUS_BAR_HEIGHT + 12 }]}>
+          <View style={[styles.chatHeader, responsiveStyles.chatHeader, { paddingTop: STATUS_BAR_HEIGHT + verticalScale(12) }]}>
             <Pressable
               style={({ pressed }) => [styles.backButton, pressed && { opacity: 0.7 }]}
               onPress={handleBackToThreads}
+              accessibilityLabel="Go back"
+              accessibilityRole="button"
+              accessibilityHint="Return to chat list"
             >
-              <Ionicons name="arrow-back" size={24} color="#111827" />
+              <Ionicons name="arrow-back" size={moderateScale(24)} color="#111827" />
             </Pressable>
 
             {displayThread?.type === 'group' ? (
@@ -721,7 +816,7 @@ export const ChatThreadScreen: React.FC<ChatThreadScreenProps> = ({ threadId, da
                   <GroupAvatarStack
                     participants={displayThread.participants}
                     sportColor={sportColors.background}
-                    size={38}
+                    size={moderateScale(38)}
                   />
                 </View>
 
@@ -756,7 +851,7 @@ export const ChatThreadScreen: React.FC<ChatThreadScreenProps> = ({ threadId, da
                         pressed && { opacity: 0.8 }
                       ]}
                       onPress={() => {
-                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                        triggerHaptic(Haptics.ImpactFeedbackStyle.Light);
                         router.push({
                           pathname: '/match/all-matches',
                           params: {
@@ -782,14 +877,14 @@ export const ChatThreadScreen: React.FC<ChatThreadScreenProps> = ({ threadId, da
                   style={({ pressed }) => [styles.groupHeaderMenuButton, pressed && { opacity: 0.7 }]}
                   onPress={handleGroupMenuPress}
                 >
-                  <Ionicons name="ellipsis-vertical" size={20} color="#6B7280" />
+                  <Ionicons name="ellipsis-vertical" size={moderateScale(20)} color="#6B7280" />
                 </Pressable>
               </View>
             ) : (
               // Direct chat header (original design)
               <>
                 {/* Profile Picture */}
-                <View style={styles.chatHeaderAvatar}>
+                <View style={[styles.chatHeaderAvatar, responsiveStyles.chatHeaderAvatar]}>
                   {headerContent.avatar ? (
                     <Image
                       source={{ uri: headerContent.avatar }}
@@ -798,7 +893,7 @@ export const ChatThreadScreen: React.FC<ChatThreadScreenProps> = ({ threadId, da
                     />
                   ) : (
                     <View style={styles.defaultChatHeaderAvatarContainer}>
-                      <Text style={styles.defaultChatHeaderAvatarText}>
+                      <Text style={[styles.defaultChatHeaderAvatarText, responsiveStyles.defaultChatHeaderAvatarText]}>
                         {headerContent.participantName?.charAt(0)?.toUpperCase() || 'U'}
                       </Text>
                     </View>
@@ -806,12 +901,12 @@ export const ChatThreadScreen: React.FC<ChatThreadScreenProps> = ({ threadId, da
                 </View>
                 <View style={styles.chatHeaderContent}>
                   <View style={styles.chatHeaderTitleRow}>
-                    <Text style={styles.chatHeaderTitle} numberOfLines={1}>
+                    <Text style={[styles.chatHeaderTitle, responsiveStyles.chatHeaderTitle]} numberOfLines={1}>
                       {headerContent.title}
                     </Text>
                   </View>
                   {headerContent.subtitle && (
-                    <Text style={styles.chatHeaderSubtitle} numberOfLines={1}>
+                    <Text style={[styles.chatHeaderSubtitle, responsiveStyles.chatHeaderSubtitle]} numberOfLines={1}>
                       {headerContent.subtitle}
                     </Text>
                   )}
@@ -822,7 +917,7 @@ export const ChatThreadScreen: React.FC<ChatThreadScreenProps> = ({ threadId, da
             {/* Only show headerAction for direct chats */}
             {displayThread.type !== 'group' && (
               <Pressable style={({ pressed }) => [styles.headerAction, pressed && { opacity: 0.7 }]}>
-                <Ionicons name="ellipsis-vertical" size={20} color="#6B7280" />
+                <Ionicons name="ellipsis-vertical" size={moderateScale(20)} color="#6B7280" />
               </Pressable>
             )}
           </View>
@@ -890,40 +985,44 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 20,
+    padding: scale(20),
   },
   loadingText: {
-    marginTop: 10,
-    fontSize: isSmallScreen ? 14 : isTablet ? 18 : 16,
+    marginTop: verticalScale(10),
+    fontSize: moderateScale(16),
     color: '#6B7280',
   },
   chatHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: isSmallScreen ? 12 : isTablet ? 24 : 16,
-    paddingBottom: 12,
+    paddingHorizontal: scale(16),
+    paddingBottom: verticalScale(12),
     borderBottomWidth: 1,
     borderBottomColor: '#E5E7EB',
     backgroundColor: '#FFFFFF',
-    minHeight: 60,
+    minHeight: verticalScale(60),
     width: '100%',
   },
   backButton: {
-    marginRight: 12,
-    padding: 4,
+    marginRight: scale(12),
+    padding: scale(10), // Increased for 44x44 touch target
+    minWidth: scale(44),
+    minHeight: verticalScale(44),
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   chatHeaderAvatar: {
-    width: isSmallScreen ? 40 : isTablet ? 48 : 44,
-    height: isSmallScreen ? 40 : isTablet ? 48 : 44,
-    borderRadius: isSmallScreen ? 20 : isTablet ? 24 : 22,
+    width: scale(44),
+    height: verticalScale(44),
+    borderRadius: moderateScale(22),
     overflow: 'hidden',
-    marginRight: 12,
+    marginRight: scale(12),
     ...Platform.select({
       ios: {
         shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
+        shadowOffset: { width: 0, height: verticalScale(2) },
         shadowOpacity: 0.1,
-        shadowRadius: 4,
+        shadowRadius: moderateScale(4),
       },
       android: {
         elevation: 3,
@@ -943,7 +1042,7 @@ const styles = StyleSheet.create({
   },
   defaultChatHeaderAvatarText: {
     color: '#FFFFFF',
-    fontSize: isSmallScreen ? 16 : isTablet ? 20 : 18,
+    fontSize: moderateScale(18),
     fontWeight: 'bold',
     fontFamily: 'System',
   },
@@ -954,23 +1053,27 @@ const styles = StyleSheet.create({
   chatHeaderTitleRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: scale(8),
   },
   chatHeaderTitle: {
-    fontSize: isSmallScreen ? 16 : isTablet ? 20 : 18,
+    fontSize: moderateScale(18),
     fontWeight: '600',
     color: '#111827',
-    lineHeight: isSmallScreen ? 20 : isTablet ? 24 : 22,
+    lineHeight: verticalScale(22),
     flexShrink: 1,
   },
   chatHeaderSubtitle: {
-    fontSize: isSmallScreen ? 12 : isTablet ? 16 : 14,
+    fontSize: moderateScale(14),
     color: '#6B7280',
-    marginTop: 2,
-    lineHeight: isSmallScreen ? 14 : isTablet ? 18 : 16,
+    marginTop: verticalScale(2),
+    lineHeight: verticalScale(16),
   },
   headerAction: {
-    padding: 4,
+    padding: scale(10),
+    minWidth: scale(44),
+    minHeight: verticalScale(44),
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   // Group chat header styles
   groupHeaderWrapper: {
@@ -979,24 +1082,28 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
   },
   groupHeaderAvatar: {
-    marginRight: 12,
+    marginRight: scale(12),
     alignItems: 'center',
   },
   groupHeaderMenuButton: {
-    padding: 8,
-    marginLeft: 4,
+    padding: scale(12),
+    marginLeft: scale(4),
     alignSelf: 'flex-start',
+    minWidth: scale(44),
+    minHeight: verticalScale(44),
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   sportBadgeAboveAvatar: {
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 8,
+    paddingHorizontal: scale(6),
+    paddingVertical: verticalScale(2),
+    borderRadius: moderateScale(8),
     borderWidth: 1.5,
     backgroundColor: 'transparent',
-    marginBottom: 4,
+    marginBottom: verticalScale(4),
   },
   sportBadgeAboveAvatarText: {
-    fontSize: 9,
+    fontSize: moderateScale(9),
     fontWeight: '600',
   },
   groupHeaderContent: {
@@ -1006,29 +1113,29 @@ const styles = StyleSheet.create({
   groupHeaderTopRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    marginBottom: 2,
+    gap: scale(6),
+    marginBottom: verticalScale(2),
   },
   groupHeaderTitle: {
-    fontSize: 15,
+    fontSize: moderateScale(15),
     fontWeight: '700',
     color: '#111827',
     flexShrink: 1,
   },
   groupHeaderParticipants: {
-    fontSize: 12,
+    fontSize: moderateScale(12),
     color: '#6B7280',
-    marginBottom: 8,
+    marginBottom: verticalScale(8),
     fontWeight: '500',
   },
   groupActionButtons: {
     flexDirection: 'row',
-    gap: 8,
+    gap: scale(8),
   },
   actionButton: {
-    paddingHorizontal: 16,
-    paddingVertical: 7,
-    borderRadius: 16,
+    paddingHorizontal: scale(16),
+    paddingVertical: verticalScale(7),
+    borderRadius: moderateScale(16),
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1041,12 +1148,12 @@ const styles = StyleSheet.create({
     borderColor: '#E5E7EB',
   },
   primaryActionText: {
-    fontSize: 12,
+    fontSize: moderateScale(12),
     fontWeight: '600',
     color: '#FFFFFF',
   },
   secondaryActionText: {
-    fontSize: 12,
+    fontSize: moderateScale(12),
     fontWeight: '600',
     color: '#6B7280',
   },

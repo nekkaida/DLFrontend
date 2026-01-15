@@ -19,6 +19,12 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { format, addDays, startOfWeek, isSameDay, startOfMonth, endOfMonth, addMonths, subMonths } from 'date-fns';
 import { toast } from 'sonner-native';
 
+import {
+  scale,
+  verticalScale,
+  moderateScale,
+} from '@/core/utils/responsive';
+
 // Sport icon imports
 import PickleballIcon from '@/assets/images/045-PICKLEBALL.svg';
 import PadelIcon from '@/assets/images/padel-icon.svg';
@@ -282,7 +288,7 @@ export const CreateMatchScreen: React.FC<CreateMatchScreenProps> = memo(({
       {/* White Navigation Bar */}
       <View style={[styles.navBar, { paddingTop: insets.top }]}>
           <TouchableOpacity onPress={onClose} style={styles.backButton}>
-          <Ionicons name="chevron-back" size={24} color="#1D1D1F" />
+          <Ionicons name="chevron-back" size={moderateScale(24)} color="#1D1D1F" />
           </TouchableOpacity>
         <Text style={styles.navTitle}>Create a Match</Text>
         <View style={styles.navPlaceholder} />
@@ -292,7 +298,7 @@ export const CreateMatchScreen: React.FC<CreateMatchScreenProps> = memo(({
       <View style={[styles.leagueBanner, { backgroundColor: sportColors.background }]}>
         <View style={styles.leagueBannerLeft}>
           <View style={styles.sportIconContainer}>
-            <SportIcon width={40} height={40} fill="#FFFFFF" />
+            <SportIcon width={moderateScale(40)} height={moderateScale(40)} fill="#FFFFFF" />
           </View>
         <View style={styles.leagueBannerContent}>
           <Text style={styles.leagueName}>{leagueInfo.name}</Text>
@@ -330,10 +336,10 @@ export const CreateMatchScreen: React.FC<CreateMatchScreenProps> = memo(({
                 style={styles.expandButton}
                 activeOpacity={0.7}
               >
-                <Ionicons 
-                  name={isMonthView ? "contract-outline" : "expand-outline"} 
-                  size={20} 
-                  color={sportColors.background} 
+                <Ionicons
+                  name={isMonthView ? "contract-outline" : "expand-outline"}
+                  size={moderateScale(20)}
+                  color={sportColors.background}
                 />
                 <Text style={[styles.expandButtonText, { color: sportColors.background }]}>
                   {isMonthView ? 'Week View' : 'Month View'}
@@ -347,7 +353,7 @@ export const CreateMatchScreen: React.FC<CreateMatchScreenProps> = memo(({
                   onPress={isMonthView ? handlePreviousMonth : handlePreviousWeek} 
                   style={styles.arrowButton}
                 >
-                  <Ionicons name="chevron-back" size={20} color={sportColors.background} />
+                  <Ionicons name="chevron-back" size={moderateScale(20)} color={sportColors.background} />
                 </TouchableOpacity>
                 <Text style={styles.monthText}>
                   {format(isMonthView ? currentMonth : currentWeekStart, 'MMMM yyyy')}
@@ -356,7 +362,7 @@ export const CreateMatchScreen: React.FC<CreateMatchScreenProps> = memo(({
                   onPress={isMonthView ? handleNextMonth : handleNextWeek} 
                   style={styles.arrowButton}
                 >
-                  <Ionicons name="chevron-forward" size={20} color={sportColors.background} />
+                  <Ionicons name="chevron-forward" size={moderateScale(20)} color={sportColors.background} />
                 </TouchableOpacity>
               </View>
               
@@ -441,7 +447,7 @@ export const CreateMatchScreen: React.FC<CreateMatchScreenProps> = memo(({
               onPress={Platform.OS === 'ios' ? showIOSTimePicker : showAndroidTimePicker}
               activeOpacity={0.7}
             >
-              <Ionicons name="time-outline" size={22} color="#A04DFE" />
+              <Ionicons name="time-outline" size={moderateScale(22)} color="#A04DFE" />
               <Text style={[styles.inputText, !formData.time && styles.placeholderText]}>
                 {formData.time || 'Select time'}
               </Text>
@@ -484,7 +490,7 @@ export const CreateMatchScreen: React.FC<CreateMatchScreenProps> = memo(({
             <Text style={styles.sectionLabel}>Location <Text style={styles.requiredAsterisk}>*</Text></Text>
             <View style={styles.locationCard}>
               <View style={styles.locationInputRow}>
-                <Ionicons name="location-outline" size={22} color="#A04DFE" />
+                <Ionicons name="location-outline" size={moderateScale(22)} color="#A04DFE" />
                 <TextInput
                   style={styles.textInput}
                   value={formData.location}
@@ -497,11 +503,11 @@ export const CreateMatchScreen: React.FC<CreateMatchScreenProps> = memo(({
               {/* Court Booked Toggle */}
               <View style={styles.courtBookedRow}>
                 <View style={styles.courtBookedLabelContainer}>
-                  <Ionicons 
-                    name="calendar-outline" 
-                    size={18} 
-                    color={formData.courtBooked ? '#22C55E' : '#86868B'} 
-                    style={styles.courtBookedIcon} 
+                  <Ionicons
+                    name="calendar-outline"
+                    size={moderateScale(18)}
+                    color={formData.courtBooked ? '#22C55E' : '#86868B'}
+                    style={styles.courtBookedIcon}
                   />
                   <Text style={[
                     styles.courtBookedLabel,
@@ -525,20 +531,20 @@ export const CreateMatchScreen: React.FC<CreateMatchScreenProps> = memo(({
           <View style={styles.section}>
             <Text style={styles.sectionLabel}>Number of players</Text>
             <View style={styles.playerCountRow}>
-              <Ionicons name="people-outline" size={22} color={sportColors.background} />
+              <Ionicons name="people-outline" size={moderateScale(22)} color={sportColors.background} />
               <View style={styles.playerCountControls}>
                 <TouchableOpacity
                   style={styles.countButton}
                   onPress={() => handlePlayerCountChange(-2)}
                 >
-                  <Ionicons name="remove" size={20} color="#BABABA" />
+                  <Ionicons name="remove" size={moderateScale(20)} color="#BABABA" />
                 </TouchableOpacity>
                 <Text style={styles.playerCountText}>{formData.numberOfPlayers}</Text>
                 <TouchableOpacity
                   style={styles.countButton}
                   onPress={() => handlePlayerCountChange(2)}
                 >
-                  <Ionicons name="add" size={20} color="#BABABA" />
+                  <Ionicons name="add" size={moderateScale(20)} color="#BABABA" />
                 </TouchableOpacity>
               </View>
             </View>
@@ -636,7 +642,7 @@ export const CreateMatchScreen: React.FC<CreateMatchScreenProps> = memo(({
               <Text style={styles.optionalLabel}>(Optional)</Text>
             </View>
             <View style={styles.descriptionCard}>
-              <Ionicons name="create-outline" size={20} color="#BABABA" style={styles.descriptionIcon} />
+              <Ionicons name="create-outline" size={moderateScale(20)} color="#BABABA" style={styles.descriptionIcon} />
               <TextInput
                 style={styles.descriptionInput}
                 value={formData.description}
@@ -728,36 +734,36 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingBottom: 12,
+    paddingHorizontal: scale(16),
+    paddingBottom: verticalScale(12),
     borderBottomWidth: 1,
     borderBottomColor: '#E5E7EB',
   },
   backButton: {
-    padding: 4,
+    padding: moderateScale(4),
   },
   navTitle: {
-    fontSize: 18,
+    fontSize: moderateScale(18),
     fontWeight: '700',
     color: '#1D1D1F',
   },
   navPlaceholder: {
-    width: 32,
+    width: scale(32),
   },
   leagueBanner: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingLeft: 16,
+    paddingLeft: scale(16),
     paddingRight: 0,
-    paddingTop: 26,
-    paddingBottom: 36,
+    paddingTop: verticalScale(26),
+    paddingBottom: verticalScale(36),
   },
   leagueBannerLeft: {
     flexDirection: 'row',
     alignItems: 'center',
     flex: 1,
-    gap: 12,
+    gap: scale(12),
   },
   leagueBannerRight: {
     marginLeft: 'auto',
@@ -765,8 +771,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   sportIconContainer: {
-    width: 40,
-    height: 40,
+    width: scale(40),
+    height: verticalScale(40),
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -774,25 +780,25 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   leagueName: {
-    fontSize: 16,
+    fontSize: moderateScale(16),
     fontWeight: '700',
     color: '#FFFFFF',
-    marginBottom: 2,
+    marginBottom: verticalScale(2),
   },
   leagueSeason: {
-    fontSize: 14,
+    fontSize: moderateScale(14),
     color: 'rgba(255, 255, 255, 0.9)',
     fontWeight: '500',
   },
   leagueBadge: {
     backgroundColor: '#FEA04D',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
+    paddingHorizontal: scale(10),
+    paddingVertical: verticalScale(6),
     borderRadius: 0,
   },
   leagueBadgeText: {
     color: '#FFFFFF',
-    fontSize: 11,
+    fontSize: moderateScale(11),
     fontWeight: '700',
     textTransform: 'uppercase',
     letterSpacing: 0.5,
@@ -803,83 +809,83 @@ const styles = StyleSheet.create({
   contentWrapper: {
     flex: 1,
     backgroundColor: '#F6FAFC',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
+    borderTopLeftRadius: moderateScale(20),
+    borderTopRightRadius: moderateScale(20),
     overflow: 'hidden',
-    marginTop: -15,
+    marginTop: verticalScale(-15),
     zIndex: 1,
-    paddingTop: 24,
+    paddingTop: verticalScale(24),
   },
   content: {
     flex: 1,
   },
   scrollContent: {
-    paddingHorizontal: 20,
-    paddingTop: 16,
-    paddingBottom: 24,
+    paddingHorizontal: scale(20),
+    paddingTop: verticalScale(16),
+    paddingBottom: verticalScale(24),
     backgroundColor: '#F6FAFC',
   },
   section: {
-    marginBottom: 24,
+    marginBottom: verticalScale(24),
   },
   sectionLabel: {
-    fontSize: 14,
+    fontSize: moderateScale(14),
     fontWeight: '600',
     color: '#1D1D1F',
-    marginBottom: 10,
+    marginBottom: verticalScale(10),
   },
   requiredAsterisk: {
     color: '#DC2626',
-    fontSize: 14,
+    fontSize: moderateScale(14),
     fontWeight: '600',
   },
   dateSectionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 10,
+    marginBottom: verticalScale(10),
   },
   expandButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
+    gap: scale(4),
+    paddingHorizontal: scale(8),
+    paddingVertical: verticalScale(4),
   },
   expandButtonText: {
-    fontSize: 12,
+    fontSize: moderateScale(12),
     fontWeight: '500',
   },
   dateCard: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 10,
+    borderRadius: moderateScale(10),
     borderWidth: 1,
     borderColor: '#EAEAEA',
-    padding: 16,
+    padding: moderateScale(16),
   },
   monthHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 16,
+    marginBottom: verticalScale(16),
   },
   arrowButton: {
-    padding: 4,
+    padding: moderateScale(4),
   },
   monthText: {
-    fontSize: 12,
+    fontSize: moderateScale(12),
     fontWeight: '500',
     color: '#1D1D1F',
-    marginHorizontal: 16,
+    marginHorizontal: scale(16),
   },
   dayNamesHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 8,
-    paddingHorizontal: 4,
+    marginBottom: verticalScale(8),
+    paddingHorizontal: scale(4),
   },
   dayNameHeaderText: {
-    fontSize: 11,
+    fontSize: moderateScale(11),
     fontWeight: '500',
     color: '#BABABA',
     flex: 1,
@@ -902,27 +908,27 @@ const styles = StyleSheet.create({
     width: '14.28%',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 8,
+    paddingVertical: verticalScale(8),
   },
   dayName: {
-    fontSize: 12,
+    fontSize: moderateScale(12),
     fontWeight: '500',
     color: '#BABABA',
-    marginBottom: 8,
+    marginBottom: verticalScale(8),
     letterSpacing: -0.12,
   },
   dayNameSelected: {
     color: '#86868B',
   },
   dayNumber: {
-    width: 26,
-    height: 26,
-    borderRadius: 13,
+    width: scale(26),
+    height: verticalScale(26),
+    borderRadius: moderateScale(13),
     alignItems: 'center',
     justifyContent: 'center',
   },
   dayNumberText: {
-    fontSize: 12,
+    fontSize: moderateScale(12),
     fontWeight: '500',
     color: '#86868B',
     letterSpacing: -0.12,
@@ -946,7 +952,7 @@ const styles = StyleSheet.create({
   },
   locationCard: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 10,
+    borderRadius: moderateScale(10),
     borderWidth: 1,
     borderColor: '#EAEAEA',
     overflow: 'hidden',
@@ -954,25 +960,25 @@ const styles = StyleSheet.create({
   locationInputRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 14,
-    paddingTop: 14,
-    paddingBottom: 12,
-    gap: 12,
+    paddingHorizontal: scale(14),
+    paddingTop: verticalScale(14),
+    paddingBottom: verticalScale(12),
+    gap: scale(12),
   },
   inputCard: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#FFFFFF',
-    borderRadius: 10,
+    borderRadius: moderateScale(10),
     borderWidth: 1,
     borderColor: '#EAEAEA',
-    paddingHorizontal: 14,
-    paddingVertical: 16,
-    gap: 12,
+    paddingHorizontal: scale(14),
+    paddingVertical: verticalScale(16),
+    gap: scale(12),
   },
   inputText: {
     flex: 1,
-    fontSize: 14,
+    fontSize: moderateScale(14),
     fontWeight: '500',
     color: '#1D1D1F',
   },
@@ -981,60 +987,60 @@ const styles = StyleSheet.create({
   },
   textInput: {
     flex: 1,
-    fontSize: 14,
+    fontSize: moderateScale(14),
     fontWeight: '400',
     color: '#1D1D1F',
     padding: 0,
   },
   durationCard: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 10,
+    borderRadius: moderateScale(10),
     borderWidth: 1,
     borderColor: '#EAEAEA',
-    padding: 16,
+    padding: moderateScale(16),
   },
   sliderContainer: {
     marginTop: 0,
   },
   sliderTrack: {
-    paddingHorizontal: 8,
+    paddingHorizontal: scale(8),
   },
   slider: {
     width: '100%',
-    height: 40,
+    height: verticalScale(40),
   },
   durationText: {
-    fontSize: 14,
+    fontSize: moderateScale(14),
     fontWeight: '600',
     color: '#86868B',
-    marginTop: 8,
+    marginTop: verticalScale(8),
     textAlign: 'left',
   },
   locationDivider: {
-    height: 1,
+    height: verticalScale(1),
     backgroundColor: '#EAEAEA',
-    marginHorizontal: 14,
+    marginHorizontal: scale(14),
   },
   courtBookedRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 14,
-    paddingTop: 10,
-    paddingBottom: 14,
+    paddingHorizontal: scale(14),
+    paddingTop: verticalScale(10),
+    paddingBottom: verticalScale(14),
     borderTopWidth: 1,
     borderTopColor: '#F5F5F5',
   },
   courtBookedLabelContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: scale(8),
   },
   courtBookedIcon: {
     marginRight: 0,
   },
   courtBookedLabel: {
-    fontSize: 14,
+    fontSize: moderateScale(14),
     fontWeight: '500',
     color: '#86868B',
   },
@@ -1045,48 +1051,48 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingLeft: 4,
+    paddingLeft: scale(4),
   },
   playerCountControls: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 16,
+    gap: scale(16),
   },
   countButton: {
-    width: 24,
-    height: 24,
-    borderRadius: 4,
+    width: scale(24),
+    height: verticalScale(24),
+    borderRadius: moderateScale(4),
     backgroundColor: '#FFFFFF',
     alignItems: 'center',
     justifyContent: 'center',
   },
   playerCountText: {
-    fontSize: 18,
+    fontSize: moderateScale(18),
     fontWeight: '600',
     color: '#1D1D1F',
-    minWidth: 24,
+    minWidth: scale(24),
     textAlign: 'center',
   },
   feeRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: scale(12),
   },
   feeToggleContainer: {
     flexDirection: 'row',
-    gap: 6,
+    gap: scale(6),
     flex: 1,
   },
   feeButton: {
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    borderRadius: 10,
+    paddingVertical: verticalScale(10),
+    paddingHorizontal: scale(12),
+    borderRadius: moderateScale(10),
     backgroundColor: '#F2F2F2',
     borderWidth: 1,
     borderColor: '#EAEAEA',
   },
   feeButtonText: {
-    fontSize: 14,
+    fontSize: moderateScale(14),
     fontWeight: '500',
     color: '#86868B',
     letterSpacing: 0.25,
@@ -1098,56 +1104,56 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#FFFFFF',
-    borderRadius: 10,
+    borderRadius: moderateScale(10),
     borderWidth: 1,
     borderColor: '#FEA04D',
-    paddingHorizontal: 10,
-    paddingVertical: 10,
-    gap: 4,
+    paddingHorizontal: scale(10),
+    paddingVertical: verticalScale(10),
+    gap: scale(4),
   },
   feeAmountPrefix: {
-    fontSize: 14,
+    fontSize: moderateScale(14),
     fontWeight: '500',
     color: '#1D1D1F',
   },
   feeAmountInput: {
-    fontSize: 14,
+    fontSize: moderateScale(14),
     fontWeight: '500',
     color: '#1D1D1F',
-    minWidth: 60,
+    minWidth: scale(60),
     textAlign: 'left',
     padding: 0,
   },
   estimatedCostRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 12,
-    gap: 8,
+    marginTop: verticalScale(12),
+    gap: scale(8),
   },
   bulletPoint: {
-    width: 4,
-    height: 4,
-    borderRadius: 2,
+    width: scale(4),
+    height: verticalScale(4),
+    borderRadius: moderateScale(2),
     backgroundColor: '#86868B',
   },
   estimatedCostText: {
-    fontSize: 12,
+    fontSize: moderateScale(12),
     fontWeight: '500',
     color: '#86868B',
   },
   descriptionHeader: {
     flexDirection: 'row',
     alignItems: 'baseline',
-    gap: 6,
-    marginBottom: 10,
+    gap: scale(6),
+    marginBottom: verticalScale(10),
   },
   descriptionLabel: {
-    fontSize: 14,
+    fontSize: moderateScale(14),
     fontWeight: '600',
     color: '#1D1D1F',
   },
   optionalLabel: {
-    fontSize: 12,
+    fontSize: moderateScale(12),
     fontWeight: '400',
     color: '#BABABA',
   },
@@ -1155,48 +1161,48 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-start',
     backgroundColor: '#FFFFFF',
-    borderRadius: 12,
+    borderRadius: moderateScale(12),
     borderWidth: 1,
     borderColor: '#EAEAEA',
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    gap: 12,
+    paddingHorizontal: scale(16),
+    paddingVertical: verticalScale(14),
+    gap: scale(12),
   },
   descriptionIcon: {
-    marginTop: 4,
+    marginTop: verticalScale(4),
   },
   descriptionInput: {
     flex: 1,
-    fontSize: 16,
+    fontSize: moderateScale(16),
     fontWeight: '400',
     color: '#1D1D1F',
-    minHeight: 80,
+    minHeight: verticalScale(80),
     padding: 0,
-    lineHeight: 22,
+    lineHeight: verticalScale(22),
   },
   footer: {
-    paddingHorizontal: 20,
-    paddingTop: 16,
+    paddingHorizontal: scale(20),
+    paddingTop: verticalScale(16),
     backgroundColor: '#FDFDFD',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
+    borderTopLeftRadius: moderateScale(20),
+    borderTopRightRadius: moderateScale(20),
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: -4 },
+    shadowOffset: { width: 0, height: verticalScale(-4) },
     shadowOpacity: 0.1,
-    shadowRadius: 10,
+    shadowRadius: moderateScale(10),
     elevation: 8,
   },
   createButton: {
     backgroundColor: '#FEA04D',
-    paddingVertical: 16,
-    borderRadius: 12,
+    paddingVertical: verticalScale(16),
+    borderRadius: moderateScale(12),
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
     borderColor: '#F09433',
   },
   createButtonText: {
-    fontSize: 22,
+    fontSize: moderateScale(22),
     fontWeight: '600',
     color: '#1D1D1F',
   },
@@ -1211,37 +1217,37 @@ const styles = StyleSheet.create({
   },
   timeModalContent: {
     backgroundColor: '#FFFFFF',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    paddingBottom: 34,
+    borderTopLeftRadius: moderateScale(20),
+    borderTopRightRadius: moderateScale(20),
+    paddingBottom: verticalScale(34),
     width: '100%',
   },
   timeModalHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 16,
+    paddingHorizontal: scale(16),
+    paddingVertical: verticalScale(16),
     borderBottomWidth: 1,
     borderBottomColor: '#E5E7EB',
   },
   timeModalCancel: {
-    fontSize: 17,
+    fontSize: moderateScale(17),
     color: '#007AFF',
   },
   timeModalConfirm: {
-    fontSize: 17,
+    fontSize: moderateScale(17),
     fontWeight: '600',
   },
   timePickerContainer: {
     alignItems: 'center',
     justifyContent: 'center',
     width: '100%',
-    paddingVertical: 16,
+    paddingVertical: verticalScale(16),
   },
   iosSpinnerPicker: {
     width: '100%',
-    height: 216,
+    height: verticalScale(216),
     backgroundColor: '#FFFFFF',
   },
 });
