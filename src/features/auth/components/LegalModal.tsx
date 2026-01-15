@@ -182,7 +182,7 @@ export const LegalBulletList: React.FC<{ items: string[] }> = ({ items }) => {
   return (
     <View style={styles.bulletList} accessibilityRole="list">
       {items.map((item, index) => (
-        <View key={`bullet-${index}`} style={styles.bulletItem} accessibilityRole="listitem">
+        <View key={`bullet-${index}`} style={styles.bulletItem}>
           <Text style={styles.bullet} accessibilityLabel="">•</Text>
           <Text style={styles.bulletText} accessibilityRole="text">{item ?? ''}</Text>
         </View>

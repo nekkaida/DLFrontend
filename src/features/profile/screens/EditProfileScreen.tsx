@@ -399,9 +399,9 @@ export default function EditProfileScreen() {
       }) as { data?: ProfileUpdateResponse } | ProfileUpdateResponse;
 
       // authClient.$fetch wraps the response: { data: { success, data, message } }
-      const apiResponse = response?.data || response;
+      const apiResponse = (response?.data || response) as ProfileUpdateResponse | undefined;
 
-      if (apiResponse && apiResponse.success && apiResponse.data) {
+      if (apiResponse && 'success' in apiResponse && apiResponse.success && apiResponse.data) {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         toast.success('Profile Updated', {
           description: 'Your profile has been successfully updated.',
@@ -415,7 +415,7 @@ export default function EditProfileScreen() {
         }, 1500);
       } else {
         // Check if it's a successful HTTP response but with success: false
-        const errorMessage = (apiResponse?.message || 'Failed to update profile') as string;
+        const errorMessage = (apiResponse && 'message' in apiResponse ? apiResponse.message : 'Failed to update profile') as string;
         throw new Error(errorMessage);
       }
     } catch (error: any) {

@@ -120,8 +120,8 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({
   const [showTermsOfService, setShowTermsOfService] = useState(false);
 
   // Debounce timers
-  const emailDebounceTimer = useRef<NodeJS.Timeout | null>(null);
-  const usernameDebounceTimer = useRef<NodeJS.Timeout | null>(null);
+  const emailDebounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const usernameDebounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Responsive dimensions with listeners
   const [dimensions, setDimensions] = useState(() => {
