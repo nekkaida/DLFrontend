@@ -1,6 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import { View, StyleSheet, Animated, Dimensions } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { scale, verticalScale, moderateScale } from '@/core/utils/responsive';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -18,7 +19,7 @@ const ShimmerPlaceholder: React.FC<{
   borderRadius?: number;
   style?: object;
   backgroundColor?: string;
-}> = ({ width, height, borderRadius = 4, style, backgroundColor = '#E5E7EB' }) => {
+}> = ({ width, height, borderRadius = moderateScale(4), style, backgroundColor = '#E5E7EB' }) => {
   const shimmerAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
@@ -94,19 +95,19 @@ const SingleSeasonCardSkeleton: React.FC<{ sport: 'pickleball' | 'tennis' | 'pad
       <View style={styles.seasonCard}>
         {/* Header - Season title + category chip */}
         <View style={styles.seasonCardHeader}>
-          <ShimmerPlaceholder width={180} height={20} borderRadius={6} />
-          <ShimmerPlaceholder width={80} height={28} borderRadius={10} />
+          <ShimmerPlaceholder width={scale(180)} height={verticalScale(20)} borderRadius={moderateScale(6)} />
+          <ShimmerPlaceholder width={scale(80)} height={verticalScale(28)} borderRadius={moderateScale(10)} />
         </View>
 
         {/* Date row */}
         <View style={styles.dateRow}>
-          <ShimmerPlaceholder width={SCREEN_WIDTH - 100} height={14} borderRadius={6} />
+          <ShimmerPlaceholder width={SCREEN_WIDTH - scale(100)} height={verticalScale(14)} borderRadius={moderateScale(6)} />
         </View>
 
         {/* Player count */}
         <View style={styles.seasonPlayerCountContainer}>
-          <ShimmerPlaceholder width={8} height={8} borderRadius={4} />
-          <ShimmerPlaceholder width={80} height={14} borderRadius={6} style={{ marginLeft: 8 }} />
+          <ShimmerPlaceholder width={scale(8)} height={scale(8)} borderRadius={moderateScale(4)} />
+          <ShimmerPlaceholder width={scale(80)} height={verticalScale(14)} borderRadius={moderateScale(6)} style={{ marginLeft: scale(8) }} />
         </View>
 
         {/* Profile pictures */}
@@ -114,27 +115,27 @@ const SingleSeasonCardSkeleton: React.FC<{ sport: 'pickleball' | 'tennis' | 'pad
           {[0, 1, 2, 3, 4, 5].map((i) => (
             <ShimmerPlaceholder
               key={i}
-              width={28}
-              height={28}
-              borderRadius={14}
-              style={i > 0 ? { marginLeft: -8 } : undefined}
+              width={scale(28)}
+              height={scale(28)}
+              borderRadius={moderateScale(14)}
+              style={i > 0 ? { marginLeft: scale(-8) } : undefined}
             />
           ))}
         </View>
 
         {/* Registration deadline */}
         <View style={styles.detailRow}>
-          <ShimmerPlaceholder width={200} height={14} borderRadius={6} />
+          <ShimmerPlaceholder width={scale(200)} height={verticalScale(14)} borderRadius={moderateScale(6)} />
         </View>
 
         {/* Entry fee */}
         <View style={styles.entryFeeContainer}>
-          <ShimmerPlaceholder width={150} height={14} borderRadius={6} />
+          <ShimmerPlaceholder width={scale(150)} height={verticalScale(14)} borderRadius={moderateScale(6)} />
         </View>
 
         {/* Button */}
         <View style={styles.buttonRow}>
-          <ShimmerPlaceholder width={140} height={44} borderRadius={12} />
+          <ShimmerPlaceholder width={scale(140)} height={verticalScale(44)} borderRadius={moderateScale(12)} />
         </View>
       </View>
     </LinearGradient>
@@ -145,7 +146,7 @@ export const SeasonCardSkeleton: React.FC<SeasonCardSkeletonProps> = ({ sport = 
   return (
     <View style={styles.container}>
       <View style={styles.sectionHeader}>
-        <ShimmerPlaceholder width={130} height={18} borderRadius={6} />
+        <ShimmerPlaceholder width={scale(130)} height={verticalScale(18)} borderRadius={moderateScale(6)} />
       </View>
       {Array.from({ length: count }).map((_, index) => (
         <SingleSeasonCardSkeleton key={index} sport={sport} />
@@ -156,54 +157,54 @@ export const SeasonCardSkeleton: React.FC<SeasonCardSkeletonProps> = ({ sport = 
 
 const styles = StyleSheet.create({
   container: {
-    marginBottom: 24,
+    marginBottom: verticalScale(24),
   },
   sectionHeader: {
-    marginBottom: 12,
+    marginBottom: verticalScale(12),
   },
   seasonCardWrapper: {
-    borderRadius: 16,
-    padding: 2,
-    marginBottom: 12,
+    borderRadius: moderateScale(16),
+    padding: scale(2),
+    marginBottom: verticalScale(12),
   },
   seasonCard: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 14,
-    padding: isSmallScreen ? 16 : 20,
+    borderRadius: moderateScale(14),
+    padding: isSmallScreen ? scale(16) : scale(20),
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
+    shadowOffset: { width: 0, height: verticalScale(1) },
     shadowOpacity: 0.05,
-    shadowRadius: 4,
+    shadowRadius: moderateScale(4),
     elevation: 2,
   },
   seasonCardHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: verticalScale(12),
   },
   dateRow: {
-    marginTop: 8,
-    marginBottom: 8,
+    marginTop: verticalScale(8),
+    marginBottom: verticalScale(8),
   },
   seasonPlayerCountContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 8,
+    marginBottom: verticalScale(8),
   },
   seasonProfilePicturesContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     flexWrap: 'wrap',
-    marginBottom: 12,
+    marginBottom: verticalScale(12),
   },
   detailRow: {
-    marginBottom: 12,
+    marginBottom: verticalScale(12),
   },
   entryFeeContainer: {
-    marginBottom: 12,
+    marginBottom: verticalScale(12),
   },
   buttonRow: {
     flexDirection: 'row',

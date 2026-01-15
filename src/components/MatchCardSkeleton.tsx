@@ -1,6 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import { View, StyleSheet, Animated, Dimensions } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { scale, verticalScale, moderateScale } from '@/core/utils/responsive';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -13,7 +14,7 @@ const ShimmerPlaceholder: React.FC<{
   height: number;
   borderRadius?: number;
   style?: object;
-}> = ({ width, height, borderRadius = 4, style }) => {
+}> = ({ width, height, borderRadius = moderateScale(4), style }) => {
   const shimmerAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
@@ -74,17 +75,17 @@ const SingleCardSkeleton: React.FC = () => {
         <View style={styles.playersRow}>
           {/* Player 1 */}
           <View style={styles.playerColumn}>
-            <ShimmerPlaceholder width={56} height={56} borderRadius={28} />
-            <ShimmerPlaceholder width={50} height={12} borderRadius={6} style={{ marginTop: 6 }} />
+            <ShimmerPlaceholder width={scale(56)} height={scale(56)} borderRadius={moderateScale(28)} />
+            <ShimmerPlaceholder width={scale(50)} height={verticalScale(12)} borderRadius={moderateScale(6)} style={{ marginTop: verticalScale(6) }} />
           </View>
           {/* Player 2 */}
           <View style={styles.playerColumn}>
-            <ShimmerPlaceholder width={56} height={56} borderRadius={28} />
-            <ShimmerPlaceholder width={50} height={12} borderRadius={6} style={{ marginTop: 6 }} />
+            <ShimmerPlaceholder width={scale(56)} height={scale(56)} borderRadius={moderateScale(28)} />
+            <ShimmerPlaceholder width={scale(50)} height={verticalScale(12)} borderRadius={moderateScale(6)} style={{ marginTop: verticalScale(6) }} />
           </View>
         </View>
         {/* Badge */}
-        <ShimmerPlaceholder width={70} height={28} borderRadius={12} />
+        <ShimmerPlaceholder width={scale(70)} height={verticalScale(28)} borderRadius={moderateScale(12)} />
       </View>
 
       {/* Divider */}
@@ -93,30 +94,30 @@ const SingleCardSkeleton: React.FC = () => {
       {/* Info Section */}
       <View style={styles.cardInfoSection}>
         {/* Title */}
-        <ShimmerPlaceholder width={180} height={18} borderRadius={6} />
+        <ShimmerPlaceholder width={scale(180)} height={verticalScale(18)} borderRadius={moderateScale(6)} />
 
         {/* Time row */}
         <View style={styles.infoRow}>
-          <ShimmerPlaceholder width={16} height={16} borderRadius={8} />
-          <ShimmerPlaceholder width={'100%'} height={14} borderRadius={6} style={{ marginLeft: 8, maxWidth: 200 }} />
+          <ShimmerPlaceholder width={scale(16)} height={scale(16)} borderRadius={moderateScale(8)} />
+          <ShimmerPlaceholder width={'100%'} height={verticalScale(14)} borderRadius={moderateScale(6)} style={{ marginLeft: scale(8), maxWidth: scale(200) }} />
         </View>
 
         {/* Location row */}
         <View style={styles.infoRow}>
-          <ShimmerPlaceholder width={16} height={16} borderRadius={8} />
-          <ShimmerPlaceholder width={'100%'} height={14} borderRadius={6} style={{ marginLeft: 8, maxWidth: 150 }} />
+          <ShimmerPlaceholder width={scale(16)} height={scale(16)} borderRadius={moderateScale(8)} />
+          <ShimmerPlaceholder width={'100%'} height={verticalScale(14)} borderRadius={moderateScale(6)} style={{ marginLeft: scale(8), maxWidth: scale(150) }} />
         </View>
 
         {/* Fee row */}
         <View style={styles.infoRow}>
-          <ShimmerPlaceholder width={16} height={16} borderRadius={8} />
-          <ShimmerPlaceholder width={'100%'} height={14} borderRadius={6} style={{ marginLeft: 8, maxWidth: 180 }} />
+          <ShimmerPlaceholder width={scale(16)} height={scale(16)} borderRadius={moderateScale(8)} />
+          <ShimmerPlaceholder width={'100%'} height={verticalScale(14)} borderRadius={moderateScale(6)} style={{ marginLeft: scale(8), maxWidth: scale(180) }} />
         </View>
 
         {/* Footer with status */}
         <View style={styles.footerRow}>
           <View style={{ flex: 1 }} />
-          <ShimmerPlaceholder width={90} height={28} borderRadius={14} />
+          <ShimmerPlaceholder width={scale(90)} height={verticalScale(28)} borderRadius={moderateScale(14)} />
         </View>
       </View>
     </View>
@@ -135,18 +136,18 @@ export const MatchCardSkeleton: React.FC<MatchCardSkeletonProps> = ({ count = 3 
 
 const styles = StyleSheet.create({
   container: {
-    paddingHorizontal: 16,
-    paddingTop: 12,
+    paddingHorizontal: scale(16),
+    paddingTop: verticalScale(12),
   },
   matchCard: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 16,
+    borderRadius: moderateScale(16),
+    padding: scale(16),
+    marginBottom: verticalScale(16),
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
+    shadowOffset: { width: 0, height: verticalScale(4) },
     shadowOpacity: 0.12,
-    shadowRadius: 2,
+    shadowRadius: moderateScale(2),
     elevation: 4,
   },
   cardTopSection: {
@@ -157,19 +158,19 @@ const styles = StyleSheet.create({
   playersRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    gap: 12,
+    gap: scale(12),
     flex: 1,
   },
   playerColumn: {
     alignItems: 'center',
   },
   cardDivider: {
-    height: 1,
+    height: verticalScale(1),
     backgroundColor: '#E5E7EB',
-    marginVertical: 16,
+    marginVertical: verticalScale(16),
   },
   cardInfoSection: {
-    gap: 10,
+    gap: verticalScale(10),
   },
   infoRow: {
     flexDirection: 'row',
@@ -178,7 +179,7 @@ const styles = StyleSheet.create({
   footerRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 8,
+    marginTop: verticalScale(8),
   },
 });
 
