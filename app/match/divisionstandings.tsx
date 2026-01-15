@@ -2,6 +2,7 @@ import PickleballIcon from '@/assets/images/045-PICKLEBALL.svg';
 import PadelIcon from '@/assets/images/padel-icon.svg';
 import TennisIcon from '@/assets/images/tennis-icon.svg';
 import { getSportColors, SportType } from '@/constants/SportsColor';
+import { scale, verticalScale, moderateScale } from '@/core/utils/responsive';
 import { endpoints } from '@/lib/endpoints';
 import axiosInstance from '@/lib/endpoints';
 import { useSession } from '@/lib/auth-client';
@@ -358,7 +359,7 @@ export default function DivisionStandingsScreen() {
             onPress={() => router.back()}
             activeOpacity={0.7}
           >
-            <Ionicons name="chevron-back" size={24} color="#111827" />
+            <Ionicons name="chevron-back" size={moderateScale(24)} color="#111827" />
           </TouchableOpacity>
 
           <View style={styles.headerContent}>
@@ -370,7 +371,7 @@ export default function DivisionStandingsScreen() {
 
             <View style={[styles.seasonInfoBox, { backgroundColor: sportColors.buttonColor, borderColor: sportColors.badgeColor }]}>
               <View style={styles.seasonInfoIcon}>
-                <SportIcon width={40} height={40} fill="#FFFFFF" />
+                <SportIcon width={moderateScale(40)} height={moderateScale(40)} fill="#FFFFFF" />
               </View>
 
               <View style={styles.seasonInfoDetails}>
@@ -405,7 +406,7 @@ export default function DivisionStandingsScreen() {
             </View>
           ) : divisions.length === 0 ? (
             <View style={styles.emptyContainer}>
-              <Ionicons name="trophy-outline" size={48} color="#D1D5DB" />
+              <Ionicons name="trophy-outline" size={moderateScale(48)} color="#D1D5DB" />
               <Text style={styles.emptyTitle}>No Divisions Found</Text>
               <Text style={styles.emptyText}>
                 No divisions available for this season
@@ -449,113 +450,113 @@ const styles = StyleSheet.create({
     backgroundColor: '#F6FAFC',
   },
   header: {
-    paddingHorizontal: 16,
-    paddingBottom: 20,
+    paddingHorizontal: scale(16),
+    paddingBottom: verticalScale(20),
     alignItems: 'center',
     position: 'relative',
-    borderBottomLeftRadius: 20,
-    borderBottomRightRadius: 20,
+    borderBottomLeftRadius: moderateScale(20),
+    borderBottomRightRadius: moderateScale(20),
   },
   backButton: {
     position: 'absolute',
-    left: 16,
-    padding: 4,
+    left: scale(16),
+    padding: scale(4),
     zIndex: 10,
   },
   headerContent: {
     alignItems: 'center',
     width: '100%',
-    paddingHorizontal: 24,
+    paddingHorizontal: scale(24),
   },
   categoryTitle: {
-    fontSize: 24,
+    fontSize: moderateScale(24),
     fontWeight: '700',
     color: '#0E0E10',
-    marginBottom: 2,
+    marginBottom: verticalScale(2),
     textAlign: 'center',
     alignSelf: 'center',
   },
   leagueTitle: {
-    fontSize: 15,
+    fontSize: moderateScale(15),
     fontWeight: '600',
     color: 'rgba(255, 255, 255, 0.9)',
-    marginBottom: 10,
+    marginBottom: verticalScale(10),
     textAlign: 'center',
   },
   seasonInfoBox: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderRadius: 20,
-    paddingVertical: 10,
-    paddingLeft: 12,
-    paddingRight: 12,
+    borderRadius: moderateScale(20),
+    paddingVertical: verticalScale(10),
+    paddingLeft: scale(12),
+    paddingRight: scale(12),
     width: '100%',
     borderWidth: 3,
   },
   seasonInfoIcon: {
-    marginRight: 12,
+    marginRight: scale(12),
   },
   seasonInfoDetails: {
     flex: 1,
   },
   seasonInfoTitle: {
-    fontSize: 15,
+    fontSize: moderateScale(15),
     fontWeight: '700',
     color: '#FFFFFF',
-    marginBottom: 1,
+    marginBottom: verticalScale(1),
   },
   seasonInfoDate: {
-    fontSize: 11,
+    fontSize: moderateScale(11),
     color: 'rgba(255, 255, 255, 0.9)',
     fontWeight: '500',
-    lineHeight: 15,
+    lineHeight: verticalScale(15),
   },
   seasonInfoButton: {
     backgroundColor: 'rgba(255, 255, 255, 0.95)',
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    borderRadius: 22,
-    marginLeft: 8,
+    paddingHorizontal: scale(20),
+    paddingVertical: verticalScale(10),
+    borderRadius: moderateScale(22),
+    marginLeft: scale(8),
   },
   seasonInfoButtonText: {
-    fontSize: 14,
+    fontSize: moderateScale(14),
     fontWeight: '700',
   },
   scrollView: {
     flex: 1,
   },
   standingsSection: {
-    padding: 16,
+    padding: scale(16),
   },
   standingsTitle: {
-    fontSize: 22,
+    fontSize: moderateScale(22),
     fontWeight: '700',
     color: '#111827',
-    marginBottom: 16,
+    marginBottom: verticalScale(16),
   },
   loadingContainer: {
-    paddingVertical: 60,
+    paddingVertical: verticalScale(60),
     alignItems: 'center',
-    gap: 12,
+    gap: verticalScale(12),
   },
   loadingText: {
-    fontSize: 14,
+    fontSize: moderateScale(14),
     color: '#6B7280',
   },
   emptyContainer: {
-    paddingVertical: 60,
+    paddingVertical: verticalScale(60),
     alignItems: 'center',
-    gap: 12,
+    gap: verticalScale(12),
   },
   emptyTitle: {
-    fontSize: 16,
+    fontSize: moderateScale(16),
     fontWeight: '700',
     color: '#111827',
   },
   emptyText: {
-    fontSize: 14,
+    fontSize: moderateScale(14),
     color: '#6B7280',
     textAlign: 'center',
-    paddingHorizontal: 32,
+    paddingHorizontal: scale(32),
   },
 });

@@ -8,6 +8,7 @@ import { useProfileState } from '@/src/features/profile/hooks/useProfileState';
 import { ProfileDataTransformer } from '@/src/features/profile/services/ProfileDataTransformer';
 import type { UserData } from '@/src/features/profile/types';
 import { theme } from '@core/theme/theme';
+import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { router, useLocalSearchParams } from 'expo-router';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
@@ -15,6 +16,7 @@ import {
   ActivityIndicator,
   Animated,
   Dimensions,
+  Pressable,
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -31,6 +33,7 @@ export default function PlayerProfileScreen() {
   const [profileData, setProfileData] = useState<any>(null);
   const [achievements, setAchievements] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [hasError, setHasError] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [isLoadingChat, setIsLoadingChat] = useState(false);
   const [leagueStatsData, setLeagueStatsData] = useState<{
@@ -81,7 +84,7 @@ export default function PlayerProfileScreen() {
     setModalVisible: () => {}, // No-op since we don't use modal in friend profiles
   });
 
-  const fetchPlayerProfile = useCallback(async () => {
+  const fetchPlayerProfile = useCallback(async (signal?: AbortSignal) => {
     try {
       if (!session?.user?.id || !id) {
         console.log('PlayerProfile: No session or player ID');
@@ -89,18 +92,19 @@ export default function PlayerProfileScreen() {
       }
 
       setIsLoading(true);
+      setHasError(false);
       const backendUrl = getBackendBaseURL();
-      // console.log('PlayerProfile: Fetching profile from:', `${backendUrl}/api/player/profile/public/${id}`);
 
       const authResponse = await authClient.$fetch(`${backendUrl}/api/player/profile/public/${id}`, {
         method: 'GET',
+        signal,
       });
 
-      // console.log('PlayerProfile: API response:', authResponse);
+      // Check if aborted before updating state
+      if (signal?.aborted) return;
 
       if (authResponse && (authResponse as any).data) {
         const playerData = (authResponse as any).data.data || (authResponse as any).data;
-        // console.log('PlayerProfile: Setting profile data:', playerData);
         setProfileData(playerData);
 
         // Fetch achievements if available
@@ -108,12 +112,21 @@ export default function PlayerProfileScreen() {
         setAchievements([]);
       }
     } catch (error) {
+      // Don't show error toast if request was aborted
+      if (error instanceof Error && error.name === 'AbortError') {
+        return;
+      }
       console.error('PlayerProfile: Error fetching profile:', error);
-      toast.error('Error', {
-        description: 'Failed to load player profile. Please try again.',
-      });
+      if (!signal?.aborted) {
+        setHasError(true);
+        toast.error('Error', {
+          description: 'Failed to load player profile. Please try again.',
+        });
+      }
     } finally {
-      setIsLoading(false);
+      if (!signal?.aborted) {
+        setIsLoading(false);
+      }
     }
   }, [session?.user?.id, id]);
 
@@ -130,6 +143,9 @@ export default function PlayerProfileScreen() {
   };
 
   const handleChat = async () => {
+    // Double-tap guard - prevent multiple chat creation requests
+    if (isLoadingChat) return;
+
     if (!session?.user?.id || !id) {
       toast.error('Error', {
         description: 'Unable to start chat. Please try again.',
@@ -180,9 +196,17 @@ export default function PlayerProfileScreen() {
   };
 
   useEffect(() => {
+    const abortController = new AbortController();
+
     if (session?.user?.id && id) {
-      fetchPlayerProfile();
+      // Reset hasInitializedSport when player ID changes
+      hasInitializedSport.current = false;
+      fetchPlayerProfile(abortController.signal);
     }
+
+    return () => {
+      abortController.abort();
+    };
   }, [session?.user?.id, id, fetchPlayerProfile]);
 
   // Entry animation effect (matching ProfileScreen.tsx pattern)
@@ -342,10 +366,28 @@ export default function PlayerProfileScreen() {
     }
   }, [userData?.sports, activeTab, setActiveTab]);
 
+  const handleRetry = useCallback(() => {
+    const abortController = new AbortController();
+    fetchPlayerProfile(abortController.signal);
+  }, [fetchPlayerProfile]);
+
   if (isLoading && !profileData) {
     return (
       <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color={theme.colors.primary} />
         <Text style={styles.loadingText}>Loading profile...</Text>
+      </View>
+    );
+  }
+
+  if (hasError && !profileData) {
+    return (
+      <View style={styles.loadingContainer}>
+        <Ionicons name="alert-circle-outline" size={48} color={theme.colors.neutral.gray[400]} />
+        <Text style={styles.errorText}>Failed to load profile</Text>
+        <Pressable style={styles.retryButton} onPress={handleRetry}>
+          <Text style={styles.retryButtonText}>Tap to Retry</Text>
+        </Pressable>
       </View>
     );
   }
@@ -517,6 +559,26 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: theme.colors.neutral.gray[600],
     fontFamily: theme.typography.fontFamily.primary,
+    marginTop: theme.spacing.md,
+  },
+  errorText: {
+    fontSize: 16,
+    color: theme.colors.neutral.gray[600],
+    fontFamily: theme.typography.fontFamily.primary,
+    marginTop: theme.spacing.md,
+    marginBottom: theme.spacing.lg,
+  },
+  retryButton: {
+    backgroundColor: theme.colors.primary,
+    paddingHorizontal: theme.spacing.xl,
+    paddingVertical: theme.spacing.md,
+    borderRadius: theme.spacing.md,
+  },
+  retryButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontFamily: theme.typography.fontFamily.primary,
+    fontWeight: '600',
   },
   refreshOverlay: {
     position: 'absolute',

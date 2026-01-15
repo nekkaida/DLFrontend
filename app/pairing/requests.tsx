@@ -21,6 +21,7 @@ import * as Haptics from 'expo-haptics';
 import { useSession, authClient } from '@/lib/auth-client';
 import { getBackendBaseURL } from '@/config/network';
 import { toast } from 'sonner-native';
+import { scale, verticalScale, moderateScale } from '@/core/utils/responsive';
 
 const { width } = Dimensions.get('window');
 const isSmallScreen = width < 375;
@@ -402,7 +403,7 @@ export default function PairRequestsScreen() {
         </View>
 
         <View style={styles.seasonInfo}>
-          <Ionicons name="trophy" size={14} color="#666666" />
+          <Ionicons name="trophy" size={moderateScale(14)} color="#666666" />
           <Text style={styles.seasonText}>{request.season.name}</Text>
         </View>
 
@@ -489,7 +490,7 @@ export default function PairRequestsScreen() {
         ]}
       >
         <TouchableOpacity onPress={handleBack} style={styles.headerButton}>
-          <Ionicons name="chevron-back" size={28} color="#FEA04D" />
+          <Ionicons name="chevron-back" size={moderateScale(28)} color="#FEA04D" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Pair Requests</Text>
         <View style={styles.headerButton} />
@@ -543,7 +544,7 @@ export default function PairRequestsScreen() {
           </View>
         ) : displayedRequests.length === 0 ? (
           <View style={styles.emptyState}>
-            <Ionicons name="people-outline" size={64} color="#BABABA" />
+            <Ionicons name="people-outline" size={moderateScale(64)} color="#BABABA" />
             <Text style={styles.emptyStateText}>
               No {activeTab === 'received' ? 'received' : 'sent'} requests
             </Text>
@@ -572,39 +573,39 @@ const styles = StyleSheet.create({
     top: 0,
     left: 0,
     right: 0,
-    height: 300,
+    height: verticalScale(300),
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingHorizontal: scale(16),
+    paddingVertical: verticalScale(12),
     zIndex: 1,
   },
   headerButton: {
-    width: 40,
-    height: 40,
+    width: moderateScale(40),
+    height: moderateScale(40),
     justifyContent: 'center',
     alignItems: 'center',
   },
   headerTitle: {
     fontFamily: 'Inter',
     fontWeight: '700',
-    fontSize: isSmallScreen ? 16 : 18,
+    fontSize: moderateScale(isSmallScreen ? 16 : 18),
     color: '#1a1a1a',
   },
   tabSwitcher: {
     flexDirection: 'row',
-    paddingHorizontal: isSmallScreen ? 12 : 16,
-    paddingBottom: 16,
-    gap: 12,
+    paddingHorizontal: scale(isSmallScreen ? 12 : 16),
+    paddingBottom: verticalScale(16),
+    gap: scale(12),
   },
   tabButton: {
     flex: 1,
-    paddingVertical: isSmallScreen ? 8 : 10,
-    paddingHorizontal: isSmallScreen ? 12 : 16,
-    borderRadius: 8,
+    paddingVertical: verticalScale(isSmallScreen ? 8 : 10),
+    paddingHorizontal: scale(isSmallScreen ? 12 : 16),
+    borderRadius: moderateScale(8),
     backgroundColor: '#F5F5F5',
     alignItems: 'center',
   },
@@ -614,7 +615,7 @@ const styles = StyleSheet.create({
   tabButtonText: {
     fontFamily: 'Inter',
     fontWeight: '600',
-    fontSize: isSmallScreen ? 12 : 14,
+    fontSize: moderateScale(isSmallScreen ? 12 : 14),
     color: '#666666',
   },
   tabButtonTextActive: {
@@ -624,46 +625,46 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    paddingHorizontal: isSmallScreen ? 16 : 20,
-    paddingBottom: 40,
+    paddingHorizontal: scale(isSmallScreen ? 16 : 20),
+    paddingBottom: verticalScale(40),
   },
   emptyState: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 60,
-    paddingHorizontal: 40,
+    paddingVertical: verticalScale(60),
+    paddingHorizontal: scale(40),
   },
   emptyStateText: {
     fontFamily: 'Inter',
     fontWeight: '600',
-    fontSize: isSmallScreen ? 16 : 18,
+    fontSize: moderateScale(isSmallScreen ? 16 : 18),
     color: '#666666',
-    marginTop: 16,
+    marginTop: verticalScale(16),
     textAlign: 'center',
   },
   emptyStateSubtext: {
     fontFamily: 'Inter',
     fontWeight: '400',
-    fontSize: isSmallScreen ? 12 : 14,
+    fontSize: moderateScale(isSmallScreen ? 12 : 14),
     color: '#999999',
-    marginTop: 8,
+    marginTop: verticalScale(8),
     textAlign: 'center',
-    lineHeight: 20,
+    lineHeight: moderateScale(20),
   },
   requestCard: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
+    borderRadius: moderateScale(12),
+    padding: moderateScale(16),
+    marginBottom: verticalScale(12),
     borderWidth: 1,
     borderColor: '#E2E2E2',
     ...Platform.select({
       ios: {
         shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
+        shadowOffset: { width: 0, height: verticalScale(2) },
         shadowOpacity: 0.1,
-        shadowRadius: 4,
+        shadowRadius: moderateScale(4),
       },
       android: {
         elevation: 2,
@@ -673,12 +674,12 @@ const styles = StyleSheet.create({
   requestHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: verticalScale(12),
   },
   playerAvatar: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: moderateScale(48),
+    height: moderateScale(48),
+    borderRadius: moderateScale(24),
   },
   defaultAvatar: {
     backgroundColor: '#6de9a0',
@@ -687,69 +688,69 @@ const styles = StyleSheet.create({
   },
   defaultAvatarText: {
     color: '#FFFFFF',
-    fontSize: 20,
+    fontSize: moderateScale(20),
     fontWeight: 'bold',
     fontFamily: 'System',
   },
   requestInfo: {
     flex: 1,
-    marginLeft: 12,
+    marginLeft: scale(12),
   },
   playerName: {
     fontFamily: 'Inter',
     fontWeight: '700',
-    fontSize: isSmallScreen ? 14 : 16,
+    fontSize: moderateScale(isSmallScreen ? 14 : 16),
     color: '#1a1a1a',
   },
   playerUsername: {
     fontFamily: 'Inter',
     fontWeight: '400',
-    fontSize: isSmallScreen ? 12 : 13,
+    fontSize: moderateScale(isSmallScreen ? 12 : 13),
     color: '#666666',
-    marginTop: 2,
+    marginTop: verticalScale(2),
   },
   statusBadge: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 6,
+    paddingHorizontal: scale(10),
+    paddingVertical: verticalScale(4),
+    borderRadius: moderateScale(6),
   },
   statusText: {
     fontFamily: 'Inter',
     fontWeight: '600',
-    fontSize: 11,
+    fontSize: moderateScale(11),
     color: '#FFFFFF',
   },
   seasonInfo: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    marginBottom: 12,
+    gap: scale(6),
+    marginBottom: verticalScale(12),
   },
   seasonText: {
     fontFamily: 'Inter',
     fontWeight: '500',
-    fontSize: isSmallScreen ? 12 : 13,
+    fontSize: moderateScale(isSmallScreen ? 12 : 13),
     color: '#666666',
   },
   messageContainer: {
     backgroundColor: '#f8fafc',
-    borderRadius: 8,
-    padding: 12,
-    marginBottom: 12,
+    borderRadius: moderateScale(8),
+    padding: moderateScale(12),
+    marginBottom: verticalScale(12),
   },
   messageLabel: {
     fontFamily: 'Inter',
     fontWeight: '600',
-    fontSize: 12,
+    fontSize: moderateScale(12),
     color: '#666666',
-    marginBottom: 4,
+    marginBottom: verticalScale(4),
   },
   messageText: {
     fontFamily: 'Inter',
     fontWeight: '400',
-    fontSize: isSmallScreen ? 13 : 14,
+    fontSize: moderateScale(isSmallScreen ? 13 : 14),
     color: '#1a1a1a',
-    lineHeight: 20,
+    lineHeight: moderateScale(20),
   },
   requestFooter: {
     flexDirection: 'row',
@@ -762,25 +763,25 @@ const styles = StyleSheet.create({
   timeText: {
     fontFamily: 'Inter',
     fontWeight: '400',
-    fontSize: 12,
+    fontSize: moderateScale(12),
     color: '#999999',
   },
   expiryText: {
     fontFamily: 'Inter',
     fontWeight: '500',
-    fontSize: 12,
+    fontSize: moderateScale(12),
     color: '#FEA04D',
-    marginTop: 2,
+    marginTop: verticalScale(2),
   },
   actionButtons: {
     flexDirection: 'row',
-    gap: 8,
+    gap: scale(8),
   },
   actionButton: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 8,
-    minWidth: 80,
+    paddingHorizontal: scale(16),
+    paddingVertical: verticalScale(8),
+    borderRadius: moderateScale(8),
+    minWidth: scale(80),
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -792,7 +793,7 @@ const styles = StyleSheet.create({
   denyButtonText: {
     fontFamily: 'Inter',
     fontWeight: '600',
-    fontSize: 13,
+    fontSize: moderateScale(13),
     color: '#F44336',
   },
   acceptButton: {
@@ -801,7 +802,7 @@ const styles = StyleSheet.create({
   acceptButtonText: {
     fontFamily: 'Inter',
     fontWeight: '600',
-    fontSize: 13,
+    fontSize: moderateScale(13),
     color: '#FFFFFF',
   },
   cancelButton: {
@@ -812,7 +813,7 @@ const styles = StyleSheet.create({
   cancelButtonText: {
     fontFamily: 'Inter',
     fontWeight: '600',
-    fontSize: 13,
+    fontSize: moderateScale(13),
     color: '#666666',
   },
 });

@@ -2,6 +2,7 @@ import PickleballIcon from '@/assets/images/045-PICKLEBALL.svg';
 import PadelIcon from '@/assets/images/padel-icon.svg';
 import TennisIcon from '@/assets/images/tennis-icon.svg';
 import { getSportColors, SportType } from '@/constants/SportsColor';
+import { scale, verticalScale, moderateScale } from '@/core/utils/responsive';
 import { useSession } from '@/lib/auth-client';
 import axiosInstance from '@/lib/endpoints';
 import { Ionicons } from '@expo/vector-icons';
@@ -380,7 +381,7 @@ export default function AllMatchesScreen() {
           onPress={() => router.back()}
           activeOpacity={0.7}
         >
-          <Ionicons name="chevron-back" size={24} color="#111827" />
+          <Ionicons name="chevron-back" size={moderateScale(24)} color="#111827" />
         </TouchableOpacity>
 
         <View style={styles.headerContent}>
@@ -396,7 +397,7 @@ export default function AllMatchesScreen() {
           <View style={[styles.seasonInfoBox, { backgroundColor: sportColors.buttonColor, borderColor: sportColors.badgeColor }]}>
             {/* Sport icon on the left */}
             <View style={styles.seasonInfoIcon}>
-              <SportIcon width={40} height={40} fill="#FFFFFF" />
+              <SportIcon width={moderateScale(40)} height={moderateScale(40)} fill="#FFFFFF" />
             </View>
 
             {/* Season details in the middle */}
@@ -427,7 +428,7 @@ export default function AllMatchesScreen() {
         <View style={styles.matchesHeader}>
           <Text style={styles.matchesLabel}>Matches</Text>
           <TouchableOpacity style={styles.filterButton} onPress={() => setShowSortModal(true)}>
-            <SvgXml xml={matchFilterIcon} width={24} height={18} />
+            <SvgXml xml={matchFilterIcon} width={moderateScale(24)} height={moderateScale(18)} />
           </TouchableOpacity>
         </View>
         <View style={styles.matchesControls}>
@@ -463,7 +464,7 @@ export default function AllMatchesScreen() {
         </View>
       ) : matches.length === 0 ? (
         <View style={styles.emptyContainer}>
-          <Ionicons name="calendar-outline" size={64} color="#9CA3AF" />
+          <Ionicons name="calendar-outline" size={moderateScale(64)} color="#9CA3AF" />
           <Text style={styles.emptyTitle}>No matches found</Text>
           <Text style={styles.emptyDescription}>Check back later for upcoming matches</Text>
         </View>
@@ -480,7 +481,7 @@ export default function AllMatchesScreen() {
                 >
                   <Ionicons
                     name={isCollapsed ? 'chevron-forward' : 'chevron-down'}
-                    size={18}
+                    size={moderateScale(18)}
                     color="#86868B"
                   />
                   <Text style={styles.dateLabel}>{dateKey}</Text>
@@ -544,7 +545,7 @@ export default function AllMatchesScreen() {
                   {option.label}
                 </Text>
                 {sortOption === option.key && (
-                  <Ionicons name="checkmark" size={20} color="#FEA04D" />
+                  <Ionicons name="checkmark" size={moderateScale(20)} color="#FEA04D" />
                 )}
               </TouchableOpacity>
             ))}
@@ -561,91 +562,91 @@ const styles = StyleSheet.create({
     backgroundColor: '#F9FAFB',
   },
   header: {
-    paddingHorizontal: 16,
-    paddingBottom: 20,
+    paddingHorizontal: scale(16),
+    paddingBottom: verticalScale(20),
     alignItems: 'center',
     position: 'relative',
-    borderBottomLeftRadius: 20,
-    borderBottomRightRadius: 20,
+    borderBottomLeftRadius: moderateScale(20),
+    borderBottomRightRadius: moderateScale(20),
   },
   backButton: {
     position: 'absolute',
-    left: 16,
-    padding: 4,
+    left: scale(16),
+    padding: scale(4),
     zIndex: 10,
   },
   headerContent: {
     alignItems: 'center',
     width: '100%',
-    paddingHorizontal: 24,
+    paddingHorizontal: scale(24),
   },
   categoryTitle: {
-    fontSize: 24,
+    fontSize: moderateScale(24),
     fontWeight: '700',
     color: '#0E0E10',
-    marginBottom: 2,
+    marginBottom: verticalScale(2),
     textAlign: 'center',
     alignSelf: 'center',
   },
   leagueTitle: {
-    fontSize: 15,
+    fontSize: moderateScale(15),
     fontWeight: '600',
     color: 'rgba(255, 255, 255, 0.9)',
-    marginBottom: 10,
+    marginBottom: verticalScale(10),
     textAlign: 'center',
   },
   seasonInfoBox: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderRadius: 20,
-    paddingVertical: 10,
-    paddingLeft: 12,
-    paddingRight: 12,
+    borderRadius: moderateScale(20),
+    paddingVertical: verticalScale(10),
+    paddingLeft: scale(12),
+    paddingRight: scale(12),
     width: '100%',
     borderWidth: 3,
   },
   seasonInfoIcon: {
-    marginRight: 12,
+    marginRight: scale(12),
   },
   seasonInfoDetails: {
     flex: 1,
   },
   seasonInfoTitle: {
-    fontSize: 15,
+    fontSize: moderateScale(15),
     fontWeight: '700',
     color: '#FFFFFF',
-    marginBottom: 1,
+    marginBottom: verticalScale(1),
   },
   seasonInfoDate: {
-    fontSize: 11,
+    fontSize: moderateScale(11),
     color: 'rgba(255, 255, 255, 0.9)',
     fontWeight: '500',
-    lineHeight: 15,
+    lineHeight: verticalScale(15),
   },
   seasonInfoButton: {
     backgroundColor: 'rgba(255, 255, 255, 0.95)',
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    borderRadius: 22,
-    marginLeft: 8,
+    paddingHorizontal: scale(20),
+    paddingVertical: verticalScale(10),
+    borderRadius: moderateScale(22),
+    marginLeft: scale(8),
   },
   seasonInfoButtonText: {
-    fontSize: 14,
+    fontSize: moderateScale(14),
     fontWeight: '700',
   },
   matchesSection: {
-    paddingHorizontal: 16,
-    paddingTop: 16,
-    paddingBottom: 12,
+    paddingHorizontal: scale(16),
+    paddingTop: verticalScale(16),
+    paddingBottom: verticalScale(12),
   },
   matchesHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 12,
+    marginBottom: verticalScale(12),
   },
   matchesLabel: {
-    fontSize: 20,
+    fontSize: moderateScale(20),
     fontWeight: '700',
     color: '#111827',
   },
@@ -655,21 +656,21 @@ const styles = StyleSheet.create({
   },
   chipsContainer: {
     flexDirection: 'row',
-    gap: 8,
+    gap: scale(8),
   },
   chip: {
-    paddingVertical: 6,
-    paddingHorizontal: 16,
-    borderRadius: 40,
+    paddingVertical: verticalScale(6),
+    paddingHorizontal: scale(16),
+    borderRadius: moderateScale(40),
     alignItems: 'center',
     justifyContent: 'center',
   },
   chipText: {
-    fontSize: 14,
+    fontSize: moderateScale(14),
     fontWeight: '600',
   },
   filterButton: {
-    padding: 6,
+    padding: scale(6),
   },
   scrollView: {
     flex: 1,
@@ -678,41 +679,41 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    gap: 12,
+    gap: verticalScale(12),
   },
   loadingText: {
-    fontSize: 14,
+    fontSize: moderateScale(14),
     color: '#6B7280',
   },
   emptyContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 32,
-    gap: 12,
+    paddingHorizontal: scale(32),
+    gap: verticalScale(12),
   },
   emptyTitle: {
-    fontSize: 18,
+    fontSize: moderateScale(18),
     fontWeight: '700',
     color: '#111827',
   },
   emptyDescription: {
-    fontSize: 14,
+    fontSize: moderateScale(14),
     color: '#6B7280',
     textAlign: 'center',
   },
   dateSection: {
-    marginBottom: 16,
+    marginBottom: verticalScale(16),
   },
   dateDivider: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    gap: 8,
+    paddingHorizontal: scale(16),
+    paddingVertical: verticalScale(12),
+    gap: scale(8),
   },
   dateLabel: {
-    fontSize: 13,
+    fontSize: moderateScale(13),
     fontWeight: '600',
     color: '#86868B',
   },
@@ -724,28 +725,28 @@ const styles = StyleSheet.create({
   },
   sortModalContent: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    paddingVertical: 16,
-    paddingHorizontal: 20,
+    borderRadius: moderateScale(16),
+    paddingVertical: verticalScale(16),
+    paddingHorizontal: scale(20),
     width: '80%',
-    maxWidth: 300,
+    maxWidth: scale(300),
   },
   sortModalTitle: {
-    fontSize: 18,
+    fontSize: moderateScale(18),
     fontWeight: '700',
     color: '#111827',
-    marginBottom: 16,
+    marginBottom: verticalScale(16),
   },
   sortOption: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 14,
+    paddingVertical: verticalScale(14),
     borderBottomWidth: 1,
     borderBottomColor: '#F3F4F6',
   },
   sortOptionText: {
-    fontSize: 16,
+    fontSize: moderateScale(16),
     color: '#374151',
   },
   sortOptionTextActive: {
