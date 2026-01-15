@@ -1,6 +1,6 @@
 // src/features/feed/screens/FeedScreen.tsx
 
-import React, { useEffect, useCallback, useRef, useState } from 'react';
+import React, { useEffect, useCallback, useRef, useState, useMemo } from 'react';
 import { View, StyleSheet, FlatList, RefreshControl, ActivityIndicator, Text, TouchableOpacity } from 'react-native';
 import { router } from 'expo-router';
 import BottomSheet from '@gorhom/bottom-sheet';
@@ -54,7 +54,28 @@ export default function FeedScreen({ sport = 'default' }: FeedScreenProps) {
   const postRefs = useRef<Map<string, View>>(new Map());
   const { captureAndShare, captureAndSave, shareLink, isCapturing, isSaving, shareError, clearShareError } = useSharePost();
 
+  // Refs for race condition prevention and cleanup
+  const isDeletingRef = useRef(false);
+  const isSavingRef = useRef(false);
+  const isMountedRef = useRef(true);
+  const editTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isLoadingMoreRef = useRef(false);
+
   const [selectedSportFilter, setSelectedSportFilter] = useState<string | undefined>(sport);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+      // Clear any pending timeout
+      if (editTimeoutRef.current) {
+        clearTimeout(editTimeoutRef.current);
+      }
+      // Clear postRefs map
+      postRefs.current.clear();
+    };
+  }, []);
 
   const handleFilterPress = useCallback(() => {
     sportFilterRef.current?.snapToIndex(0);
@@ -81,15 +102,37 @@ export default function FeedScreen({ sport = 'default' }: FeedScreenProps) {
     removePostLocally,
   } = useFeedPosts({ sport: selectedSportFilter, limit: 10 });
 
-  // Get sport colors using the utility function (convert to uppercase for SportType)
-  const sportType = sport?.toUpperCase() as SportType;
-  const sportColors = getSportColors(sportType);
-  // Game score sports use gameScores array instead of setScores
-  const isGameScoreSport = sport !== 'tennis' && sport !== 'padel';
+  // Debounced load more to prevent multiple rapid calls from onEndReached
+  const handleLoadMore = useCallback(() => {
+    if (isLoadingMoreRef.current || isLoadingMore || !hasMore) return;
+    isLoadingMoreRef.current = true;
+    loadMorePosts();
+    // Reset after a short delay to allow for next load
+    setTimeout(() => {
+      isLoadingMoreRef.current = false;
+    }, 500);
+  }, [loadMorePosts, isLoadingMore, hasMore]);
 
-  // Fetch posts on mount
+  // Get sport colors using the utility function (convert to uppercase for SportType)
+  // Memoized to prevent unnecessary re-renders of FlatList items
+  const sportType = sport?.toUpperCase() as SportType;
+  const sportColors = useMemo(() => getSportColors(sportType), [sportType]);
+  // Game score sports use gameScores array instead of setScores
+  const isGameScoreSport = useMemo(() => sport !== 'tennis' && sport !== 'padel', [sport]);
+
+  // Fetch posts on mount and cleanup on unmount
   useEffect(() => {
+    isMountedRef.current = true;
     fetchPosts();
+
+    return () => {
+      isMountedRef.current = false;
+      // Clear any pending timeout to prevent memory leak
+      if (editTimeoutRef.current) {
+        clearTimeout(editTimeoutRef.current);
+        editTimeoutRef.current = null;
+      }
+    };
   }, [fetchPosts]);
 
   const handleFriendListPress = useCallback(() => {
@@ -156,21 +199,36 @@ export default function FeedScreen({ sport = 'default' }: FeedScreenProps) {
       setEditingPostId(selectedOptionsPost.id);
       setEditingCaption(selectedOptionsPost.caption || '');
       postOptionsRef.current?.close();
+
+      // Clear any existing timeout before setting new one
+      if (editTimeoutRef.current) {
+        clearTimeout(editTimeoutRef.current);
+      }
+
       // Small delay to allow options sheet to close before opening edit sheet
-      setTimeout(() => {
-        editCaptionRef.current?.snapToIndex(0);
+      editTimeoutRef.current = setTimeout(() => {
+        if (isMountedRef.current) {
+          editCaptionRef.current?.snapToIndex(0);
+        }
+        editTimeoutRef.current = null;
       }, 100);
     }
   }, [selectedOptionsPost]);
 
   const handleDeletePress = useCallback(async () => {
-    if (selectedOptionsPostId) {
+    // Guard against double-delete race condition
+    if (isDeletingRef.current || !selectedOptionsPostId) return;
+    isDeletingRef.current = true;
+
+    try {
       const success = await deletePost(selectedOptionsPostId);
-      if (success) {
+      if (success && isMountedRef.current) {
         // Remove the deleted post from local state
         removePostLocally(selectedOptionsPostId);
         postOptionsRef.current?.close();
       }
+    } finally {
+      isDeletingRef.current = false;
     }
   }, [selectedOptionsPostId, deletePost, removePostLocally]);
 
@@ -180,10 +238,18 @@ export default function FeedScreen({ sport = 'default' }: FeedScreenProps) {
   }, []);
 
   const handleSaveCaption = useCallback(async (postId: string, newCaption: string) => {
-    const success = await editCaption(postId, newCaption);
-    if (success) {
-      updatePostLocally(postId, { caption: newCaption });
-      editCaptionRef.current?.close();
+    // Guard against double-save race condition
+    if (isSavingRef.current) return;
+    isSavingRef.current = true;
+
+    try {
+      const success = await editCaption(postId, newCaption);
+      if (success && isMountedRef.current) {
+        updatePostLocally(postId, { caption: newCaption });
+        editCaptionRef.current?.close();
+      }
+    } finally {
+      isSavingRef.current = false;
     }
   }, [editCaption, updatePostLocally]);
 
@@ -293,8 +359,17 @@ export default function FeedScreen({ sport = 'default' }: FeedScreenProps) {
           <Text style={styles.errorSubtitle}>
             We couldn't load the feed. Please try again.
           </Text>
-          <TouchableOpacity style={styles.retryButton} onPress={fetchPosts} activeOpacity={0.7}>
-            <Text style={styles.retryButtonText}>Retry</Text>
+          <TouchableOpacity
+            style={[styles.retryButton, isLoading && styles.retryButtonDisabled]}
+            onPress={fetchPosts}
+            activeOpacity={0.7}
+            disabled={isLoading}
+          >
+            {isLoading ? (
+              <ActivityIndicator size="small" color="#FFFFFF" />
+            ) : (
+              <Text style={styles.retryButtonText}>Retry</Text>
+            )}
           </TouchableOpacity>
         </View>
       ) : (
@@ -311,10 +386,15 @@ export default function FeedScreen({ sport = 'default' }: FeedScreenProps) {
               tintColor={feedTheme.colors.primary}
             />
           }
-          onEndReached={loadMorePosts}
+          onEndReached={handleLoadMore}
           onEndReachedThreshold={0.5}
           ListFooterComponent={renderFooter}
           ListEmptyComponent={renderEmpty}
+          // Performance optimizations
+          removeClippedSubviews={true}
+          maxToRenderPerBatch={5}
+          windowSize={10}
+          initialNumToRender={5}
         />
       )}
 
@@ -440,6 +520,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     paddingVertical: 12,
     borderRadius: 8,
+    minWidth: 80,
+    alignItems: 'center',
+  },
+  retryButtonDisabled: {
+    opacity: 0.7,
   },
   retryButtonText: {
     color: '#FFFFFF',
