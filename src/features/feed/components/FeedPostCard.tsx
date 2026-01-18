@@ -1,6 +1,6 @@
 // src/features/feed/components/FeedPostCard.tsx
 
-import React, { useCallback, useMemo, useState, forwardRef } from 'react';
+import React, { useCallback, useMemo, useState, forwardRef, useRef, useEffect } from 'react';
 import { View, Text, StyleSheet, Dimensions, TouchableOpacity, Pressable } from 'react-native';
 import { MatchResultCard } from '@/features/standings/components';
 import { SportColors, MatchResult } from '@/features/standings/types';
@@ -9,6 +9,7 @@ import { feedTheme } from '../theme';
 import { AuthorHeader } from './AuthorHeader';
 import { SocialBar } from './SocialBar';
 import { useLikes } from '../hooks';
+import { ScorecardCaptureWrapper, type ScorecardCaptureRef } from './ScorecardCaptureWrapper';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 const CARD_WIDTH = SCREEN_WIDTH - (feedTheme.spacing.screenPadding * 2) - (feedTheme.spacing.cardPadding * 2);
@@ -26,6 +27,7 @@ interface FeedPostCardProps {
   onSharePress?: (post: FeedPost) => void;
   onMatchPress?: (matchId: string) => void;
   showOptionsButton?: boolean;
+  onScorecardRef?: (postId: string, ref: ScorecardCaptureRef | null) => void;
 }
 
 export const FeedPostCard = forwardRef<View, FeedPostCardProps>(({
@@ -40,9 +42,23 @@ export const FeedPostCard = forwardRef<View, FeedPostCardProps>(({
   onSharePress,
   onMatchPress,
   showOptionsButton = false,
+  onScorecardRef,
 }, ref) => {
   const { isLiking, toggleLike } = useLikes();
   const [captionExpanded, setCaptionExpanded] = useState(false);
+  const scorecardRef = useRef<ScorecardCaptureRef>(null);
+
+  // Notify parent component when scorecard ref is ready
+  useEffect(() => {
+    if (onScorecardRef && scorecardRef.current) {
+      onScorecardRef(post.id, scorecardRef.current);
+    }
+    return () => {
+      if (onScorecardRef) {
+        onScorecardRef(post.id, null);
+      }
+    };
+  }, [post.id, onScorecardRef]);
 
   // Caption truncation logic
   const shouldTruncate = post.caption && post.caption.length > CAPTION_TRUNCATE_LENGTH;
@@ -137,16 +153,12 @@ export const FeedPostCard = forwardRef<View, FeedPostCardProps>(({
           pressed && styles.scorecardPressed,
         ]}
       >
-        <MatchResultCard
+        <ScorecardCaptureWrapper
+          ref={scorecardRef}
           match={matchForCard}
-          index={0}
-          totalResults={1}
           sportColors={sportColors}
           isPickleball={isGameScoreSport}
           cardWidth={CARD_WIDTH}
-          cardGap={0}
-          expandedComments={new Set()}
-          onToggleComments={() => {}}
         />
       </Pressable>
 

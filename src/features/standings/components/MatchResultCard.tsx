@@ -5,6 +5,8 @@ import { Image, StyleSheet, Text, TouchableOpacity, View, ViewStyle } from 'reac
 import { MatchPlayer, MatchResult, SportColors } from '../types';
 import { formatPlayerName, getOrdinalSuffix } from '../utils';
 
+export type CardBackgroundStyle = 'white' | 'transparent';
+
 interface MatchResultCardProps {
   match: MatchResult;
   index: number;
@@ -16,6 +18,7 @@ interface MatchResultCardProps {
   expandedComments: Set<string>;
   onToggleComments: (matchId: string) => void;
   onSharePress?: (matchId: string) => void;
+  backgroundStyle?: CardBackgroundStyle;
 }
 
 export const MatchResultCard: React.FC<MatchResultCardProps> = ({
@@ -29,6 +32,7 @@ export const MatchResultCard: React.FC<MatchResultCardProps> = ({
   expandedComments,
   onToggleComments,
   onSharePress,
+  backgroundStyle = 'white',
 }) => {
   const isTeam1Winner = match.outcome === 'team1';
   const isTeam2Winner = match.outcome === 'team2';
@@ -105,17 +109,19 @@ export const MatchResultCard: React.FC<MatchResultCardProps> = ({
   const renderScoresTable = () => {
     if (!scores || scores.length === 0) return null;
 
+    const isSingles = match.team1Players.length === 1;
+
     return (
       <View style={styles.cardScoresTable}>
         {/* Table Header */}
         <View style={[styles.cardTableHeader, { backgroundColor: sportColors.background }]}>
           <View style={styles.cardTableHeaderLabelCell}>
-            <Text style={styles.cardTableHeaderText}>Best of {totalSets}</Text>
+            <Text style={styles.cardTableHeaderText}></Text>
           </View>
           {scores.map((_, idx) => (
             <View key={idx} style={styles.cardTableHeaderCell}>
               <Text style={styles.cardTableHeaderText}>
-                {isPickleball ? idx + 1 : getOrdinalSuffix(idx + 1)}
+                {isPickleball ? `${idx + 1}` : getOrdinalSuffix(idx + 1)}
               </Text>
             </View>
           ))}
@@ -131,7 +137,9 @@ export const MatchResultCard: React.FC<MatchResultCardProps> = ({
               ]}
               numberOfLines={1}
             >
-              {formatPlayerName(match.team1Players[0].name, true)}
+              {isSingles
+                ? formatPlayerName(match.team1Players[0].name, true)
+                : match.team1Players.map((p) => formatPlayerName(p.name, true)).join(', ')}
             </Text>
           </View>
           {isPickleball
@@ -184,7 +192,9 @@ export const MatchResultCard: React.FC<MatchResultCardProps> = ({
               ]}
               numberOfLines={1}
             >
-              {formatPlayerName(match.team2Players[0].name, true)}
+              {isSingles
+                ? formatPlayerName(match.team2Players[0].name, true)
+                : match.team2Players.map((p) => formatPlayerName(p.name, true)).join(', ')}
             </Text>
           </View>
           {isPickleball
@@ -295,6 +305,12 @@ export const MatchResultCard: React.FC<MatchResultCardProps> = ({
     width: cardWidth,
     marginLeft: index === 0 ? 0 : cardGap,
     ...(index === totalResults - 1 && { marginRight: 0 }),
+    backgroundColor: backgroundStyle === 'transparent' ? 'transparent' : '#FEFEFE',
+    ...(backgroundStyle === 'transparent' && {
+      borderWidth: 0,
+      shadowOpacity: 0,
+      elevation: 0,
+    }),
   };
 
   return (

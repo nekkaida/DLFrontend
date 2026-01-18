@@ -1,5 +1,5 @@
 export { DivisionCard } from './DivisionCard';
-export { MatchResultCard } from './MatchResultCard';
+export { MatchResultCard, type CardBackgroundStyle } from './MatchResultCard';
 export { PlayerAvatar } from './PlayerAvatar';
 export { ResultsSection } from './ResultsSection';
 export { ScrollProgressBar } from './ScrollProgressBar';

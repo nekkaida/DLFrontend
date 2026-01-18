@@ -7,7 +7,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { feedTheme } from '../theme';
 import type { ShareError } from '../hooks/useSharePost';
 
-export type ShareStyle = 'transparent' | 'standard';
+export type ShareStyle = 'transparent' | 'white';
 
 interface ShareOptionsSheetProps {
   bottomSheetRef: React.RefObject<BottomSheet | null>;
@@ -30,7 +30,7 @@ export const ShareOptionsSheet: React.FC<ShareOptionsSheetProps> = ({
   onShareLink,
   onShareInstagram,
   isLoading = false,
-  defaultStyle = 'transparent',
+  defaultStyle = 'white',
   shareError,
   onClearError,
 }) => {
@@ -109,8 +109,25 @@ export const ShareOptionsSheet: React.FC<ShareOptionsSheetProps> = ({
 
         {/* Style Selector */}
         <View style={styles.styleSelector}>
-          <Text style={styles.styleSelectorLabel}>Image Style</Text>
+          <Text style={styles.styleSelectorLabel}>Scorecard Background</Text>
           <View style={styles.styleToggle}>
+            <TouchableOpacity
+              style={[
+                styles.styleOption,
+                selectedStyle === 'white' && styles.styleOptionSelected,
+              ]}
+              onPress={() => setSelectedStyle('white')}
+              activeOpacity={0.7}
+            >
+              <Text
+                style={[
+                  styles.styleOptionText,
+                  selectedStyle === 'white' && styles.styleOptionTextSelected,
+                ]}
+              >
+                White
+              </Text>
+            </TouchableOpacity>
             <TouchableOpacity
               style={[
                 styles.styleOption,
@@ -126,23 +143,6 @@ export const ShareOptionsSheet: React.FC<ShareOptionsSheetProps> = ({
                 ]}
               >
                 Transparent
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[
-                styles.styleOption,
-                selectedStyle === 'standard' && styles.styleOptionSelected,
-              ]}
-              onPress={() => setSelectedStyle('standard')}
-              activeOpacity={0.7}
-            >
-              <Text
-                style={[
-                  styles.styleOptionText,
-                  selectedStyle === 'standard' && styles.styleOptionTextSelected,
-                ]}
-              >
-                Standard
               </Text>
             </TouchableOpacity>
           </View>
