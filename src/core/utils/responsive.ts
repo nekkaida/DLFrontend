@@ -7,6 +7,10 @@ const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 const BASE_WIDTH = 375;
 const BASE_HEIGHT = 667;
 
+// Global scale factor to adjust overall UI density
+// 0.75 = 25% smaller than calculated responsive values
+const GLOBAL_SCALE_FACTOR = 0.95;
+
 // Device type detection
 export const DeviceType = {
   SMALL_PHONE: 'small_phone',    // iPhone SE, etc.
@@ -47,19 +51,22 @@ export const scale = (size: number): number => {
   const scaleRatio = screenWidth / BASE_WIDTH;
   // Cap the scaling to prevent too large sizes on tablets
   const cappedRatio = Math.min(scaleRatio, 1.4);
-  return Math.round(size * cappedRatio);
+  return Math.round(size * cappedRatio * GLOBAL_SCALE_FACTOR);
 };
 
 export const verticalScale = (size: number): number => {
   const scaleRatio = screenHeight / BASE_HEIGHT;
   const cappedRatio = Math.min(scaleRatio, 1.4);
-  return Math.round(size * cappedRatio);
+  return Math.round(size * cappedRatio * GLOBAL_SCALE_FACTOR);
 };
 
 // Moderate scaling for elements that shouldn't scale too much
 export const moderateScale = (size: number, factor: number = 0.5): number => {
-  const scaledSize = scale(size);
-  return Math.round(size + (scaledSize - size) * factor);
+  const baseScaleRatio = screenWidth / BASE_WIDTH;
+  const cappedRatio = Math.min(baseScaleRatio, 1.4);
+  const scaledSize = size * cappedRatio;
+  const result = size + (scaledSize - size) * factor;
+  return Math.round(result * GLOBAL_SCALE_FACTOR);
 };
 
 // Responsive padding/margin helpers

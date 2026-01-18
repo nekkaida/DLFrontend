@@ -1,6 +1,11 @@
 import PadelMatchIcon from '@/assets/icons/chats/padel-match.svg';
 import PickleballMatchIcon from '@/assets/icons/chats/pickleball-match.svg';
 import TennisMatchIcon from '@/assets/icons/chats/tennis-match.svg';
+import {
+  scale,
+  verticalScale,
+  moderateScale,
+} from '@/core/utils/responsive';
 import { Ionicons } from '@expo/vector-icons';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -257,9 +262,12 @@ export const MessageInput = React.forwardRef<MessageInputRef, MessageInputProps>
           <Pressable
             onPress={onCancelReply}
             style={({ pressed }) => [styles.cancelReplyButton, pressed && { opacity: 0.7 }]}
+            accessibilityLabel="Cancel reply"
+            accessibilityRole="button"
+            accessibilityHint="Stop replying to this message"
           >
             <View style={styles.cancelReplyCircle}>
-              <Ionicons name="close" size={14} color="#6B7280" />
+              <Ionicons name="close" size={moderateScale(14)} color="#6B7280" />
             </View>
           </Pressable>
         </Animated.View>
@@ -270,18 +278,22 @@ export const MessageInput = React.forwardRef<MessageInputRef, MessageInputProps>
         <Pressable
           style={({ pressed }) => [styles.attachmentButton, pressed && { opacity: 0.7 }]}
           onPress={handleMatch}
+          accessibilityLabel={isGroupChat ? "Create match" : "Schedule friendly match"}
+          accessibilityRole="button"
+          accessibilityHint={isGroupChat ? "Schedule a league match" : "Send a friendly match request"}
         >
           {MatchIcon ? (
-            <MatchIcon width={24} height={24} />
+            <MatchIcon width={moderateScale(24)} height={moderateScale(24)} />
           ) : (
-            <Ionicons name="calendar-clear-outline" size={24} color="#6B7280" />
+            <Ionicons name="calendar-clear-outline" size={moderateScale(24)} color="#6B7280" />
           )}
         </Pressable>
-        
+
         <View style={styles.textInputWrapper}>
           <Pressable
             style={styles.textInputContainer}
             onPress={handleInputContainerPress}
+            accessibilityLabel="Message input area"
           >
             <TextInput
               ref={inputRef}
@@ -293,10 +305,12 @@ export const MessageInput = React.forwardRef<MessageInputRef, MessageInputProps>
               multiline
               maxLength={1000}
               textAlignVertical="center"
+              accessibilityLabel="Type your message"
+              accessibilityHint="Enter text to send a message"
             />
           </Pressable>
         </View>
-        
+
         <Pressable
           style={({ pressed }) => [
             styles.sendButton,
@@ -305,10 +319,14 @@ export const MessageInput = React.forwardRef<MessageInputRef, MessageInputProps>
           ]}
           onPress={handleSend}
           disabled={!message.trim()}
+          accessibilityLabel="Send message"
+          accessibilityRole="button"
+          accessibilityState={{ disabled: !message.trim() }}
+          accessibilityHint="Send your typed message"
         >
           <Ionicons
             name="send"
-            size={18}
+            size={moderateScale(18)}
             color={message.trim() ? '#FFFFFF' : '#9CA3AF'}
           />
         </Pressable>
@@ -324,19 +342,19 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderTopWidth: 1,
     borderTopColor: '#E5E7EB',
-    paddingTop: 12,
-    paddingHorizontal: 16,
+    paddingTop: verticalScale(12),
+    paddingHorizontal: scale(16),
   },
   replyPreviewContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#F3F4F6',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingHorizontal: scale(16),
+    paddingVertical: verticalScale(12),
     borderRadius: 0,
-    marginBottom: 8,
-    marginHorizontal: -16,
-    paddingLeft: 20,
+    marginBottom: verticalScale(8),
+    marginHorizontal: scale(-16),
+    paddingLeft: scale(20),
   },
   replyPreviewContent: {
     flex: 1,
@@ -344,34 +362,34 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
   },
   replyBar: {
-    width: 4,
+    width: scale(4),
     alignSelf: 'stretch',
-    borderRadius: 2,
-    marginRight: 12,
-    minHeight: 40,
+    borderRadius: moderateScale(2),
+    marginRight: scale(12),
+    minHeight: verticalScale(40),
   },
   replyTextContainer: {
     flex: 1,
     justifyContent: 'center',
   },
   replyLabel: {
-    fontSize: 13,
+    fontSize: moderateScale(13),
     fontWeight: '600',
-    marginBottom: 4,
+    marginBottom: verticalScale(4),
   },
   replyMessageText: {
-    fontSize: 14,
+    fontSize: moderateScale(14),
     color: '#4B5563',
-    lineHeight: 20,
+    lineHeight: verticalScale(20),
   },
   cancelReplyButton: {
-    padding: 4,
-    marginLeft: 8,
+    padding: scale(4),
+    marginLeft: scale(8),
   },
   cancelReplyCircle: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
+    width: scale(24),
+    height: verticalScale(24),
+    borderRadius: moderateScale(12),
     backgroundColor: '#E5E7EB',
     justifyContent: 'center',
     alignItems: 'center',
@@ -379,12 +397,12 @@ const styles = StyleSheet.create({
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'flex-end',
-    gap: 8,
+    gap: scale(8),
   },
   attachmentButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: scale(40),
+    height: verticalScale(40),
+    borderRadius: moderateScale(20),
     backgroundColor: '#F3F4F6',
     justifyContent: 'center',
     alignItems: 'center',
@@ -397,23 +415,23 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
     borderWidth: 1,
     borderColor: '#E5E7EB',
-    borderRadius: 20,
+    borderRadius: moderateScale(20),
     backgroundColor: '#F9FAFB',
-    paddingRight: 12,
-    minHeight: 40,
+    paddingRight: scale(12),
+    minHeight: verticalScale(40),
   },
   textInput: {
     flex: 1,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    maxHeight: 100,
-    fontSize: 15,
+    paddingHorizontal: scale(16),
+    paddingVertical: verticalScale(10),
+    maxHeight: verticalScale(100),
+    fontSize: moderateScale(15),
     color: '#111827',
   },
   sendButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: scale(40),
+    height: verticalScale(40),
+    borderRadius: moderateScale(20),
     justifyContent: 'center',
     alignItems: 'center',
   },

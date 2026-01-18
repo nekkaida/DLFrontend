@@ -1,4 +1,9 @@
 import { getBackendBaseURL } from '@/config/network';
+import {
+  scale,
+  verticalScale,
+  moderateScale,
+} from '@/core/utils/responsive';
 import { authClient, useSession } from '@/lib/auth-client';
 import { ChatService } from '@/src/features/chat/services/ChatService';
 import { useChatStore } from '@/src/features/chat/stores/ChatStore';
@@ -120,7 +125,11 @@ export default function NewMessageScreen() {
       return;
     }
 
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    try {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    } catch {
+      // Haptics not available
+    }
 
     try {
       chatLogger.debug('Creating/finding thread with user:', user.id, user.name);
@@ -182,7 +191,7 @@ export default function NewMessageScreen() {
         style={({ pressed }) => [styles.chatButton, pressed && { opacity: 0.7 }]}
         onPress={() => handleSelectUser(item)}
       >
-        <Ionicons name="chatbubble-outline" size={18} color="#FFFFFF" />
+        <Ionicons name="chatbubble-outline" size={moderateScale(18)} color="#FFFFFF" />
         <Text style={styles.chatButtonText}>Chat</Text>
       </Pressable>
     </View>
@@ -190,7 +199,7 @@ export default function NewMessageScreen() {
 
   const renderEmpty = useCallback(() => (
     <View style={styles.emptyContainer}>
-      <Ionicons name="people-outline" size={56} color="#BABABA" />
+      <Ionicons name="people-outline" size={moderateScale(56)} color="#BABABA" />
       <Text style={styles.emptyText}>
         {searchQuery.trim() ? 'No users found' : 'No users available'}
       </Text>
@@ -226,14 +235,14 @@ export default function NewMessageScreen() {
           onPress={handleClose}
           style={({ pressed }) => [styles.closeButton, pressed && { opacity: 0.7 }]}
         >
-          <Ionicons name="close" size={18} color="#6B7280" />
+          <Ionicons name="close" size={moderateScale(18)} color="#6B7280" />
         </Pressable>
       </View>
 
       {/* Search Bar - Regular TextInput works perfectly! */}
       <View style={styles.searchContainer}>
         <View style={styles.searchBar}>
-          <Ionicons name="search" size={20} color="#6B7280" style={styles.searchIcon} />
+          <Ionicons name="search" size={moderateScale(20)} color="#6B7280" style={styles.searchIcon} />
           <TextInput
             style={styles.searchInput}
             placeholder="Search users"
@@ -248,7 +257,7 @@ export default function NewMessageScreen() {
               onPress={() => setSearchQuery('')}
               style={({ pressed }) => [styles.clearButton, pressed && { opacity: 0.7 }]}
             >
-              <Ionicons name="close-circle" size={20} color="#9CA3AF" />
+              <Ionicons name="close-circle" size={moderateScale(20)} color="#9CA3AF" />
             </Pressable>
           )}
         </View>
@@ -264,7 +273,7 @@ export default function NewMessageScreen() {
           !isLoading && filteredUsers.length === 0
             ? styles.emptyListContainer
             : styles.listContent,
-          { paddingBottom: 20 + insets.bottom },
+          { paddingBottom: verticalScale(20) + insets.bottom },
         ]}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
@@ -277,14 +286,14 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#FFFFFF',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
+    borderTopLeftRadius: moderateScale(20),
+    borderTopRightRadius: moderateScale(20),
     ...Platform.select({
       ios: {
         shadowColor: '#000',
-        shadowOffset: { width: 0, height: -4 },
+        shadowOffset: { width: 0, height: verticalScale(-4) },
         shadowOpacity: 0.1,
-        shadowRadius: 8,
+        shadowRadius: moderateScale(8),
       },
       android: {
         elevation: 8,
@@ -293,43 +302,43 @@ const styles = StyleSheet.create({
   },
   handleContainer: {
     alignItems: 'center',
-    paddingTop: 12,
-    paddingBottom: 4,
+    paddingTop: verticalScale(12),
+    paddingBottom: verticalScale(4),
   },
   handle: {
-    width: 40,
-    height: 4,
+    width: scale(40),
+    height: verticalScale(4),
     backgroundColor: '#BABABA',
-    borderRadius: 2,
+    borderRadius: moderateScale(2),
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingHorizontal: scale(16),
+    paddingVertical: verticalScale(12),
     borderBottomWidth: 1,
     borderBottomColor: '#E5E7EB',
   },
   headerSpacer: {
-    width: 32,
+    width: scale(32),
   },
   closeButton: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: scale(32),
+    height: verticalScale(32),
+    borderRadius: moderateScale(16),
     backgroundColor: '#F3F4F6',
     alignItems: 'center',
     justifyContent: 'center',
   },
   title: {
-    fontSize: isSmallScreen ? 16 : isTablet ? 20 : 18,
+    fontSize: moderateScale(isSmallScreen ? 16 : isTablet ? 20 : 18),
     fontWeight: '600',
     color: '#111827',
   },
   searchContainer: {
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingHorizontal: scale(16),
+    paddingVertical: verticalScale(12),
     borderBottomWidth: 1,
     borderBottomColor: '#E5E7EB',
     backgroundColor: '#FFFFFF',
@@ -338,25 +347,25 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    paddingVertical: Platform.OS === 'android' ? 4 : 8,
+    borderRadius: moderateScale(12),
+    paddingHorizontal: scale(12),
+    paddingVertical: Platform.OS === 'android' ? verticalScale(4) : verticalScale(8),
     borderWidth: 1,
     borderColor: '#E5E7EB',
-    minHeight: 40,
+    minHeight: verticalScale(40),
   },
   searchIcon: {
-    marginRight: 8,
+    marginRight: scale(8),
   },
   searchInput: {
     flex: 1,
-    fontSize: isSmallScreen ? 14 : isTablet ? 18 : 16,
+    fontSize: moderateScale(isSmallScreen ? 14 : isTablet ? 18 : 16),
     color: '#111827',
-    paddingVertical: Platform.OS === 'android' ? 8 : 4,
+    paddingVertical: Platform.OS === 'android' ? verticalScale(8) : verticalScale(4),
     paddingHorizontal: 0,
   },
   clearButton: {
-    padding: 4,
+    padding: scale(4),
   },
   loadingContainer: {
     flex: 1,
@@ -364,13 +373,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   loadingText: {
-    marginTop: 12,
-    fontSize: 14,
+    marginTop: verticalScale(12),
+    fontSize: moderateScale(14),
     color: '#6B7280',
   },
   listContent: {
-    paddingHorizontal: 16,
-    paddingBottom: 40,
+    paddingHorizontal: scale(16),
+    paddingBottom: verticalScale(40),
   },
   emptyListContainer: {
     flex: 1,
@@ -379,7 +388,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 12,
+    paddingVertical: verticalScale(12),
     borderBottomWidth: 1,
     borderBottomColor: '#F1F5F9',
   },
@@ -389,12 +398,12 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   avatarContainer: {
-    marginRight: 12,
+    marginRight: scale(12),
   },
   avatar: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: scale(48),
+    height: verticalScale(48),
+    borderRadius: moderateScale(24),
   },
   defaultAvatar: {
     backgroundColor: '#6de9a0',
@@ -403,33 +412,33 @@ const styles = StyleSheet.create({
   },
   defaultAvatarText: {
     color: '#FFFFFF',
-    fontSize: 18,
+    fontSize: moderateScale(18),
     fontWeight: '600',
   },
   playerInfo: {
     flex: 1,
   },
   playerName: {
-    fontSize: 16,
+    fontSize: moderateScale(16),
     fontWeight: '600',
     color: '#111827',
-    marginBottom: 2,
+    marginBottom: verticalScale(2),
   },
   playerUsername: {
-    fontSize: 14,
+    fontSize: moderateScale(14),
     color: '#6B7280',
   },
   chatButton: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#FEA04D',
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 8,
-    gap: 6,
+    paddingHorizontal: scale(14),
+    paddingVertical: verticalScale(8),
+    borderRadius: moderateScale(8),
+    gap: scale(6),
   },
   chatButtonText: {
-    fontSize: 14,
+    fontSize: moderateScale(14),
     fontWeight: '600',
     color: '#FFFFFF',
   },
@@ -437,21 +446,21 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 32,
-    paddingVertical: 60,
+    paddingHorizontal: scale(32),
+    paddingVertical: verticalScale(60),
   },
   emptyText: {
-    fontSize: 18,
+    fontSize: moderateScale(18),
     fontWeight: '600',
     color: '#6B7280',
-    marginTop: 16,
+    marginTop: verticalScale(16),
     textAlign: 'center',
   },
   emptySubtext: {
-    fontSize: 14,
+    fontSize: moderateScale(14),
     color: '#9CA3AF',
-    marginTop: 8,
+    marginTop: verticalScale(8),
     textAlign: 'center',
-    lineHeight: 20,
+    lineHeight: verticalScale(20),
   },
 });

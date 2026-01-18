@@ -15,6 +15,7 @@ import {
 } from '@gorhom/bottom-sheet';
 import { format } from 'date-fns';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { scale, verticalScale, moderateScale } from '@/core/utils/responsive';
 import { Match } from './types';
 
 interface MatchDetailModalProps {
@@ -156,7 +157,7 @@ export const MatchDetailModal: React.FC<MatchDetailModalProps> = ({
                 return Array.from({ length: emptySlots }).map((_, idx) => (
                   <View key={`empty-${idx}`} style={styles.playerItem}>
                     <View style={styles.emptyPlayerSlot}>
-                      <Ionicons name="person-outline" size={20} color="#9CA3AF" />
+                      <Ionicons name="person-outline" size={moderateScale(20)} color="#9CA3AF" />
                     </View>
                     <Text style={styles.emptySlotText}>Open slot</Text>
                   </View>
@@ -170,7 +171,7 @@ export const MatchDetailModal: React.FC<MatchDetailModalProps> = ({
         <View style={styles.modalSection}>
           <Text style={styles.sectionTitle}>Date & Time</Text>
           <View style={styles.infoRowModal}>
-            <Ionicons name="calendar-outline" size={20} color="#86868B" />
+            <Ionicons name="calendar-outline" size={moderateScale(20)} color="#86868B" />
             <Text style={styles.infoTextModal}>
               {match.scheduledTime || match.matchDate
                 ? format(new Date(match.scheduledTime || match.matchDate!), 'EEEE, d MMMM yyyy')
@@ -178,7 +179,7 @@ export const MatchDetailModal: React.FC<MatchDetailModalProps> = ({
             </Text>
           </View>
           <View style={styles.infoRowModal}>
-            <Ionicons name="time-outline" size={20} color="#86868B" />
+            <Ionicons name="time-outline" size={moderateScale(20)} color="#86868B" />
             <Text style={styles.infoTextModal}>
               {(() => {
                 const dateString = match.scheduledTime || match.matchDate;
@@ -191,7 +192,7 @@ export const MatchDetailModal: React.FC<MatchDetailModalProps> = ({
             </Text>
           </View>
           <View style={styles.infoRowModal}>
-            <Ionicons name="hourglass-outline" size={20} color="#86868B" />
+            <Ionicons name="hourglass-outline" size={moderateScale(20)} color="#86868B" />
             <Text style={styles.infoTextModal}>
               {match.duration || 2} hour{(match.duration || 2) > 1 ? 's' : ''}
             </Text>
@@ -202,7 +203,7 @@ export const MatchDetailModal: React.FC<MatchDetailModalProps> = ({
         <View style={styles.modalSection}>
           <Text style={styles.sectionTitle}>Location</Text>
           <View style={styles.infoRowModal}>
-            <Ionicons name="location-outline" size={20} color="#86868B" />
+            <Ionicons name="location-outline" size={moderateScale(20)} color="#86868B" />
             <Text style={styles.infoTextModal}>
               {match.location || match.venue || 'TBD'}
             </Text>
@@ -218,7 +219,7 @@ export const MatchDetailModal: React.FC<MatchDetailModalProps> = ({
           ]}>
             <Ionicons
               name={match.courtBooked ? "checkmark-circle" : "close-circle"}
-              size={18}
+              size={moderateScale(18)}
               color={match.courtBooked ? "#16A34A" : "#DC2626"}
             />
             <Text style={[
@@ -289,114 +290,114 @@ export const MatchDetailModal: React.FC<MatchDetailModalProps> = ({
 
 const styles = StyleSheet.create({
   handleContainer: {
-    paddingTop: 8,
+    paddingTop: verticalScale(8),
   },
   bottomSheetBackground: {
     backgroundColor: '#FFFFFF',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
+    borderTopLeftRadius: moderateScale(20),
+    borderTopRightRadius: moderateScale(20),
   },
   modalContent: {
     flex: 1,
   },
   modalContentContainer: {
-    paddingHorizontal: 20,
-    paddingTop: 8,
+    paddingHorizontal: scale(20),
+    paddingTop: verticalScale(8),
   },
   modalHeader: {
     alignItems: 'center',
-    marginBottom: 24,
+    marginBottom: verticalScale(24),
   },
   modalTitle: {
-    fontSize: 22,
+    fontSize: moderateScale(22),
     fontWeight: '700',
     color: '#111827',
   },
   badgeContainer: {
     flexDirection: 'row',
-    gap: 8,
-    marginBottom: 20,
+    gap: scale(8),
+    marginBottom: verticalScale(20),
   },
   typeBadge: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 12,
+    paddingHorizontal: scale(12),
+    paddingVertical: verticalScale(6),
+    borderRadius: moderateScale(12),
   },
   typeBadgeText: {
-    fontSize: 13,
+    fontSize: moderateScale(13),
     fontWeight: '600',
     color: '#374151',
   },
   sportBadgeModal: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 12,
+    paddingHorizontal: scale(12),
+    paddingVertical: verticalScale(6),
+    borderRadius: moderateScale(12),
     borderWidth: 1.5,
     backgroundColor: 'transparent',
   },
   sportBadgeModalText: {
-    fontSize: 13,
+    fontSize: moderateScale(13),
     fontWeight: '600',
   },
   modalSection: {
-    marginBottom: 20,
+    marginBottom: verticalScale(20),
   },
   sectionTitle: {
-    fontSize: 13,
+    fontSize: moderateScale(13),
     fontWeight: '600',
     color: '#9CA3AF',
     textTransform: 'uppercase',
     letterSpacing: 0.5,
-    marginBottom: 8,
+    marginBottom: verticalScale(8),
   },
   playersContainer: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 16,
+    gap: scale(16),
   },
   playerItem: {
     alignItems: 'center',
-    width: 70,
+    width: scale(70),
   },
   playerAvatar: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    marginBottom: 6,
+    width: moderateScale(48),
+    height: moderateScale(48),
+    borderRadius: moderateScale(24),
+    marginBottom: verticalScale(6),
   },
   playerAvatarPlaceholder: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: moderateScale(48),
+    height: moderateScale(48),
+    borderRadius: moderateScale(24),
     backgroundColor: '#E8B4BC',
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 6,
+    marginBottom: verticalScale(6),
   },
   playerAvatarText: {
     color: '#FFFFFF',
-    fontSize: 18,
+    fontSize: moderateScale(18),
     fontWeight: '700',
   },
   playerName: {
-    fontSize: 12,
+    fontSize: moderateScale(12),
     fontWeight: '500',
     color: '#111827',
     textAlign: 'center',
   },
   emptyPlayerSlot: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: moderateScale(48),
+    height: moderateScale(48),
+    borderRadius: moderateScale(24),
     borderWidth: 2,
     borderColor: '#E5E7EB',
     borderStyle: 'dashed',
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 6,
+    marginBottom: verticalScale(6),
   },
   emptySlotText: {
-    fontSize: 12,
+    fontSize: moderateScale(12),
     fontWeight: '500',
     color: '#9CA3AF',
     textAlign: 'center',
@@ -404,25 +405,25 @@ const styles = StyleSheet.create({
   infoRowModal: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: verticalScale(8),
   },
   infoTextModal: {
-    fontSize: 15,
+    fontSize: moderateScale(15),
     color: '#86868B',
-    marginLeft: 10,
+    marginLeft: scale(10),
   },
   costIcon: {
-    fontSize: 15,
+    fontSize: moderateScale(15),
     fontWeight: '500',
     color: '#86868B',
-    width: 20,
+    width: scale(20),
   },
   statusBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 8,
+    paddingHorizontal: scale(12),
+    paddingVertical: verticalScale(8),
+    borderRadius: moderateScale(8),
     alignSelf: 'flex-start',
   },
   statusBadgeBooked: {
@@ -432,9 +433,9 @@ const styles = StyleSheet.create({
     backgroundColor: '#FEF2F2',
   },
   statusText: {
-    fontSize: 14,
+    fontSize: moderateScale(14),
     fontWeight: '600',
-    marginLeft: 6,
+    marginLeft: scale(6),
   },
   statusTextBooked: {
     color: '#16A34A',
@@ -443,24 +444,24 @@ const styles = StyleSheet.create({
     color: '#DC2626',
   },
   notesText: {
-    fontSize: 14,
+    fontSize: moderateScale(14),
     color: '#86868B',
-    lineHeight: 20,
+    lineHeight: verticalScale(20),
   },
   joinButtonContainer: {
-    marginTop: 12,
-    paddingTop: 16,
+    marginTop: verticalScale(12),
+    paddingTop: verticalScale(16),
     borderTopWidth: 1,
     borderTopColor: '#E5E7EB',
   },
   joinMatchButton: {
-    paddingVertical: 14,
-    borderRadius: 12,
+    paddingVertical: verticalScale(14),
+    borderRadius: moderateScale(12),
     alignItems: 'center',
     justifyContent: 'center',
   },
   joinMatchButtonText: {
-    fontSize: 16,
+    fontSize: moderateScale(16),
     fontWeight: '600',
     color: '#FFFFFF',
   },

@@ -4,19 +4,31 @@ import {
   Text,
   TouchableOpacity,
   TextInput,
-  Image,
   Platform,
   ViewStyle,
-  TextStyle,
   ActivityIndicator,
   StyleSheet,
 } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import Svg, { Path, Circle, G } from 'react-native-svg';
+import Svg, { Path, G } from 'react-native-svg';
 import PhoneInput from 'react-native-phone-number-input';
 import { AuthStyles, AuthColors, AuthTypography } from '../styles/AuthStyles';
+import {
+  scale,
+  verticalScale,
+  moderateScale,
+} from '@/core/utils/responsive';
+
+// Safe haptics wrapper - handles unsupported devices gracefully
+const triggerHaptic = async (style: Haptics.ImpactFeedbackStyle = Haptics.ImpactFeedbackStyle.Light) => {
+  try {
+    await Haptics.impactAsync(style);
+  } catch {
+    // Haptics not supported on this device
+  }
+};
 
 // Status Bar Component
 export const StatusBar: React.FC<{ darkMode?: boolean }> = ({ darkMode = false }) => {
@@ -26,7 +38,7 @@ export const StatusBar: React.FC<{ darkMode?: boolean }> = ({ darkMode = false }
     <View style={AuthStyles.statusBar}>
       <View style={AuthStyles.statusBarLeft}>
         <Text style={[AuthStyles.statusBarTime, { color: textColor }]}>9:41</Text>
-        <Ionicons name="location" size={14} color={textColor} />
+        <Ionicons name="location" size={moderateScale(14)} color={textColor} />
       </View>
 
       <View style={AuthStyles.dynamicIsland} />
@@ -42,7 +54,7 @@ export const StatusBar: React.FC<{ darkMode?: boolean }> = ({ darkMode = false }
 
 // Signal Icon
 const SignalIcon: React.FC<{ color: string }> = ({ color }) => (
-  <Svg width="18" height="14" viewBox="0 0 18 14">
+  <Svg width={scale(18)} height={verticalScale(14)} viewBox="0 0 18 14">
     <Path d="M1 10H4V13H1V10Z" fill={color} />
     <Path d="M6 7H9V13H6V7Z" fill={color} />
     <Path d="M11 4H14V13H11V4Z" fill={color} opacity="0.2" />
@@ -52,21 +64,21 @@ const SignalIcon: React.FC<{ color: string }> = ({ color }) => (
 
 // Data Icon
 const DataIcon: React.FC<{ color: string }> = ({ color }) => (
-  <Svg width="18" height="14" viewBox="0 0 18 14">
+  <Svg width={scale(18)} height={verticalScale(14)} viewBox="0 0 18 14">
     <Path d="M1 1H17V13H1V1Z" fill={color} />
   </Svg>
 );
 
 // Battery Icon
 const BatteryIcon: React.FC = () => (
-  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 0.5 }}>
+  <View style={{ flexDirection: 'row', alignItems: 'center', gap: scale(0.5) }}>
     <Text style={{
       fontFamily: AuthTypography.fontFamily.primary,
       fontWeight: AuthTypography.fontWeight.heavy,
-      fontSize: 11,
+      fontSize: moderateScale(11),
       color: AuthColors.white,
     }}>78</Text>
-    <Svg width="27" height="14" viewBox="0 0 27 14">
+    <Svg width={scale(27)} height={verticalScale(14)} viewBox="0 0 27 14">
       <Path d="M2.5 4H22.5V10H2.5V4Z" stroke={AuthColors.black} strokeOpacity="0.3" fill="transparent" />
       <Path d="M2.5 4H15V10H2.5V4Z" fill="#34C759" />
       <Path d="M24 6H25V8H24V6Z" fill={AuthColors.black} strokeOpacity="0.3" />
@@ -134,13 +146,13 @@ export const InputField: React.FC<InputFieldProps> = ({
   const getIcon = () => {
     switch (icon) {
       case 'mail':
-        return <Ionicons name="mail-outline" size={16} color={AuthColors.gray[300]} />;
+        return <Ionicons name="mail-outline" size={moderateScale(16)} color={AuthColors.gray[300]} />;
       case 'user':
-        return <Ionicons name="person-outline" size={16} color={AuthColors.gray[300]} />;
+        return <Ionicons name="person-outline" size={moderateScale(16)} color={AuthColors.gray[300]} />;
       case 'lock':
-        return <Ionicons name="lock-closed-outline" size={16} color={AuthColors.gray[300]} />;
+        return <Ionicons name="lock-closed-outline" size={moderateScale(16)} color={AuthColors.gray[300]} />;
       case 'phone':
-        return <Ionicons name="call-outline" size={16} color={AuthColors.gray[300]} />;
+        return <Ionicons name="call-outline" size={moderateScale(16)} color={AuthColors.gray[300]} />;
       default:
         return null;
     }
@@ -170,7 +182,7 @@ export const InputField: React.FC<InputFieldProps> = ({
     <View style={[AuthStyles.inputFieldContainer, containerStyle]}>
       <Text style={AuthStyles.inputLabel}>{label}</Text>
       <View style={[
-        AuthStyles.inputArea, 
+        AuthStyles.inputArea,
         { borderColor: getBorderColor(), borderWidth: 1 }
       ]}>
         {icon && <View style={AuthStyles.inputIcon}>{getIcon()}</View>}
@@ -189,7 +201,7 @@ export const InputField: React.FC<InputFieldProps> = ({
           textContentType={textContentType}
           onFocus={() => {
             setIsFocused(true);
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            triggerHaptic();
           }}
           onBlur={() => {
             setIsFocused(false);
@@ -203,7 +215,7 @@ export const InputField: React.FC<InputFieldProps> = ({
         {showEyeIcon && (
           <TouchableOpacity
             onPress={() => {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              triggerHaptic();
               onEyePress?.();
             }}
             style={AuthStyles.eyeIcon}
@@ -213,7 +225,7 @@ export const InputField: React.FC<InputFieldProps> = ({
           >
             <Ionicons
               name={secureTextEntry ? "eye-off-outline" : "eye-outline"}
-              size={16}
+              size={moderateScale(16)}
               color={AuthColors.gray[300]}
             />
           </TouchableOpacity>
@@ -258,9 +270,9 @@ export const PhoneInputField: React.FC<PhoneInputProps> = ({
       <View style={[AuthStyles.inputArea, value ? AuthStyles.inputAreaActive : {}]}>
         {/* Phone Icon */}
         <View style={AuthStyles.inputIcon}>
-          <Ionicons name="call-outline" size={16} color={AuthColors.gray[300]} />
+          <Ionicons name="call-outline" size={moderateScale(16)} color={AuthColors.gray[300]} />
         </View>
-        
+
         {/* Country Code Display */}
         <View style={styles.countryCodeDisplay}>
           <Text style={styles.countryCodeText}>{selectedCountryCode}</Text>
@@ -290,7 +302,7 @@ export const PhoneInputField: React.FC<PhoneInputProps> = ({
             flagButtonStyle={styles.compactPhoneFlagButton}
             countryPickerButtonStyle={styles.compactPhoneCountryPicker}
             disableArrowIcon={false}
-            renderDropdownImage={<Ionicons name="chevron-down" size={12} color="#6B7280" />}
+            renderDropdownImage={<Ionicons name="chevron-down" size={moderateScale(12)} color="#6B7280" />}
           />
         </View>
 
@@ -303,7 +315,7 @@ export const PhoneInputField: React.FC<PhoneInputProps> = ({
           placeholderTextColor={AuthColors.gray[400]}
           keyboardType="phone-pad"
           onFocus={() => {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            triggerHaptic();
           }}
         />
       </View>
@@ -318,11 +330,11 @@ interface CircleArrowButtonProps {
 }
 
 export const CircleArrowButton: React.FC<CircleArrowButtonProps> = ({ onPress, loading = false }) => (
-  <TouchableOpacity 
-    style={[AuthStyles.circleButton, loading && { opacity: 0.7 }]} 
+  <TouchableOpacity
+    style={[AuthStyles.circleButton, loading && { opacity: 0.7 }]}
     onPress={() => {
       if (!loading) {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+        triggerHaptic(Haptics.ImpactFeedbackStyle.Medium);
         onPress();
       }
     }}
@@ -331,7 +343,7 @@ export const CircleArrowButton: React.FC<CircleArrowButtonProps> = ({ onPress, l
     {loading ? (
       <ActivityIndicator size="small" color={AuthColors.white} />
     ) : (
-      <Ionicons name="arrow-forward" size={24} color={AuthColors.white} />
+      <Ionicons name="arrow-forward" size={moderateScale(24)} color={AuthColors.white} />
     )}
   </TouchableOpacity>
 );
@@ -344,10 +356,10 @@ interface PrimaryButtonProps {
 }
 
 export const PrimaryButton: React.FC<PrimaryButtonProps> = ({ title, onPress, style }) => (
-  <TouchableOpacity 
-    style={[AuthStyles.primaryButton, style]} 
+  <TouchableOpacity
+    style={[AuthStyles.primaryButton, style]}
     onPress={() => {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      triggerHaptic(Haptics.ImpactFeedbackStyle.Medium);
       onPress();
     }}
   >
@@ -385,7 +397,7 @@ export const SocialButton: React.FC<SocialButtonProps> = ({ type, onPress, disab
       case 'google':
         return <GoogleIcon />;
       case 'apple':
-        return <Ionicons name="logo-apple" size={20} color={AuthColors.black} />;
+        return <Ionicons name="logo-apple" size={moderateScale(20)} color={AuthColors.black} />;
     }
   };
 
@@ -406,7 +418,7 @@ export const SocialButton: React.FC<SocialButtonProps> = ({ type, onPress, disab
       return;
     }
     lastPressRef.current = now;
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    triggerHaptic();
     onPress();
   };
 
@@ -427,14 +439,14 @@ export const SocialButton: React.FC<SocialButtonProps> = ({ type, onPress, disab
 
 // Facebook Icon Component
 const FacebookIcon: React.FC = () => (
-  <Svg width="10" height="20" viewBox="0 0 10 20">
+  <Svg width={scale(10)} height={scale(20)} viewBox="0 0 10 20">
     <Path d="M9.34475 11.1068L9.86301 7.69417H6.621V5.48058C6.621 4.54672 7.07306 3.63592 8.52512 3.63592H10V0.730583C10 0.730583 8.6621 0.5 7.38356 0.5C4.71233 0.5 2.96804 2.13483 2.96804 5.0932V7.69417H0V11.1068H2.96804V19.357C3.56393 19.4516 4.17352 19.5 4.79452 19.5C5.41553 19.5 6.02511 19.4516 6.621 19.357V11.1068H9.34475Z" fill="white"/>
   </Svg>
 );
 
 // Google Icon Component
 const GoogleIcon: React.FC = () => (
-  <Svg width="20" height="20" viewBox="0 0 20 20">
+  <Svg width={scale(20)} height={scale(20)} viewBox="0 0 20 20">
     <G>
       <Path d="M10 8.18V12H15.86C15.56 13.24 14.94 14.32 14.04 15.13L17.21 17.63C19.11 15.87 20.21 13.27 20.21 10.22C20.21 9.5 20.15 8.8 20.04 8.13H10V8.18Z" fill={AuthColors.google.blue} />
       <Path d="M10 20C12.7 20 14.96 19.1 17.21 17.63L14.04 15.13C13.01 15.82 11.73 16.25 10 16.25C7.39 16.25 5.19 14.51 4.44 12.12H1.17V14.73C2.65 17.64 6.05 20 10 20Z" fill={AuthColors.google.green} />
@@ -464,7 +476,7 @@ export const LinkText: React.FC<LinkTextProps> = ({ text, linkText, onPress, sty
 // Back Button
 export const BackButton: React.FC<{ onPress: () => void }> = ({ onPress }) => (
   <TouchableOpacity style={AuthStyles.backButton} onPress={onPress}>
-    <Ionicons name="chevron-back" size={24} color={AuthColors.black} />
+    <Ionicons name="chevron-back" size={moderateScale(24)} color={AuthColors.black} />
   </TouchableOpacity>
 );
 
@@ -534,29 +546,29 @@ const styles = StyleSheet.create({
   countryCodeDisplay: {
     flexDirection: 'row',
     alignItems: 'center',
-    height: 46,
-    paddingHorizontal: 8,
+    height: verticalScale(46),
+    paddingHorizontal: scale(8),
     justifyContent: 'center',
   },
   countryCodeDropdown: {
     flexDirection: 'row',
     alignItems: 'center',
-    height: 46,
-    width: 40, // Just enough for dropdown arrow
+    height: verticalScale(46),
+    width: scale(40), // Just enough for dropdown arrow
     justifyContent: 'center',
   },
   countryCodeText: {
-    fontSize: 14,
+    fontSize: moderateScale(14),
     color: '#000000',
     fontFamily: 'Inter',
     fontWeight: '600',
-    lineHeight: 20,
+    lineHeight: moderateScale(20),
     letterSpacing: -0.01,
   },
   compactPhoneContainer: {
     backgroundColor: 'transparent',
     width: '100%',
-    height: 46,
+    height: verticalScale(46),
     paddingLeft: 0,
     paddingRight: 0,
     margin: 0,
@@ -566,30 +578,30 @@ const styles = StyleSheet.create({
     paddingVertical: 0,
     paddingHorizontal: 0,
     margin: 0,
-    height: 46,
+    height: verticalScale(46),
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'flex-start',
   },
   compactPhoneTextInput: {
-    fontSize: 14,
+    fontSize: moderateScale(14),
     color: '#000000',
-    height: 46,
-    paddingVertical: 12,
-    paddingHorizontal: 8,
+    height: verticalScale(46),
+    paddingVertical: verticalScale(12),
+    paddingHorizontal: scale(8),
     fontFamily: 'Inter',
     fontWeight: '500',
-    lineHeight: 20,
+    lineHeight: moderateScale(20),
     letterSpacing: -0.01,
     flex: 1,
   },
   compactPhoneCodeText: {
     fontSize: 1, // Minimum font size for Android compatibility
     color: 'transparent',
-    height: 20,
+    height: verticalScale(20),
     fontFamily: 'Inter',
     fontWeight: '600',
-    lineHeight: 20,
+    lineHeight: moderateScale(20),
     letterSpacing: -0.01,
     marginRight: 0,
     minWidth: 0,
@@ -599,7 +611,7 @@ const styles = StyleSheet.create({
     width: 1, // Minimum width for Android compatibility
     marginLeft: 0,
     marginRight: 0,
-    height: 46,
+    height: verticalScale(46),
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 0,
@@ -608,25 +620,25 @@ const styles = StyleSheet.create({
   },
   compactPhoneCountryPicker: {
     backgroundColor: 'transparent',
-    paddingHorizontal: 6, // Added horizontal padding
-    paddingVertical: 4, // Added vertical padding
-    height: 46,
+    paddingHorizontal: scale(6), // Added horizontal padding
+    paddingVertical: verticalScale(4), // Added vertical padding
+    height: verticalScale(46),
     justifyContent: 'center',
     alignItems: 'center',
-    minWidth: 24,
-    maxWidth: 36,
+    minWidth: scale(24),
+    maxWidth: scale(36),
   },
   phoneNumberInput: {
     flex: 1,
-    fontSize: 14,
+    fontSize: moderateScale(14),
     color: '#000000',
-    height: 46,
-    paddingTop: Platform.OS === 'android' ? 12 : 1,
-    paddingBottom: Platform.OS === 'android' ? 12 : 0,
-    paddingHorizontal: 8,
+    height: verticalScale(46),
+    paddingTop: Platform.OS === 'android' ? verticalScale(12) : verticalScale(1),
+    paddingBottom: Platform.OS === 'android' ? verticalScale(12) : 0,
+    paddingHorizontal: scale(8),
     fontFamily: 'Inter',
     fontWeight: '500',
-    lineHeight: Platform.OS === 'android' ? 20 : 18,
+    lineHeight: Platform.OS === 'android' ? moderateScale(20) : moderateScale(18),
     letterSpacing: -0.01,
     textAlignVertical: Platform.OS === 'android' ? 'center' : 'top',
     includeFontPadding: false,

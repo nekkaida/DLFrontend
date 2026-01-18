@@ -31,6 +31,7 @@ import {
 } from '@/src/features/profile/types/matchHistory';
 import CasualHandshakeIcon from '@/assets/icons/casual-handshake.svg';
 import { getSportColors } from '@/constants/SportsColor';
+import { scale, verticalScale, moderateScale } from '@/core/utils/responsive';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -943,25 +944,25 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: theme.spacing.lg,
-    paddingVertical: theme.spacing.md,
+    paddingHorizontal: scale(theme.spacing.lg),
+    paddingVertical: verticalScale(theme.spacing.md),
   },
   backButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: moderateScale(40),
+    height: moderateScale(40),
+    borderRadius: moderateScale(20),
     backgroundColor: 'rgba(255, 255, 255, 0.3)',
     justifyContent: 'center',
     alignItems: 'center',
   },
   headerTitle: {
-    fontSize: theme.typography.fontSize.xl,
+    fontSize: moderateScale(theme.typography.fontSize.xl),
     fontWeight: theme.typography.fontWeight.bold,
     color: '#FFFFFF',
     fontFamily: theme.typography.fontFamily.primary,
   },
   headerSpacer: {
-    width: 40,
+    width: moderateScale(40),
   },
 
   // Sport dropdown button in header
@@ -969,14 +970,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: 'rgba(255, 255, 255, 0.25)',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 20,
-    gap: 6,
+    paddingHorizontal: scale(12),
+    paddingVertical: verticalScale(8),
+    borderRadius: moderateScale(20),
+    gap: scale(6),
   },
   sportDropdownButtonText: {
     color: '#FFFFFF',
-    fontSize: 13,
+    fontSize: moderateScale(13),
     fontWeight: '600',
   },
 
@@ -986,14 +987,14 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 24,
+    padding: scale(24),
   },
   sportDropdownModal: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 16,
+    borderRadius: moderateScale(16),
+    padding: scale(16),
     width: '100%',
-    maxWidth: 300,
+    maxWidth: scale(300),
     ...Platform.select({
       ios: {
         shadowColor: '#000',
@@ -1007,32 +1008,32 @@ const styles = StyleSheet.create({
     }),
   },
   sportDropdownTitle: {
-    fontSize: 16,
+    fontSize: moderateScale(16),
     fontWeight: '700',
     color: COLORS.textPrimary,
-    marginBottom: 12,
+    marginBottom: verticalScale(12),
     textAlign: 'center',
   },
   sportDropdownOption: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 14,
-    paddingHorizontal: 12,
-    borderRadius: 10,
-    marginBottom: 4,
+    paddingVertical: verticalScale(14),
+    paddingHorizontal: scale(12),
+    borderRadius: moderateScale(10),
+    marginBottom: verticalScale(4),
   },
   sportDropdownOptionActive: {
     backgroundColor: theme.colors.primary + '10',
   },
   sportColorDot: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    marginRight: 12,
+    width: moderateScale(12),
+    height: moderateScale(12),
+    borderRadius: moderateScale(6),
+    marginRight: scale(12),
   },
   sportDropdownOptionText: {
     flex: 1,
-    fontSize: 15,
+    fontSize: moderateScale(15),
     color: COLORS.textPrimary,
     fontWeight: '500',
   },
@@ -1044,8 +1045,8 @@ const styles = StyleSheet.create({
   // Filter bar
   filterBar: {
     backgroundColor: '#FFFFFF',
-    paddingHorizontal: theme.spacing.md,
-    paddingVertical: theme.spacing.sm,
+    paddingHorizontal: scale(theme.spacing.md),
+    paddingVertical: verticalScale(theme.spacing.sm),
     borderBottomWidth: 1,
     borderBottomColor: theme.colors.neutral.gray[200],
   },
@@ -1053,19 +1054,19 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     flexWrap: 'wrap',
-    gap: 8,
+    gap: scale(8),
   },
   filterChip: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
+    paddingHorizontal: scale(12),
+    paddingVertical: verticalScale(6),
+    borderRadius: moderateScale(16),
     backgroundColor: theme.colors.neutral.gray[100],
   },
   filterChipActive: {
     backgroundColor: theme.colors.primary,
   },
   filterChipText: {
-    fontSize: 13,
+    fontSize: moderateScale(13),
     fontWeight: '500',
     color: theme.colors.neutral.gray[600],
   },
@@ -1074,21 +1075,21 @@ const styles = StyleSheet.create({
   },
   filterDivider: {
     width: 1,
-    height: 20,
+    height: verticalScale(20),
     backgroundColor: theme.colors.neutral.gray[300],
-    marginHorizontal: 4,
+    marginHorizontal: scale(4),
   },
 
   // List
   listContent: {
-    padding: theme.spacing.lg,
-    paddingBottom: theme.spacing.xl * 2,
+    padding: scale(theme.spacing.lg),
+    paddingBottom: verticalScale(theme.spacing.xl * 2),
   },
 
   // Match Card - VS Style
   matchCard: {
-    borderRadius: 16,
-    marginBottom: 16,
+    borderRadius: moderateScale(16),
+    marginBottom: verticalScale(16),
     overflow: 'hidden',
     borderWidth: 1,
     borderColor: '#E5E7EB',
@@ -1117,13 +1118,13 @@ const styles = StyleSheet.create({
     zIndex: 10,
   },
   ribbon: {
-    paddingHorizontal: 12,
-    paddingVertical: 5,
-    borderBottomRightRadius: 10,
+    paddingHorizontal: scale(12),
+    paddingVertical: verticalScale(5),
+    borderBottomRightRadius: moderateScale(10),
   },
   ribbonText: {
     color: '#FFFFFF',
-    fontSize: 10,
+    fontSize: moderateScale(10),
     fontWeight: '700',
     letterSpacing: 0.5,
   },
@@ -1131,8 +1132,8 @@ const styles = StyleSheet.create({
   // Arrow indicator - top right
   arrowIndicator: {
     position: 'absolute',
-    top: 12,
-    right: 12,
+    top: verticalScale(12),
+    right: scale(12),
     zIndex: 10,
   },
 
@@ -1141,21 +1142,21 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingTop: 36,
-    paddingBottom: 16,
+    paddingHorizontal: scale(16),
+    paddingTop: verticalScale(36),
+    paddingBottom: verticalScale(16),
   },
   playerColumn: {
     alignItems: 'center',
     flex: 1,
   },
   playerName: {
-    fontSize: 13,
+    fontSize: moderateScale(13),
     fontWeight: '500',
     color: COLORS.textSecondary,
     textAlign: 'center',
-    marginTop: 8,
-    maxWidth: 90,
+    marginTop: verticalScale(8),
+    maxWidth: scale(90),
   },
   playerNameWinner: {
     fontWeight: '700',
@@ -1165,51 +1166,51 @@ const styles = StyleSheet.create({
   // Center Score
   centerScore: {
     alignItems: 'center',
-    paddingHorizontal: 12,
+    paddingHorizontal: scale(12),
   },
   matchScoreText: {
-    fontSize: 32,
+    fontSize: moderateScale(32),
     fontWeight: '800',
     color: COLORS.textPrimary,
     letterSpacing: 1,
   },
   walkoverText: {
-    fontSize: 28,
+    fontSize: moderateScale(28),
     fontWeight: '800',
     letterSpacing: 2,
   },
   vsText: {
-    fontSize: 11,
+    fontSize: moderateScale(11),
     fontWeight: '600',
     color: COLORS.textMuted,
-    marginTop: 2,
+    marginTop: verticalScale(2),
     letterSpacing: 1,
   },
   ratingChangeBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 6,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 10,
+    marginTop: verticalScale(6),
+    paddingHorizontal: scale(8),
+    paddingVertical: verticalScale(3),
+    borderRadius: moderateScale(10),
     backgroundColor: 'rgba(0, 0, 0, 0.04)',
-    gap: 3,
+    gap: scale(3),
   },
   ratingTransitionText: {
-    fontSize: 11,
+    fontSize: moderateScale(11),
     fontWeight: '600',
     color: COLORS.textSecondary,
   },
   ratingArrowSymbol: {
-    fontSize: 10,
+    fontSize: moderateScale(10),
     color: COLORS.textMuted,
   },
   ratingDeltaText: {
-    fontSize: 11,
+    fontSize: moderateScale(11),
     fontWeight: '700',
   },
   ratingChangeArrow: {
-    fontSize: 11,
+    fontSize: moderateScale(11),
     fontWeight: '600',
   },
 
@@ -1218,15 +1219,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 14,
-    marginTop: 8,
-    gap: 4,
+    paddingHorizontal: scale(12),
+    paddingVertical: verticalScale(6),
+    borderRadius: moderateScale(14),
+    marginTop: verticalScale(8),
+    gap: scale(4),
   },
   cardShareButtonText: {
     color: '#FFFFFF',
-    fontSize: 12,
+    fontSize: moderateScale(12),
     fontWeight: '600',
   },
 
@@ -1249,8 +1250,8 @@ const styles = StyleSheet.create({
 
   // Doubles Avatar Stack
   doublesStack: {
-    width: 76,
-    height: 56,
+    width: scale(76),
+    height: verticalScale(56),
     position: 'relative',
   },
   doublesAvatarBack: {
@@ -1267,40 +1268,40 @@ const styles = StyleSheet.create({
   // Set Scores Table
   setScoresContainer: {
     backgroundColor: COLORS.setScoresBg,
-    marginHorizontal: 16,
-    borderRadius: 12,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
+    marginHorizontal: scale(16),
+    borderRadius: moderateScale(12),
+    paddingVertical: verticalScale(12),
+    paddingHorizontal: scale(16),
   },
   setScoresRow: {
     flexDirection: 'row',
     justifyContent: 'center',
-    gap: 24,
+    gap: scale(24),
   },
   setColumn: {
     alignItems: 'center',
-    minWidth: 50,
+    minWidth: scale(50),
   },
   setLabel: {
-    fontSize: 11,
+    fontSize: moderateScale(11),
     fontWeight: '600',
     color: COLORS.textMuted,
-    marginBottom: 4,
+    marginBottom: verticalScale(4),
     textTransform: 'uppercase',
   },
   setScore: {
-    fontSize: 18,
+    fontSize: moderateScale(18),
     fontWeight: '700',
     color: COLORS.textPrimary,
   },
   tiebreakRow: {
     flexDirection: 'row',
     justifyContent: 'center',
-    gap: 24,
-    marginTop: 2,
+    gap: scale(24),
+    marginTop: verticalScale(2),
   },
   tiebreakText: {
-    fontSize: 11,
+    fontSize: moderateScale(11),
     fontWeight: '500',
     color: COLORS.textSecondary,
   },
@@ -1309,35 +1310,35 @@ const styles = StyleSheet.create({
   contextFooter: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 16,
+    paddingVertical: verticalScale(12),
+    paddingHorizontal: scale(16),
     borderTopWidth: 1,
     borderTopColor: COLORS.divider,
-    marginTop: 12,
+    marginTop: verticalScale(12),
   },
   contextText: {
-    fontSize: 12,
+    fontSize: moderateScale(12),
     color: COLORS.textSecondary,
     textAlign: 'center',
   },
   sportBadge: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
-    marginBottom: 6,
+    paddingHorizontal: scale(10),
+    paddingVertical: verticalScale(4),
+    borderRadius: moderateScale(12),
+    marginBottom: verticalScale(6),
   },
   sportBadgeText: {
-    fontSize: 11,
+    fontSize: moderateScale(11),
     fontWeight: '600',
   },
 
   // Loading states
   loadingContainer: {
     flex: 1,
-    padding: theme.spacing.lg,
+    padding: scale(theme.spacing.lg),
   },
   loadingFooter: {
-    paddingVertical: theme.spacing.lg,
+    paddingVertical: verticalScale(theme.spacing.lg),
     alignItems: 'center',
   },
   skeletonCard: {
@@ -1345,7 +1346,7 @@ const styles = StyleSheet.create({
   },
   skeleton: {
     backgroundColor: theme.colors.neutral.gray[300],
-    borderRadius: 4,
+    borderRadius: moderateScale(4),
   },
 
   // Empty state
@@ -1353,20 +1354,20 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: theme.spacing.xl,
+    paddingHorizontal: scale(theme.spacing.xl),
   },
   emptyTitle: {
-    fontSize: 20,
+    fontSize: moderateScale(20),
     fontWeight: '700',
     color: theme.colors.neutral.gray[700],
-    marginTop: theme.spacing.lg,
-    marginBottom: theme.spacing.sm,
+    marginTop: verticalScale(theme.spacing.lg),
+    marginBottom: verticalScale(theme.spacing.sm),
   },
   emptyText: {
-    fontSize: 14,
+    fontSize: moderateScale(14),
     color: theme.colors.neutral.gray[600],
     textAlign: 'center',
-    lineHeight: 22,
+    lineHeight: verticalScale(22),
   },
 
   // Error state
@@ -1374,30 +1375,30 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: theme.spacing.xl,
+    paddingHorizontal: scale(theme.spacing.xl),
   },
   errorTitle: {
-    fontSize: 18,
+    fontSize: moderateScale(18),
     fontWeight: '700',
     color: theme.colors.neutral.gray[700],
-    marginTop: theme.spacing.md,
-    marginBottom: theme.spacing.xs,
+    marginTop: verticalScale(theme.spacing.md),
+    marginBottom: verticalScale(theme.spacing.xs),
   },
   errorText: {
-    fontSize: 14,
+    fontSize: moderateScale(14),
     color: theme.colors.neutral.gray[600],
     textAlign: 'center',
-    marginBottom: theme.spacing.lg,
+    marginBottom: verticalScale(theme.spacing.lg),
   },
   retryButton: {
     backgroundColor: theme.colors.primary,
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 8,
+    paddingHorizontal: scale(24),
+    paddingVertical: verticalScale(12),
+    borderRadius: moderateScale(8),
   },
   retryButtonText: {
     color: '#FFFFFF',
-    fontSize: 14,
+    fontSize: moderateScale(14),
     fontWeight: '600',
   },
 });

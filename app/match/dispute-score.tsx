@@ -1,4 +1,5 @@
 import { getBackendBaseURL } from '@/config/network';
+import { scale, verticalScale, moderateScale } from '@/core/utils/responsive';
 import { useSession } from '@/lib/auth-client';
 import axiosInstance, { endpoints } from '@/lib/endpoints';
 import { Ionicons } from '@expo/vector-icons';
@@ -232,11 +233,11 @@ export default function DisputeScorePage() {
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={handleGoBack} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color="#111827" />
+          <Ionicons name="arrow-back" size={moderateScale(24)} color="#111827" />
         </TouchableOpacity>
         <View style={styles.headerCenter}>
           <View style={styles.headerIcon}>
-            <Ionicons name="alert-circle" size={22} color="#DC2626" />
+            <Ionicons name="alert-circle" size={moderateScale(22)} color="#DC2626" />
           </View>
           <Text style={styles.headerTitle}>Dispute Score</Text>
         </View>
@@ -267,7 +268,7 @@ export default function DisputeScorePage() {
               >
                 <Ionicons
                   name={cat.icon}
-                  size={18}
+                  size={moderateScale(18)}
                   color={selectedCategory === cat.value ? '#FFFFFF' : '#6B7280'}
                 />
                 <Text style={[
@@ -367,13 +368,13 @@ export default function DisputeScorePage() {
                     style={styles.removeScreenshotButton}
                     onPress={() => handleRemoveScreenshot(index)}
                   >
-                    <Ionicons name="close-circle" size={22} color="#DC2626" />
+                    <Ionicons name="close-circle" size={moderateScale(22)} color="#DC2626" />
                   </TouchableOpacity>
                 </View>
               ))}
               {screenshots.length < MAX_SCREENSHOTS && (
                 <TouchableOpacity style={styles.addScreenshotButton} onPress={handlePickScreenshot}>
-                  <Ionicons name="camera-outline" size={28} color="#6B7280" />
+                  <Ionicons name="camera-outline" size={moderateScale(28)} color="#6B7280" />
                   <Text style={styles.addScreenshotText}>Add</Text>
                 </TouchableOpacity>
               )}
@@ -385,7 +386,7 @@ export default function DisputeScorePage() {
 
           {/* Info */}
           <View style={styles.infoBox}>
-            <Ionicons name="information-circle-outline" size={18} color="#0369A1" />
+            <Ionicons name="information-circle-outline" size={moderateScale(18)} color="#0369A1" />
             <Text style={styles.infoText}>
               Disputes are reviewed by admins. False claims may result in penalties.
             </Text>
@@ -408,7 +409,7 @@ export default function DisputeScorePage() {
                 <ActivityIndicator color="#FFFFFF" size="small" />
               ) : (
                 <>
-                  <Ionicons name="flag" size={18} color="#FFFFFF" />
+                  <Ionicons name="flag" size={moderateScale(18)} color="#FFFFFF" />
                   <Text style={styles.submitButtonText}>Submit Dispute</Text>
                 </>
               )}
@@ -431,13 +432,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingHorizontal: scale(16),
+    paddingVertical: verticalScale(12),
     borderBottomWidth: 1,
     borderBottomColor: '#F3F4F6',
   },
   backButton: {
-    padding: 8,
+    padding: scale(8),
   },
   headerCenter: {
     flexDirection: 'row',
@@ -446,57 +447,57 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   headerIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: moderateScale(36),
+    height: moderateScale(36),
+    borderRadius: moderateScale(18),
     backgroundColor: '#FEF2F2',
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 10,
+    marginRight: scale(10),
   },
   headerTitle: {
-    fontSize: 18,
+    fontSize: moderateScale(18),
     fontWeight: '700',
     color: '#111827',
   },
   headerPlaceholder: {
-    width: 40,
+    width: scale(40),
   },
   keyboardView: {
     flex: 1,
   },
   categorySection: {
-    paddingHorizontal: 20,
-    paddingVertical: 12,
+    paddingHorizontal: scale(20),
+    paddingVertical: verticalScale(12),
     borderBottomWidth: 1,
     borderBottomColor: '#F3F4F6',
   },
   categoryLabel: {
-    fontSize: 13,
+    fontSize: moderateScale(13),
     fontWeight: '500',
     color: '#6B7280',
-    marginBottom: 10,
+    marginBottom: verticalScale(10),
   },
   categoryScroll: {
-    gap: 8,
+    gap: scale(8),
   },
   categoryChip: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderRadius: 20,
+    paddingHorizontal: scale(14),
+    paddingVertical: verticalScale(10),
+    borderRadius: moderateScale(20),
     backgroundColor: '#F3F4F6',
     borderWidth: 1.5,
     borderColor: '#E5E7EB',
-    gap: 6,
+    gap: scale(6),
   },
   categoryChipSelected: {
     backgroundColor: '#DC2626',
     borderColor: '#DC2626',
   },
   categoryChipText: {
-    fontSize: 14,
+    fontSize: moderateScale(14),
     fontWeight: '500',
     color: '#4B5563',
   },
@@ -507,57 +508,57 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    paddingHorizontal: 20,
-    paddingTop: 16,
+    paddingHorizontal: scale(20),
+    paddingTop: verticalScale(16),
   },
   scoreSection: {
     backgroundColor: '#F9FAFB',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
+    borderRadius: moderateScale(12),
+    padding: scale(16),
+    marginBottom: verticalScale(16),
   },
   scoreSectionLabel: {
-    fontSize: 12,
+    fontSize: moderateScale(12),
     fontWeight: '600',
     color: '#6B7280',
     textTransform: 'uppercase',
-    marginBottom: 10,
+    marginBottom: verticalScale(10),
   },
   scoreDisplay: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
+    gap: scale(8),
   },
   teamAvatars: {
     flexDirection: 'row',
   },
   scoreText: {
-    fontSize: 28,
+    fontSize: moderateScale(28),
     fontWeight: '800',
     color: '#111827',
   },
   vsText: {
-    fontSize: 20,
+    fontSize: moderateScale(20),
     fontWeight: '600',
     color: '#9CA3AF',
   },
   inputSection: {
-    marginBottom: 16,
+    marginBottom: verticalScale(16),
   },
   inputLabel: {
-    fontSize: 14,
+    fontSize: moderateScale(14),
     fontWeight: '600',
     color: '#374151',
-    marginBottom: 8,
+    marginBottom: verticalScale(8),
   },
   requiredText: {
-    fontSize: 12,
+    fontSize: moderateScale(12),
     fontWeight: '400',
     color: '#9CA3AF',
   },
   optionalText: {
-    fontSize: 12,
+    fontSize: moderateScale(12),
     fontWeight: '400',
     color: '#9CA3AF',
   },
@@ -565,41 +566,41 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 12,
+    gap: scale(12),
   },
   scoreInput: {
-    width: 60,
-    height: 60,
-    borderRadius: 12,
+    width: scale(60),
+    height: verticalScale(60),
+    borderRadius: moderateScale(12),
     backgroundColor: '#F9FAFB',
     borderWidth: 2,
     borderColor: '#E5E7EB',
-    fontSize: 24,
+    fontSize: moderateScale(24),
     fontWeight: '700',
     textAlign: 'center',
     color: '#111827',
   },
   scoreDash: {
-    fontSize: 24,
+    fontSize: moderateScale(24),
     fontWeight: '600',
     color: '#9CA3AF',
   },
   textArea: {
     backgroundColor: '#F9FAFB',
-    borderRadius: 12,
+    borderRadius: moderateScale(12),
     borderWidth: 1,
     borderColor: '#E5E7EB',
-    padding: 14,
-    fontSize: 15,
+    padding: scale(14),
+    fontSize: moderateScale(15),
     color: '#111827',
-    minHeight: 100,
+    minHeight: verticalScale(100),
     textAlignVertical: 'top',
   },
   charCount: {
-    fontSize: 12,
+    fontSize: moderateScale(12),
     color: '#F59E0B',
     textAlign: 'right',
-    marginTop: 4,
+    marginTop: verticalScale(4),
   },
   charCountOk: {
     color: '#10B981',
@@ -607,28 +608,28 @@ const styles = StyleSheet.create({
   screenshotsContainer: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 12,
+    gap: scale(12),
   },
   screenshotWrapper: {
     position: 'relative',
   },
   screenshotImage: {
-    width: 80,
-    height: 80,
-    borderRadius: 10,
+    width: scale(80),
+    height: scale(80),
+    borderRadius: moderateScale(10),
     backgroundColor: '#F3F4F6',
   },
   removeScreenshotButton: {
     position: 'absolute',
-    top: -8,
-    right: -8,
+    top: verticalScale(-8),
+    right: scale(-8),
     backgroundColor: '#FFFFFF',
-    borderRadius: 11,
+    borderRadius: moderateScale(11),
   },
   addScreenshotButton: {
-    width: 80,
-    height: 80,
-    borderRadius: 10,
+    width: scale(80),
+    height: scale(80),
+    borderRadius: moderateScale(10),
     borderWidth: 2,
     borderColor: '#E5E7EB',
     borderStyle: 'dashed',
@@ -637,60 +638,60 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   addScreenshotText: {
-    fontSize: 12,
+    fontSize: moderateScale(12),
     fontWeight: '500',
     color: '#6B7280',
-    marginTop: 4,
+    marginTop: verticalScale(4),
   },
   screenshotHint: {
-    fontSize: 12,
+    fontSize: moderateScale(12),
     color: '#9CA3AF',
-    marginTop: 8,
+    marginTop: verticalScale(8),
   },
   infoBox: {
     flexDirection: 'row',
     backgroundColor: '#F0F9FF',
-    borderRadius: 10,
-    padding: 12,
-    gap: 8,
+    borderRadius: moderateScale(10),
+    padding: scale(12),
+    gap: scale(8),
     alignItems: 'flex-start',
-    marginBottom: 20,
+    marginBottom: verticalScale(20),
   },
   infoText: {
     flex: 1,
-    fontSize: 13,
+    fontSize: moderateScale(13),
     color: '#0369A1',
-    lineHeight: 18,
+    lineHeight: verticalScale(18),
   },
   actionButtons: {
     flexDirection: 'row',
-    gap: 12,
+    gap: scale(12),
   },
   cancelButton: {
     flex: 1,
-    paddingVertical: 14,
-    borderRadius: 12,
+    paddingVertical: verticalScale(14),
+    borderRadius: moderateScale(12),
     backgroundColor: '#F3F4F6',
     alignItems: 'center',
     justifyContent: 'center',
   },
   cancelButtonText: {
-    fontSize: 15,
+    fontSize: moderateScale(15),
     fontWeight: '600',
     color: '#374151',
   },
   submitButton: {
     flex: 1.5,
     flexDirection: 'row',
-    paddingVertical: 14,
-    borderRadius: 12,
+    paddingVertical: verticalScale(14),
+    borderRadius: moderateScale(12),
     backgroundColor: '#DC2626',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 6,
+    gap: scale(6),
   },
   submitButtonText: {
-    fontSize: 15,
+    fontSize: moderateScale(15),
     fontWeight: '600',
     color: '#FFFFFF',
   },
@@ -698,7 +699,7 @@ const styles = StyleSheet.create({
     opacity: 0.5,
   },
   bottomSpacer: {
-    height: 40,
+    height: verticalScale(40),
   },
   playerAvatar: {
     overflow: 'hidden',
@@ -715,7 +716,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   playerInitial: {
-    fontSize: 12,
+    fontSize: moderateScale(12),
     fontWeight: '600',
     color: '#6B7280',
   },

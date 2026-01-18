@@ -1,16 +1,17 @@
 import React, { useEffect, useRef } from 'react';
-import { View, StyleSheet, Dimensions, Animated } from 'react-native';
+import { View, StyleSheet, Animated } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Path, G } from 'react-native-svg';
+import {
+  scale,
+  moderateScale,
+} from '@/core/utils/responsive';
 
 interface SplashScreenProps {
   onComplete: () => void;
 }
 
 export const SplashScreen: React.FC<SplashScreenProps> = ({ onComplete }) => {
-  const insets = useSafeAreaInsets();
-  const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
   const fadeAnim = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
@@ -30,12 +31,12 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({ onComplete }) => {
   return (
     <Animated.View style={[styles.container, { opacity: fadeAnim }]}>
       <StatusBar style="dark" backgroundColor="#FFFFFF" />
-      
+
       {/* DL Logo SVG */}
       <View style={styles.logoContainer}>
         <Svg
-          width={screenWidth * 0.4}
-          height={screenWidth * 0.4 * (154.58 / 146.46)}
+          width={scale(150)}
+          height={scale(150) * (154.58 / 146.46)}
           viewBox="0 0 146.46 154.58"
         >
           {/* Main logo paths */}
@@ -53,7 +54,7 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({ onComplete }) => {
             fill="#195e9a"
             d="m48.94,17.75c-1.51-.71-3.04-1.41-4.6-2.1C31.91,10.08,17.98,4.89,2.87.11,1.2-.42-.39,1.13.08,2.82c14.06,50.94,15.69,100.47.72,148.91-.54,1.74,1.17,3.34,2.88,2.72,15.43-5.62,28.95-11.25,40.66-16.88,1.57-.74,3.1-1.5,4.6-2.25,36.77-18.4,54.47-36.68,57.49-54.05.27-1.54.42-3.08.46-4.6.57-21.76-21.71-41.94-57.95-58.92Zm0,84.23c-.89.37-1.81.73-2.75,1.1v-21.81h-1.11v-4.6h1.11v-22.5c.94.45,1.85.9,2.75,1.35,13.99,6.99,23.28,14.03,25.46,21.15.47,1.53.62,3.06.4,4.6-.94,6.82-8.85,13.73-25.86,20.71Z"
           />
-          
+
           {/* White overlay paths */}
           <G>
             <Path

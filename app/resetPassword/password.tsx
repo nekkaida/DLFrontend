@@ -102,7 +102,7 @@ export default function ResetPasswordNewScreen() {
           description: 'Your verification has expired. Please start again.',
         });
         clearPasswordResetStore();
-        router.replace('/resetPassword/');
+        router.replace('/resetPassword' as any);
       } else {
         console.log('✅ [Password Screen] OTP validated successfully');
       }
@@ -196,7 +196,7 @@ export default function ResetPasswordNewScreen() {
           clearPasswordResetStore();
           navigationTimeoutRef.current = setTimeout(() => {
             if (isMountedRef.current) {
-              router.replace('/resetPassword/');
+              router.replace('/resetPassword' as any);
             }
           }, 2000);
         } else {

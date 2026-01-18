@@ -8,6 +8,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { format } from 'date-fns';
+import { scale, verticalScale, moderateScale } from '@/core/utils/responsive';
 import { Match } from './types';
 
 interface MatchCardProps {
@@ -80,7 +81,7 @@ export const MatchCard: React.FC<MatchCardProps> = ({ match, onPress }) => {
               <View style={styles.emptySlotRow}>
                 {Array.from({ length: Math.min(emptySlots, 2) }).map((_, idx) => (
                   <View key={`empty-${idx}`} style={styles.emptySlotCircle}>
-                    <Ionicons name="person" size={24} color="#D1D5DB" />
+                    <Ionicons name="person" size={moderateScale(24)} color="#D1D5DB" />
                   </View>
                 ))}
               </View>
@@ -107,14 +108,14 @@ export const MatchCard: React.FC<MatchCardProps> = ({ match, onPress }) => {
         </Text>
 
         <View style={styles.cardInfoRow}>
-          <Ionicons name="time-outline" size={16} color="#6B7280" />
+          <Ionicons name="time-outline" size={moderateScale(16)} color="#6B7280" />
           <Text style={styles.cardInfoText}>
             {formatTimeRange(dateString)}
           </Text>
         </View>
 
         <View style={styles.cardInfoRow}>
-          <Ionicons name="location-outline" size={16} color="#6B7280" />
+          <Ionicons name="location-outline" size={moderateScale(16)} color="#6B7280" />
           <Text style={styles.cardInfoText}>{match.location || match.venue || 'Location TBD'}</Text>
         </View>
 
@@ -140,9 +141,9 @@ export const MatchCard: React.FC<MatchCardProps> = ({ match, onPress }) => {
             </Text>
             <Ionicons
               name={match.courtBooked ? "checkmark-circle" : "close-circle"}
-              size={14}
+              size={moderateScale(14)}
               color={match.courtBooked ? "#10B981" : "#DC2626"}
-              style={{ marginLeft: 4 }}
+              style={{ marginLeft: scale(4) }}
             />
           </View>
         </View>
@@ -154,17 +155,17 @@ export const MatchCard: React.FC<MatchCardProps> = ({ match, onPress }) => {
 const styles = StyleSheet.create({
   matchCard: {
     backgroundColor: '#FFFFFF',
-    marginHorizontal: 16,
-    marginBottom: 12,
-    borderRadius: 16,
-    padding: 16,
+    marginHorizontal: scale(16),
+    marginBottom: verticalScale(12),
+    borderRadius: moderateScale(16),
+    padding: scale(16),
     shadowColor: '#000',
     shadowOffset: {
       width: 0,
-      height: 4,
+      height: verticalScale(4),
     },
     shadowOpacity: 0.12,
-    shadowRadius: 2,
+    shadowRadius: moderateScale(2),
     elevation: 4,
   },
   cardTopSection: {
@@ -175,24 +176,24 @@ const styles = StyleSheet.create({
   playersRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    gap: 12,
+    gap: scale(12),
     flex: 1,
   },
   playerColumn: {
     alignItems: 'center',
-    gap: 4,
+    gap: verticalScale(4),
   },
   playerAvatarLarge: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+    width: moderateScale(56),
+    height: moderateScale(56),
+    borderRadius: moderateScale(28),
     overflow: 'hidden',
     borderWidth: 2,
     borderColor: '#FFFFFF',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
+    shadowOffset: { width: 0, height: verticalScale(1) },
     shadowOpacity: 0.1,
-    shadowRadius: 2,
+    shadowRadius: moderateScale(2),
     elevation: 1,
   },
   avatarImage: {
@@ -208,28 +209,28 @@ const styles = StyleSheet.create({
   },
   defaultAvatarText: {
     color: '#FFFFFF',
-    fontSize: 20,
+    fontSize: moderateScale(20),
     fontWeight: '700',
   },
   playerNameText: {
-    fontSize: 12,
+    fontSize: moderateScale(12),
     fontWeight: '500',
     color: '#1A1C1E',
-    maxWidth: 60,
+    maxWidth: scale(60),
     textAlign: 'center',
   },
   emptySlotColumn: {
     alignItems: 'center',
-    gap: 4,
+    gap: verticalScale(4),
   },
   emptySlotRow: {
     flexDirection: 'row',
-    gap: 8,
+    gap: scale(8),
   },
   emptySlotCircle: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+    width: moderateScale(56),
+    height: moderateScale(56),
+    borderRadius: moderateScale(28),
     borderWidth: 2,
     borderColor: '#D1D5DB',
     borderStyle: 'dashed',
@@ -238,76 +239,76 @@ const styles = StyleSheet.create({
     backgroundColor: '#F9FAFB',
   },
   emptySlotText: {
-    fontSize: 12,
+    fontSize: moderateScale(12),
     fontWeight: '500',
     color: '#9CA3AF',
   },
   leagueBadgeCard: {
     backgroundColor: '#FEA04D',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 12,
+    paddingHorizontal: scale(10),
+    paddingVertical: verticalScale(6),
+    borderRadius: moderateScale(12),
   },
   leagueBadgeCardText: {
     color: '#FFFFFF',
-    fontSize: 11,
+    fontSize: moderateScale(11),
     fontWeight: '700',
     textTransform: 'uppercase',
   },
   cardDivider: {
     height: 1,
     backgroundColor: '#E5E7EB',
-    marginVertical: 16,
+    marginVertical: verticalScale(16),
   },
   cardInfoSection: {
-    gap: 8,
+    gap: verticalScale(8),
   },
   matchTitleText: {
-    fontSize: 16,
+    fontSize: moderateScale(16),
     fontWeight: '700',
     color: '#1A1C1E',
-    marginBottom: 4,
+    marginBottom: verticalScale(4),
   },
   cardInfoRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: scale(8),
   },
   cardInfoText: {
-    fontSize: 14,
+    fontSize: moderateScale(14),
     color: '#4B5563',
     flex: 1,
   },
   feeIcon: {
-    fontSize: 14,
+    fontSize: moderateScale(14),
     fontWeight: '600',
     color: '#6B7280',
-    width: 16,
+    width: scale(16),
     textAlign: 'center',
   },
   courtBookedBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
+    paddingHorizontal: scale(10),
+    paddingVertical: verticalScale(6),
     backgroundColor: '#ECFDF5',
-    borderRadius: 16,
+    borderRadius: moderateScale(16),
   },
   courtBookedText: {
-    fontSize: 12,
+    fontSize: moderateScale(12),
     fontWeight: '600',
     color: '#10B981',
   },
   courtNotBookedBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
+    paddingHorizontal: scale(10),
+    paddingVertical: verticalScale(6),
     backgroundColor: '#FEF2F2',
-    borderRadius: 16,
+    borderRadius: moderateScale(16),
   },
   courtNotBookedText: {
-    fontSize: 12,
+    fontSize: moderateScale(12),
     fontWeight: '600',
     color: '#DC2626',
   },

@@ -10,6 +10,15 @@ import { useProfile, usePlayers, useFriends, useSeasonInvitations } from '../hoo
 import { Player } from '../types';
 import type { ViewMode } from '../components/TabSwitcher';
 
+// Safe haptics wrapper for production
+const triggerHaptic = async (style: Haptics.ImpactFeedbackStyle = Haptics.ImpactFeedbackStyle.Light) => {
+  try {
+    await Haptics.impactAsync(style);
+  } catch {
+    // Haptics not supported on this device
+  }
+};
+
 interface CommunityScreenProps {
   onTabPress?: (tabIndex: number) => void;
   sport?: 'pickleball' | 'tennis' | 'padel';
@@ -47,7 +56,6 @@ export default function CommunityScreen({ sport = 'pickleball' }: CommunityScree
   const [modalVisible, setModalVisible] = useState(false);
   const [friendRequestModalVisible, setFriendRequestModalVisible] = useState(false);
   const [friendRequestRecipient, setFriendRequestRecipient] = useState<{ id: string; name: string } | null>(null);
-  const [searchTimeout, setSearchTimeout] = useState<ReturnType<typeof setTimeout> | null>(null);
 
   // Entry animation values
   const headerEntryOpacity = useRef(new Animated.Value(0)).current;
@@ -56,23 +64,46 @@ export default function CommunityScreen({ sport = 'pickleball' }: CommunityScree
   const contentEntryTranslateY = useRef(new Animated.Value(30)).current;
   const hasPlayedEntryAnimation = useRef(false);
 
+  // Cleanup refs
+  const animationRef = useRef<Animated.CompositeAnimation | null>(null);
+  const isMountedRef = useRef(true);
+  const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const modalTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+      if (animationRef.current) {
+        animationRef.current.stop();
+      }
+      if (searchTimeoutRef.current) {
+        clearTimeout(searchTimeoutRef.current);
+      }
+      if (modalTimeoutRef.current) {
+        clearTimeout(modalTimeoutRef.current);
+      }
+    };
+  }, []);
+
   // Trigger entry animation when loading is done, regardless of data
   useEffect(() => {
     if (!isLoading && !hasPlayedEntryAnimation.current) {
       hasPlayedEntryAnimation.current = true;
-      Animated.stagger(80, [
+      animationRef.current = Animated.stagger(80, [
         Animated.parallel([
           Animated.spring(headerEntryOpacity, {
             toValue: 1,
             tension: 50,
             friction: 8,
-            useNativeDriver: false,
+            useNativeDriver: true,
           }),
           Animated.spring(headerEntryTranslateY, {
             toValue: 0,
             tension: 50,
             friction: 8,
-            useNativeDriver: false,
+            useNativeDriver: true,
           }),
         ]),
         Animated.parallel([
@@ -80,16 +111,17 @@ export default function CommunityScreen({ sport = 'pickleball' }: CommunityScree
             toValue: 1,
             tension: 50,
             friction: 8,
-            useNativeDriver: false,
+            useNativeDriver: true,
           }),
           Animated.spring(contentEntryTranslateY, {
             toValue: 0,
             tension: 50,
             friction: 8,
-            useNativeDriver: false,
+            useNativeDriver: true,
           }),
         ]),
-      ]).start();
+      ]);
+      animationRef.current.start();
     }
   }, [isLoading, players]);
 
@@ -106,59 +138,68 @@ export default function CommunityScreen({ sport = 'pickleball' }: CommunityScree
   // Fetch data on mount
   useEffect(() => {
     if (session?.user?.id) {
-      console.log('🔵 CommunityScreen: Fetching all data for user:', session.user.id);
+      if (__DEV__) console.log('CommunityScreen: Fetching all data for user:', session.user.id);
       fetchProfile();
       searchPlayers();
       fetchFriends();
       fetchFriendRequests();
       fetchSeasonInvitations();
     } else {
-      console.log('❌ CommunityScreen: No session user ID found');
+      if (__DEV__) console.log('CommunityScreen: No session user ID found');
     }
   }, [session?.user?.id, fetchProfile, searchPlayers, fetchFriends, fetchFriendRequests, fetchSeasonInvitations]);
 
-  // Handle search with debounce
+  // Handle search with debounce (using ref to avoid stale closure)
   useEffect(() => {
-    if (searchTimeout) {
-      clearTimeout(searchTimeout);
+    if (searchTimeoutRef.current) {
+      clearTimeout(searchTimeoutRef.current);
     }
 
     if (searchQuery.trim().length >= 2) {
-      const timeout = setTimeout(() => {
-        searchPlayers(searchQuery);
+      searchTimeoutRef.current = setTimeout(() => {
+        if (isMountedRef.current) {
+          searchPlayers(searchQuery);
+        }
       }, 500);
-      setSearchTimeout(timeout);
     } else if (searchQuery.trim().length === 0) {
       searchPlayers();
     }
 
     return () => {
-      if (searchTimeout) {
-        clearTimeout(searchTimeout);
+      if (searchTimeoutRef.current) {
+        clearTimeout(searchTimeoutRef.current);
       }
     };
-  }, [searchQuery]);
+  }, [searchQuery, searchPlayers]);
 
   const handlePlayerPress = useCallback((player: Player) => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    triggerHaptic();
     setSelectedPlayer(player);
     setModalVisible(true);
   }, []);
 
   const closeModal = useCallback(() => {
     setModalVisible(false);
-    setTimeout(() => setSelectedPlayer(null), 300);
+    // Clear any existing modal timeout
+    if (modalTimeoutRef.current) {
+      clearTimeout(modalTimeoutRef.current);
+    }
+    modalTimeoutRef.current = setTimeout(() => {
+      if (isMountedRef.current) {
+        setSelectedPlayer(null);
+      }
+    }, 300);
   }, []);
 
   const handleChat = useCallback(() => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    console.log('Chat with:', selectedPlayer?.name);
+    triggerHaptic();
+    if (__DEV__) console.log('Chat with:', selectedPlayer?.name);
     closeModal();
   }, [selectedPlayer, closeModal]);
 
 
   const handleSendFriendRequest = useCallback(() => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    triggerHaptic();
 
     if (selectedPlayer?.id && selectedPlayer?.name) {
       if (isFriend(selectedPlayer.id)) {
@@ -173,8 +214,14 @@ export default function CommunityScreen({ sport = 'pickleball' }: CommunityScree
     }
 
     closeModal();
-    setTimeout(() => {
-      setFriendRequestModalVisible(true);
+    // Use modalTimeoutRef for the friend request modal transition
+    if (modalTimeoutRef.current) {
+      clearTimeout(modalTimeoutRef.current);
+    }
+    modalTimeoutRef.current = setTimeout(() => {
+      if (isMountedRef.current) {
+        setFriendRequestModalVisible(true);
+      }
     }, 300);
   }, [selectedPlayer, closeModal, isFriend]);
 
@@ -187,7 +234,7 @@ export default function CommunityScreen({ sport = 'pickleball' }: CommunityScree
       await sendFriendRequest(friendRequestRecipient.id);
       setFriendRequestRecipient(null);
     } catch (error) {
-      console.error('Error sending friend request:', error);
+      if (__DEV__) console.error('Error sending friend request:', error);
     }
   }, [friendRequestRecipient, sendFriendRequest]);
 

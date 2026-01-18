@@ -1,4 +1,9 @@
 import { getBackendBaseURL } from '@/config/network';
+import {
+  scale,
+  verticalScale,
+  moderateScale,
+} from '@/core/utils/responsive';
 import { authClient, useSession } from '@/lib/auth-client';
 import { NavBar } from '@/shared/components/layout';
 import { AnimatedFilterChip } from '@/shared/components/ui/AnimatedFilterChip';
@@ -12,7 +17,6 @@ import {
   Animated,
   AppState,
   AppStateStatus,
-  Dimensions,
   Keyboard,
   Platform,
   Pressable,
@@ -40,6 +44,15 @@ const SPORT_COLORS = {
   padel: '#3B82F6',
 };
 
+// Safe haptics wrapper
+const triggerHaptic = async (style: Haptics.ImpactFeedbackStyle = Haptics.ImpactFeedbackStyle.Light) => {
+  try {
+    await Haptics.impactAsync(style);
+  } catch {
+    // Haptics not supported on this device
+  }
+};
+
 // Profile data interface for API response
 interface ProfileData {
   id: string;
@@ -56,10 +69,6 @@ interface AuthResponse {
     data?: ProfileData;
   } & ProfileData;
 }
-
-const { width } = Dimensions.get('window');
-const isSmallScreen = width < 375;
-const isTablet = width > 768;
 
 interface ChatScreenProps {
   activeTab?: number;
@@ -93,6 +102,9 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
   const contentEntryOpacity = useRef(new Animated.Value(0)).current;
   const contentEntryTranslateY = useRef(new Animated.Value(30)).current;
   const hasPlayedEntryAnimation = useRef(false);
+  const animationRef = useRef<Animated.CompositeAnimation | null>(null);
+  const isMountedRef = useRef(true);
+  const profileFetchAbortRef = useRef<AbortController | null>(null);
 
   const STATUS_BAR_HEIGHT = insets.top;
 
@@ -113,22 +125,31 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
       hasPlayedEntryAnimation.current = true;
       // Use requestAnimationFrame to ensure the view is rendered before animating
       requestAnimationFrame(() => {
-        Animated.parallel([
+        // Store animation reference for cleanup
+        animationRef.current = Animated.parallel([
           Animated.spring(contentEntryOpacity, {
             toValue: 1,
             tension: 50,
             friction: 8,
-            useNativeDriver: false,
+            useNativeDriver: true,
           }),
           Animated.spring(contentEntryTranslateY, {
             toValue: 0,
             tension: 50,
             friction: 8,
-            useNativeDriver: false,
+            useNativeDriver: true,
           }),
-        ]).start();
+        ]);
+        animationRef.current.start();
       });
     }
+
+    // Cleanup: stop animation on unmount to prevent memory leaks
+    return () => {
+      if (animationRef.current) {
+        animationRef.current.stop();
+      }
+    };
   }, [isLoading, contentEntryOpacity, contentEntryTranslateY]);
 
   // Handle app state changes to fix touch issues after backgrounding
@@ -140,8 +161,15 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
         appStateRef.current.match(/inactive|background/) &&
         nextAppState === 'active'
       ) {
+        // Clear any existing timeout to prevent accumulation
+        if (timeoutId) {
+          clearTimeout(timeoutId);
+        }
         timeoutId = setTimeout(() => {
-          setAppStateKey(prev => prev + 1);
+          // Check if still mounted before updating state
+          if (isMountedRef.current) {
+            setAppStateKey(prev => prev + 1);
+          }
         }, 100);
       }
       appStateRef.current = nextAppState;
@@ -162,6 +190,13 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
     if (session?.user?.id) {
       fetchProfileData();
     }
+    // Cleanup: abort profile fetch on unmount
+    return () => {
+      if (profileFetchAbortRef.current) {
+        profileFetchAbortRef.current.abort();
+        profileFetchAbortRef.current = null;
+      }
+    };
   }, [session?.user?.id]);
 
   const fetchProfileData = async () => {
@@ -171,6 +206,12 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
         return;
       }
 
+      // Cancel any previous fetch
+      if (profileFetchAbortRef.current) {
+        profileFetchAbortRef.current.abort();
+      }
+      profileFetchAbortRef.current = new AbortController();
+
       const backendUrl = getBackendBaseURL();
       chatLogger.debug("Fetching profile data from:", `${backendUrl}/api/player/profile/me`);
 
@@ -178,8 +219,12 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
         `${backendUrl}/api/player/profile/me`,
         {
           method: "GET",
+          signal: profileFetchAbortRef.current.signal,
         }
       ) as AuthResponse | null;
+
+      // Check if still mounted before updating state
+      if (!isMountedRef.current) return;
 
       if (authResponse?.data?.data) {
         chatLogger.debug("Setting profile data:", authResponse.data.data);
@@ -190,16 +235,27 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
       } else {
         chatLogger.error("No profile data received from authClient");
       }
-    } catch (error) {
+    } catch (error: unknown) {
+      // Ignore abort errors
+      if (error instanceof Error && error.name === 'AbortError') return;
       chatLogger.error("Error fetching profile data:", error);
     }
   };
 
+  // Initialize isMountedRef and cleanup on unmount
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
+
+  // Load threads when user ID changes (not user object - avoids unnecessary reloads)
   useEffect(() => {
     if (!user?.id) return;
     loadThreads(user.id);
     setConnectionStatus(true);
-  }, [user]);
+  }, [user?.id, loadThreads, setConnectionStatus]);
 
   // Filter threads based on search, sport, and type filters
   const displayedThreads = useMemo(() => {
@@ -263,11 +319,20 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
     // Store thread in store for the chat screen to access
     setCurrentThread(thread);
 
-    // Mark thread as read when opening it
+    // Navigate to chat thread using native navigation first (faster UX)
+    // Pass the dashboard's selected sport so it can be used for friendly match requests
+    router.push({
+      pathname: '/chat/[threadId]',
+      params: { threadId: thread.id, sport }
+    });
+
+    // Mark thread as read in background after navigation
     if (user?.id && thread.unreadCount > 0) {
       chatLogger.debug('Marking thread as read, unread count:', thread.unreadCount);
       try {
         await ChatService.markAllAsRead(thread.id, user.id);
+        // Check if still mounted before updating state
+        if (!isMountedRef.current) return;
         chatLogger.debug('Thread marked as read successfully');
         updateThread({
           ...thread,
@@ -277,21 +342,34 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
         chatLogger.error('Error marking thread as read:', error);
       }
     }
-
-    // Navigate to chat thread using native navigation
-    // Pass the dashboard's selected sport so it can be used for friendly match requests
-    router.push({
-      pathname: '/chat/[threadId]',
-      params: { threadId: thread.id, sport }
-    });
   }, [user?.id, setCurrentThread, updateThread, sport]);
 
   const clearSearch = useCallback(() => {
     setSearchQuery('');
   }, []);
 
+  // Memoized filter handlers to prevent re-renders
+  const handleSportFilterAll = useCallback(() => setSportFilter('all'), []);
+  const handleSportFilterPickle = useCallback(() => setSportFilter('pickleball'), []);
+  const handleSportFilterTennis = useCallback(() => setSportFilter('tennis'), []);
+  const handleSportFilterPadel = useCallback(() => setSportFilter('padel'), []);
+
+  // Memoized SegmentedControl options to prevent re-renders
+  const typeFilterOptions = useMemo(() => [
+    { value: 'all' as TypeFilter, label: 'All' },
+    { value: 'personal' as TypeFilter, label: 'Personal' },
+    { value: 'league' as TypeFilter, label: 'League' },
+  ], []);
+
+  // Memoized animated container style
+  const animatedContainerStyle = useMemo(() => ({
+    flex: 1,
+    opacity: contentEntryOpacity,
+    transform: [{ translateY: contentEntryTranslateY }],
+  }), [contentEntryOpacity, contentEntryTranslateY]);
+
   const handleOpenNewMessage = useCallback(() => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    triggerHaptic(Haptics.ImpactFeedbackStyle.Light);
     // Blur search input and dismiss keyboard before navigating
     searchInputRef.current?.blur();
     Keyboard.dismiss();
@@ -322,6 +400,9 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
           <Pressable
             onPress={handleOpenNewMessage}
             style={({ pressed }) => pressed && { opacity: 0.7 }}
+            accessibilityLabel="New message"
+            accessibilityRole="button"
+            accessibilityHint="Start a new conversation"
           >
             <Text style={styles.newMessageButton}>New Message</Text>
           </Pressable>
@@ -330,7 +411,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
         {/* Search and filters - No animation, instant */}
         <View style={styles.searchContainer}>
           <View style={styles.searchBar}>
-            <Ionicons name="search-outline" size={18} color="#9CA3AF" style={styles.searchIcon} />
+            <Ionicons name="search-outline" size={moderateScale(18)} color="#9CA3AF" style={styles.searchIcon} />
             <TextInput
               ref={searchInputRef}
               style={styles.searchInput}
@@ -339,10 +420,16 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
               value={searchQuery}
               onChangeText={setSearchQuery}
               returnKeyType="search"
+              accessibilityLabel="Search chats"
+              accessibilityHint="Type to search conversations"
             />
             {searchQuery.length > 0 && (
-              <Pressable onPress={clearSearch}>
-                <Ionicons name="close-circle" size={18} color="#9CA3AF" />
+              <Pressable
+                onPress={clearSearch}
+                accessibilityLabel="Clear search"
+                accessibilityRole="button"
+              >
+                <Ionicons name="close-circle" size={moderateScale(18)} color="#9CA3AF" />
               </Pressable>
             )}
           </View>
@@ -353,11 +440,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
           {/* Type filter - Segmented control */}
           <View style={styles.typeFilterContainer}>
             <SegmentedControl
-              options={[
-                { value: 'all' as TypeFilter, label: 'All' },
-                { value: 'personal' as TypeFilter, label: 'Personal' },
-                { value: 'league' as TypeFilter, label: 'League' },
-              ]}
+              options={typeFilterOptions}
               value={typeFilter}
               onChange={setTypeFilter}
               activeColor={SPORT_COLORS[sportFilter]}
@@ -370,40 +453,34 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
               label="All"
               isActive={sportFilter === 'all'}
               activeColor={SPORT_COLORS.all}
-              onPress={() => setSportFilter('all')}
+              onPress={handleSportFilterAll}
             />
             <AnimatedFilterChip
               label="Pickleball"
               isActive={sportFilter === 'pickleball'}
               activeColor={SPORT_COLORS.pickleball}
-              onPress={() => setSportFilter('pickleball')}
+              onPress={handleSportFilterPickle}
             />
             <AnimatedFilterChip
               label="Tennis"
               isActive={sportFilter === 'tennis'}
               activeColor={SPORT_COLORS.tennis}
-              onPress={() => setSportFilter('tennis')}
+              onPress={handleSportFilterTennis}
             />
             <AnimatedFilterChip
               label="Padel"
               isActive={sportFilter === 'padel'}
               activeColor={SPORT_COLORS.padel}
-              onPress={() => setSportFilter('padel')}
+              onPress={handleSportFilterPadel}
             />
           </View>
         </View>
 
         {/* Thread list or Empty state - Both Animated */}
-        <Animated.View
-          style={{
-            flex: 1,
-            opacity: contentEntryOpacity,
-            transform: [{ translateY: contentEntryTranslateY }],
-          }}
-        >
+        <Animated.View style={animatedContainerStyle}>
           {displayedThreads.length === 0 ? (
             <View style={styles.emptyContainer}>
-              <Ionicons name="chatbubble-outline" size={64} color="#9CA3AF" />
+              <Ionicons name="chatbubble-outline" size={moderateScale(64)} color="#9CA3AF" />
               <Text style={styles.emptyTitle}>No chats yet</Text>
               <Text style={styles.emptyDescription}>
                 Start a conversation by tapping "New Message" above
@@ -440,26 +517,26 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
   },
   searchContainer: {
-    paddingHorizontal: 16,
-    marginBottom: 10,
+    paddingHorizontal: scale(16),
+    marginBottom: verticalScale(10),
     backgroundColor: '#FFFFFF',
   },
   searchBar: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#FFFFFF',
-    borderRadius: 10,
-    paddingHorizontal: 10,
-    height: 36,
+    borderRadius: moderateScale(10),
+    paddingHorizontal: scale(10),
+    height: verticalScale(36),
     borderWidth: 1,
     borderColor: '#E5E7EB',
   },
   searchIcon: {
-    marginRight: 6,
+    marginRight: scale(6),
   },
   searchInput: {
     flex: 1,
-    fontSize: 13,
+    fontSize: moderateScale(13),
     color: '#1F2937',
     paddingVertical: 0,
     textAlignVertical: 'center',
@@ -468,16 +545,16 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 20,
+    padding: moderateScale(20),
   },
   errorText: {
-    fontSize: isSmallScreen ? 14 : isTablet ? 18 : 16,
+    fontSize: moderateScale(16),
     color: '#DC2626',
     textAlign: 'center',
-    marginBottom: 8,
+    marginBottom: verticalScale(8),
   },
   errorSubtext: {
-    fontSize: isSmallScreen ? 12 : isTablet ? 16 : 14,
+    fontSize: moderateScale(14),
     color: '#9CA3AF',
     textAlign: 'center',
   },
@@ -487,48 +564,48 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     width: '100%',
     backgroundColor: '#FFFFFF',
-    paddingHorizontal: isSmallScreen ? 16 : isTablet ? 24 : 20,
-    paddingTop: 12,
-    paddingBottom: 16,
-    marginBottom: 4,
+    paddingHorizontal: scale(20),
+    paddingTop: verticalScale(12),
+    paddingBottom: verticalScale(16),
+    marginBottom: verticalScale(4),
   },
   chatsTitle: {
-    fontSize: isSmallScreen ? 28 : isTablet ? 36 : 32,
+    fontSize: moderateScale(32),
     fontWeight: '700',
     color: '#111827',
   },
   newMessageButton: {
-    fontSize: isSmallScreen ? 14 : isTablet ? 18 : 16,
+    fontSize: moderateScale(16),
     fontWeight: '600',
     color: '#FEA04D',
   },
   filterSection: {
-    paddingHorizontal: 16,
-    paddingBottom: 12,
-    gap: 10,
+    paddingHorizontal: scale(16),
+    paddingBottom: verticalScale(12),
+    gap: verticalScale(10),
   },
   typeFilterContainer: {
     width: '100%',
   },
   sportFilterContainer: {
     flexDirection: 'row',
-    gap: 8,
+    gap: scale(8),
   },
   emptyContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 32,
-    paddingBottom: 120,
-    gap: 12,
+    paddingHorizontal: scale(32),
+    paddingBottom: verticalScale(120),
+    gap: verticalScale(12),
   },
   emptyTitle: {
-    fontSize: 18,
+    fontSize: moderateScale(18),
     fontWeight: '700',
     color: '#111827',
   },
   emptyDescription: {
-    fontSize: 14,
+    fontSize: moderateScale(14),
     color: '#6B7280',
     textAlign: 'center',
   },

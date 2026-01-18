@@ -17,6 +17,7 @@ interface UseProfileImageUploadReturn {
   profileImage: string | null;
   originalLocalImage: string | null;
   isUploadingImage: boolean;
+  isPickerActive: boolean;
   showCropper: boolean;
   selectedImageUri: string | null;
 
@@ -32,6 +33,8 @@ interface UseProfileImageUploadReturn {
 }
 
 const MAX_RETRIES = 2;
+const MAX_FILE_SIZE_MB = 10;
+const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024;
 
 /**
  * Shared hook for profile image upload functionality.
@@ -52,6 +55,7 @@ export function useProfileImageUpload(options: UseProfileImageUploadOptions = {}
   const [profileImage, setProfileImage] = useState<string | null>(null);
   const [originalLocalImage, setOriginalLocalImage] = useState<string | null>(null);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
+  const [isPickerActive, setIsPickerActive] = useState(false);
   const [showCropper, setShowCropper] = useState(false);
   const [selectedImageUri, setSelectedImageUri] = useState<string | null>(null);
 
@@ -223,6 +227,9 @@ export function useProfileImageUpload(options: UseProfileImageUploadOptions = {}
    * Open image library picker with built-in square crop.
    */
   const pickImageFromLibrary = useCallback(async () => {
+    if (isPickerActive) return; // Prevent multiple pickers
+    setIsPickerActive(true);
+
     try {
       // Request permission
       const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -244,22 +251,45 @@ export function useProfileImageUpload(options: UseProfileImageUploadOptions = {}
       });
 
       if (!result.canceled && result.assets[0]) {
-        // Show preview with circular mask
-        setOriginalLocalImage(result.assets[0].uri);
-        setSelectedImageUri(result.assets[0].uri);
+        // Check file size before processing
+        const asset = result.assets[0];
+        if (asset.fileSize && asset.fileSize > MAX_FILE_SIZE_BYTES) {
+          Alert.alert(
+            'Image Too Large',
+            `Please select an image smaller than ${MAX_FILE_SIZE_MB}MB.`,
+            [{ text: 'OK' }]
+          );
+          return;
+        }
+
+        // Normalize EXIF rotation BEFORE showing cropper
+        // This ensures the displayed image matches what will be cropped
+        const normalized = await manipulateAsync(
+          asset.uri,
+          [],
+          { compress: 1, format: SaveFormat.JPEG }
+        );
+
+        setOriginalLocalImage(normalized.uri); // Save original for re-cropping
+        setSelectedImageUri(normalized.uri);
         setShowCropper(true);
       }
     } catch {
       toast.error('Error', {
         description: 'Failed to open photo library. Please try again.',
       });
+    } finally {
+      setIsPickerActive(false);
     }
-  }, []);
+  }, [isPickerActive]);
 
   /**
    * Open camera to take photo with built-in square crop.
    */
   const openCamera = useCallback(async () => {
+    if (isPickerActive) return; // Prevent multiple pickers
+    setIsPickerActive(true);
+
     try {
       const permissionResult = await ImagePicker.requestCameraPermissionsAsync();
 
@@ -280,17 +310,37 @@ export function useProfileImageUpload(options: UseProfileImageUploadOptions = {}
       });
 
       if (!result.canceled && result.assets[0]) {
-        // Show preview with circular mask
-        setOriginalLocalImage(result.assets[0].uri);
-        setSelectedImageUri(result.assets[0].uri);
+        // Check file size before processing
+        const asset = result.assets[0];
+        if (asset.fileSize && asset.fileSize > MAX_FILE_SIZE_BYTES) {
+          Alert.alert(
+            'Image Too Large',
+            `Please select an image smaller than ${MAX_FILE_SIZE_MB}MB.`,
+            [{ text: 'OK' }]
+          );
+          return;
+        }
+
+        // Normalize EXIF rotation BEFORE showing cropper
+        // This ensures the displayed image matches what will be cropped
+        const normalized = await manipulateAsync(
+          asset.uri,
+          [],
+          { compress: 1, format: SaveFormat.JPEG }
+        );
+
+        setOriginalLocalImage(normalized.uri); // Save original for re-cropping
+        setSelectedImageUri(normalized.uri);
         setShowCropper(true);
       }
     } catch {
       toast.error('Error', {
         description: 'Failed to open camera. Please try again.',
       });
+    } finally {
+      setIsPickerActive(false);
     }
-  }, []);
+  }, [isPickerActive]);
 
   /**
    * Handle crop completion - resize and upload the cropped image.
@@ -356,6 +406,7 @@ export function useProfileImageUpload(options: UseProfileImageUploadOptions = {}
     profileImage,
     originalLocalImage,
     isUploadingImage,
+    isPickerActive,
     showCropper,
     selectedImageUri,
 

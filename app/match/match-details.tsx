@@ -3,6 +3,12 @@ import PadelIcon from '@/assets/images/padel-icon.svg';
 import TennisIcon from '@/assets/images/tennis-icon.svg';
 import { getBackendBaseURL } from '@/config/network';
 import { getSportColors, SportType } from '@/constants/SportsColor';
+import {
+  scale,
+  verticalScale,
+  moderateScale,
+  responsivePadding,
+} from '@/core/utils/responsive';
 import { useSession } from '@/lib/auth-client';
 import axiosInstance, { endpoints } from '@/lib/endpoints';
 import { socketService } from '@/lib/socket-service';
@@ -13,7 +19,7 @@ import { PostMatchShareSheet } from '@/src/features/feed/components';
 import { MatchComment } from '@/app/match/components/types';
 import BottomSheet from '@gorhom/bottom-sheet';
 import { Ionicons } from '@expo/vector-icons';
-import { BottomSheetBackdrop, BottomSheetModal } from '@gorhom/bottom-sheet';
+import { BottomSheetBackdrop, BottomSheetBackdropProps, BottomSheetModal } from '@gorhom/bottom-sheet';
 import { router, useLocalSearchParams } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -179,7 +185,7 @@ export default function JoinMatchScreen() {
             const response = await axiosInstance.get(endpoints.friendly.getDetails(matchId));
             data = response.data?.data;
           } catch (friendlyError) {
-            console.log('Not a friendly match, trying league endpoint');
+            if (__DEV__) console.log('Not a friendly match, trying league endpoint');
           }
         }
 
@@ -253,7 +259,7 @@ export default function JoinMatchScreen() {
           }));
         }
       } catch (error) {
-        console.error('Error fetching match details:', error);
+        if (__DEV__) console.error('Error fetching match details:', error);
         toast.error('Failed to load match details');
       } finally {
         setIsLoadingMatchDetails(false);
@@ -286,7 +292,7 @@ export default function JoinMatchScreen() {
 
   // Backdrop component for bottom sheet
   const renderBackdrop = useCallback(
-    (props: any) => (
+    (props: BottomSheetBackdropProps) => (
       <BottomSheetBackdrop
         {...props}
         disappearsOnIndex={-1}
@@ -353,7 +359,7 @@ export default function JoinMatchScreen() {
           });
         }
       } catch (error) {
-        console.error('Error fetching match data:', error);
+        if (__DEV__) console.error('Error fetching match data:', error);
       }
     };
     
@@ -370,7 +376,7 @@ export default function JoinMatchScreen() {
   // Listen for real-time match updates
   useEffect(() => {
     const handleMatchUpdate = (data: any) => {
-      console.log('🔄 Match updated in real-time:', data);
+      if (__DEV__) console.log('Match updated in real-time:', data);
       
       // If this is our match, refresh participant details
       if (data.matchId === matchId) {
@@ -405,7 +411,7 @@ export default function JoinMatchScreen() {
       const response = await axiosInstance.get(endpoint);
       setComments(response.data);
     } catch (error) {
-      console.error('Failed to fetch comments:', error);
+      if (__DEV__) console.error('Failed to fetch comments:', error);
     } finally {
       setIsLoadingComments(false);
     }
@@ -424,7 +430,7 @@ export default function JoinMatchScreen() {
     socketService.joinMatch(matchId);
 
     const handleCommentAdded = (data: { comment: MatchComment }) => {
-      console.log('💬 New comment received:', data);
+      if (__DEV__) console.log('New comment received:', data);
       // Avoid duplicates - check if comment already exists
       setComments((prev) => {
         if (prev.some((c) => c.id === data.comment.id)) {
@@ -435,14 +441,14 @@ export default function JoinMatchScreen() {
     };
 
     const handleCommentUpdated = (data: { comment: MatchComment }) => {
-      console.log('✏️ Comment updated:', data);
+      if (__DEV__) console.log('Comment updated:', data);
       setComments((prev) =>
         prev.map((c) => (c.id === data.comment.id ? data.comment : c))
       );
     };
 
     const handleCommentDeleted = (data: { commentId: string }) => {
-      console.log('🗑️ Comment deleted:', data);
+      if (__DEV__) console.log('Comment deleted:', data);
       setComments((prev) => prev.filter((c) => c.id !== data.commentId));
     };
 
@@ -644,11 +650,11 @@ export default function JoinMatchScreen() {
         }
       );
 
-      console.log('Partnership response status:', response.status);
+      if (__DEV__) console.log('Partnership response status:', response.status);
       
       if (response.ok) {
         const data = await response.json();
-        console.log('Partnership data received:', JSON.stringify(data, null, 2));
+        if (__DEV__) console.log('Partnership data received:', JSON.stringify(data, null, 2));
         
         // Handle different response structures
         const partnership = data.partnership || data.data || data;
@@ -676,24 +682,24 @@ export default function JoinMatchScreen() {
               partnerId: otherUser?.id,
             });
           } else {
-            console.log('User is neither captain nor partner');
+            if (__DEV__) console.log('User is neither captain nor partner');
             setPartnerInfo({
               hasPartner: false,
             });
           }
         } else {
-          console.log('No valid partnership data found in response');
+          if (__DEV__) console.log('No valid partnership data found in response');
           setPartnerInfo({
             hasPartner: false,
           });
         }
       } else {
-        console.log('Partnership fetch failed with status:', response.status);
+        if (__DEV__) console.log('Partnership fetch failed with status:', response.status);
         const errorText = await response.text();
-        console.log('Error response:', errorText);
+        if (__DEV__) console.log('Error response:', errorText);
       }
     } catch (error) {
-      console.error('Error fetching partnership:', error);
+      if (__DEV__) console.error('Error fetching partnership:', error);
     }
   };
 
@@ -719,7 +725,7 @@ export default function JoinMatchScreen() {
           return now >= matchStartTime;
         }
       } catch (error) {
-        console.error('❌ Error parsing matchData.matchDate:', error);
+        if (__DEV__) console.error('Error parsing matchData.matchDate:', error);
       }
     }
 
@@ -732,7 +738,7 @@ export default function JoinMatchScreen() {
       // Parse date using manual parsing for "Dec 04, 2025" format
       const datePartsMatch = date.match(/(\w+)\s+(\d+),\s+(\d+)/);
       if (!datePartsMatch) {
-        console.error('❌ Invalid date format:', date);
+        if (__DEV__) console.error('Invalid date format:', date);
         return false;
       }
 
@@ -743,14 +749,14 @@ export default function JoinMatchScreen() {
       };
       const month = monthMap[monthStr];
       if (month === undefined) {
-        console.error('❌ Invalid month:', monthStr);
+        if (__DEV__) console.error('Invalid month:', monthStr);
         return false;
       }
 
       // Parse time using manual parsing for "1:30 PM" format
       const timeMatch = time.match(/(\d+):(\d+)\s*(AM|PM)/i);
       if (!timeMatch) {
-        console.error('❌ Invalid time format:', time);
+        if (__DEV__) console.error('Invalid time format:', time);
         return false;
       }
 
@@ -770,7 +776,7 @@ export default function JoinMatchScreen() {
 
       // Validate the date
       if (isNaN(matchStartTime.getTime())) {
-        console.error('❌ Invalid date created:', { date, time, matchStartTime });
+        if (__DEV__) console.error('Invalid date created:', { date, time, matchStartTime });
         return false;
       }
 
@@ -780,7 +786,7 @@ export default function JoinMatchScreen() {
       // (No upper limit - overdue matches should still allow result submission)
       return now >= matchStartTime;
     } catch (error) {
-      console.error('❌ Error parsing match date/time:', error, { date, time });
+      if (__DEV__) console.error('Error parsing match date/time:', error, { date, time });
       return false;
     }
   };
@@ -1021,7 +1027,7 @@ export default function JoinMatchScreen() {
       toast.success('Successfully joined match!');
       router.back();
     } catch (error: any) {
-      console.error('Error joining match:', error);
+      if (__DEV__) console.error('Error joining match:', error);
       toast.error(error.message || 'Failed to join match');
     } finally {
       setLoading(false);
@@ -1056,12 +1062,14 @@ export default function JoinMatchScreen() {
     teamAssignments?: { team1: string[]; team2: string[] };
   }) => {
     try {
-      console.log('📤 Submitting to backend:', JSON.stringify(data, null, 2));
-      console.log('👥 Participants with teams:', participantsWithDetails.map(p => ({
-        name: p.name,
-        team: p.team,
-        mappedTeam: p.team === 'team1' ? 'TEAM_A' : p.team === 'team2' ? 'TEAM_B' : 'TEAM_A'
-      })));
+      if (__DEV__) {
+        console.log('Submitting to backend:', JSON.stringify(data, null, 2));
+        console.log('Participants with teams:', participantsWithDetails.map(p => ({
+          name: p.name,
+          team: p.team,
+          mappedTeam: p.team === 'team1' ? 'TEAM_A' : p.team === 'team2' ? 'TEAM_B' : 'TEAM_A'
+        })));
+      }
 
       // Handle friendly match cancellation
       if (isFriendly && data.isCancelled) {
@@ -1114,9 +1122,11 @@ export default function JoinMatchScreen() {
       // This prevents sharing unverified/disputed scores
       router.back();
     } catch (error: any) {
-      console.error('❌ Error submitting result:', error);
-      console.error('❌ Error response:', error.response?.data);
-      console.error('❌ Error message:', error.message);
+      if (__DEV__) {
+        console.error('Error submitting result:', error);
+        console.error('Error response:', error.response?.data);
+        console.error('Error message:', error.message);
+      }
 
       const errorMessage = error.response?.data?.error ||
                           error.response?.data?.message ||
@@ -1159,7 +1169,7 @@ export default function JoinMatchScreen() {
         postMatchShareSheetRef.current?.snapToIndex(0);
       }, 300);
     } catch (error: any) {
-      console.error('❌ Error confirming result:', error);
+      if (__DEV__) console.error('Error confirming result:', error);
       const errorMessage = error.response?.data?.error ||
                           error.response?.data?.message ||
                           error.message ||
@@ -1187,7 +1197,7 @@ export default function JoinMatchScreen() {
       bottomSheetModalRef.current?.dismiss();
       router.back();
     } catch (error: any) {
-      console.error('❌ Error submitting walkover:', error);
+      if (__DEV__) console.error('Error submitting walkover:', error);
       const errorMessage = error.response?.data?.error ||
                           error.response?.data?.message ||
                           error.message ||
@@ -1210,7 +1220,7 @@ export default function JoinMatchScreen() {
       setShowSharePrompt(false);
       // Don't navigate back - user can stay on match details or manually navigate
     } catch (error: any) {
-      console.error('Error creating post:', error);
+      if (__DEV__) console.error('Error creating post:', error);
       toast.error('Failed to create post. Please try again.');
     }
   };
@@ -1284,7 +1294,7 @@ export default function JoinMatchScreen() {
       cancelSheetRef.current?.dismiss();
       router.back();
     } catch (error: any) {
-      console.error('❌ Error cancelling match:', error);
+      if (__DEV__) console.error('Error cancelling match:', error);
       const errorMessage = error.response?.data?.error ||
                           error.response?.data?.message ||
                           error.message ||
@@ -2257,70 +2267,70 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
   },
   header: {
-    paddingBottom: 16,
-    borderBottomLeftRadius: 24,
-    borderBottomRightRadius: 24,
+    paddingBottom: verticalScale(16),
+    borderBottomLeftRadius: moderateScale(24),
+    borderBottomRightRadius: moderateScale(24),
     overflow: 'hidden',
     position: 'relative',
   },
   headerTop: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    gap: 8,
+    paddingHorizontal: scale(16),
+    paddingVertical: verticalScale(8),
+    gap: scale(8),
   },
   backButton: {
-    padding: 4,
+    padding: moderateScale(4),
   },
   headerMatchType: {
     flex: 1,
-    fontSize: 16,
+    fontSize: moderateScale(16),
     fontWeight: '600',
     color: '#FFFFFF',
   },
   leagueBadge: {
     backgroundColor: '#FEA04D',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 4,
+    paddingHorizontal: scale(8),
+    paddingVertical: verticalScale(4),
+    borderRadius: moderateScale(4),
   },
   leagueBadgeText: {
     color: '#FFFFFF',
-    fontSize: 10,
+    fontSize: moderateScale(10),
     fontWeight: '700',
     textTransform: 'uppercase',
   },
   headerContent: {
-    paddingHorizontal: 24,
-    marginTop: 4,
+    paddingHorizontal: scale(24),
+    marginTop: verticalScale(4),
   },
   headerLeagueName: {
-    fontSize: 20,
+    fontSize: moderateScale(20),
     fontWeight: '700',
     color: '#FFFFFF',
-    marginBottom: 4,
+    marginBottom: verticalScale(4),
   },
   headerSeason: {
-    fontSize: 14,
+    fontSize: moderateScale(14),
     color: 'rgba(255,255,255,0.8)',
   },
   headerIcon: {
     position: 'absolute',
-    bottom: -10,
-    right: 10,
+    bottom: verticalScale(-10),
+    right: scale(10),
     opacity: 0.8,
   },
   scrollContent: {
     flex: 1,
   },
   scrollContentContainer: {
-    paddingTop: 24,
-    paddingBottom: 32,
+    paddingTop: verticalScale(24),
+    paddingBottom: verticalScale(32),
   },
   participantsSection: {
-    paddingHorizontal: 24,
-    marginBottom: 24,
+    paddingHorizontal: scale(24),
+    marginBottom: verticalScale(24),
   },
   playersRow: {
     flexDirection: 'row',
@@ -2337,46 +2347,46 @@ const styles = StyleSheet.create({
   },
   teamPlayers: {
     flexDirection: 'row',
-    gap: 12,
+    gap: scale(12),
   },
   doublesPlayerContainer: {
     alignItems: 'center',
-    maxWidth: 60,
+    maxWidth: scale(60),
   },
   playerAvatarWrapper: {
     position: 'relative',
-    marginBottom: 6,
+    marginBottom: verticalScale(6),
   },
   playerAvatar: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: scale(48),
+    height: verticalScale(48),
+    borderRadius: moderateScale(24),
     overflow: 'hidden',
   },
   pendingBadge: {
     position: 'absolute',
-    bottom: -2,
-    right: -2,
+    bottom: verticalScale(-2),
+    right: scale(-2),
     backgroundColor: '#FEF3C7',
-    borderRadius: 10,
-    width: 20,
-    height: 20,
+    borderRadius: moderateScale(10),
+    width: scale(20),
+    height: verticalScale(20),
     justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 2,
+    borderWidth: moderateScale(2),
     borderColor: '#FFFFFF',
   },
   acceptedBadge: {
     position: 'absolute',
-    bottom: -2,
-    right: -2,
+    bottom: verticalScale(-2),
+    right: scale(-2),
     backgroundColor: '#FFFFFF',
-    borderRadius: 10,
-    width: 20,
-    height: 20,
+    borderRadius: moderateScale(10),
+    width: scale(20),
+    height: verticalScale(20),
     justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 2,
+    borderWidth: moderateScale(2),
     borderColor: '#FFFFFF',
   },
   avatarImage: {
@@ -2391,7 +2401,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   defaultAvatarText: {
-    fontSize: 18,
+    fontSize: moderateScale(18),
     fontWeight: '600',
     color: '#6B7280',
   },
@@ -2401,126 +2411,126 @@ const styles = StyleSheet.create({
     backgroundColor: '#F3F4F6',
     justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 2,
+    borderWidth: moderateScale(2),
     borderColor: '#E5E7EB',
     borderStyle: 'dashed',
-    borderRadius: 24,
+    borderRadius: moderateScale(24),
   },
   playerName: {
-    fontSize: 12,
+    fontSize: moderateScale(12),
     fontWeight: '600',
     color: '#111827',
     textAlign: 'center',
   },
   vsContainer: {
-    paddingHorizontal: 16,
+    paddingHorizontal: scale(16),
   },
   vsText: {
-    fontSize: 12,
+    fontSize: moderateScale(12),
     color: '#6B7280',
     fontWeight: '500',
   },
   verticalDivider: {
-    width: 1,
-    height: 80,
+    width: scale(1),
+    height: verticalScale(80),
     backgroundColor: '#E2E2E2',
-    marginHorizontal: 16,
+    marginHorizontal: scale(16),
   },
   divider: {
-    height: 1,
+    height: verticalScale(1),
     backgroundColor: '#E2E2E2',
-    marginHorizontal: 24,
+    marginHorizontal: scale(24),
   },
   detailRow: {
     flexDirection: 'row',
-    paddingHorizontal: 24,
-    paddingVertical: 20,
-    gap: 16,
+    paddingHorizontal: scale(24),
+    paddingVertical: verticalScale(20),
+    gap: scale(16),
   },
   iconContainer: {
-    width: 24,
+    width: scale(24),
     alignItems: 'center',
   },
   detailContent: {
     flex: 1,
   },
   detailTitle: {
-    fontSize: 15,
+    fontSize: moderateScale(15),
     fontWeight: '600',
     color: '#111827',
-    marginBottom: 4,
+    marginBottom: verticalScale(4),
   },
   dateTimeHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    marginBottom: 4,
+    gap: scale(8),
+    marginBottom: verticalScale(4),
   },
   statusBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 12,
+    paddingHorizontal: scale(8),
+    paddingVertical: verticalScale(3),
+    borderRadius: moderateScale(12),
   },
   statusBadgeText: {
-    fontSize: 11,
+    fontSize: moderateScale(11),
     fontWeight: '600',
     textTransform: 'uppercase',
     letterSpacing: 0.3,
   },
   detailSubtitle: {
-    fontSize: 13,
+    fontSize: moderateScale(13),
     color: '#6B7280',
-    lineHeight: 18,
+    lineHeight: verticalScale(18),
   },
   openToRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 12,
-    gap: 12,
+    marginTop: verticalScale(12),
+    gap: scale(12),
   },
   openToLabel: {
-    fontSize: 13,
+    fontSize: moderateScale(13),
     color: '#6B7280',
     fontWeight: '400',
-    minWidth: 60,
+    minWidth: scale(60),
   },
   restrictionChipsContainer: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 6,
+    gap: scale(6),
     flex: 1,
   },
   genderRestrictionChip: {
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 16,
+    paddingHorizontal: scale(10),
+    paddingVertical: verticalScale(6),
+    borderRadius: moderateScale(16),
     backgroundColor: '#FEF3E2',
-    borderWidth: 1,
+    borderWidth: moderateScale(1),
     borderColor: '#FED7AA',
   },
   genderRestrictionChipText: {
-    fontSize: 12,
+    fontSize: moderateScale(12),
     fontWeight: '500',
     color: '#374151',
   },
   skillRestrictionChip: {
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 16,
+    paddingHorizontal: scale(10),
+    paddingVertical: verticalScale(6),
+    borderRadius: moderateScale(16),
     backgroundColor: '#E0F2FE',
-    borderWidth: 1,
+    borderWidth: moderateScale(1),
     borderColor: '#BAE6FD',
   },
   skillRestrictionChipText: {
-    fontSize: 12,
+    fontSize: moderateScale(12),
     fontWeight: '500',
     color: '#374151',
   },
   detailAddress: {
-    fontSize: 13,
+    fontSize: moderateScale(13),
     color: '#6B7280',
-    lineHeight: 18,
-    marginBottom: 8,
+    lineHeight: verticalScale(18),
+    marginBottom: verticalScale(8),
   },
   courtStatusContainer: {
     flexDirection: 'row',
@@ -2529,53 +2539,53 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#F0FDF4',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
-    gap: 4,
+    paddingHorizontal: scale(8),
+    paddingVertical: verticalScale(4),
+    borderRadius: moderateScale(12),
+    gap: scale(4),
   },
   courtBadgeText: {
-    fontSize: 12,
+    fontSize: moderateScale(12),
     color: '#166534',
     fontWeight: '500',
   },
   descriptionSection: {
-    paddingHorizontal: 24,
-    paddingVertical: 20,
+    paddingHorizontal: scale(24),
+    paddingVertical: verticalScale(20),
     backgroundColor: '#FFFFFF',
-    marginHorizontal: 24,
-    borderRadius: 12,
+    marginHorizontal: scale(24),
+    borderRadius: moderateScale(12),
   },
   descriptionTitle: {
-    fontSize: 15,
+    fontSize: moderateScale(15),
     fontWeight: '600',
     color: '#111827',
-    marginBottom: 8,
+    marginBottom: verticalScale(8),
   },
   descriptionText: {
-    fontSize: 14,
+    fontSize: moderateScale(14),
     color: '#6B7280',
-    lineHeight: 20,
+    lineHeight: verticalScale(20),
   },
   noDescriptionText: {
     fontStyle: 'italic',
     color: '#9CA3AF',
   },
   partnershipStatus: {
-    marginHorizontal: 24,
-    marginTop: 20,
+    marginHorizontal: scale(24),
+    marginTop: verticalScale(20),
   },
   successBanner: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#F0FDF4',
-    padding: 12,
-    borderRadius: 12,
-    gap: 8,
+    padding: moderateScale(12),
+    borderRadius: moderateScale(12),
+    gap: scale(8),
   },
   successBannerText: {
     flex: 1,
-    fontSize: 14,
+    fontSize: moderateScale(14),
     color: '#166534',
     fontWeight: '500',
   },
@@ -2583,24 +2593,24 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#FEF2F2',
-    padding: 12,
-    borderRadius: 12,
-    gap: 8,
+    padding: moderateScale(12),
+    borderRadius: moderateScale(12),
+    gap: scale(8),
   },
   errorBannerText: {
     flex: 1,
-    fontSize: 14,
+    fontSize: moderateScale(14),
     color: '#DC2626',
     fontWeight: '500',
   },
   autoApprovalInline: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    marginTop: 6,
+    gap: scale(4),
+    marginTop: verticalScale(6),
   },
   autoApprovalInlineText: {
-    fontSize: 12,
+    fontSize: moderateScale(12),
     color: '#F59E0B',
     fontWeight: '500',
   },
@@ -2608,154 +2618,154 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#FFFBEB',
-    paddingVertical: 8,
-    paddingHorizontal: 10,
-    borderRadius: 8,
-    marginTop: 10,
-    gap: 8,
+    paddingVertical: verticalScale(8),
+    paddingHorizontal: scale(10),
+    borderRadius: moderateScale(8),
+    marginTop: verticalScale(10),
+    gap: scale(8),
   },
   walkoverInfoContent: {
     flex: 1,
   },
   walkoverInfoText: {
-    fontSize: 13,
+    fontSize: moderateScale(13),
     fontWeight: '600',
     color: '#92400E',
   },
   walkoverReasonText: {
-    fontSize: 12,
+    fontSize: moderateScale(12),
     color: '#B45309',
-    marginTop: 2,
+    marginTop: verticalScale(2),
   },
   draftStatusBanner: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    gap: 12,
-    marginHorizontal: 24,
-    marginTop: 16,
-    padding: 16,
-    borderRadius: 12,
+    gap: scale(12),
+    marginHorizontal: scale(24),
+    marginTop: verticalScale(16),
+    padding: moderateScale(16),
+    borderRadius: moderateScale(12),
     backgroundColor: '#F9FAFB',
-    borderWidth: 1,
+    borderWidth: moderateScale(1),
     borderColor: '#E5E7EB',
   },
   draftStatusContent: {
     flex: 1,
   },
   draftStatusTitle: {
-    fontSize: 15,
+    fontSize: moderateScale(15),
     fontWeight: '600',
     color: '#374151',
-    marginBottom: 4,
+    marginBottom: verticalScale(4),
   },
   draftStatusText: {
-    fontSize: 13,
+    fontSize: moderateScale(13),
     color: '#6B7280',
-    lineHeight: 18,
+    lineHeight: verticalScale(18),
   },
   draftStatusHint: {
-    fontSize: 12,
+    fontSize: moderateScale(12),
     color: '#9CA3AF',
     fontStyle: 'italic',
-    marginTop: 8,
+    marginTop: verticalScale(8),
   },
   voidStatusBanner: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    gap: 12,
-    marginHorizontal: 24,
-    marginTop: 16,
-    padding: 16,
-    borderRadius: 12,
+    gap: scale(12),
+    marginHorizontal: scale(24),
+    marginTop: verticalScale(16),
+    padding: moderateScale(16),
+    borderRadius: moderateScale(12),
     backgroundColor: '#FEF2F2',
-    borderWidth: 1,
+    borderWidth: moderateScale(1),
     borderColor: '#FEE2E2',
   },
   voidStatusContent: {
     flex: 1,
   },
   voidStatusTitle: {
-    fontSize: 15,
+    fontSize: moderateScale(15),
     fontWeight: '600',
     color: '#DC2626',
-    marginBottom: 4,
+    marginBottom: verticalScale(4),
   },
   voidStatusText: {
-    fontSize: 13,
+    fontSize: moderateScale(13),
     color: '#991B1B',
-    lineHeight: 18,
+    lineHeight: verticalScale(18),
   },
   unfinishedStatusBanner: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    gap: 12,
-    marginHorizontal: 24,
-    marginTop: 16,
-    padding: 16,
-    borderRadius: 12,
+    gap: scale(12),
+    marginHorizontal: scale(24),
+    marginTop: verticalScale(16),
+    padding: moderateScale(16),
+    borderRadius: moderateScale(12),
     backgroundColor: '#FFFBEB',
-    borderWidth: 1,
+    borderWidth: moderateScale(1),
     borderColor: '#FEF3C7',
   },
   unfinishedStatusContent: {
     flex: 1,
   },
   unfinishedStatusTitle: {
-    fontSize: 15,
+    fontSize: moderateScale(15),
     fontWeight: '600',
     color: '#D97706',
-    marginBottom: 4,
+    marginBottom: verticalScale(4),
   },
   unfinishedStatusText: {
-    fontSize: 13,
+    fontSize: moderateScale(13),
     color: '#92400E',
-    lineHeight: 18,
+    lineHeight: verticalScale(18),
   },
   reportButton: {
     alignItems: 'center',
-    paddingVertical: 24,
+    paddingVertical: verticalScale(24),
   },
   reportButtonText: {
-    fontSize: 13,
+    fontSize: moderateScale(13),
     color: '#6B7280',
   },
   footer: {
-    paddingHorizontal: 24,
-    paddingTop: 16,
+    paddingHorizontal: scale(24),
+    paddingTop: verticalScale(16),
     backgroundColor: '#FFFFFF',
-    borderTopWidth: 1,
+    borderTopWidth: moderateScale(1),
     borderTopColor: '#F3F4F6',
   },
   buttonGroup: {
-    gap: 12,
+    gap: verticalScale(12),
   },
   testButton: {
-    paddingVertical: 12,
-    borderRadius: 12,
+    paddingVertical: verticalScale(12),
+    borderRadius: moderateScale(12),
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 2,
+    borderWidth: moderateScale(2),
     borderColor: '#8B5CF6',
   },
   testButtonText: {
-    fontSize: 14,
+    fontSize: moderateScale(14),
     fontWeight: '600',
     color: '#FFFFFF',
   },
   joinButton: {
-    paddingVertical: 16,
-    borderRadius: 16,
+    paddingVertical: verticalScale(16),
+    borderRadius: moderateScale(16),
     alignItems: 'center',
     justifyContent: 'center',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
+    shadowOffset: { width: 0, height: verticalScale(2) },
     shadowOpacity: 0.1,
-    shadowRadius: 4,
+    shadowRadius: moderateScale(4),
     elevation: 2,
   },
   joinButtonWithIcon: {
     flexDirection: 'row',
-    gap: 8,
+    gap: scale(8),
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -2763,13 +2773,13 @@ const styles = StyleSheet.create({
     opacity: 0.5,
   },
   joinButtonText: {
-    fontSize: 17,
+    fontSize: moderateScale(17),
     fontWeight: '700',
     color: '#2B2929',
   },
   completedMatchButtons: {
     flexDirection: 'row',
-    gap: 12,
+    gap: scale(12),
   },
   completedButton: {
     flex: 1,
@@ -2782,18 +2792,18 @@ const styles = StyleSheet.create({
   },
   bottomSheetBackground: {
     backgroundColor: '#FFFFFF',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
+    borderTopLeftRadius: moderateScale(20),
+    borderTopRightRadius: moderateScale(20),
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingVertical: 60,
+    paddingVertical: verticalScale(60),
   },
   loadingText: {
-    marginTop: 12,
-    fontSize: 14,
+    marginTop: verticalScale(12),
+    fontSize: moderateScale(14),
     color: '#6B7280',
   },
 });
