@@ -30,7 +30,7 @@ const openSettings = async (): Promise<void> => {
   }
 };
 
-export type ShareStyle = 'transparent' | 'standard';
+export type ShareStyle = 'transparent' | 'white';
 
 interface CaptureOptions {
   style?: ShareStyle;
@@ -66,7 +66,7 @@ export const useSharePost = (): UseSharePostReturn => {
    *
    * Style affects the background rendering:
    * - 'transparent': Transparent background for Instagram story overlays
-   * - 'standard': Solid background for regular sharing
+   * - 'white': Solid white background for regular sharing
    *
    * Note: The actual background styling is handled by the view component being captured.
    * The view should conditionally render transparent/solid background based on a style prop.
@@ -142,9 +142,18 @@ export const useSharePost = (): UseSharePostReturn => {
     try {
       setIsSaving(true);
 
-      // Request media library permissions
-      const { status } = await MediaLibrary.requestPermissionsAsync();
-      if (status !== 'granted') {
+      // Check permission status first (won't ask if already granted)
+      const { status: existingStatus } = await MediaLibrary.getPermissionsAsync();
+      
+      let finalStatus = existingStatus;
+      
+      // Only request if not already granted
+      if (existingStatus !== 'granted') {
+        const { status } = await MediaLibrary.requestPermissionsAsync();
+        finalStatus = status;
+      }
+      
+      if (finalStatus !== 'granted') {
         Alert.alert(
           'Permission Required',
           'Please grant photo library access to save images.',
@@ -199,9 +208,18 @@ export const useSharePost = (): UseSharePostReturn => {
     try {
       setIsCapturing(true);
 
-      // Request media library permissions first (needed for saving temp file)
-      const { status } = await MediaLibrary.requestPermissionsAsync();
-      if (status !== 'granted') {
+      // Check permission status first (won't ask if already granted)
+      const { status: existingStatus } = await MediaLibrary.getPermissionsAsync();
+      
+      let finalStatus = existingStatus;
+      
+      // Only request if not already granted
+      if (existingStatus !== 'granted') {
+        const { status } = await MediaLibrary.requestPermissionsAsync();
+        finalStatus = status;
+      }
+      
+      if (finalStatus !== 'granted') {
         Alert.alert(
           'Permission Required',
           'Please grant photo library access to share to Instagram.',

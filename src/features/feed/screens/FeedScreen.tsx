@@ -315,8 +315,6 @@ export default function FeedScreen({ sport = 'default' }: FeedScreenProps) {
     return (
       <FeedPostCard
         post={item}
-        sportColors={sportColors}
-        isGameScoreSport={isGameScoreSport}
         onLikeUpdate={handleLikeUpdate}
         onCommentPress={handleCommentPress}
         onAuthorPress={handleAuthorPress}
@@ -334,7 +332,7 @@ export default function FeedScreen({ sport = 'default' }: FeedScreenProps) {
         }}
       />
     );
-  }, [sportColors, isGameScoreSport, handleLikeUpdate, handleCommentPress, handleAuthorPress, handleLikeCountPress, handleOptionsPress, handleSharePress, handleMatchPress, currentUserId]);
+  }, [handleLikeUpdate, handleCommentPress, handleAuthorPress, handleLikeCountPress, handleOptionsPress, handleSharePress, handleMatchPress, currentUserId]);
 
   const renderFooter = useCallback(() => {
     if (!isLoadingMore) return null;

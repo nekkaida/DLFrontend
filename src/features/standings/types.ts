@@ -1,4 +1,3 @@
-import { SportType } from '@/constants/SportsColor';
 
 // ============================================
 // Player & Team Types (for Standings Table)
@@ -76,7 +75,10 @@ export interface MatchResult {
   isWalkover: boolean;
   resultComment?: string;
   comments?: MatchResultComment[];
-  venue?: string;
+  location?: string;
+  leagueName?: string;
+  seasonName?: string;
+  divisionName?: string;
 }
 
 // ============================================
@@ -175,7 +177,11 @@ export interface ResultsSectionProps {
   isPickleball: boolean;
   expandedComments: Set<string>;
   onToggleComments: (matchId: string) => void;
-  onScrollUpdate?: (progress: number, viewWidth: number, contentWidth: number) => void;
+  onScrollUpdate?: (
+    progress: number,
+    viewWidth: number,
+    contentWidth: number,
+  ) => void;
 }
 
 export interface DivisionCardProps {
@@ -195,5 +201,9 @@ export interface DivisionCardProps {
   showViewMatchesButton?: boolean;
   onToggleResults: () => void;
   onViewMatches?: () => void;
-  onScrollUpdate?: (progress: number, viewWidth: number, contentWidth: number) => void;
+  onScrollUpdate?: (
+    progress: number,
+    viewWidth: number,
+    contentWidth: number,
+  ) => void;
 }

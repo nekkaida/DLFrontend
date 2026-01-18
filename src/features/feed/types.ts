@@ -50,7 +50,10 @@ export interface FeedMatch {
   team1Players: MatchPlayer[];
   team2Players: MatchPlayer[];
   isWalkover: boolean;
-  venue?: string;
+  location?: string;
+  leagueName?: string;
+  seasonName?: string;
+  divisionName?: string;
 }
 
 export interface MatchPlayer {
