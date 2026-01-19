@@ -63,6 +63,7 @@ export default function FeedScreen({ sport = 'default' }: FeedScreenProps) {
   const isLoadingMoreRef = useRef(false);
 
   const [selectedSportFilter, setSelectedSportFilter] = useState<string | undefined>(sport);
+  const [userFilter, setUserFilter] = useState<'all' | 'friends'>('all');
 
   // Cleanup on unmount
   useEffect(() => {
@@ -91,6 +92,10 @@ export default function FeedScreen({ sport = 'default' }: FeedScreenProps) {
     // Filter closed
   }, []);
 
+  const handleUserFilterToggle = useCallback(() => {
+    setUserFilter(prev => prev === 'all' ? 'friends' : 'all');
+  }, []);
+
   const {
     posts,
     isLoading,
@@ -104,7 +109,7 @@ export default function FeedScreen({ sport = 'default' }: FeedScreenProps) {
   } = useFeedPosts({ 
     sport: selectedSportFilter, 
     limit: 10, 
-    filter: 'friends' // Default to friends + own posts
+    filter: userFilter // 'all' shows all users, 'friends' shows friends + own posts
   });
 
   // Debounced load more to prevent multiple rapid calls from onEndReached
@@ -359,9 +364,11 @@ export default function FeedScreen({ sport = 'default' }: FeedScreenProps) {
     <View style={styles.container}>
       <FeedHeader
         selectedSport={selectedSportFilter}
+        userFilter={userFilter}
         onFilterPress={handleFilterPress}
         onFriendListPress={handleFriendListPress}
         onCreatePostPress={handleCreatePostPress}
+        onUserFilterToggle={handleUserFilterToggle}
       />
 
       {isLoading && posts.length === 0 ? (
