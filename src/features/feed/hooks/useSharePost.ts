@@ -64,14 +64,16 @@ export const useSharePost = (): UseSharePostReturn => {
   /**
    * Get capture configuration based on style
    *
+   * Output format: PNG (1080x1080px square)
+   * 
    * Style affects the background rendering:
-   * - 'transparent': Transparent background for Instagram story overlays
-   * - 'white': Solid white background for regular sharing
+   * - 'white': Solid white background PNG (standard format)
+   * - 'transparent': Transparent background PNG (for editing/overlays)
    *
-   * Note: The actual background styling is handled by the view component being captured.
-   * The view should conditionally render transparent/solid background based on a style prop.
+   * Note: The actual background styling is handled by the ScorecardCaptureWrapper component.
+   * The wrapper renders the scorecard with company logo and title for sharing.
    */
-  const getCaptureConfig = useCallback((style: ShareStyle = 'transparent') => {
+  const getCaptureConfig = useCallback((style: ShareStyle = 'white') => {
     return {
       format: 'png' as const,
       quality: 1,

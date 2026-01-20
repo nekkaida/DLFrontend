@@ -109,7 +109,7 @@ export const ShareOptionsSheet: React.FC<ShareOptionsSheetProps> = ({
 
         {/* Style Selector */}
         <View style={styles.styleSelector}>
-          <Text style={styles.styleSelectorLabel}>Scorecard Background</Text>
+          <Text style={styles.styleSelectorLabel}>Background Style (PNG)</Text>
           <View style={styles.styleToggle}>
             <TouchableOpacity
               style={[
@@ -125,7 +125,7 @@ export const ShareOptionsSheet: React.FC<ShareOptionsSheetProps> = ({
                   selectedStyle === 'white' && styles.styleOptionTextSelected,
                 ]}
               >
-                White
+                Standard
               </Text>
             </TouchableOpacity>
             <TouchableOpacity
@@ -146,6 +146,11 @@ export const ShareOptionsSheet: React.FC<ShareOptionsSheetProps> = ({
               </Text>
             </TouchableOpacity>
           </View>
+          <Text style={styles.styleHint}>
+            {selectedStyle === 'white' 
+              ? 'White background - ready to share' 
+              : 'Transparent background - for editing'}
+          </Text>
         </View>
 
         <View style={styles.divider} />
@@ -267,6 +272,12 @@ const styles = StyleSheet.create({
   },
   styleOptionTextSelected: {
     color: feedTheme.colors.textPrimary,
+  },
+  styleHint: {
+    fontSize: 12,
+    color: feedTheme.colors.textTertiary,
+    marginTop: 6,
+    textAlign: 'center',
   },
   divider: {
     height: 1,
