@@ -1,9 +1,18 @@
-import { Ionicons } from '@expo/vector-icons';
-import { format } from 'date-fns';
-import React from 'react';
-import { Image, StyleSheet, Text, TouchableOpacity, View, ViewStyle } from 'react-native';
-import { MatchPlayer, MatchResult, SportColors } from '../types';
-import { formatPlayerName, getOrdinalSuffix } from '../utils';
+import { Ionicons } from "@expo/vector-icons";
+import { format } from "date-fns";
+import React from "react";
+import {
+  Image,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+  ViewStyle,
+} from "react-native";
+import { MatchPlayer, MatchResult, SportColors } from "../types";
+import { formatPlayerName, getOrdinalSuffix } from "../utils";
+
+export type CardBackgroundStyle = "white" | "transparent";
 
 interface MatchResultCardProps {
   match: MatchResult;
@@ -16,6 +25,7 @@ interface MatchResultCardProps {
   expandedComments: Set<string>;
   onToggleComments: (matchId: string) => void;
   onSharePress?: (matchId: string) => void;
+  backgroundStyle?: CardBackgroundStyle;
 }
 
 export const MatchResultCard: React.FC<MatchResultCardProps> = ({
@@ -29,26 +39,38 @@ export const MatchResultCard: React.FC<MatchResultCardProps> = ({
   expandedComments,
   onToggleComments,
   onSharePress,
+  backgroundStyle = "white",
 }) => {
-  const isTeam1Winner = match.outcome === 'team1';
-  const isTeam2Winner = match.outcome === 'team2';
+  const isTeam1Winner = match.outcome === "team1";
+  const isTeam2Winner = match.outcome === "team2";
   const scores = isPickleball ? match.gameScores : match.setScores;
   const totalSets = scores?.length || 0;
   const isExpanded = expandedComments.has(match.id);
 
+  console.log("sports", sportColors);
   const renderPlayerPhoto = (player: MatchPlayer, size: number = 30) => {
     if (player.image) {
       return (
         <Image
           source={{ uri: player.image }}
-          style={[styles.cardPlayerPhoto, { width: size, height: size, borderRadius: size / 2 }]}
+          style={[
+            styles.cardPlayerPhoto,
+            { width: size, height: size, borderRadius: size / 2 },
+          ]}
         />
       );
     }
     return (
-      <View style={[styles.cardPlayerPhotoDefault, { width: size, height: size, borderRadius: size / 2 }]}>
-        <Text style={[styles.cardPlayerPhotoDefaultText, { fontSize: size * 0.4 }]}>
-          {player.name?.charAt(0).toUpperCase() || 'D'}
+      <View
+        style={[
+          styles.cardPlayerPhotoDefault,
+          { width: size, height: size, borderRadius: size / 2 },
+        ]}
+      >
+        <Text
+          style={[styles.cardPlayerPhotoDefaultText, { fontSize: size * 0.4 }]}
+        >
+          {player.name?.charAt(0).toUpperCase() || "D"}
         </Text>
       </View>
     );
@@ -93,7 +115,7 @@ export const MatchResultCard: React.FC<MatchResultCardProps> = ({
     }
 
     // Doubles - comma-separated first names
-    const names = players.map((p) => formatPlayerName(p.name, true)).join(', ');
+    const names = players.map((p) => formatPlayerName(p.name, true)).join(", ");
 
     return (
       <Text style={nameStyle} numberOfLines={2}>
@@ -105,17 +127,24 @@ export const MatchResultCard: React.FC<MatchResultCardProps> = ({
   const renderScoresTable = () => {
     if (!scores || scores.length === 0) return null;
 
+    const isSingles = match.team1Players.length === 1;
+
     return (
       <View style={styles.cardScoresTable}>
         {/* Table Header */}
-        <View style={[styles.cardTableHeader, { backgroundColor: sportColors.background }]}>
+        <View
+          style={[
+            styles.cardTableHeader,
+            { backgroundColor: sportColors.background },
+          ]}
+        >
           <View style={styles.cardTableHeaderLabelCell}>
-            <Text style={styles.cardTableHeaderText}>Best of {totalSets}</Text>
+            <Text style={styles.cardTableHeaderText}></Text>
           </View>
           {scores.map((_, idx) => (
             <View key={idx} style={styles.cardTableHeaderCell}>
               <Text style={styles.cardTableHeaderText}>
-                {isPickleball ? idx + 1 : getOrdinalSuffix(idx + 1)}
+                {isPickleball ? `${idx + 1}` : getOrdinalSuffix(idx + 1)}
               </Text>
             </View>
           ))}
@@ -131,7 +160,11 @@ export const MatchResultCard: React.FC<MatchResultCardProps> = ({
               ]}
               numberOfLines={1}
             >
-              {formatPlayerName(match.team1Players[0].name, true)}
+              {isSingles
+                ? formatPlayerName(match.team1Players[0].name, true)
+                : match.team1Players
+                    .map((p) => formatPlayerName(p.name, true))
+                    .join(", ")}
             </Text>
           </View>
           {isPickleball
@@ -143,7 +176,10 @@ export const MatchResultCard: React.FC<MatchResultCardProps> = ({
                       style={[
                         styles.cardTableScore,
                         isWinningScore
-                          ? [styles.cardTableScoreWinner, { color: sportColors.background }]
+                          ? [
+                              styles.cardTableScoreWinner,
+                              { color: sportColors.background },
+                            ]
                           : styles.cardTableScoreLoser,
                       ]}
                     >
@@ -160,13 +196,18 @@ export const MatchResultCard: React.FC<MatchResultCardProps> = ({
                       style={[
                         styles.cardTableScore,
                         isWinningScore
-                          ? [styles.cardTableScoreWinner, { color: sportColors.background }]
+                          ? [
+                              styles.cardTableScoreWinner,
+                              { color: sportColors.background },
+                            ]
                           : styles.cardTableScoreLoser,
                       ]}
                     >
                       {set.team1Games}
                       {set.hasTiebreak && set.team1Tiebreak != null && (
-                        <Text style={styles.cardTiebreakScore}>({set.team1Tiebreak})</Text>
+                        <Text style={styles.cardTiebreakScore}>
+                          ({set.team1Tiebreak})
+                        </Text>
                       )}
                     </Text>
                   </View>
@@ -184,7 +225,11 @@ export const MatchResultCard: React.FC<MatchResultCardProps> = ({
               ]}
               numberOfLines={1}
             >
-              {formatPlayerName(match.team2Players[0].name, true)}
+              {isSingles
+                ? formatPlayerName(match.team2Players[0].name, true)
+                : match.team2Players
+                    .map((p) => formatPlayerName(p.name, true))
+                    .join(", ")}
             </Text>
           </View>
           {isPickleball
@@ -196,7 +241,10 @@ export const MatchResultCard: React.FC<MatchResultCardProps> = ({
                       style={[
                         styles.cardTableScore,
                         isWinningScore
-                          ? [styles.cardTableScoreWinner, { color: sportColors.background }]
+                          ? [
+                              styles.cardTableScoreWinner,
+                              { color: sportColors.background },
+                            ]
                           : styles.cardTableScoreLoser,
                       ]}
                     >
@@ -213,13 +261,18 @@ export const MatchResultCard: React.FC<MatchResultCardProps> = ({
                       style={[
                         styles.cardTableScore,
                         isWinningScore
-                          ? [styles.cardTableScoreWinner, { color: sportColors.background }]
+                          ? [
+                              styles.cardTableScoreWinner,
+                              { color: sportColors.background },
+                            ]
                           : styles.cardTableScoreLoser,
                       ]}
                     >
                       {set.team2Games}
                       {set.hasTiebreak && set.team2Tiebreak != null && (
-                        <Text style={styles.cardTiebreakScore}>({set.team2Tiebreak})</Text>
+                        <Text style={styles.cardTiebreakScore}>
+                          ({set.team2Tiebreak})
+                        </Text>
                       )}
                     </Text>
                   </View>
@@ -236,7 +289,11 @@ export const MatchResultCard: React.FC<MatchResultCardProps> = ({
       if (match.resultComment) {
         return (
           <View style={styles.cardCommentSection}>
-            <Ionicons name="thumbs-up" size={16} color={sportColors.background} />
+            <Ionicons
+              name="thumbs-up"
+              size={16}
+              color={sportColors.background}
+            />
             <Text style={styles.cardCommentText} numberOfLines={2}>
               {match.resultComment}
             </Text>
@@ -246,7 +303,9 @@ export const MatchResultCard: React.FC<MatchResultCardProps> = ({
       return null;
     }
 
-    const displayedComments = isExpanded ? match.comments : match.comments.slice(0, 2);
+    const displayedComments = isExpanded
+      ? match.comments
+      : match.comments.slice(0, 2);
 
     return (
       <View style={styles.cardCommentsContainer}>
@@ -259,18 +318,26 @@ export const MatchResultCard: React.FC<MatchResultCardProps> = ({
               style={styles.cardCommentThumb}
             />
             {commentItem.user.image ? (
-              <Image source={{ uri: commentItem.user.image }} style={styles.cardCommentAvatar} />
+              <Image
+                source={{ uri: commentItem.user.image }}
+                style={styles.cardCommentAvatar}
+              />
             ) : (
-              <View style={[styles.cardCommentAvatar, styles.cardCommentDefaultAvatar]}>
+              <View
+                style={[
+                  styles.cardCommentAvatar,
+                  styles.cardCommentDefaultAvatar,
+                ]}
+              >
                 <Text style={styles.cardCommentDefaultAvatarText}>
-                  {commentItem.user.name?.charAt(0)?.toUpperCase() || '?'}
+                  {commentItem.user.name?.charAt(0)?.toUpperCase() || "?"}
                 </Text>
               </View>
             )}
             <Text style={styles.cardCommentText} numberOfLines={2}>
               <Text style={styles.cardCommentAuthor}>
-                {commentItem.user.name.split(' ')[0]}:
-              </Text>{' '}
+                {commentItem.user.name.split(" ")[0]}:
+              </Text>{" "}
               {commentItem.comment}
             </Text>
           </View>
@@ -280,10 +347,15 @@ export const MatchResultCard: React.FC<MatchResultCardProps> = ({
             style={styles.viewMoreCommentsButton}
             onPress={() => onToggleComments(match.id)}
           >
-            <Text style={[styles.viewMoreCommentsText, { color: sportColors.background }]}>
+            <Text
+              style={[
+                styles.viewMoreCommentsText,
+                { color: sportColors.background },
+              ]}
+            >
               {isExpanded
-                ? 'View less'
-                : `View ${match.comments.length - 2} more comment${match.comments.length - 2 > 1 ? 's' : ''}`}
+                ? "View less"
+                : `View ${match.comments.length - 2} more comment${match.comments.length - 2 > 1 ? "s" : ""}`}
             </Text>
           </TouchableOpacity>
         )}
@@ -295,12 +367,36 @@ export const MatchResultCard: React.FC<MatchResultCardProps> = ({
     width: cardWidth,
     marginLeft: index === 0 ? 0 : cardGap,
     ...(index === totalResults - 1 && { marginRight: 0 }),
+    backgroundColor:
+      backgroundStyle === "transparent" ? "transparent" : "#FEFEFE",
+    ...(backgroundStyle === "transparent" && {
+      borderWidth: 0,
+      shadowOpacity: 0,
+      elevation: 0,
+    }),
   };
 
+  console.log("match", match);
   return (
     <View style={[styles.resultCardNew, cardStyle]}>
+      {/* League Header */}
+      <View
+        style={[
+          styles.cardLeagueHeader,
+          { backgroundColor: sportColors.background },
+        ]}
+      >
+        <Text style={styles.cardLeagueHeaderTitle} numberOfLines={1}>
+          {match.leagueName || match.divisionName || "League"} -{" "}
+          {isPickleball ? "Pickleball" : "Tennis"} League
+        </Text>
+        <View style={styles.cardLeagueBadge}>
+          <Text style={styles.cardLeagueBadgeText}>LEAGUE</Text>
+        </View>
+      </View>
+
       {/* Venue Name */}
-      <Text style={styles.cardVenueName}>{match.venue || 'Venue TBD'}</Text>
+      <Text style={styles.cardVenueName}>{match.location || "Venue TBD"}</Text>
 
       {/* Score Display with Photos */}
       <View style={styles.cardScoreSection}>
@@ -318,12 +414,15 @@ export const MatchResultCard: React.FC<MatchResultCardProps> = ({
             <Text style={styles.cardScoreNumber}>{match.team2Score}</Text>
           </View>
           <Text style={styles.cardMatchDate}>
-            {format(new Date(match.matchDate), 'd MMM yyyy')}
+            {format(new Date(match.matchDate), "d MMM yyyy")}
           </Text>
           {match.isWalkover && <Text style={styles.cardWalkover}>W/O</Text>}
           {onSharePress && (
             <TouchableOpacity
-              style={[styles.cardShareButton, { backgroundColor: sportColors.background }]}
+              style={[
+                styles.cardShareButton,
+                { backgroundColor: sportColors.background },
+              ]}
               onPress={() => onSharePress(match.id)}
               activeOpacity={0.7}
             >
@@ -351,99 +450,127 @@ export const MatchResultCard: React.FC<MatchResultCardProps> = ({
 
 const styles = StyleSheet.create({
   resultCardNew: {
-    backgroundColor: '#FEFEFE',
+    backgroundColor: "#FEFEFE",
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: 'rgba(186, 186, 186, 0.4)',
-    padding: 18,
-    shadowColor: '#000',
+    borderColor: "rgba(186, 186, 186, 0.4)",
+    overflow: "hidden",
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.06,
     shadowRadius: 6,
     elevation: 2,
-    alignSelf: 'flex-start',
+    alignSelf: "flex-start",
+  },
+  cardLeagueHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    gap: 8,
+  },
+  cardLeagueHeaderTitle: {
+    flex: 1,
+    fontSize: 13,
+    fontWeight: "600",
+    color: "#FFFFFF",
+  },
+  cardLeagueBadge: {
+    backgroundColor: "#FEA04D",
+    paddingVertical: 4,
+    paddingHorizontal: 12,
+    borderRadius: 12,
+  },
+  cardLeagueBadgeText: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: "#FFFFFF",
   },
   cardVenueName: {
     fontSize: 12,
-    fontWeight: '600',
-    color: '#86868B',
-    textAlign: 'center',
+    fontWeight: "600",
+    color: "#86868B",
+    textAlign: "center",
+    marginTop: 16,
     marginBottom: 12,
+    paddingHorizontal: 18,
   },
   cardScoreSection: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "flex-start",
+    justifyContent: "space-between",
     marginBottom: 16,
+    paddingHorizontal: 18,
   },
   cardTeamSection: {
     flex: 1,
-    alignItems: 'center',
+    alignItems: "center",
   },
   cardTeamPhotosContainer: {
     marginBottom: 6,
   },
   cardDoublesPhotos: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
   },
   cardDoublesPhotoOverlap: {
     marginLeft: -8,
   },
   cardPlayerPhoto: {
     borderWidth: 2,
-    borderColor: '#FFFFFF',
+    borderColor: "#FFFFFF",
   },
   cardPlayerPhotoDefault: {
-    backgroundColor: '#FEA04D',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: "#FEA04D",
+    justifyContent: "center",
+    alignItems: "center",
     borderWidth: 2,
-    borderColor: '#FFFFFF',
+    borderColor: "#FFFFFF",
   },
   cardPlayerPhotoDefaultText: {
-    color: '#FFFFFF',
-    fontWeight: '700',
+    color: "#FFFFFF",
+    fontWeight: "700",
   },
   cardPlayerName: {
     fontSize: 16,
-    fontWeight: '600',
-    color: '#1D1D1F',
-    textAlign: 'center',
+    fontWeight: "600",
+    color: "#1D1D1F",
+    textAlign: "center",
   },
   cardCenterSection: {
-    alignItems: 'center',
+    alignItems: "center",
     paddingHorizontal: 8,
   },
   cardScoreRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
   },
   cardScoreNumber: {
     fontSize: 36,
-    fontWeight: '600',
-    color: '#1D1D1F',
+    fontWeight: "600",
+    color: "#1D1D1F",
   },
   cardScoreDash: {
     fontSize: 34,
-    fontWeight: '500',
-    color: '#1D1D1F',
+    fontWeight: "500",
+    color: "#1D1D1F",
   },
   cardMatchDate: {
     fontSize: 10,
-    fontWeight: '400',
-    color: '#86868B',
+    fontWeight: "400",
+    color: "#86868B",
     marginTop: 4,
   },
   cardWalkover: {
     fontSize: 8,
-    fontWeight: '600',
-    color: '#F59E0B',
+    fontWeight: "600",
+    color: "#F59E0B",
     marginTop: 2,
   },
   cardShareButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 4,
     paddingVertical: 6,
     paddingHorizontal: 12,
@@ -452,93 +579,93 @@ const styles = StyleSheet.create({
   },
   cardShareButtonText: {
     fontSize: 12,
-    fontWeight: '600',
-    color: '#FFFFFF',
+    fontWeight: "600",
+    color: "#FFFFFF",
   },
   cardScoresTable: {
     borderRadius: 8,
-    overflow: 'hidden',
+    overflow: "hidden",
     marginBottom: 8,
+    marginHorizontal: 18,
   },
   cardTableHeader: {
-    flexDirection: 'row',
-    paddingVertical: 8,
-    paddingHorizontal: 10,
-    borderBottomLeftRadius: 8,
-    borderBottomRightRadius: 8,
+    flexDirection: "row",
+    paddingVertical: 10,
+    paddingHorizontal: 14,
   },
   cardTableHeaderLabelCell: {
     flex: 1,
   },
   cardTableHeaderCell: {
-    width: 40,
-    alignItems: 'center',
+    width: 50,
+    alignItems: "center",
   },
   cardTableHeaderText: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: '#FFFFFF',
+    fontSize: 11,
+    fontWeight: "700",
+    color: "#FFFFFF",
   },
   cardTableRow: {
-    flexDirection: 'row',
-    paddingVertical: 8,
-    paddingHorizontal: 10,
-    backgroundColor: '#FFFFFF',
+    flexDirection: "row",
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    backgroundColor: "#FFFFFF",
     borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
+    borderBottomColor: "#E5E7EB",
   },
   cardTableRowLast: {
     borderBottomWidth: 0,
   },
   cardTableLabelCell: {
     flex: 1,
-    justifyContent: 'center',
+    justifyContent: "center",
   },
   cardTablePlayerName: {
-    fontSize: 14,
-    fontWeight: '400',
-    color: '#1D1D1F',
+    fontSize: 13,
+    fontWeight: "400",
+    color: "#6B7280",
   },
   cardTablePlayerNameWinner: {
-    fontWeight: '600',
+    fontWeight: "600",
   },
   cardTableScoreCell: {
-    width: 40,
-    alignItems: 'center',
-    justifyContent: 'center',
+    width: 50,
+    alignItems: "center",
+    justifyContent: "center",
   },
   cardTableScore: {
-    fontSize: 12,
-    fontWeight: '400',
-    color: '#868686',
+    fontSize: 14,
+    fontWeight: "400",
+    color: "#6B7280",
   },
   cardTableScoreWinner: {
-    fontWeight: '600',
+    fontWeight: "700",
   },
   cardTableScoreLoser: {
-    fontWeight: '400',
-    color: '#868686',
+    fontWeight: "400",
+    color: "#6B7280",
   },
   cardTiebreakScore: {
-    fontSize: 8,
-    color: '#868686',
+    fontSize: 9,
+    color: "#6B7280",
   },
   cardCommentSection: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
+    flexDirection: "row",
+    alignItems: "flex-start",
     gap: 6,
     marginTop: 8,
     paddingTop: 8,
     borderTopWidth: 1,
-    borderTopColor: '#F3F4F6',
+    borderTopColor: "#F3F4F6",
   },
   cardCommentsContainer: {
     marginTop: 12,
+    marginHorizontal: 18,
     gap: 10,
   },
   cardCommentItem: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
+    flexDirection: "row",
+    alignItems: "flex-start",
     gap: 8,
   },
   cardCommentThumb: {
@@ -548,38 +675,38 @@ const styles = StyleSheet.create({
     width: 20,
     height: 20,
     borderRadius: 10,
-    backgroundColor: '#E5E7EB',
+    backgroundColor: "#E5E7EB",
   },
   cardCommentDefaultAvatar: {
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
   cardCommentDefaultAvatarText: {
     fontSize: 10,
-    fontWeight: '600',
-    color: '#6B7280',
+    fontWeight: "600",
+    color: "#6B7280",
   },
   cardCommentAuthor: {
-    fontWeight: '700',
-    color: '#374151',
+    fontWeight: "700",
+    color: "#374151",
   },
   cardCommentText: {
     flex: 1,
     fontSize: 12,
-    fontWeight: '400',
-    color: '#868686',
+    fontWeight: "400",
+    color: "#868686",
     lineHeight: 16,
   },
   viewMoreCommentsButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'flex-start',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "flex-start",
     paddingTop: 4,
     gap: 4,
   },
   viewMoreCommentsText: {
     fontSize: 12,
-    fontWeight: '600',
+    fontWeight: "600",
   },
 });
 

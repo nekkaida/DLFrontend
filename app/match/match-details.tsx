@@ -1211,17 +1211,27 @@ export default function JoinMatchScreen() {
   const handleSharePost = async (caption: string) => {
     try {
       // Create post via API (axiosInstance already has baseURL configured)
-      await axiosInstance.post('/api/feed/posts', {
+      const response = await axiosInstance.post('/api/feed/posts', {
         matchId,
         caption: caption || undefined,
       });
-      toast.success('Posted to Activity Feed!');
+      
+      const data = response.data?.data || response.data;
+      
+      // Check if this post already existed
+      if (data?.alreadyExists) {
+        toast.info('You have already posted this match to your feed');
+      } else {
+        toast.success('Posted to Activity Feed!');
+      }
+      
       postMatchShareSheetRef.current?.close();
       setShowSharePrompt(false);
       // Don't navigate back - user can stay on match details or manually navigate
     } catch (error: any) {
       if (__DEV__) console.error('Error creating post:', error);
-      toast.error('Failed to create post. Please try again.');
+      const errorMessage = error.response?.data?.message || 'Failed to create post. Please try again.';
+      toast.error(errorMessage);
     }
   };
 

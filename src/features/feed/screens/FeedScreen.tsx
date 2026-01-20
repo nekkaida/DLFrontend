@@ -16,6 +16,7 @@ import {
   PostOptionsSheet,
   EditCaptionSheet,
   ShareOptionsSheet,
+  type ScorecardCaptureRef,
 } from '../components';
 import { feedTheme } from '../theme';
 import { FeedPost } from '../types';
@@ -51,7 +52,7 @@ export default function FeedScreen({ sport = 'default' }: FeedScreenProps) {
   // Share state
   const [sharePostId, setSharePostId] = useState<string | null>(null);
   const shareSheetRef = useRef<BottomSheet>(null);
-  const postRefs = useRef<Map<string, View>>(new Map());
+  const scorecardRefs = useRef<Map<string, ScorecardCaptureRef>>(new Map());
   const { captureAndShare, captureAndSave, shareLink, isCapturing, isSaving, shareError, clearShareError } = useSharePost();
 
   // Refs for race condition prevention and cleanup
@@ -62,6 +63,7 @@ export default function FeedScreen({ sport = 'default' }: FeedScreenProps) {
   const isLoadingMoreRef = useRef(false);
 
   const [selectedSportFilter, setSelectedSportFilter] = useState<string | undefined>(sport);
+  const [userFilter, setUserFilter] = useState<'all' | 'friends'>('all');
 
   // Cleanup on unmount
   useEffect(() => {
@@ -73,7 +75,7 @@ export default function FeedScreen({ sport = 'default' }: FeedScreenProps) {
         clearTimeout(editTimeoutRef.current);
       }
       // Clear postRefs map
-      postRefs.current.clear();
+      scorecardRefs.current.clear();
     };
   }, []);
 
@@ -90,6 +92,10 @@ export default function FeedScreen({ sport = 'default' }: FeedScreenProps) {
     // Filter closed
   }, []);
 
+  const handleUserFilterToggle = useCallback(() => {
+    setUserFilter(prev => prev === 'all' ? 'friends' : 'all');
+  }, []);
+
   const {
     posts,
     isLoading,
@@ -100,7 +106,11 @@ export default function FeedScreen({ sport = 'default' }: FeedScreenProps) {
     loadMorePosts,
     updatePostLocally,
     removePostLocally,
-  } = useFeedPosts({ sport: selectedSportFilter, limit: 10 });
+  } = useFeedPosts({ 
+    sport: selectedSportFilter, 
+    limit: 10, 
+    filter: userFilter // 'all' shows all users, 'friends' shows friends + own posts
+  });
 
   // Debounced load more to prevent multiple rapid calls from onEndReached
   const handleLoadMore = useCallback(() => {
@@ -259,28 +269,40 @@ export default function FeedScreen({ sport = 'default' }: FeedScreenProps) {
     shareSheetRef.current?.snapToIndex(0);
   }, []);
 
-  const handleShareImage = useCallback(async (style?: 'transparent' | 'standard') => {
+  const handleShareImage = useCallback(async (style?: 'transparent' | 'white') => {
     if (!sharePostId) return;
-    const viewRef = postRefs.current.get(sharePostId);
-    if (viewRef) {
-      await captureAndShare({ current: viewRef }, { style });
+    const scorecardRef = scorecardRefs.current.get(sharePostId);
+    if (scorecardRef) {
+      // Set background style based on selection
+      scorecardRef.setBackgroundStyle(style === 'transparent' ? 'transparent' : 'white');
+      // Small delay to ensure style is applied before capture
+      await new Promise(resolve => setTimeout(resolve, 50));
+      await captureAndShare({ current: scorecardRef.viewRef }, { style });
     }
   }, [sharePostId, captureAndShare]);
 
-  const handleSaveImage = useCallback(async (style?: 'transparent' | 'standard') => {
+  const handleSaveImage = useCallback(async (style?: 'transparent' | 'white') => {
     if (!sharePostId) return;
-    const viewRef = postRefs.current.get(sharePostId);
-    if (viewRef) {
-      await captureAndSave({ current: viewRef }, { style });
+    const scorecardRef = scorecardRefs.current.get(sharePostId);
+    if (scorecardRef) {
+      // Set background style based on selection
+      scorecardRef.setBackgroundStyle(style === 'transparent' ? 'transparent' : 'white');
+      // Small delay to ensure style is applied before capture
+      await new Promise(resolve => setTimeout(resolve, 50));
+      await captureAndSave({ current: scorecardRef.viewRef }, { style });
     }
   }, [sharePostId, captureAndSave]);
 
-  const handleShareToInstagram = useCallback(async (style?: 'transparent' | 'standard') => {
+  const handleShareToInstagram = useCallback(async (style?: 'transparent' | 'white') => {
     if (!sharePostId) return;
-    const viewRef = postRefs.current.get(sharePostId);
-    if (viewRef) {
+    const scorecardRef = scorecardRefs.current.get(sharePostId);
+    if (scorecardRef) {
+      // Set background style based on selection
+      scorecardRef.setBackgroundStyle(style === 'transparent' ? 'transparent' : 'white');
+      // Small delay to ensure style is applied before capture
+      await new Promise(resolve => setTimeout(resolve, 50));
       // Instagram share saves and shares to Instagram
-      await captureAndShare({ current: viewRef }, { style });
+      await captureAndShare({ current: scorecardRef.viewRef }, { style });
     }
   }, [sharePostId, captureAndShare]);
 
@@ -297,16 +319,7 @@ export default function FeedScreen({ sport = 'default' }: FeedScreenProps) {
     const isOwnPost = currentUserId === item.authorId;
     return (
       <FeedPostCard
-        ref={(ref) => {
-          if (ref) {
-            postRefs.current.set(item.id, ref);
-          } else {
-            postRefs.current.delete(item.id);
-          }
-        }}
         post={item}
-        sportColors={sportColors}
-        isGameScoreSport={isGameScoreSport}
         onLikeUpdate={handleLikeUpdate}
         onCommentPress={handleCommentPress}
         onAuthorPress={handleAuthorPress}
@@ -315,9 +328,16 @@ export default function FeedScreen({ sport = 'default' }: FeedScreenProps) {
         onSharePress={handleSharePress}
         onMatchPress={handleMatchPress}
         showOptionsButton={isOwnPost}
+        onScorecardRef={(postId, ref) => {
+          if (ref) {
+            scorecardRefs.current.set(postId, ref);
+          } else {
+            scorecardRefs.current.delete(postId);
+          }
+        }}
       />
     );
-  }, [sportColors, isGameScoreSport, handleLikeUpdate, handleCommentPress, handleAuthorPress, handleLikeCountPress, handleOptionsPress, handleSharePress, handleMatchPress, currentUserId]);
+  }, [handleLikeUpdate, handleCommentPress, handleAuthorPress, handleLikeCountPress, handleOptionsPress, handleSharePress, handleMatchPress, currentUserId]);
 
   const renderFooter = useCallback(() => {
     if (!isLoadingMore) return null;
@@ -344,9 +364,11 @@ export default function FeedScreen({ sport = 'default' }: FeedScreenProps) {
     <View style={styles.container}>
       <FeedHeader
         selectedSport={selectedSportFilter}
+        userFilter={userFilter}
         onFilterPress={handleFilterPress}
         onFriendListPress={handleFriendListPress}
         onCreatePostPress={handleCreatePostPress}
+        onUserFilterToggle={handleUserFilterToggle}
       />
 
       {isLoading && posts.length === 0 ? (

@@ -1,14 +1,16 @@
 // src/features/feed/components/FeedPostCard.tsx
 
-import React, { useCallback, useMemo, useState, forwardRef } from 'react';
+import React, { useCallback, useMemo, useState, forwardRef, useRef, useEffect } from 'react';
 import { View, Text, StyleSheet, Dimensions, TouchableOpacity, Pressable } from 'react-native';
 import { MatchResultCard } from '@/features/standings/components';
-import { SportColors, MatchResult } from '@/features/standings/types';
+import { MatchResult } from '@/features/standings/types';
 import { FeedPost } from '../types';
 import { feedTheme } from '../theme';
 import { AuthorHeader } from './AuthorHeader';
 import { SocialBar } from './SocialBar';
 import { useLikes } from '../hooks';
+import { ScorecardCaptureWrapper, type ScorecardCaptureRef } from './ScorecardCaptureWrapper';
+import { getSportColors, SportType } from '@/constants/SportsColor';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 const CARD_WIDTH = SCREEN_WIDTH - (feedTheme.spacing.screenPadding * 2) - (feedTheme.spacing.cardPadding * 2);
@@ -16,8 +18,6 @@ const CAPTION_TRUNCATE_LENGTH = 125;
 
 interface FeedPostCardProps {
   post: FeedPost;
-  sportColors: SportColors;
-  isGameScoreSport: boolean;
   onLikeUpdate: (postId: string, liked: boolean, likeCount: number) => void;
   onCommentPress: (postId: string) => void;
   onAuthorPress?: (authorId: string) => void;
@@ -26,12 +26,11 @@ interface FeedPostCardProps {
   onSharePress?: (post: FeedPost) => void;
   onMatchPress?: (matchId: string) => void;
   showOptionsButton?: boolean;
+  onScorecardRef?: (postId: string, ref: ScorecardCaptureRef | null) => void;
 }
 
 export const FeedPostCard = forwardRef<View, FeedPostCardProps>(({
   post,
-  sportColors,
-  isGameScoreSport,
   onLikeUpdate,
   onCommentPress,
   onAuthorPress,
@@ -40,9 +39,28 @@ export const FeedPostCard = forwardRef<View, FeedPostCardProps>(({
   onSharePress,
   onMatchPress,
   showOptionsButton = false,
+  onScorecardRef,
 }, ref) => {
   const { isLiking, toggleLike } = useLikes();
   const [captionExpanded, setCaptionExpanded] = useState(false);
+  const scorecardRef = useRef<ScorecardCaptureRef>(null);
+
+  // Determine sport colors and type from the post's sport field
+  const sportType = useMemo(() => (post.match.sport?.toUpperCase() || 'TENNIS') as SportType, [post.match.sport]);
+  const sportColors = useMemo(() => getSportColors(sportType), [sportType]);
+  const isPickleball = useMemo(() => post.match.sport?.toUpperCase() === 'PICKLEBALL', [post.match.sport]);
+
+  // Notify parent component when scorecard ref is ready
+  useEffect(() => {
+    if (onScorecardRef && scorecardRef.current) {
+      onScorecardRef(post.id, scorecardRef.current);
+    }
+    return () => {
+      if (onScorecardRef) {
+        onScorecardRef(post.id, null);
+      }
+    };
+  }, [post.id, onScorecardRef]);
 
   // Caption truncation logic
   const shouldTruncate = post.caption && post.caption.length > CAPTION_TRUNCATE_LENGTH;
@@ -63,7 +81,10 @@ export const FeedPostCard = forwardRef<View, FeedPostCardProps>(({
     team1Players: post.match.team1Players,
     team2Players: post.match.team2Players,
     isWalkover: post.match.isWalkover,
-    venue: post.match.venue,
+    location: post.match.location,
+    leagueName: post.match.leagueName,
+    seasonName: post.match.seasonName,
+    divisionName: post.match.divisionName,
   }), [post.match]);
 
   const handleLikePress = useCallback(async () => {
@@ -137,16 +158,12 @@ export const FeedPostCard = forwardRef<View, FeedPostCardProps>(({
           pressed && styles.scorecardPressed,
         ]}
       >
-        <MatchResultCard
+        <ScorecardCaptureWrapper
+          ref={scorecardRef}
           match={matchForCard}
-          index={0}
-          totalResults={1}
           sportColors={sportColors}
-          isPickleball={isGameScoreSport}
+          isPickleball={isPickleball}
           cardWidth={CARD_WIDTH}
-          cardGap={0}
-          expandedComments={new Set()}
-          onToggleComments={() => {}}
         />
       </Pressable>
 

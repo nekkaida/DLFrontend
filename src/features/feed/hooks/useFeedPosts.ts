@@ -8,6 +8,7 @@ import { FeedPost, FeedResponse } from '../types';
 interface UseFeedPostsOptions {
   sport?: string;
   limit?: number;
+  filter?: 'all' | 'friends' | 'recommended';
 }
 
 export const useFeedPosts = (options: UseFeedPostsOptions = {}) => {
@@ -34,6 +35,7 @@ export const useFeedPosts = (options: UseFeedPostsOptions = {}) => {
 
       if (options.sport && options.sport !== 'default') params.append('sport', options.sport);
       if (options.limit) params.append('limit', options.limit.toString());
+      if (options.filter) params.append('filter', options.filter);
       if (!refresh && cursorRef.current) params.append('cursor', cursorRef.current);
 
       const url = `${backendUrl}/api/feed/posts${params.toString() ? `?${params}` : ''}`;
@@ -65,7 +67,7 @@ export const useFeedPosts = (options: UseFeedPostsOptions = {}) => {
       setIsLoading(false);
       setIsLoadingMore(false);
     }
-  }, [options.sport, options.limit]);
+  }, [options.sport, options.limit, options.filter]);
 
   const refreshPosts = useCallback(() => {
     return fetchPosts(true);
