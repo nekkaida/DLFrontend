@@ -6,6 +6,15 @@ import { router } from 'expo-router';
 let navigationHistory: string[] = [];
 let isNavigating = false;
 
+// Global logout flag - checked by NavigationInterceptor to immediately block protected routes
+// This prevents the brief "glimpse" of protected routes during session state transition
+let _isLogoutInProgress = false;
+
+export const getIsLogoutInProgress = () => _isLogoutInProgress;
+export const setLogoutInProgress = (value: boolean) => {
+  _isLogoutInProgress = value;
+};
+
 // Only block these specific auth pages after login - NOT the home page
 const BLOCKED_AUTH_PAGES = ['/login', '/register', '/resetPassword', '/verifyEmail'];
 
@@ -64,14 +73,24 @@ export const clearAuthPagesFromHistory = () => {
 // Navigate to a route and clear the navigation stack to prevent duplicates Use this for critical navigation points like login, dashboard, etc.
 export const navigateAndClearStack = (route: string) => {
   if (isNavigating) return;
-  
+
   isNavigating = true;
   navigationHistory = [route]; // Reset history
+
+  // Dismiss all pushed/modal screens back to root, then replace root with target
+  // This ensures no protected screens remain in the stack after logout
+  try {
+    if (router.canDismiss()) {
+      router.dismissAll();
+    }
+  } catch (e) {
+    // dismissAll may fail if already at root - that's fine
+  }
   router.replace(route as any);
-  
+
   setTimeout(() => {
     isNavigating = false;
-  }, 100);
+  }, 300);
 };
 
 // Navigate back to the previous screen Use this instead of router.back() to ensure proper navigation
