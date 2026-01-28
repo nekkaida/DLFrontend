@@ -91,9 +91,11 @@ export const LandingScreen: React.FC<LandingScreenProps> = ({
           </View>
         </View>
 
-        <Text style={[styles.taglineText, { top: verticalScale(640), left: scale(26) }]}>
-          Your ultimate{'\n'}sports flex league platform.
-        </Text>
+        <View style={styles.taglineWrapper}>
+          <Text style={styles.taglineText}>
+            Your ultimate{'\n'}sports flex league platform.
+          </Text>
+        </View>
 
         <View style={[styles.bottomContainer, { paddingBottom: Math.max(verticalScale(20), insets.bottom) }]}>
           <View style={styles.topRow}>
@@ -177,9 +179,16 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 4,
   },
-  taglineText: {
+  taglineWrapper: {
     position: 'absolute',
-    width: scale(300),
+    width: '100%',
+    bottom: verticalScale(180),
+    alignItems: 'flex-start',
+    justifyContent: 'center',
+    paddingHorizontal: scale(26),
+  },
+  taglineText: {
+    width: '100%',
     fontFamily: Platform.select({
       ios: 'Helvetica',
       android: 'sans-serif',
@@ -190,6 +199,7 @@ const styles = StyleSheet.create({
     lineHeight: moderateScale(29),
     letterSpacing: -0.01,
     color: COLORS.TAGLINE,
+    textAlign: 'left',
   },
   bottomContainer: {
     position: 'absolute',
