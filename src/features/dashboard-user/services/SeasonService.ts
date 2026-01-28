@@ -1,5 +1,4 @@
-import { authClient } from '@/lib/auth-client';
-import { getBackendBaseURL } from '@/src/config/network';
+import axiosInstance, { endpoints } from '@/lib/endpoints';
 
 export interface SeasonUser {
   id: string;
@@ -82,61 +81,36 @@ export class SeasonService {
    */
   static async fetchAllSeasons(): Promise<Season[]> {
     try {
-      const backendUrl = getBackendBaseURL();
-      console.log('SeasonService: API URL:', `${backendUrl}/api/season`);
+      const response = await axiosInstance.get(endpoints.season.getAll);
 
-      
-      const response = await authClient.$fetch(`${backendUrl}/api/season`, {
-        method: 'GET',
-      });
-
-      console.log('SeasonService: Raw API response:', response);
-
-      if (response && typeof response === 'object') {
-        const apiResponse = response as any;
-        
-        // console.log('SeasonService: Debug - response structure:', {
-        //   hasData: 'data' in apiResponse,
-        //   hasError: 'error' in apiResponse,
-        //   dataType: typeof apiResponse.data,
-        //   dataKeys: apiResponse.data ? Object.keys(apiResponse.data) : 'no data',
-        //   isArray: Array.isArray(apiResponse.data),
-        //   responseKeys: Object.keys(apiResponse)
-        // });
+      if (response && response.data) {
+        const apiResponse = response.data as any;
         
         // Handle direct array response (from backend controller)
         if (Array.isArray(apiResponse)) {
-          console.log('SeasonService: Successfully fetched seasons (direct array):', apiResponse.length);
-          return apiResponse;
+          // console.log('✅ SeasonService: Direct array response found:', apiResponse.length);
+          return apiResponse as Season[];
+        }
+        
+        // Handle success response with data array
+        if (apiResponse.success && apiResponse.data && Array.isArray(apiResponse.data.data)) {
+          console.log('✅ SeasonService: Success response found:', apiResponse.data.data.length);
+          return apiResponse.data.data as Season[];
         }
         
         // Handle wrapped response structure: { data: [...], error: null }
         if (apiResponse.data && Array.isArray(apiResponse.data)) {
-          console.log('SeasonService: Successfully fetched seasons (wrapped):', apiResponse.data.length);
-          return apiResponse.data;
-        }
-        
-        // Handle authClient.$fetch wrapped response structure
-        if (apiResponse.data && apiResponse.data.success && Array.isArray(apiResponse.data.data)) {
-          console.log('SeasonService: Successfully fetched seasons (authClient wrapped):', apiResponse.data.data.length);
-          return apiResponse.data.data;
-        }
-        
-        // Handle better-auth response wrapper: { data: [...], error: null }
-        if (apiResponse.data && Array.isArray(apiResponse.data) && apiResponse.error === null) {
-          console.log('SeasonService: Successfully fetched seasons (better-auth wrapper):', apiResponse.data.length);
-          return apiResponse.data;
+          return apiResponse.data as Season[];
         }
         
         // Generic fallback: if there's a data property that's an array, use it
         if (apiResponse.data && Array.isArray(apiResponse.data)) {
-          console.log('SeasonService: Successfully fetched seasons (generic fallback):', apiResponse.data.length);
-          return apiResponse.data;
+          return apiResponse.data as Season[];
         }
       }
 
       console.warn('SeasonService: No seasons found or invalid response');
-      console.warn('SeasonService: Full response object:', JSON.stringify(response, null, 2));
+      // console.warn('SeasonService: Full response object:', JSON.stringify(response, null, 2));
       return [];
     } catch (error) {
       console.error('SeasonService: Error fetching seasons:', error);
@@ -149,19 +123,11 @@ export class SeasonService {
    */
 static async fetchSeasonsByCategory(categoryId: string): Promise<Season[]> {
   try {
-    console.log('SeasonService: Fetching seasons for category:', categoryId);
     const allSeasons = await this.fetchAllSeasons();
-    console.log('SeasonService: All seasons fetched:', allSeasons.length);
 
     // Filter seasons that include this category
     const filteredSeasons = allSeasons.filter(season =>
       season.categories?.some(cat => cat.id === categoryId)
-    );
-
-    console.log('SeasonService: Filtered seasons for category:', filteredSeasons.length);
-    console.log(
-      'SeasonService: Category IDs in seasons:',
-      allSeasons.map(s => s.categories?.map(c => c.id))
     );
 
     return filteredSeasons;
@@ -172,45 +138,52 @@ static async fetchSeasonsByCategory(categoryId: string): Promise<Season[]> {
 }
 
   /**
-   * Fetch seasons for a specific league
+   * Fetch seasons for a specific league - Updated to use new backend endpoint
    */
   static async fetchSeasonsByLeague(leagueId: string): Promise<Season[]> {
-  try {
-    const allSeasons = await this.fetchAllSeasons();
+    try {
+      const response = await axiosInstance.get(`/api/league/${leagueId}/seasons`);
 
-    // ✅ Updated for many-to-many
-    const filteredSeasons = allSeasons.filter(season =>
-      season.leagues?.some(league => league.id === leagueId)
-    );
+      if (response && response.data) {
+        const apiResponse = response.data as any;
+        
+        // Handle success response with data array
+        if (apiResponse.success && apiResponse.data && apiResponse.data.data) {
+          const seasons = apiResponse.data.data as Season[];
+          console.log('✅ SeasonService: Successfully fetched seasons for league:', seasons.length);
+          return seasons;
+        }
+        
+        // Handle direct data array response
+        if (apiResponse.data && Array.isArray(apiResponse.data)) {
+          const seasons = apiResponse.data as Season[];
+          return seasons;
+        }
+      }
 
-    return filteredSeasons;
-  } catch (error) {
-    console.error('SeasonService: Error fetching seasons by league:', error);
-    return [];
+      console.warn('SeasonService: No seasons found for league:', leagueId);
+      return [];
+    } catch (error) {
+      console.error('SeasonService: Error fetching seasons by league:', error);
+      return [];
+    }
   }
-}
 
   //Register Player to a season 
 static async registerForSeason(seasonId: string, userId?: string, payLater: boolean = false): Promise<boolean> {
   try {
-    const backendUrl = getBackendBaseURL();
     console.log('SeasonService: Registering for season:', seasonId, 'payLater:', payLater);
-
 
     const body: any = {};
     if (userId) body.userId = userId; // optional if backend reads from auth token
     body.seasonId = seasonId;
     if (payLater) body.payLater = true;
 
-    const response = await authClient.$fetch(`${backendUrl}/api/season/player/register`, {
-      method: 'POST',
-      body
-    });
+    const response = await axiosInstance.post('/api/season/player/register', body);
 
-    
-    console.log('SeasonService: Registration response:', JSON.stringify(response, null, 2));
+    // console.log('SeasonService: Registration response:', JSON.stringify(response.data, null, 2));
 
-    const apiResponse = response as any;
+    const apiResponse = response.data as any;
     
     // Check for singles registration response (has membership)
     let membership = null;

@@ -516,23 +516,42 @@ export default function LeagueDetailsScreen({
 
   // Get filtered seasons for selected category (no longer filtered by gender - all users see all seasons)
   const getFilteredSeasons = () => {
+    console.log('🔍 getFilteredSeasons: Starting filter process');
+    console.log('   Total seasons:', seasons.length);
+    console.log('   Selected category ID:', selectedCategoryId);
+    
     let filtered = seasons;
 
     // Only filter out seasons with no categories
     filtered = filtered.filter(season => {
       const normalizedCategories = normalizeCategoriesFromSeason(season);
-      return normalizedCategories && normalizedCategories.length > 0;
+      const hasCategories = normalizedCategories && normalizedCategories.length > 0;
+      
+      if (!hasCategories) {
+        console.log(`   Filtering out season ${season.id} (${season.name}) - no categories`);
+      }
+      
+      return hasCategories;
     });
+    
+    console.log('   After category check:', filtered.length);
 
     // Filter by selected category if one is selected
     if (selectedCategoryId) {
       filtered = filtered.filter(season => {
         const normalizedCategories = normalizeCategoriesFromSeason(season);
         const seasonCategoryIds = normalizedCategories.map(c => c?.id).filter(Boolean);
-        return seasonCategoryIds.includes(selectedCategoryId);
+        const matches = seasonCategoryIds.includes(selectedCategoryId);
+        
+        console.log(`   Season ${season.name} categories:`, seasonCategoryIds, 'matches selected:', matches);
+        
+        return matches;
       });
     }
 
+    console.log('🔍 Final filtered seasons:', filtered.length);
+    console.log('   Filtered seasons:', filtered.map(s => ({ id: s.id, name: s.name })));
+    
     return filtered;
   };
 
