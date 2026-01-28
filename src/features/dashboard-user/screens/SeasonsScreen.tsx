@@ -631,6 +631,7 @@ const SeasonCard: React.FC<SeasonCardProps> = ({
   };
 
   const canJoin = canUserJoinSeason();
+  const isRegOpen = SeasonService.isRegistrationOpen(season);
 
   function handleViewDivisionPress(season: Season) {
   Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -709,9 +710,12 @@ const SeasonCard: React.FC<SeasonCardProps> = ({
         <TouchableOpacity
           style={[
             styles.registerButton,
-            { backgroundColor: !canJoin && (season.status === "ACTIVE" || season.status === "UPCOMING")
-              ? '#B2B2B2'
-              : SeasonService.getButtonColor(season.status) },
+            { backgroundColor:
+              !isUserRegistered && season.status === "ACTIVE" && !isRegOpen
+                ? '#B2B2B2'
+                : !canJoin && (season.status === "ACTIVE" || season.status === "UPCOMING")
+                  ? '#B2B2B2'
+                  : SeasonService.getButtonColor(season.status) },
           ]}
           onPress={async () => {
             console.log('🔴🔴🔴 BUTTON CLICKED!', {
@@ -727,7 +731,12 @@ const SeasonCard: React.FC<SeasonCardProps> = ({
               console.log('→ Path: View Division');
               handleViewDivisionPress(season);
             } else if (season.status === "ACTIVE") {
-              // Check gender restriction first
+              // Check registration deadline before allowing any registration action
+              if (!SeasonService.isRegistrationOpen(season)) {
+                toast.error('Registration deadline has passed for this season');
+                return;
+              }
+              // Check gender restriction
               if (!canJoin) {
                 toast.info('This season is restricted to a different gender');
                 return;
@@ -789,6 +798,8 @@ const SeasonCard: React.FC<SeasonCardProps> = ({
           <Text style={styles.registerButtonText}>
             {isUserRegistered
               ? "View"
+              : !isRegOpen && season.status === "ACTIVE"
+              ? "Registration Closed"
               : !canJoin && (season.status === "ACTIVE" || season.status === "UPCOMING")
               ? "View Only"
               : isDoublesCategory && partnership
