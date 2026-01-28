@@ -34,23 +34,21 @@ export const useLeagueData = (
       setIsLoading(true);
       setError(null);
 
-      // Fetch league and seasons in parallel
+      // Fetch league and its seasons in parallel using the new endpoint
       const [leagueData, seasonsData] = await Promise.all([
         LeagueService.fetchLeagueById(leagueId),
-        SeasonService.fetchAllSeasons()
+        LeagueService.fetchLeagueSeasons(leagueId)
       ]);
 
       console.log('✅ useLeagueData: Fetched data:', {
         league: leagueData ? { id: leagueData.id, name: leagueData.name } : null,
-        seasonsCount: seasonsData?.length || 0,
+        seasonsCount: seasonsData?.length,
       });
 
       setLeague(leagueData);
 
-      // Filter seasons to only those belonging to this league
-      const leagueSeasons = seasonsData.filter(season =>
-        season.leagues?.some(l => l.id === leagueId)
-      );
+      // No need to filter seasons since we're getting league-specific seasons
+      const leagueSeasons = seasonsData || [];
 
       // Normalize category data
       const normalizedSeasons = leagueSeasons.map(season => ({

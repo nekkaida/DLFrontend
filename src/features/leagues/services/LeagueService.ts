@@ -1,5 +1,4 @@
-import { authClient } from '@/lib/auth-client';
-import { getBackendBaseURL, logNetworkConfig } from '@/src/config/network';
+import axiosInstance from '@/lib/endpoints';
 
 export interface League {
   id: string;
@@ -58,74 +57,24 @@ export class LeagueService {
   // fetch all leagues from the backend
   static async fetchAllLeagues(): Promise<League[]> {
     try {
-      // Log network configuration for debugging
-      logNetworkConfig();
+      console.log('🔍 LeagueService: Fetching all leagues...');
       
-      const backendUrl = getBackendBaseURL();
+      const response = await axiosInstance.get('/api/league');
 
-      // try with regular fetch first to debug
-      const regularFetchResponse = await fetch(`${backendUrl}/api/league`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
-      
-      const regularFetchData = await regularFetchResponse.json();
+      if (response && response.data) {
+        const apiResponse = response.data as any;
 
-      // use regular fetch data since it works
-      if (regularFetchData && regularFetchData.success && regularFetchData.data && regularFetchData.data.leagues) {
-         console.log('✅ LeagueService: Leagues data fetched');
-        // console.log('✅ LeagueService: Successfully found leagues via regular fetch:', regularFetchData.data.leagues.length);
-        // console.log('✅ LeagueService: Leagues data:', regularFetchData.data.leagues);
-        return regularFetchData.data.leagues;
-      }
-
-      // Check auth client cookies (getCookie comes from expoClient plugin)
-      const authCookies = (authClient as any).getCookie?.();
-      // console.log('🔍 LeagueService: Auth client cookies:', authCookies);
-
-      const response = await authClient.$fetch(`${backendUrl}/api/league`, {
-        method: 'GET',
-      });
-
-      // console.log('🔍 LeagueService: Raw API response:', response);
-      // console.log('🔍 LeagueService: Response type:', typeof response);
-      // console.log('🔍 LeagueService: Response keys:', response ? Object.keys(response) : 'null');
-
-      // handle the ApiResponse structure from backend
-      if (response && typeof response === 'object') {
-        const apiResponse = response as any;
-        console.log('🔍 LeagueService: API Response structure:', {
-          success: apiResponse.success,
-          status: apiResponse.status,
-          hasData: !!apiResponse.data,
-          dataKeys: apiResponse.data ? Object.keys(apiResponse.data) : 'no data',
-          message: apiResponse.message
-        });
-
-        if (apiResponse.data && apiResponse.data.success && apiResponse.data.data && apiResponse.data.data.leagues) {
-            console.log('✅ LeagueService: Leagues API');
-          // console.log('✅ LeagueService: Successfully found leagues (authClient wrapped):', apiResponse.data.data.leagues.length);
-          // console.log('✅ LeagueService: Leagues data:', apiResponse.data.data.leagues);
-          return apiResponse.data.data.leagues;
-        }
-
+        // Handle success response with leagues data
         if (apiResponse.success && apiResponse.data && apiResponse.data.leagues) {
-          console.log('✅ LeagueService: Successfully found leagues:', apiResponse.data.leagues.length);
-          // console.log('✅ LeagueService: Leagues data:', apiResponse.data.leagues);
+          console.log('✅ LeagueService: Leagues data fetched:', apiResponse.data.leagues.length);
           return apiResponse.data.leagues;
-        } else {
-          console.log('❌ LeagueService: Response structure issue:', {
-            success: apiResponse.success,
-            hasData: !!apiResponse.data,
-            hasLeagues: !!(apiResponse.data && apiResponse.data.leagues),
-            hasWrappedData: !!(apiResponse.data && apiResponse.data.data && apiResponse.data.data.leagues),
-            dataContent: apiResponse.data
-          });
         }
-      } else {
-        console.log('❌ LeagueService: Response is not an object or is null');
+        
+        // Handle direct leagues array response
+        if (Array.isArray(apiResponse)) {
+          console.log('✅ LeagueService: Direct leagues array found:', apiResponse.length);
+          return apiResponse;
+        }
       }
       
       console.error('❌ LeagueService: No leagues data received from API');
@@ -151,42 +100,64 @@ export class LeagueService {
     }
   }
 
+  // fetch seasons for a specific league
+  static async fetchLeagueSeasons(leagueId: string): Promise<any[]> {
+    try {
+      console.log('LeagueService: Fetching seasons for league:', leagueId);
+
+      const response = await axiosInstance.get(`/api/league/${leagueId}/seasons`);
+
+      console.log('LeagueService: League seasons API response:', response.data);
+
+      if (response && response.data) {
+        const apiResponse = response.data as any;
+        
+        // Handle success response with seasons data
+        if (apiResponse.success && apiResponse.data && apiResponse.data.data) {
+          const seasons = apiResponse.data.data as any[];
+          console.log('✅ LeagueService: Successfully fetched league seasons:', seasons.length);
+          return seasons;
+        }
+        
+        // Handle direct seasons array response
+        if (Array.isArray(apiResponse)) {
+          console.log('✅ LeagueService: Direct seasons array found:', apiResponse.length);
+          return apiResponse;
+        }
+      }
+      
+      console.error('LeagueService: No seasons data received from API');
+      return [];
+    } catch (error) {
+      console.error('LeagueService: Error fetching league seasons:', error);
+      return [];
+    }
+  }
+
   // fetch a specific league by ID
   static async fetchLeagueById(leagueId: string): Promise<League | null> {
     try {
-      const backendUrl = getBackendBaseURL();
-      console.log('LeagueService: Fetching league by ID from:', `${backendUrl}/api/league/${leagueId}`);
+      console.log('LeagueService: Fetching league by ID:', leagueId);
 
-      const response = await authClient.$fetch(`${backendUrl}/api/league/${leagueId}`, {
-        method: 'GET',
-      });
+      const response = await axiosInstance.get(`/api/league/${leagueId}`);
 
-      console.log('LeagueService: League by ID API response:', response);
+      console.log('LeagueService: League by ID API response:', response.data);
 
-      // handle the apiResponse structure from backend
-      if (response && typeof response === 'object') {
-        const apiResponse = response as any;
+      if (response && response.data) {
+        const apiResponse = response.data as any;
         
-        // Handle authClient.$fetch wrapped response structure
-        if (apiResponse.data && apiResponse.data.success && apiResponse.data.data && apiResponse.data.data.league) {
-          const league = apiResponse.data.data.league as League;
-          // console.log('LeagueService: Setting league data (wrapped):', apiResponse.data.data.league);
-          // console.log('✅ LeagueService: Fetched league:', {
-          //   id: league.id,
-          //   name: league.name,
-          //   seasons: league.seasonCount || league._count?.seasons || 0,
-          //   memberships: league._count?.memberships || 0,
-          // });
+        // Handle success response with league data
+        if (apiResponse.success && apiResponse.data && apiResponse.data.league) {
+          const league = apiResponse.data.league as League;
+          console.log('✅ LeagueService: Successfully fetched league:', league.name);
           return league;
         }
         
-        // Handle direct API response structure
-        if (apiResponse.success && apiResponse.data && apiResponse.data.league) {
-          console.log('✅ LeagueService: Setting league data (direct):', apiResponse.data.league);
-          return apiResponse.data.league as League;
+        // Handle direct league object response
+        if (apiResponse.id && apiResponse.name) {
+          console.log('✅ LeagueService: Direct league object found:', apiResponse.name);
+          return apiResponse as League;
         }
-        
-        console.log('❌ LeagueService: No league data found in response');
       }
       
       console.error('LeagueService: No league data received from API');
@@ -211,23 +182,19 @@ export class LeagueService {
   // Fetch user's active leagues (leagues where user has season memberships)
   static async fetchUserActiveLeagues(userId: string): Promise<UserActiveLeague[]> {
     try {
-      const backendUrl = getBackendBaseURL();
+      const response = await axiosInstance.get(`/api/player/${userId}/seasons`);
 
-      const response = await authClient.$fetch(`${backendUrl}/api/player/${userId}/seasons`, {
-        method: 'GET',
-      });
+      if (response && response.data) {
+        const apiResponse = response.data as any;
 
-      if (response && typeof response === 'object') {
-        const apiResponse = response as any;
-
-        // Handle authClient wrapped response
+        // Handle axios response structure
         let seasons: any[] = [];
-        if (apiResponse.data?.data?.seasons) {
-          seasons = apiResponse.data.data.seasons;
+        if (apiResponse.success && apiResponse.data?.seasons) {
+          seasons = apiResponse.data.seasons;
         } else if (apiResponse.data?.seasons) {
           seasons = apiResponse.data.seasons;
-        } else if (apiResponse.seasons) {
-          seasons = apiResponse.seasons;
+        } else if (Array.isArray(apiResponse)) {
+          seasons = apiResponse;
         }
 
         // Extract unique leagues from seasons where user has active membership
