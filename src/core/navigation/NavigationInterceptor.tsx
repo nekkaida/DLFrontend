@@ -4,6 +4,7 @@ import { BackHandler } from 'react-native';
 import { useSession, signOut } from '@/lib/auth-client';
 import { getBackendBaseURL } from '@/src/config/network';
 import { AuthStorage, OnboardingStorage } from '@/src/core/storage';
+import { axiosInstance } from '@/lib/endpoints'; // Use authenticated axios instance
 
 // Only block these specific auth pages after login - NOT the home page
 const BLOCKED_AUTH_PAGES = ['/login', '/register', '/resetPassword', '/verifyEmail'];
@@ -121,59 +122,52 @@ export const NavigationInterceptor: React.FC<NavigationInterceptorProps> = ({ ch
     console.log('NavigationInterceptor: Checking onboarding status for user:', userId, forceRefresh ? '(force refresh)' : '');
     setIsCheckingOnboarding(true);
     try {
-      const baseUrl = getBackendBaseURL();
-      console.log('NavigationInterceptor: Fetching onboarding status from:', `${baseUrl}/api/onboarding/status/${userId}`);
+      console.log('NavigationInterceptor: Fetching onboarding status from:', `/api/onboarding/status/${userId}`);
 
-      // Use the same API endpoint that login page uses
-      // Add cache-busting to ensure we get fresh data
-      const onboardingResponse = await fetch(`${baseUrl}/api/onboarding/status/${userId}?t=${Date.now()}`, {
-        method: 'GET',
-        headers: { 
-          'Content-Type': 'application/json',
-          'Cache-Control': 'no-cache',
-          'Pragma': 'no-cache'
-        },
-      });
+      // Use authenticated axios instance instead of plain fetch
+      let onboardingData;
       
-      console.log('NavigationInterceptor: Onboarding response status:', onboardingResponse.status);
-
-      if (!onboardingResponse.ok) {
-        if (onboardingResponse.status === 404) {
+      try {
+        const onboardingResponse = await axiosInstance.get(`/api/onboarding/status/${userId}?t=${Date.now()}`, {
+          headers: { 
+            'Cache-Control': 'no-cache',
+            'Pragma': 'no-cache'
+          },
+        });
+        
+        console.log('NavigationInterceptor: Onboarding response status:', onboardingResponse.status);
+        onboardingData = onboardingResponse.data;
+      } catch (axiosError: any) {
+        // Handle axios errors (which include HTTP error status codes)
+        if (axiosError.response?.status === 404) {
           // User not found in backend - their account was likely deleted
-          // Sign them out and clear onboarding data, but KEEP hasEverLoggedIn
-          // so they go to login screen instead of landing page
           console.log('User not found in backend (404) - account may have been deleted, signing out');
           try {
-            // Clear onboarding data but NOT auth storage (hasEverLoggedIn persists)
             await Promise.all([
               OnboardingStorage.clearData(),
               OnboardingStorage.clearProgress(),
             ]);
-            // Sign out the user
             await signOut();
             console.log('User signed out and onboarding data cleared - will redirect to login');
           } catch (signOutError) {
             console.error('Error during sign out cleanup:', signOutError);
           }
-          // Set status to trigger redirect - the signOut will cause session to become null
-          // which will reset onboardingStatus via the useEffect
           setOnboardingStatus(null);
           return;
         } else {
-          // Backend error (5xx, etc.) - don't assume user needs onboarding
-          // Keep user on landing page instead of redirecting to onboarding
-          console.warn(`Onboarding API error (${onboardingResponse.status}), backend unavailable`);
+          // Backend error (5xx, etc.) or network error
+          console.warn(`Onboarding API error (${axiosError.response?.status || 'network'}), backend unavailable`);
           setOnboardingStatus({
             completedOnboarding: false,
             hasCompletedAssessment: false,
             timestamp: Date.now(),
             backendError: true
           });
+          return;
         }
-        return;
       }
 
-      const onboardingData = await onboardingResponse.json();
+      // With axios, we get the data directly from response.data
       console.log('NavigationInterceptor: Onboarding data received:', onboardingData);
 
       if (onboardingData?.completedOnboarding) {
@@ -197,32 +191,28 @@ export const NavigationInterceptor: React.FC<NavigationInterceptorProps> = ({ ch
         await new Promise(resolve => setTimeout(resolve, 1000));
 
         try {
-          const retryResponse = await fetch(`${baseUrl}/api/onboarding/status/${userId}?t=${Date.now()}`, {
-            method: 'GET',
+          const retryResponse = await axiosInstance.get(`/api/onboarding/status/${userId}?t=${Date.now()}`, {
             headers: {
-              'Content-Type': 'application/json',
               'Cache-Control': 'no-cache',
               'Pragma': 'no-cache'
             },
           });
 
-          if (retryResponse.ok) {
-            const retryData = await retryResponse.json();
-            console.log('NavigationInterceptor: Retry data received:', retryData);
+          const retryData = retryResponse.data;
+          console.log('NavigationInterceptor: Retry data received:', retryData);
 
-            if (retryData?.completedOnboarding) {
-              const finalStatus = {
-                completedOnboarding: true,
-                hasCompletedAssessment: true,
-                onboardingStep: retryData.onboardingStep || 'PROFILE_PICTURE',
-                selectedSports: retryData.selectedSports || [],
-                completedSports: retryData.completedSports || [],
-                timestamp: Date.now()
-              };
-              console.log('NavigationInterceptor: Retry successful - onboarding completed:', finalStatus);
-              setOnboardingStatus(finalStatus);
-              return;
-            }
+          if (retryData?.completedOnboarding) {
+            const finalStatus = {
+              completedOnboarding: true,
+              hasCompletedAssessment: true,
+              onboardingStep: retryData.onboardingStep || 'PROFILE_PICTURE',
+              selectedSports: retryData.selectedSports || [],
+              completedSports: retryData.completedSports || [],
+              timestamp: Date.now()
+            };
+            console.log('NavigationInterceptor: Retry successful - onboarding completed:', finalStatus);
+            setOnboardingStatus(finalStatus);
+            return;
           }
         } catch (retryError) {
           console.warn('NavigationInterceptor: Retry failed:', retryError);
