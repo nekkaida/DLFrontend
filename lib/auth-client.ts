@@ -11,8 +11,11 @@ import { getBackendBaseURL, logNetworkConfig } from "../src/config/network";
 // Log network configuration in development
 logNetworkConfig();
 
+const baseURL = getBackendBaseURL();
+console.log("🔑 Auth Client baseURL:", baseURL);
+
 export const authClient = createAuthClient({
-  baseURL: getBackendBaseURL(),
+  baseURL,
   basePath: "/api/auth",
   plugins: [
     usernameClient(),
