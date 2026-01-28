@@ -12,27 +12,27 @@ axiosInstance.interceptors.request.use(
     // console.log("📡 [Axios] Request started:", config.method?.toUpperCase(), config.url);
 
     try {
+      // Use authClient.getCookie() as per better-auth Expo docs
+      // This returns the session cookie that better-auth expects
+      const cookies = authClient.getCookie();
+
+      if (cookies) {
+        // Send as Cookie header - this is what better-auth expects for Expo apps
+        config.headers['Cookie'] = cookies;
+        // console.log("✅ Cookie header attached!");
+      }
+
+      // Also get session for user ID (for backwards compatibility with some endpoints)
       const session = await authClient.getSession();
-      const token = session?.data?.session?.token;
       const userId = session?.data?.user?.id;
 
-      // console.log("🎫 Session token:", token);
-      // console.log("👤 User ID:", userId);
-
-      // For mobile: send userId in x-user-id header (backend expects this)
       if (userId) {
         config.headers['x-user-id'] = userId;
         // console.log("✅ x-user-id header attached!");
       }
 
-      // Also try Bearer token for web compatibility
-      if (token) {
-        config.headers.Authorization = `Bearer ${token}`;
-        // console.log("✅ Authorization Bearer token attached!");
-      }
-
-      if (!userId && !token && __DEV__) {
-        console.warn("⚠️ No session found - request will be unauthenticated");
+      if (!cookies && __DEV__) {
+        console.warn("⚠️ No session cookie found - request will be unauthenticated");
       }
     } catch (err) {
       if (__DEV__) {
