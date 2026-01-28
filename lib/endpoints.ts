@@ -22,8 +22,8 @@ axiosInstance.interceptors.request.use(
 
       if (cookies) {
         // Send as Cookie header - this is what better-auth expects for Expo apps
-        config.headers['Cookie'] = cookies;
-        console.log("✅ Cookie header attached!");
+        // Strip leading "; " that Expo client may prepend (breaks cookie parsing)
+        config.headers['Cookie'] = cookies.replace(/^;\s*/, '');
       }
 
       // Also get session for user ID (for backwards compatibility with some endpoints)
