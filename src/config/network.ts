@@ -61,6 +61,7 @@ export function logNetworkConfig(): void {
     console.log("🌐 Network Configuration:");
     console.log(`   Platform: ${Platform.OS}`);
     console.log(`   Base URL: ${baseURL}`);
+    console.log(`   EXPO_PUBLIC_API_URL: ${process.env.EXPO_PUBLIC_API_URL || "NOT SET"}`);
     console.log(
       `   Expo Host URI: ${Constants.expoConfig?.hostUri || "Not available"}`
     );
