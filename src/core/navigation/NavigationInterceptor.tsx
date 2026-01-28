@@ -6,6 +6,7 @@ import { authClient } from '@/lib/auth-client';
 import axiosInstance from '@/lib/endpoints';
 import { getBackendBaseURL } from '@/src/config/network';
 import { AuthStorage, OnboardingStorage } from '@/src/core/storage';
+import { getIsLogoutInProgress } from '@core/navigation/navigationUtils';
 
 // Only block these specific auth pages after login - NOT the home page
 const BLOCKED_AUTH_PAGES = ['/login', '/register', '/resetPassword', '/verifyEmail'];
@@ -349,12 +350,12 @@ export const NavigationInterceptor: React.FC<NavigationInterceptorProps> = ({ ch
     const protectedRoutes = ['/user-dashboard', '/profile', '/edit-profile', '/settings', '/match-history'];
     const isProtectedRoute = protectedRoutes.some(route => currentRoute.startsWith(route));
 
-    // Handle unauthenticated users accessing protected routes
-    if (!session?.user && isProtectedRoute) {
-      console.warn('NavigationInterceptor: Unauthenticated user accessing protected route, redirecting to login:', currentRoute);
-      // Clear navigation stack to prevent back navigation to protected routes
+    // Handle unauthenticated users OR logout-in-progress accessing protected routes
+    // Check logout flag first since useSession() may lag behind signOut()
+    if (isProtectedRoute && (getIsLogoutInProgress() || !session?.user)) {
+      console.warn('NavigationInterceptor: Unauthenticated/logging-out user accessing protected route, redirecting to login:', currentRoute);
       navigationStack.current = ['/login'];
-      setTimeout(() => router.replace('/login'), 100);
+      router.replace('/login');
       return;
     }
 
@@ -463,17 +464,18 @@ export const NavigationInterceptor: React.FC<NavigationInterceptorProps> = ({ ch
       const currentRoute = '/' + segments.join('/');
 
       // Prevent back from certain pages and exit app
+      // /login is in NO_BACK_PAGES - returning false lets the system handle back:
+      //   After logout: stack is [login] only → exits app (dismissAll cleared it)
+      //   From landing: stack is [index, login] → goes back to landing naturally
       if (isNoBackPage(currentRoute)) {
-        // Exit app when pressing back on these pages (landing, login, register, dashboard)
-        return false; // This will minimize/exit the app
+        return false; // Let system handle (exits app or goes to previous public screen)
       }
 
-      // Prevent back navigation from login page when unauthenticated
-      // This prevents users from accessing protected routes after logout
-      if (currentRoute === '/login' && !session?.user) {
-        console.warn('Back navigation from login page blocked for unauthenticated user');
-        // Exit app or stay on login page
-        return true; // Prevent back navigation
+      // Block ALL back navigation while logout is in progress
+      // This prevents the brief "glimpse" of protected routes during session teardown
+      if (getIsLogoutInProgress()) {
+        console.warn('Back navigation blocked - logout in progress');
+        return true;
       }
 
       // For onboarding pages, use router.back() for natural navigation
