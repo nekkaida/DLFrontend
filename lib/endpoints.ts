@@ -9,7 +9,11 @@ const axiosInstance = axios.create({
 
 axiosInstance.interceptors.request.use(
   async (config) => {
-    // console.log("📡 [Axios] Request started:", config.method?.toUpperCase(), config.url);
+    // console.log("\n📡 [Axios] ========== NEW REQUEST ==========");
+    // console.log(`   Method: ${config.method?.toUpperCase()}`);
+    // console.log(`   URL: ${config.url}`);
+    // console.log(`   Base URL: ${config.baseURL}`);
+    // console.log(`   Full URL: ${config.baseURL}${config.url}`);
 
     try {
       // Use authClient.getCookie() as per better-auth Expo docs
@@ -19,7 +23,7 @@ axiosInstance.interceptors.request.use(
       if (cookies) {
         // Send as Cookie header - this is what better-auth expects for Expo apps
         config.headers['Cookie'] = cookies;
-        // console.log("✅ Cookie header attached!");
+        console.log("✅ Cookie header attached!");
       }
 
       // Also get session for user ID (for backwards compatibility with some endpoints)
@@ -28,7 +32,7 @@ axiosInstance.interceptors.request.use(
 
       if (userId) {
         config.headers['x-user-id'] = userId;
-        // console.log("✅ x-user-id header attached!");
+        console.log(`✅ x-user-id header attached: ${userId}`);
       }
 
       if (!cookies && __DEV__) {
@@ -41,21 +45,35 @@ axiosInstance.interceptors.request.use(
     }
 
     if (__DEV__) {
-      console.log("📤 Final headers:", config.headers);
+      console.log("📤 Final headers:", JSON.stringify(config.headers, null, 2));
     }
     return config;
   },
-  (err) => Promise.reject(err)
+  (err) => {
+    console.error("❌ [Axios] Request error:", err);
+    return Promise.reject(err);
+  }
 );
 
 axiosInstance.interceptors.response.use(
   (res) => {
-    // console.log("✅ [Axios] Response success:", res.status, res.config.url);
     return res;
   },
   (error: AxiosError) => {
-    console.error("❌ [Axios] Response error:", error.response?.status, error.message);
-    console.error("📌 [Axios] Failed URL:", error.config?.url);
+    console.error("\n❌ [Axios] ========== RESPONSE ERROR ==========");
+    console.error(`   Message: ${error.message}`);
+    console.error(`   Code: ${error.code}`);
+    if (error.response) {
+      console.error(`   Status: ${error.response.status}`);
+      console.error(`   URL: ${error.config?.url}`);
+      console.error(`   Data:`, error.response.data);
+    } else if (error.request) {
+      console.error(`   No response received`);
+      console.error(`   Request URL: ${error.config?.baseURL}${error.config?.url}`);
+      console.error(`   Request was made but no response`);
+    } else {
+      console.error(`   Error setting up request: ${error.message}`);
+    }
     return Promise.reject(error);
   }
 );
