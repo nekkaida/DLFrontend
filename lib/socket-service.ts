@@ -34,15 +34,17 @@ export class SocketService {
       }
 
       const userId = session.data.user?.id;
-      const sessionToken = session.data.session?.token;
-      
+
+      // Get cookies using better-auth's getCookie() method
+      const cookies = authClient.getCookie();
+
       console.log('SocketService: User ID:', userId);
 
       // Pass session info for Better Auth to validate
       this._socket = io(backendUrl, {
         extraHeaders: {
           'x-user-id': userId || '',
-          'Authorization': sessionToken ? `Bearer ${sessionToken}` : '',
+          'Cookie': cookies || '',  // Use Cookie header as per better-auth Expo docs
         },
         transports: ['websocket'],
         timeout: 10000,
