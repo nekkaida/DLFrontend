@@ -1,17 +1,28 @@
-import { getBackendBaseURL } from '@/config/network';
-import { authClient, useSession } from '@/lib/auth-client';
-import { ChatService } from '@/src/features/chat/services/ChatService';
-import { useChatStore } from '@/src/features/chat/stores/ChatStore';
-import { MatchHistoryButton, PlayerDivisionStandings, ProfileAchievementsCard, ProfileDMRCard, ProfileHeaderWithCurve, ProfileInfoCard, ProfileLeagueStatsCard, ProfilePictureSection, ProfileSkillLevelCard, ProfileSportsSection } from '@/src/features/profile/components';
-import { useProfileHandlers } from '@/src/features/profile/hooks/useProfileHandlers';
-import { useProfileState } from '@/src/features/profile/hooks/useProfileState';
-import { ProfileDataTransformer } from '@/src/features/profile/services/ProfileDataTransformer';
-import type { UserData } from '@/src/features/profile/types';
-import { theme } from '@core/theme/theme';
-import { Ionicons } from '@expo/vector-icons';
-import * as Haptics from 'expo-haptics';
-import { router, useLocalSearchParams } from 'expo-router';
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { getBackendBaseURL } from "@/config/network";
+import { authClient, useSession } from "@/lib/auth-client";
+import { ChatService } from "@/src/features/chat/services/ChatService";
+import { useChatStore } from "@/src/features/chat/stores/ChatStore";
+import {
+  MatchHistoryButton,
+  PlayerDivisionStandings,
+  ProfileAchievementsCard,
+  ProfileDMRCard,
+  ProfileHeaderWithCurve,
+  ProfileInfoCard,
+  ProfileLeagueStatsCard,
+  ProfilePictureSection,
+  ProfileSkillLevelCard,
+  ProfileSportsSection,
+} from "@/src/features/profile/components";
+import { useProfileHandlers } from "@/src/features/profile/hooks/useProfileHandlers";
+import { useProfileState } from "@/src/features/profile/hooks/useProfileState";
+import { ProfileDataTransformer } from "@/src/features/profile/services/ProfileDataTransformer";
+import type { UserData } from "@/src/features/profile/types";
+import { theme } from "@core/theme/theme";
+import { Ionicons } from "@expo/vector-icons";
+import * as Haptics from "expo-haptics";
+import { router, useLocalSearchParams } from "expo-router";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Animated,
@@ -22,10 +33,10 @@ import {
   StyleSheet,
   Text,
   View,
-} from 'react-native';
-import { toast } from 'sonner-native';
+} from "react-native";
+import { toast } from "sonner-native";
 
-const { width } = Dimensions.get('window');
+const { width } = Dimensions.get("window");
 
 export default function PlayerProfileScreen() {
   const { id, seasonId, seasonName } = useLocalSearchParams();
@@ -58,7 +69,7 @@ export default function PlayerProfileScreen() {
     setSelectedGame,
     setSelectedGameType,
   } = useProfileState();
-  
+
   const hasInitializedSport = useRef(false);
 
   // Entry animation values (matching ProfileScreen.tsx pattern)
@@ -73,62 +84,66 @@ export default function PlayerProfileScreen() {
   const hasPlayedEntryAnimation = useRef(false);
 
   // Profile handlers
-  const {
-    handleGameTypeSelect,
-    handleTabPress,
-    handleGamePointPress,
-  } = useProfileHandlers({
-    setSelectedGameType,
-    setActiveTab,
-    setSelectedGame,
-    setModalVisible: () => {}, // No-op since we don't use modal in friend profiles
-  });
+  const { handleGameTypeSelect, handleTabPress, handleGamePointPress } =
+    useProfileHandlers({
+      setSelectedGameType,
+      setActiveTab,
+      setSelectedGame,
+      setModalVisible: () => {}, // No-op since we don't use modal in friend profiles
+    });
 
-  const fetchPlayerProfile = useCallback(async (signal?: AbortSignal) => {
-    try {
-      if (!session?.user?.id || !id) {
-        console.log('PlayerProfile: No session or player ID');
-        return;
+  const fetchPlayerProfile = useCallback(
+    async (signal?: AbortSignal) => {
+      try {
+        if (!session?.user?.id || !id) {
+          console.log("PlayerProfile: No session or player ID");
+          return;
+        }
+
+        setIsLoading(true);
+        setHasError(false);
+        const backendUrl = getBackendBaseURL();
+
+        const authResponse = await authClient.$fetch(
+          `${backendUrl}/api/player/profile/public/${id}`,
+          {
+            method: "GET",
+            signal,
+          },
+        );
+
+        // Check if aborted before updating state
+        if (signal?.aborted) return;
+
+        if (authResponse && (authResponse as any).data) {
+          const playerData =
+            (authResponse as any).data.data || (authResponse as any).data;
+          setProfileData(playerData);
+
+          // Fetch achievements if available
+          // TODO: Add achievements endpoint when available
+          setAchievements([]);
+        }
+      } catch (error) {
+        // Don't show error toast if request was aborted
+        if (error instanceof Error && error.name === "AbortError") {
+          return;
+        }
+        console.error("PlayerProfile: Error fetching profile:", error);
+        if (!signal?.aborted) {
+          setHasError(true);
+          toast.error("Error", {
+            description: "Failed to load player profile. Please try again.",
+          });
+        }
+      } finally {
+        if (!signal?.aborted) {
+          setIsLoading(false);
+        }
       }
-
-      setIsLoading(true);
-      setHasError(false);
-      const backendUrl = getBackendBaseURL();
-
-      const authResponse = await authClient.$fetch(`${backendUrl}/api/player/profile/public/${id}`, {
-        method: 'GET',
-        signal,
-      });
-
-      // Check if aborted before updating state
-      if (signal?.aborted) return;
-
-      if (authResponse && (authResponse as any).data) {
-        const playerData = (authResponse as any).data.data || (authResponse as any).data;
-        setProfileData(playerData);
-
-        // Fetch achievements if available
-        // TODO: Add achievements endpoint when available
-        setAchievements([]);
-      }
-    } catch (error) {
-      // Don't show error toast if request was aborted
-      if (error instanceof Error && error.name === 'AbortError') {
-        return;
-      }
-      console.error('PlayerProfile: Error fetching profile:', error);
-      if (!signal?.aborted) {
-        setHasError(true);
-        toast.error('Error', {
-          description: 'Failed to load player profile. Please try again.',
-        });
-      }
-    } finally {
-      if (!signal?.aborted) {
-        setIsLoading(false);
-      }
-    }
-  }, [session?.user?.id, id]);
+    },
+    [session?.user?.id, id],
+  );
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -138,8 +153,8 @@ export default function PlayerProfileScreen() {
 
   const handleAddFriend = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    console.log('Add friend:', profileData?.name);
-    toast('Add friend feature coming soon!');
+    console.log("Add friend:", profileData?.name);
+    toast("Add friend feature coming soon!");
   };
 
   const handleChat = async () => {
@@ -147,8 +162,8 @@ export default function PlayerProfileScreen() {
     if (isLoadingChat) return;
 
     if (!session?.user?.id || !id) {
-      toast.error('Error', {
-        description: 'Unable to start chat. Please try again.',
+      toast.error("Error", {
+        description: "Unable to start chat. Please try again.",
       });
       return;
     }
@@ -157,38 +172,38 @@ export default function PlayerProfileScreen() {
       setIsLoadingChat(true);
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       // Check if thread already exists
-      const existingThread = threads.find(thread => 
-        thread.type === 'direct' && 
-        thread.participants.some(p => p.id === id) &&
-        thread.participants.some(p => p.id === session.user.id)
+      const existingThread = threads.find(
+        (thread) =>
+          thread.type === "direct" &&
+          thread.participants.some((p) => p.id === id) &&
+          thread.participants.some((p) => p.id === session.user.id),
       );
 
       if (existingThread) {
-        console.log('PlayerProfile: Found existing thread:', existingThread.id);
+        // console.log('PlayerProfile: Found existing thread:', existingThread.id);
         setCurrentThread(existingThread);
       } else {
-        console.log('PlayerProfile: No existing thread, creating new one');
+        console.log("PlayerProfile: No existing thread, creating new one");
         const newThread = await ChatService.createThread(
           session.user.id,
           [id as string],
-          false
+          false,
         );
-        
-        console.log('PlayerProfile: Created new thread:', newThread.id);
+
+        console.log("PlayerProfile: Created new thread:", newThread.id);
         await loadThreads(session.user.id);
         setCurrentThread(newThread);
       }
-      
+
       // Navigate to dashboard with chat view
       router.push({
-        pathname: '/user-dashboard',
-        params: { view: 'chat' }
+        pathname: "/user-dashboard",
+        params: { view: "chat" },
       });
-      
     } catch (error) {
-      console.error('PlayerProfile: Error handling chat:', error);
-      toast.error('Error', {
-        description: 'Failed to open chat. Please try again.',
+      console.error("PlayerProfile: Error handling chat:", error);
+      toast.error("Error", {
+        description: "Failed to open chat. Please try again.",
       });
     } finally {
       setIsLoadingChat(false);
@@ -291,14 +306,17 @@ export default function PlayerProfileScreen() {
 
   // Transform profile data to userData format
   const userData: UserData = profileData
-    ? ProfileDataTransformer.transformProfileToUserData(profileData, achievements)
+    ? ProfileDataTransformer.transformProfileToUserData(
+        profileData,
+        achievements,
+      )
     : {
-        name: 'Loading...',
-        username: 'loading',
-        bio: 'Loading...',
-        location: 'Loading...',
-        gender: 'Loading...',
-        skillLevel: 'Loading...',
+        name: "Loading...",
+        username: "loading",
+        bio: "Loading...",
+        location: "Loading...",
+        gender: "Loading...",
+        skillLevel: "Loading...",
         selfAssessedSkillLevels: {},
         skillRatings: {},
         sports: [],
@@ -308,7 +326,7 @@ export default function PlayerProfileScreen() {
       };
 
   // Helper function to get rating values from skillRatings
-  const getRatingForType = (sport: string, type: 'singles' | 'doubles') => {
+  const getRatingForType = (sport: string, type: "singles" | "doubles") => {
     const normalizedSport = sport.toLowerCase();
     const rating = profileData?.skillRatings?.[normalizedSport]?.[type];
     // Ratings are stored divided by 1000 in the database, multiply by 1000 to display
@@ -321,45 +339,57 @@ export default function PlayerProfileScreen() {
   // Calculate win rate from league stats
   const calculateWinRate = () => {
     if (leagueStatsData.matchesPlayed === 0) return 0;
-    return Math.round((leagueStatsData.wins / leagueStatsData.matchesPlayed) * 100);
+    return Math.round(
+      (leagueStatsData.wins / leagueStatsData.matchesPlayed) * 100,
+    );
   };
 
   // Create ELO data based on actual rating values only
   const createEloData = () => {
-    const currentSport = activeTab || userData.sports?.[0] || 'pickleball';
+    const currentSport = activeTab || userData.sports?.[0] || "pickleball";
     const currentGameType = selectedGameType.toLowerCase();
-    const currentRating = getRatingForType(currentSport, currentGameType as 'singles' | 'doubles');
+    const currentRating = getRatingForType(
+      currentSport,
+      currentGameType as "singles" | "doubles",
+    );
 
     // Return single point with current rating if no matches played
-    return [{
-      date: 'Current Rating',
-      time: '',
-      rating: currentRating || 1400, // Use actual rating or default
-      ratingBefore: currentRating || 1400,
-      opponent: 'No matches played',
-      result: 'W' as const,
-      score: '-',
-      ratingChange: 0,
-      league: `${currentSport} ${currentGameType}`,
-      player1: userData.name || 'Player',
-      player2: 'No opponent',
-      scores: {
-        set1: { player1: null, player2: null },
-        set2: { player1: null, player2: null },
-        set3: { player1: null, player2: null }
+    return [
+      {
+        date: "Current Rating",
+        time: "",
+        rating: currentRating || 1400, // Use actual rating or default
+        ratingBefore: currentRating || 1400,
+        opponent: "No matches played",
+        result: "W" as const,
+        score: "-",
+        ratingChange: 0,
+        league: `${currentSport} ${currentGameType}`,
+        player1: userData.name || "Player",
+        player2: "No opponent",
+        scores: {
+          set1: { player1: null, player2: null },
+          set2: { player1: null, player2: null },
+          set3: { player1: null, player2: null },
+        },
+        status: "upcoming" as const,
       },
-      status: 'upcoming' as const
-    }];
+    ];
   };
 
   const mockEloData = createEloData();
 
   // Auto-select first available sport when profile data loads
   useEffect(() => {
-    if (!hasInitializedSport.current && userData?.sports && userData.sports.length > 0 && userData.sports[0] !== 'No sports yet') {
+    if (
+      !hasInitializedSport.current &&
+      userData?.sports &&
+      userData.sports.length > 0 &&
+      userData.sports[0] !== "No sports yet"
+    ) {
       const firstSport = userData.sports[0];
       // Only update if the current activeTab is the default 'Tennis' or not in the sports list
-      if (activeTab === 'Tennis' || !userData.sports.includes(activeTab)) {
+      if (activeTab === "Tennis" || !userData.sports.includes(activeTab)) {
         setActiveTab(firstSport);
         hasInitializedSport.current = true;
       }
@@ -383,7 +413,11 @@ export default function PlayerProfileScreen() {
   if (hasError && !profileData) {
     return (
       <View style={styles.loadingContainer}>
-        <Ionicons name="alert-circle-outline" size={48} color={theme.colors.neutral.gray[400]} />
+        <Ionicons
+          name="alert-circle-outline"
+          size={48}
+          color={theme.colors.neutral.gray[400]}
+        />
         <Text style={styles.errorText}>Failed to load profile</Text>
         <Pressable style={styles.retryButton} onPress={handleRetry}>
           <Text style={styles.retryButtonText}>Tap to Retry</Text>
@@ -508,7 +542,7 @@ export default function PlayerProfileScreen() {
             <MatchHistoryButton
               onPress={() => {
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                toast('Match history coming soon!');
+                toast("Match history coming soon!");
               }}
             />
 
@@ -551,8 +585,8 @@ const styles = StyleSheet.create({
   },
   loadingContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     backgroundColor: theme.colors.primary,
   },
   loadingText: {
@@ -575,23 +609,23 @@ const styles = StyleSheet.create({
     borderRadius: theme.spacing.md,
   },
   retryButtonText: {
-    color: '#FFFFFF',
+    color: "#FFFFFF",
     fontSize: 16,
     fontFamily: theme.typography.fontFamily.primary,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   refreshOverlay: {
-    position: 'absolute',
+    position: "absolute",
     top: 100,
     left: 0,
     right: 0,
-    alignItems: 'center',
+    alignItems: "center",
     zIndex: 100,
   },
   whiteBackground: {
-    backgroundColor: '#ffffff',
+    backgroundColor: "#ffffff",
     paddingHorizontal: theme.spacing.lg,
-    paddingBottom: theme.spacing['2xl'],
-    minHeight: '100%',
+    paddingBottom: theme.spacing["2xl"],
+    minHeight: "100%",
   },
 });

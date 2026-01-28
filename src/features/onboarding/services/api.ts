@@ -1,5 +1,6 @@
 // API service for questionnaires
 import { getBackendBaseURL } from '../../../config/network';
+import { authClient } from '@/lib/auth-client';
 
 const BASE_URL = getBackendBaseURL();
 
@@ -130,10 +131,36 @@ export interface ReverseGeocodeResponse {
 
 export class QuestionnaireAPI {
   private readonly getAuthHeaders = async () => {
-    return {
+    const headers: Record<string, string> = {
       'Content-Type': 'application/json',
-      // Add authorization header if needed in the future
     };
+
+    try {
+      // Get authentication headers like the axios interceptor does
+      const cookies = authClient.getCookie();
+      if (cookies) {
+        headers['Cookie'] = cookies;
+        console.log('🔐 QuestionnaireAPI: ✅ Cookie header added');
+      }
+
+      // Also get session for user ID (for backwards compatibility with some endpoints)
+      const session = await authClient.getSession();
+      const userId = session?.data?.user?.id;
+      if (userId) {
+        headers['x-user-id'] = userId;
+        console.log('🔐 QuestionnaireAPI: ✅ x-user-id header added:', userId);
+      }
+
+      if (!cookies && __DEV__) {
+        console.warn('🔐 QuestionnaireAPI: ⚠️ No session cookie found - request will be unauthenticated');
+      }
+
+      console.log('🔐 QuestionnaireAPI: 📤 Final headers:', headers);
+      return headers;
+    } catch (error) {
+      console.error('🔐 QuestionnaireAPI: Error getting auth headers:', error);
+      return headers; // Return basic headers if auth fails
+    }
   };
 
   async getQuestionnaire(sport: string): Promise<QuestionnaireData> {

@@ -1,10 +1,10 @@
-import React, { useState, useRef } from 'react';
-import { useRouter } from 'expo-router';
-import { LandingScreen, SplashScreen } from '@/src/features/auth';
-import { Animated } from 'react-native';
-import { authClient } from '@/lib/auth-client';
-import { AuthStorage } from '@/src/core/storage';
-import { toast } from 'sonner-native';
+import { authClient } from "@/lib/auth-client";
+import { AuthStorage } from "@/src/core/storage";
+import { LandingScreen, SplashScreen } from "@/src/features/auth";
+import { useRouter } from "expo-router";
+import React, { useRef, useState } from "react";
+import { Animated } from "react-native";
+import { toast } from "sonner-native";
 
 /**
  * Landing Page (index.tsx)
@@ -25,14 +25,16 @@ export default function LandingPage() {
   const fadeAnim = useRef(new Animated.Value(0)).current;
 
   const handleGetStarted = () => {
-    router.push('/register');
+    router.push("/register");
   };
 
   const handleLogin = () => {
-    router.push('/login');
+    router.push("/login");
   };
 
-  const handleSocialLogin = async (provider: 'facebook' | 'google' | 'apple') => {
+  const handleSocialLogin = async (
+    provider: "facebook" | "google" | "apple",
+  ) => {
     // Prevent double-clicks while OAuth is in progress
     if (isSocialLoading) return;
 
@@ -52,8 +54,10 @@ export default function LandingPage() {
       //    3. Configure OAuth redirect URIs
       //    4. Add Apple credentials to Better Auth config
       //    5. Required for iOS App Store (if other social logins are offered)
-      if (provider !== 'google') {
-        toast.info(`${provider.charAt(0).toUpperCase() + provider.slice(1)} sign-in coming soon!`);
+      if (provider !== "google") {
+        toast.info(
+          `${provider.charAt(0).toUpperCase() + provider.slice(1)} sign-in coming soon!`,
+        );
         return;
       }
 
@@ -64,19 +68,21 @@ export default function LandingPage() {
 
       const result = await authClient.signIn.social({
         provider,
-        callbackURL: '/onboarding/personal-info', // New users from landing go to onboarding
+        callbackURL: "/onboarding/personal-info", // New users from landing go to onboarding
       });
 
-      console.log('Social login result:', result);
+      // console.log('Social login result:', result);
 
       if (result.error) {
-        console.error('Social login failed:', result.error);
-        toast.error(result.error.message || 'Social login failed. Please try again.');
+        console.error("Social login failed:", result.error);
+        toast.error(
+          result.error.message || "Social login failed. Please try again.",
+        );
       }
       // Success handling is done via the callbackURL redirect
     } catch (error: any) {
-      console.error('Social login error:', error);
-      toast.error(error.message || 'Social login failed. Please try again.');
+      console.error("Social login error:", error);
+      toast.error(error.message || "Social login failed. Please try again.");
     } finally {
       setIsSocialLoading(false);
     }

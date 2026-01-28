@@ -81,7 +81,7 @@ export class SeasonService {
    */
   static async fetchAllSeasons(): Promise<Season[]> {
     try {
-      const response = await axiosInstance.get(`/api/season`);
+      const response = await axiosInstance.get(endpoints.season.getAll);
 
       if (response && response.data) {
         const apiResponse = response.data as any;
@@ -124,7 +124,6 @@ export class SeasonService {
 static async fetchSeasonsByCategory(categoryId: string): Promise<Season[]> {
   try {
     const allSeasons = await this.fetchAllSeasons();
-    console.log('SeasonService: All seasons fetched:', allSeasons.length);
 
     // Filter seasons that include this category
     const filteredSeasons = allSeasons.filter(season =>
@@ -143,11 +142,7 @@ static async fetchSeasonsByCategory(categoryId: string): Promise<Season[]> {
    */
   static async fetchSeasonsByLeague(leagueId: string): Promise<Season[]> {
     try {
-      console.log('SeasonService: Fetching seasons for league:', leagueId);
-
       const response = await axiosInstance.get(`/api/league/${leagueId}/seasons`);
-
-      console.log('SeasonService: League seasons API response:', response);
 
       if (response && response.data) {
         const apiResponse = response.data as any;
@@ -162,7 +157,6 @@ static async fetchSeasonsByCategory(categoryId: string): Promise<Season[]> {
         // Handle direct data array response
         if (apiResponse.data && Array.isArray(apiResponse.data)) {
           const seasons = apiResponse.data as Season[];
-          console.log('✅ SeasonService: Successfully fetched seasons for league (direct array):', seasons.length);
           return seasons;
         }
       }
