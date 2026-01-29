@@ -24,7 +24,7 @@ import * as SecureStore from 'expo-secure-store';
 import { toast } from 'sonner-native';
 import { authClient } from '@/lib/auth-client';
 import { usePushNotifications } from '@/src/hooks/usePushNotifications';
-import { navigateAndClearStack } from '@core/navigation';
+import { navigateAndClearStack, setLogoutInProgress } from '@core/navigation';
 import { useSettings } from '../hooks/useSettings';
 
 const triggerHaptic = async (style: Haptics.ImpactFeedbackStyle = Haptics.ImpactFeedbackStyle.Light) => {
@@ -101,6 +101,9 @@ export default function SettingsScreen() {
           onPress: async () => {
             if (isLoggingOut) return;
             setIsLoggingOut(true);
+            // Signal globally so NavigationInterceptor blocks protected routes immediately
+            // This prevents the brief "glimpse" of protected content during session teardown
+            setLogoutInProgress(true);
 
             try {
               // Clean up push notifications with timeout (don't block logout if this hangs)
@@ -143,8 +146,11 @@ export default function SettingsScreen() {
               });
 
               navigateAndClearStack('/login');
+              // Clear logout flag after navigation (brief delay for stack to settle)
+              setTimeout(() => setLogoutInProgress(false), 500);
             } catch (error) {
               if (__DEV__) console.error('Logout error:', error);
+              setLogoutInProgress(false);
               toast.error('Error', {
                 description: 'Failed to sign out. Please try again.',
               });

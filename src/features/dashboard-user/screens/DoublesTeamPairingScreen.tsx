@@ -598,6 +598,11 @@ export default function DoublesTeamPairingScreen({
       return;
     }
 
+    if (!SeasonService.isRegistrationOpen(season)) {
+      toast.error('Registration deadline has passed for this season');
+      return;
+    }
+
     try {
       console.log('Registering team for season (Pay Later):', season.id);
       // Backend automatically registers both captain and partner when partnership exists

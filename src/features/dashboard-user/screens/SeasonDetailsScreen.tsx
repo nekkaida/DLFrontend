@@ -309,6 +309,11 @@ export default function SeasonDetailsScreen({
       return;
     }
 
+    if (!SeasonService.isRegistrationOpen(season)) {
+      toast.error('Registration deadline has passed for this season');
+      return;
+    }
+
     try {
       console.log('Registering user for season (Pay Later):', season.id);
       const success = await SeasonService.registerForSeason(season.id, userId, true);
