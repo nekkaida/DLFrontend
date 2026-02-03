@@ -25,7 +25,7 @@ export const FeedHeader: React.FC<FeedHeaderProps> = ({
   return (
     <View style={styles.container}>
       <View style={styles.titleRow}>
-        <Text style={styles.title}>Feed</Text>
+        <Text style={styles.title}>Activity</Text>
         <View style={styles.headerButtons}>
           {onCreatePostPress && (
             <TouchableOpacity

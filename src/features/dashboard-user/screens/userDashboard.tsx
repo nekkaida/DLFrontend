@@ -6,18 +6,24 @@ import { getBackendBaseURL } from "@/config/network";
 import { authClient, useSession } from "@/lib/auth-client";
 import { NavBar } from "@/shared/components/layout";
 import { SportSwitcher } from "@/shared/components/ui/SportSwitcher";
+import { DeuceLogo } from "@/src";
 import { ChatScreen } from "@/src/features/chat/ChatScreen";
-import { useUnreadCount } from "@/src/features/chat/hooks/useUnreadCount";
 import { useChatSocketEvents } from "@/src/features/chat/hooks/useChatSocketEvents";
-import { LeagueCard, LeagueGrid, useLeagues, useUserActiveLeagues, ActiveLeaguesCarousel } from "@/src/features/leagues";
+import { useUnreadCount } from "@/src/features/chat/hooks/useUnreadCount";
+import { FeedScreen } from "@/src/features/feed";
+import { FriendlyScreen } from "@/src/features/friendly/screens";
+import {
+  ActiveLeaguesCarousel,
+  LeagueCard,
+  LeagueGrid,
+  useLeagues,
+  useUserActiveLeagues,
+} from "@/src/features/leagues";
 import { useNotifications } from "@/src/hooks/useNotifications";
 import NotificationBell from "@/src/shared/components/NotificationBell";
-import MyGamesScreen from "./MyGamesScreen";
-import { FilterTab } from './my-games';
-import { FriendlyScreen } from "@/src/features/friendly/screens";
-import { FeedScreen } from "@/src/features/feed";
+import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
-import { router, useLocalSearchParams, useFocusEffect } from "expo-router";
+import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import { default as React, useCallback, useEffect } from "react";
 import {
   Animated,
@@ -34,6 +40,8 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import MyGamesScreen from "./MyGamesScreen";
+import { FilterTab } from "./my-games";
 
 const SPORT_CONFIG = {
   pickleball: {
@@ -66,7 +74,11 @@ const isTablet = width > 768;
 export default function DashboardScreen() {
   const { data: session } = useSession();
   const insets = useSafeAreaInsets();
-  const { sport: routeSport, view: routeView, tab: routeTab } = useLocalSearchParams<{ sport?: string; view?: string; tab?: string }>();
+  const {
+    sport: routeSport,
+    view: routeView,
+    tab: routeTab,
+  } = useLocalSearchParams<{ sport?: string; view?: string; tab?: string }>();
   const [activeTab, setActiveTab] = React.useState(2);
   const [currentView, setCurrentView] = React.useState<
     "dashboard" | "connect" | "friendly" | "myGames" | "chat"
@@ -81,10 +93,11 @@ export default function DashboardScreen() {
   const scrollY = React.useRef(new Animated.Value(0)).current;
 
   // State for navigating directly to a specific tab in MyGames
-  const [myGamesInitialTab, setMyGamesInitialTab] = React.useState<FilterTab | undefined>(undefined);
+  const [myGamesInitialTab, setMyGamesInitialTab] = React.useState<
+    FilterTab | undefined
+  >(undefined);
   const initialTabConsumedRef = React.useRef(false);
- 
-  
+
   // Notification hook
   const { unreadCount, refreshUnreadCount } = useNotifications();
 
@@ -92,7 +105,7 @@ export default function DashboardScreen() {
   useFocusEffect(
     useCallback(() => {
       refreshUnreadCount();
-    }, [refreshUnreadCount])
+    }, [refreshUnreadCount]),
   );
 
   // Refresh profile data when dashboard gains focus (e.g., after returning from profile page with updated picture)
@@ -101,25 +114,25 @@ export default function DashboardScreen() {
       if (session?.user?.id) {
         fetchProfileData();
       }
-    }, [session?.user?.id])
+    }, [session?.user?.id]),
   );
-  
+
   // Chat unread count hook
   const chatUnreadCount = useUnreadCount();
 
   // Register socket event listeners at dashboard level for real-time updates
   // This ensures unread counts update even when not on the chat tab
-  useChatSocketEvents(null, session?.user?.id || '');
-  
+  useChatSocketEvents(null, session?.user?.id || "");
+
   // Use safe area insets for proper status bar handling across platforms
-  const STATUS_BAR_HEIGHT = insets.top;  // Helper function to get available sports for SportSwitcher
+  const STATUS_BAR_HEIGHT = insets.top; // Helper function to get available sports for SportSwitcher
   const getUserSelectedSports = () => {
     return ["pickleball", "tennis", "padel"];
   };
 
   // Set sport from route param if provided
   React.useEffect(() => {
-    if (routeSport && ['pickleball', 'tennis', 'padel'].includes(routeSport)) {
+    if (routeSport && ["pickleball", "tennis", "padel"].includes(routeSport)) {
       setSelectedSport(routeSport as "pickleball" | "tennis" | "padel");
     }
   }, [routeSport]);
@@ -133,15 +146,22 @@ export default function DashboardScreen() {
   }, [routeSport]);
 
   React.useEffect(() => {
-    if (routeView && ['dashboard', 'connect', 'friendly', 'myGames', 'chat'].includes(routeView)) {
-      setCurrentView(routeView as "dashboard" | "connect" | "friendly" | "myGames" | "chat");
+    if (
+      routeView &&
+      ["dashboard", "connect", "friendly", "myGames", "chat"].includes(
+        routeView,
+      )
+    ) {
+      setCurrentView(
+        routeView as "dashboard" | "connect" | "friendly" | "myGames" | "chat",
+      );
       // Set activeTab based on view
       const viewToTab: Record<string, number> = {
-        'connect': 0,
-        'friendly': 1,
-        'dashboard': 2,
-        'myGames': 3,
-        'chat': 4,
+        connect: 0,
+        friendly: 1,
+        dashboard: 2,
+        myGames: 3,
+        chat: 4,
       };
       if (viewToTab[routeView] !== undefined) {
         setActiveTab(viewToTab[routeView]);
@@ -151,15 +171,15 @@ export default function DashboardScreen() {
 
   // Handle tab param for navigating directly to a specific tab in MyGames
   React.useEffect(() => {
-    if (routeTab && routeView === 'myGames' && !initialTabConsumedRef.current) {
-      const validTabs = ['ALL', 'UPCOMING', 'PAST', 'INVITES'];
+    if (routeTab && routeView === "myGames" && !initialTabConsumedRef.current) {
+      const validTabs = ["ALL", "UPCOMING", "PAST", "INVITES"];
       if (validTabs.includes(routeTab.toUpperCase())) {
         setMyGamesInitialTab(routeTab.toUpperCase() as FilterTab);
         initialTabConsumedRef.current = true;
       }
     }
     // Reset when leaving myGames view
-    if (routeView !== 'myGames') {
+    if (routeView !== "myGames") {
       initialTabConsumedRef.current = false;
     }
   }, [routeTab, routeView]);
@@ -178,7 +198,7 @@ export default function DashboardScreen() {
     activeLeagues,
     isLoading: isLoadingActiveLeagues,
     hasActiveLeagues,
-    refetch: refetchActiveLeagues
+    refetch: refetchActiveLeagues,
   } = useUserActiveLeagues({
     sportType: currentSportConfig?.apiType,
     autoFetch: true,
@@ -187,14 +207,14 @@ export default function DashboardScreen() {
   const handleJoinLeague = async (leagueId: string) => {
     // Navigate directly to league details where user can join specific seasons
     // Note: League membership has been removed - users join seasons directly
-    const league = leagues.find(l => l.id === leagueId);
+    const league = leagues.find((l) => l.id === leagueId);
     router.push({
-      pathname: '/user-dashboard/league-details',
-      params: { 
+      pathname: "/user-dashboard/league-details",
+      params: {
         leagueId: leagueId,
-        leagueName: league?.name || 'League',
-        sport: selectedSport
-      }
+        leagueName: league?.name || "League",
+        sport: selectedSport,
+      },
     });
   };
 
@@ -268,7 +288,7 @@ export default function DashboardScreen() {
     // Let the natural flow handle email verification
     if (!session.user.emailVerified) {
       console.log(
-        "DashboardScreen: Email not verified, but allowing access (user might be verifying)"
+        "DashboardScreen: Email not verified, but allowing access (user might be verifying)",
       );
       return;
     }
@@ -286,7 +306,7 @@ export default function DashboardScreen() {
     };
     const subscription = BackHandler.addEventListener(
       "hardwareBackPress",
-      onBackPress
+      onBackPress,
     );
     return () => subscription.remove();
   }, [currentView]);
@@ -318,7 +338,7 @@ export default function DashboardScreen() {
     try {
       if (!session?.user?.id) {
         console.log(
-          "DashboardScreen: No session user ID available for profile data"
+          "DashboardScreen: No session user ID available for profile data",
         );
         return;
       }
@@ -333,7 +353,7 @@ export default function DashboardScreen() {
         `${backendUrl}/api/player/profile/me`,
         {
           method: "GET",
-        }
+        },
       );
 
       // console.log("DashboardScreen: Profile API response:", authResponse);
@@ -356,7 +376,7 @@ export default function DashboardScreen() {
         setProfileData((authResponse as any).data);
       } else {
         console.error(
-          "DashboardScreen: No profile data received from authClient"
+          "DashboardScreen: No profile data received from authClient",
         );
       }
     } catch (error) {
@@ -372,7 +392,11 @@ export default function DashboardScreen() {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
 
       // Fetch fresh profile data, leagues, and active leagues
-      await Promise.all([fetchProfileData(), refetch(), refetchActiveLeagues()]);
+      await Promise.all([
+        fetchProfileData(),
+        refetch(),
+        refetchActiveLeagues(),
+      ]);
 
       console.log("DashboardScreen: Dashboard data refreshed successfully");
     } catch (error) {
@@ -387,7 +411,17 @@ export default function DashboardScreen() {
     return (
       <View style={styles.container}>
         <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
-        <View style={[styles.headerContainer, { paddingTop: STATUS_BAR_HEIGHT }]}>
+        <View
+          style={[
+            styles.headerContainer,
+            {
+              paddingTop: STATUS_BAR_HEIGHT,
+              flexDirection: "row",
+              alignItems: "center",
+              justifyContent: "space-between",
+            },
+          ]}
+        >
           <TouchableOpacity
             style={styles.profilePicture}
             onPress={() => {
@@ -403,17 +437,31 @@ export default function DashboardScreen() {
             ) : (
               <View style={styles.defaultAvatarContainer}>
                 <Text style={styles.defaultAvatarText}>
-                  {(profileData?.name || session?.user?.name)?.charAt(0)?.toUpperCase() || "U"}
+                  {(profileData?.name || session?.user?.name)
+                    ?.charAt(0)
+                    ?.toUpperCase() || "U"}
                 </Text>
               </View>
             )}
           </TouchableOpacity>
-          <SportSwitcher
-            currentSport={selectedSport}
-            availableSports={getUserSelectedSports()}
-            onSportChange={setSelectedSport}
-          />
-          <View style={styles.headerRight}>
+
+          {/* Center: DeuceLogo */}
+          <View style={{ flex: 1, alignItems: "center", marginLeft: 50 }}>
+            <DeuceLogo width={40} height={40} />
+          </View>
+
+          {/* Right: ? button and NotificationBell */}
+          <View style={{ flexDirection: "row", alignItems: "center" }}>
+            <TouchableOpacity
+              style={{ marginRight: 10 }}
+              onPress={() => {
+                // TODO: Implement help/FAQ modal or navigation
+                router.push("/help");
+              }}
+              accessibilityLabel="Help"
+            >
+              <Ionicons name="help-circle-outline" size={36} color="#222" />
+            </TouchableOpacity>
             <NotificationBell unreadCount={unreadCount} />
           </View>
         </View>
@@ -445,61 +493,14 @@ export default function DashboardScreen() {
       </View>
     );
   }
-    
-    if (currentView === "myGames") {
-      return (
-        <View style={styles.container}>
-          <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
-          <View style={[styles.headerContainer, { paddingTop: STATUS_BAR_HEIGHT }]}>
-            <TouchableOpacity
-              style={styles.profilePicture}
-              onPress={() => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                router.push("/profile");
-              }}
-            >
-              {profileData?.image || session?.user?.image ? (
-                <Image
-                  source={{ uri: profileData?.image || session?.user?.image }}
-                  style={styles.profileImage}
-                />
-              ) : (
-                <View style={styles.defaultAvatarContainer}>
-                  <Text style={styles.defaultAvatarText}>
-                    {(profileData?.name || session?.user?.name)?.charAt(0)?.toUpperCase() || "U"}
-                  </Text>
-                </View>
-              )}
-            </TouchableOpacity>
-            <SportSwitcher
-              currentSport={selectedSport}
-              availableSports={getUserSelectedSports()}
-              onSportChange={setSelectedSport}
-            />
-            <View style={styles.headerRight}>
-              <NotificationBell unreadCount={unreadCount} />
-            </View>
-          </View>
-          <View style={styles.contentContainer}>
-            <View style={styles.contentBox}>
-              <MyGamesScreen sport={selectedSport} initialTab={myGamesInitialTab} />
-            </View>
-          </View>
-          <NavBar
-            activeTab={activeTab}
-            onTabPress={handleTabPress}
-            sport={selectedSport}
-            badgeCounts={{ chat: chatUnreadCount }}
-          />
-        </View>
-      );
-    }
 
-  if (currentView === "friendly") {
+  if (currentView === "myGames") {
     return (
       <View style={styles.container}>
         <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
-        <View style={[styles.headerContainer, { paddingTop: STATUS_BAR_HEIGHT }]}>
+        <View
+          style={[styles.headerContainer, { paddingTop: STATUS_BAR_HEIGHT }]}
+        >
           <TouchableOpacity
             style={styles.profilePicture}
             onPress={() => {
@@ -515,7 +516,9 @@ export default function DashboardScreen() {
             ) : (
               <View style={styles.defaultAvatarContainer}>
                 <Text style={styles.defaultAvatarText}>
-                  {(profileData?.name || session?.user?.name)?.charAt(0)?.toUpperCase() || "U"}
+                  {(profileData?.name || session?.user?.name)
+                    ?.charAt(0)
+                    ?.toUpperCase() || "U"}
                 </Text>
               </View>
             )}
@@ -526,6 +529,83 @@ export default function DashboardScreen() {
             onSportChange={setSelectedSport}
           />
           <View style={styles.headerRight}>
+            <NotificationBell unreadCount={unreadCount} />
+          </View>
+        </View>
+        <View style={styles.contentContainer}>
+          <View style={styles.contentBox}>
+            <MyGamesScreen
+              sport={selectedSport}
+              initialTab={myGamesInitialTab}
+            />
+          </View>
+        </View>
+        <NavBar
+          activeTab={activeTab}
+          onTabPress={handleTabPress}
+          sport={selectedSport}
+          badgeCounts={{ chat: chatUnreadCount }}
+        />
+      </View>
+    );
+  }
+
+  if (currentView === "friendly") {
+    return (
+      <View style={styles.container}>
+        <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
+        <View
+          style={[
+            styles.headerContainer,
+            {
+              paddingTop: STATUS_BAR_HEIGHT,
+              flexDirection: "row",
+              alignItems: "center",
+              justifyContent: "space-between",
+            },
+          ]}
+        >
+          {/* Left: Profile picture */}
+          <TouchableOpacity
+            style={styles.profilePicture}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              router.push("/profile");
+            }}
+          >
+            {profileData?.image || session?.user?.image ? (
+              <Image
+                source={{ uri: profileData?.image || session?.user?.image }}
+                style={styles.profileImage}
+              />
+            ) : (
+              <View style={styles.defaultAvatarContainer}>
+                <Text style={styles.defaultAvatarText}>
+                  {(profileData?.name || session?.user?.name)
+                    ?.charAt(0)
+                    ?.toUpperCase() || "U"}
+                </Text>
+              </View>
+            )}
+          </TouchableOpacity>
+
+          {/* Center: DeuceLogo */}
+          <View style={{ flex: 1, alignItems: "center", marginLeft: 50 }}>
+            <DeuceLogo width={40} height={40} />
+          </View>
+
+          {/* Right: ? button and NotificationBell */}
+          <View style={{ flexDirection: "row", alignItems: "center" }}>
+            <TouchableOpacity
+              style={{ marginRight: 20 }}
+              onPress={() => {
+                // TODO: Implement help/FAQ modal or navigation
+                router.push("/help");
+              }}
+              accessibilityLabel="Help"
+            >
+              <Ionicons name="help-circle-outline" size={26} color="#222" />
+            </TouchableOpacity>
             <NotificationBell unreadCount={unreadCount} />
           </View>
         </View>
@@ -564,7 +644,7 @@ export default function DashboardScreen() {
               onError={() => {
                 console.log(
                   "Profile image failed to load:",
-                  profileData?.image || session?.user?.image
+                  profileData?.image || session?.user?.image,
                 );
               }}
             />
@@ -609,7 +689,7 @@ export default function DashboardScreen() {
             scrollEventThrottle={16}
             onScroll={Animated.event(
               [{ nativeEvent: { contentOffset: { y: scrollY } } }],
-              { useNativeDriver: true }
+              { useNativeDriver: true },
             )}
           >
             {/* Conditionally show Active Leagues or Recommended League */}
@@ -662,7 +742,9 @@ export default function DashboardScreen() {
                     <LeagueGrid
                       leagues={leagues.filter((league) => {
                         // Filter out leagues user is already in
-                        const isActiveLeague = activeLeagues.some(al => al.id === league.id);
+                        const isActiveLeague = activeLeagues.some(
+                          (al) => al.id === league.id,
+                        );
                         if (isActiveLeague) return false;
                         if (!searchTerm.trim()) return true;
                         const search = searchTerm.toLowerCase();
@@ -685,33 +767,39 @@ export default function DashboardScreen() {
                     Recommended league
                   </Text>
                   <View style={styles.locationRow}>
-                    {selectedSport === 'pickleball' ? (
+                    {selectedSport === "pickleball" ? (
                       <PickleballLocationIcon
-                      width={11}
-                      height={10}
-                      style={styles.locationIcon}
-                      fill={selectedSport === 'pickleball' ? '#A04DFE' : undefined}
-                    />
-                    ) : selectedSport === 'tennis' ? (
+                        width={11}
+                        height={10}
+                        style={styles.locationIcon}
+                        fill={
+                          selectedSport === "pickleball" ? "#A04DFE" : undefined
+                        }
+                      />
+                    ) : selectedSport === "tennis" ? (
                       <TennisLocationIcon
-                      width={11}
-                      height={10}
-                      style={styles.locationIcon}
-                      fill={selectedSport === 'tennis' ? '#84B43F' : undefined}
-                    />
+                        width={11}
+                        height={10}
+                        style={styles.locationIcon}
+                        fill={
+                          selectedSport === "tennis" ? "#84B43F" : undefined
+                        }
+                      />
                     ) : (
                       <PadelLocationIcon
-                      width={11}
-                      height={10}
-                      style={styles.locationIcon}
-                      fill={selectedSport === 'padel' ? '#1B72C0' : undefined}
-                    />
+                        width={11}
+                        height={10}
+                        style={styles.locationIcon}
+                        fill={selectedSport === "padel" ? "#1B72C0" : undefined}
+                      />
                     )}
-                    <Text style={[
-                      styles.locationFilterText,
-                      selectedSport === 'tennis' && { color: '#4A7D00' },
-                      selectedSport === 'padel' && { color: '#1B72C0' }
-                    ]}>
+                    <Text
+                      style={[
+                        styles.locationFilterText,
+                        selectedSport === "tennis" && { color: "#4A7D00" },
+                        selectedSport === "padel" && { color: "#1B72C0" },
+                      ]}
+                    >
                       Based on your location
                     </Text>
                   </View>
@@ -723,7 +811,10 @@ export default function DashboardScreen() {
                 ) : error ? (
                   <View style={styles.errorContainer}>
                     <Text style={styles.errorText}>Failed to load leagues</Text>
-                    <TouchableOpacity style={styles.retryButton} onPress={refetch}>
+                    <TouchableOpacity
+                      style={styles.retryButton}
+                      onPress={refetch}
+                    >
                       <Text style={styles.retryButtonText}>Retry</Text>
                     </TouchableOpacity>
                   </View>
