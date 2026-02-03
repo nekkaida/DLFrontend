@@ -693,7 +693,7 @@ const localStyles = StyleSheet.create({
     alignItems: "flex-start",
     paddingHorizontal: 16,
     marginBottom: 24,
-    height: 120,
+    height: 100,
   },
   title: {
     fontSize: 24,
