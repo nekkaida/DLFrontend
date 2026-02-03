@@ -1,15 +1,21 @@
 // src/features/feed/components/index.ts
 
-export { AuthorHeader } from './AuthorHeader';
-export { SocialBar } from './SocialBar';
-export { FeedPostCard } from './FeedPostCard';
-export { FeedHeader } from './FeedHeader';
-export { CommentsSheet } from './CommentsSheet';
-export { SportFilterSheet } from './SportFilterSheet';
-export { LikersSheet } from './LikersSheet';
-export { PostOptionsSheet } from './PostOptionsSheet';
-export { EditCaptionSheet } from './EditCaptionSheet';
-export { ShareOptionsSheet } from './ShareOptionsSheet';
-export { PostMatchShareSheet } from './PostMatchShareSheet';
-export { ScorecardCaptureWrapper, type ScorecardCaptureRef } from './ScorecardCaptureWrapper';
-export type { ShareStyle } from './ShareOptionsSheet';
+export { AuthorHeader } from "./AuthorHeader";
+export { CommentsSheet } from "./CommentsSheet";
+export { EditCaptionSheet } from "./EditCaptionSheet";
+export { FeedHeader } from "./FeedHeader";
+export { FeedPostCard } from "./FeedPostCard";
+export { LikersSheet } from "./LikersSheet";
+export { PostMatchShareSheet } from "./PostMatchShareSheet";
+export { PostOptionsSheet } from "./PostOptionsSheet";
+export {
+    ScorecardCaptureWrapper,
+    type ScorecardCaptureRef
+} from "./ScorecardCaptureWrapper";
+export { ShareOptionsSheet } from "./ShareOptionsSheet";
+export type { ShareStyle } from "./ShareOptionsSheet";
+export { SocialBar } from "./SocialBar";
+export { SolidScorecard } from "./SolidScorecard";
+export { SportFilterSheet } from "./SportFilterSheet";
+export { TransparentScorecard } from "./TransparentScorecard";
+
