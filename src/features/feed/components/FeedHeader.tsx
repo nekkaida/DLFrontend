@@ -25,7 +25,7 @@ export const FeedHeader: React.FC<FeedHeaderProps> = ({
   return (
     <View style={styles.container}>
       <View style={styles.titleRow}>
-        <Text style={styles.title}>Feed</Text>
+        <Text style={styles.title}>Activity</Text>
         <View style={styles.headerButtons}>
           {onCreatePostPress && (
             <TouchableOpacity
@@ -33,7 +33,7 @@ export const FeedHeader: React.FC<FeedHeaderProps> = ({
               onPress={onCreatePostPress}
               activeOpacity={0.7}
             >
-              <Ionicons name="add-circle-outline" size={24} color={feedTheme.colors.primary} />
+              <Ionicons name="add-circle-outline" size={26} color={feedTheme.colors.primary} />
             </TouchableOpacity>
           )}
           <TouchableOpacity
@@ -41,7 +41,7 @@ export const FeedHeader: React.FC<FeedHeaderProps> = ({
             onPress={onFriendListPress}
             activeOpacity={0.7}
           >
-            <Ionicons name="people-outline" size={24} color={feedTheme.colors.textPrimary} />
+            <Ionicons name="people" size={26} color={feedTheme.colors.textPrimary} />
           </TouchableOpacity>
         </View>
       </View>
@@ -108,7 +108,6 @@ const styles = StyleSheet.create({
   headerButton: {
     padding: 8,
     borderRadius: 20,
-    backgroundColor: feedTheme.colors.border,
   },
   filtersRow: {
     flexDirection: 'row',
@@ -131,7 +130,7 @@ const styles = StyleSheet.create({
   },
   filterText: {
     ...feedTheme.typography.filterText,
-    color: feedTheme.colors.textSecondary,
+    color: feedTheme.colors.textPrimary,
     marginRight: 4,
   },
   filterTextActive: {
