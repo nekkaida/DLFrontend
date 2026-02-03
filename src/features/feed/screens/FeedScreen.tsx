@@ -1,31 +1,45 @@
 // src/features/feed/screens/FeedScreen.tsx
 
-import React, { useEffect, useCallback, useRef, useState, useMemo } from 'react';
-import { View, StyleSheet, FlatList, RefreshControl, ActivityIndicator, Text, TouchableOpacity } from 'react-native';
-import { router } from 'expo-router';
-import BottomSheet from '@gorhom/bottom-sheet';
-import { getSportColors, SportType } from '@/constants/SportsColor';
-import { useSession } from '@/lib/auth-client';
-import { useFeedPosts, usePostActions, useSharePost } from '../hooks';
+import { getSportColors, SportType } from "@/constants/SportsColor";
+import { useSession } from "@/lib/auth-client";
+import BottomSheet from "@gorhom/bottom-sheet";
+import { router } from "expo-router";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import {
+  ActivityIndicator,
+  FlatList,
+  RefreshControl,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
+import {
+  CommentsSheet,
+  EditCaptionSheet,
   FeedHeader,
   FeedPostCard,
-  CommentsSheet,
-  SportFilterSheet,
   LikersSheet,
   PostOptionsSheet,
-  EditCaptionSheet,
   ShareOptionsSheet,
+  SportFilterSheet,
   type ScorecardCaptureRef,
-} from '../components';
-import { feedTheme } from '../theme';
-import { FeedPost } from '../types';
+} from "../components";
+import { useFeedPosts, usePostActions, useSharePost } from "../hooks";
+import { feedTheme } from "../theme";
+import { FeedPost } from "../types";
 
 interface FeedScreenProps {
   sport?: string;
 }
 
-export default function FeedScreen({ sport = 'default' }: FeedScreenProps) {
+export default function FeedScreen({ sport = "default" }: FeedScreenProps) {
   // Session and post actions
   const { data: session } = useSession();
   const currentUserId = session?.user?.id;
@@ -35,25 +49,38 @@ export default function FeedScreen({ sport = 'default' }: FeedScreenProps) {
   const [selectedPostId, setSelectedPostId] = useState<string | null>(null);
   const commentsSheetRef = useRef<BottomSheet>(null);
   const sportFilterRef = useRef<BottomSheet>(null);
-  const [selectedLikerPostId, setSelectedLikerPostId] = useState<string | null>(null);
+  const [selectedLikerPostId, setSelectedLikerPostId] = useState<string | null>(
+    null,
+  );
   const [selectedLikerCount, setSelectedLikerCount] = useState(0);
   const likersSheetRef = useRef<BottomSheet>(null);
 
   // Post options state
-  const [selectedOptionsPostId, setSelectedOptionsPostId] = useState<string | null>(null);
-  const [selectedOptionsPost, setSelectedOptionsPost] = useState<FeedPost | null>(null);
+  const [selectedOptionsPostId, setSelectedOptionsPostId] = useState<
+    string | null
+  >(null);
+  const [selectedOptionsPost, setSelectedOptionsPost] =
+    useState<FeedPost | null>(null);
   const postOptionsRef = useRef<BottomSheet>(null);
 
   // Edit caption state
   const [editingPostId, setEditingPostId] = useState<string | null>(null);
-  const [editingCaption, setEditingCaption] = useState<string>('');
+  const [editingCaption, setEditingCaption] = useState<string>("");
   const editCaptionRef = useRef<BottomSheet>(null);
 
   // Share state
   const [sharePostId, setSharePostId] = useState<string | null>(null);
   const shareSheetRef = useRef<BottomSheet>(null);
   const scorecardRefs = useRef<Map<string, ScorecardCaptureRef>>(new Map());
-  const { captureAndShare, captureAndSave, shareLink, isCapturing, isSaving, shareError, clearShareError } = useSharePost();
+  const {
+    captureAndShare,
+    captureAndSave,
+    shareLink,
+    isCapturing,
+    isSaving,
+    shareError,
+    clearShareError,
+  } = useSharePost();
 
   // Refs for race condition prevention and cleanup
   const isDeletingRef = useRef(false);
@@ -62,8 +89,10 @@ export default function FeedScreen({ sport = 'default' }: FeedScreenProps) {
   const editTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isLoadingMoreRef = useRef(false);
 
-  const [selectedSportFilter, setSelectedSportFilter] = useState<string | undefined>(sport);
-  const [userFilter, setUserFilter] = useState<'all' | 'friends'>('all');
+  const [selectedSportFilter, setSelectedSportFilter] = useState<
+    string | undefined
+  >(sport);
+  const [userFilter, setUserFilter] = useState<"all" | "friends">("all");
 
   // Cleanup on unmount
   useEffect(() => {
@@ -93,7 +122,7 @@ export default function FeedScreen({ sport = 'default' }: FeedScreenProps) {
   }, []);
 
   const handleUserFilterToggle = useCallback(() => {
-    setUserFilter(prev => prev === 'all' ? 'friends' : 'all');
+    setUserFilter((prev) => (prev === "all" ? "friends" : "all"));
   }, []);
 
   const {
@@ -106,10 +135,10 @@ export default function FeedScreen({ sport = 'default' }: FeedScreenProps) {
     loadMorePosts,
     updatePostLocally,
     removePostLocally,
-  } = useFeedPosts({ 
-    sport: selectedSportFilter, 
-    limit: 10, 
-    filter: userFilter // 'all' shows all users, 'friends' shows friends + own posts
+  } = useFeedPosts({
+    sport: selectedSportFilter,
+    limit: 10,
+    filter: userFilter,
   });
 
   // Debounced load more to prevent multiple rapid calls from onEndReached
@@ -128,7 +157,10 @@ export default function FeedScreen({ sport = 'default' }: FeedScreenProps) {
   const sportType = sport?.toUpperCase() as SportType;
   const sportColors = useMemo(() => getSportColors(sportType), [sportType]);
   // Game score sports use gameScores array instead of setScores
-  const isGameScoreSport = useMemo(() => sport !== 'tennis' && sport !== 'padel', [sport]);
+  const isGameScoreSport = useMemo(
+    () => sport !== "tennis" && sport !== "padel",
+    [sport],
+  );
 
   // Fetch posts on mount and cleanup on unmount
   useEffect(() => {
@@ -146,26 +178,34 @@ export default function FeedScreen({ sport = 'default' }: FeedScreenProps) {
   }, [fetchPosts]);
 
   const handleFriendListPress = useCallback(() => {
-    router.push('/user-dashboard/friend-list');
+    router.push("/user-dashboard/friend-list");
   }, []);
 
   const handleCreatePostPress = useCallback(() => {
     // Navigate to My Games with share mode to select a match to share
-    router.push('/user-dashboard?view=myGames&tab=HISTORY&shareMode=true' as any);
+    router.push(
+      "/user-dashboard?view=myGames&tab=HISTORY&shareMode=true" as any,
+    );
   }, []);
 
-  const handleLikeUpdate = useCallback((postId: string, liked: boolean, likeCount: number) => {
-    updatePostLocally(postId, { isLikedByUser: liked, likeCount });
-  }, [updatePostLocally]);
+  const handleLikeUpdate = useCallback(
+    (postId: string, liked: boolean, likeCount: number) => {
+      updatePostLocally(postId, { isLikedByUser: liked, likeCount });
+    },
+    [updatePostLocally],
+  );
 
   const handleCommentPress = useCallback((postId: string) => {
     setSelectedPostId(postId);
     commentsSheetRef.current?.snapToIndex(0);
   }, []);
 
-  const handleCommentCountChange = useCallback((postId: string, count: number) => {
-    updatePostLocally(postId, { commentCount: count });
-  }, [updatePostLocally]);
+  const handleCommentCountChange = useCallback(
+    (postId: string, count: number) => {
+      updatePostLocally(postId, { commentCount: count });
+    },
+    [updatePostLocally],
+  );
 
   const handleCloseComments = useCallback(() => {
     setSelectedPostId(null);
@@ -177,16 +217,19 @@ export default function FeedScreen({ sport = 'default' }: FeedScreenProps) {
 
   const handleMatchPress = useCallback((matchId: string) => {
     router.push({
-      pathname: '/match/match-details',
+      pathname: "/match/match-details",
       params: { matchId },
     } as any);
   }, []);
 
-  const handleLikeCountPress = useCallback((postId: string, likeCount: number) => {
-    setSelectedLikerPostId(postId);
-    setSelectedLikerCount(likeCount);
-    likersSheetRef.current?.snapToIndex(0);
-  }, []);
+  const handleLikeCountPress = useCallback(
+    (postId: string, likeCount: number) => {
+      setSelectedLikerPostId(postId);
+      setSelectedLikerCount(likeCount);
+      likersSheetRef.current?.snapToIndex(0);
+    },
+    [],
+  );
 
   const handleCloseLikers = useCallback(() => {
     setSelectedLikerPostId(null);
@@ -207,7 +250,7 @@ export default function FeedScreen({ sport = 'default' }: FeedScreenProps) {
   const handleEditPress = useCallback(() => {
     if (selectedOptionsPost) {
       setEditingPostId(selectedOptionsPost.id);
-      setEditingCaption(selectedOptionsPost.caption || '');
+      setEditingCaption(selectedOptionsPost.caption || "");
       postOptionsRef.current?.close();
 
       // Clear any existing timeout before setting new one
@@ -244,24 +287,27 @@ export default function FeedScreen({ sport = 'default' }: FeedScreenProps) {
 
   const handleCloseEdit = useCallback(() => {
     setEditingPostId(null);
-    setEditingCaption('');
+    setEditingCaption("");
   }, []);
 
-  const handleSaveCaption = useCallback(async (postId: string, newCaption: string) => {
-    // Guard against double-save race condition
-    if (isSavingRef.current) return;
-    isSavingRef.current = true;
+  const handleSaveCaption = useCallback(
+    async (postId: string, newCaption: string) => {
+      // Guard against double-save race condition
+      if (isSavingRef.current) return;
+      isSavingRef.current = true;
 
-    try {
-      const success = await editCaption(postId, newCaption);
-      if (success && isMountedRef.current) {
-        updatePostLocally(postId, { caption: newCaption });
-        editCaptionRef.current?.close();
+      try {
+        const success = await editCaption(postId, newCaption);
+        if (success && isMountedRef.current) {
+          updatePostLocally(postId, { caption: newCaption });
+          editCaptionRef.current?.close();
+        }
+      } finally {
+        isSavingRef.current = false;
       }
-    } finally {
-      isSavingRef.current = false;
-    }
-  }, [editCaption, updatePostLocally]);
+    },
+    [editCaption, updatePostLocally],
+  );
 
   // Share handlers
   const handleSharePress = useCallback((post: FeedPost) => {
@@ -269,42 +315,87 @@ export default function FeedScreen({ sport = 'default' }: FeedScreenProps) {
     shareSheetRef.current?.snapToIndex(0);
   }, []);
 
-  const handleShareImage = useCallback(async (style?: 'transparent' | 'white') => {
-    if (!sharePostId) return;
-    const scorecardRef = scorecardRefs.current.get(sharePostId);
-    if (scorecardRef) {
-      // Set background style based on selection
-      scorecardRef.setBackgroundStyle(style === 'transparent' ? 'transparent' : 'white');
-      // Small delay to ensure style is applied before capture
-      await new Promise(resolve => setTimeout(resolve, 50));
-      await captureAndShare({ current: scorecardRef.viewRef }, { style });
-    }
-  }, [sharePostId, captureAndShare]);
+  const handleShareImage = useCallback(
+    async (style?: "transparent" | "white") => {
+      if (!sharePostId) return;
+      const scorecardRef = scorecardRefs.current.get(sharePostId);
+      if (scorecardRef) {
+        // Set background style based on selection
+        scorecardRef.setBackgroundStyle(
+          style === "transparent" ? "transparent" : "white",
+        );
+        // Small delay to ensure style is applied before capture
+        await new Promise((resolve) => setTimeout(resolve, 50));
+        await captureAndShare(
+          { current: scorecardRef.viewRef },
+          {
+            style,
+            format: "png",
+            quality: 1.0,
+            pixelRatio: 3,
+            width: 1080,
+            height: 1920,
+          },
+        );
+      }
+    },
+    [sharePostId, captureAndShare],
+  );
 
-  const handleSaveImage = useCallback(async (style?: 'transparent' | 'white') => {
-    if (!sharePostId) return;
-    const scorecardRef = scorecardRefs.current.get(sharePostId);
-    if (scorecardRef) {
-      // Set background style based on selection
-      scorecardRef.setBackgroundStyle(style === 'transparent' ? 'transparent' : 'white');
-      // Small delay to ensure style is applied before capture
-      await new Promise(resolve => setTimeout(resolve, 50));
-      await captureAndSave({ current: scorecardRef.viewRef }, { style });
-    }
-  }, [sharePostId, captureAndSave]);
+  const handleSaveImage = useCallback(
+    async (style?: "transparent" | "white") => {
+      if (!sharePostId) return;
+      const scorecardRef = scorecardRefs.current.get(sharePostId);
+      if (scorecardRef) {
+        // Set background style based on selection
+        scorecardRef.setBackgroundStyle(
+          style === "transparent" ? "transparent" : "white",
+        );
+        // Small delay to ensure style is applied before capture
+        await new Promise((resolve) => setTimeout(resolve, 50));
+        await captureAndSave(
+          { current: scorecardRef.viewRef },
+          {
+            style,
+            format: "png",
+            quality: 1.0,
+            pixelRatio: 3,
+            width: 1080,
+            height: 1920,
+          },
+        );
+      }
+    },
+    [sharePostId, captureAndSave],
+  );
 
-  const handleShareToInstagram = useCallback(async (style?: 'transparent' | 'white') => {
-    if (!sharePostId) return;
-    const scorecardRef = scorecardRefs.current.get(sharePostId);
-    if (scorecardRef) {
-      // Set background style based on selection
-      scorecardRef.setBackgroundStyle(style === 'transparent' ? 'transparent' : 'white');
-      // Small delay to ensure style is applied before capture
-      await new Promise(resolve => setTimeout(resolve, 50));
-      // Instagram share saves and shares to Instagram
-      await captureAndShare({ current: scorecardRef.viewRef }, { style });
-    }
-  }, [sharePostId, captureAndShare]);
+  const handleShareToInstagram = useCallback(
+    async (style?: "transparent" | "white") => {
+      if (!sharePostId) return;
+      const scorecardRef = scorecardRefs.current.get(sharePostId);
+      if (scorecardRef) {
+        // Set background style based on selection
+        scorecardRef.setBackgroundStyle(
+          style === "transparent" ? "transparent" : "white",
+        );
+        // Small delay to ensure style is applied before capture
+        await new Promise((resolve) => setTimeout(resolve, 50));
+        // Instagram share saves and shares to Instagram
+        await captureAndShare(
+          { current: scorecardRef.viewRef },
+          {
+            style,
+            format: "png",
+            quality: 1.0,
+            pixelRatio: 3,
+            width: 1080,
+            height: 1920,
+          },
+        );
+      }
+    },
+    [sharePostId, captureAndShare],
+  );
 
   const handleShareLink = useCallback(async () => {
     if (!sharePostId) return;
@@ -315,29 +406,42 @@ export default function FeedScreen({ sport = 'default' }: FeedScreenProps) {
     setSharePostId(null);
   }, []);
 
-  const renderPost = useCallback(({ item }: { item: FeedPost }) => {
-    const isOwnPost = currentUserId === item.authorId;
-    return (
-      <FeedPostCard
-        post={item}
-        onLikeUpdate={handleLikeUpdate}
-        onCommentPress={handleCommentPress}
-        onAuthorPress={handleAuthorPress}
-        onLikeCountPress={handleLikeCountPress}
-        onOptionsPress={handleOptionsPress}
-        onSharePress={handleSharePress}
-        onMatchPress={handleMatchPress}
-        showOptionsButton={isOwnPost}
-        onScorecardRef={(postId, ref) => {
-          if (ref) {
-            scorecardRefs.current.set(postId, ref);
-          } else {
-            scorecardRefs.current.delete(postId);
-          }
-        }}
-      />
-    );
-  }, [handleLikeUpdate, handleCommentPress, handleAuthorPress, handleLikeCountPress, handleOptionsPress, handleSharePress, handleMatchPress, currentUserId]);
+  const renderPost = useCallback(
+    ({ item }: { item: FeedPost }) => {
+      const isOwnPost = currentUserId === item.authorId;
+      return (
+        <FeedPostCard
+          post={item}
+          onLikeUpdate={handleLikeUpdate}
+          onCommentPress={handleCommentPress}
+          onAuthorPress={handleAuthorPress}
+          onLikeCountPress={handleLikeCountPress}
+          onOptionsPress={handleOptionsPress}
+          onSharePress={handleSharePress}
+          onMatchPress={handleMatchPress}
+          showOptionsButton={isOwnPost}
+          currentUserId={currentUserId}
+          onScorecardRef={(postId, ref) => {
+            if (ref) {
+              scorecardRefs.current.set(postId, ref);
+            } else {
+              scorecardRefs.current.delete(postId);
+            }
+          }}
+        />
+      );
+    },
+    [
+      handleLikeUpdate,
+      handleCommentPress,
+      handleAuthorPress,
+      handleLikeCountPress,
+      handleOptionsPress,
+      handleSharePress,
+      handleMatchPress,
+      currentUserId,
+    ],
+  );
 
   const renderFooter = useCallback(() => {
     if (!isLoadingMore) return null;
@@ -382,7 +486,10 @@ export default function FeedScreen({ sport = 'default' }: FeedScreenProps) {
             We couldn't load the feed. Please try again.
           </Text>
           <TouchableOpacity
-            style={[styles.retryButton, isLoading && styles.retryButtonDisabled]}
+            style={[
+              styles.retryButton,
+              isLoading && styles.retryButtonDisabled,
+            ]}
             onPress={fetchPosts}
             activeOpacity={0.7}
             disabled={isLoading}
@@ -487,8 +594,8 @@ const styles = StyleSheet.create({
   },
   loadingContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
   },
   listContent: {
     paddingHorizontal: feedTheme.spacing.screenPadding,
@@ -496,44 +603,44 @@ const styles = StyleSheet.create({
   },
   footer: {
     paddingVertical: 20,
-    alignItems: 'center',
+    alignItems: "center",
   },
   emptyContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     paddingTop: 60,
     paddingHorizontal: 40,
   },
   emptyTitle: {
     fontSize: 18,
-    fontWeight: '600',
+    fontWeight: "600",
     color: feedTheme.colors.textPrimary,
     marginBottom: 8,
   },
   emptySubtitle: {
     fontSize: 14,
     color: feedTheme.colors.textSecondary,
-    textAlign: 'center',
+    textAlign: "center",
     lineHeight: 20,
   },
   errorContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     paddingTop: 60,
     paddingHorizontal: 40,
   },
   errorTitle: {
     fontSize: 18,
-    fontWeight: '600',
+    fontWeight: "600",
     color: feedTheme.colors.textPrimary,
     marginBottom: 8,
   },
   errorSubtitle: {
     fontSize: 14,
     color: feedTheme.colors.textSecondary,
-    textAlign: 'center',
+    textAlign: "center",
     lineHeight: 20,
     marginBottom: 20,
   },
@@ -543,14 +650,14 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     borderRadius: 8,
     minWidth: 80,
-    alignItems: 'center',
+    alignItems: "center",
   },
   retryButtonDisabled: {
     opacity: 0.7,
   },
   retryButtonText: {
-    color: '#FFFFFF',
+    color: "#FFFFFF",
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: "600",
   },
 });

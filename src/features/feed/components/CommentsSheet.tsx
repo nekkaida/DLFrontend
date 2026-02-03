@@ -1,27 +1,30 @@
 // src/features/feed/components/CommentsSheet.tsx
 
-import React, { useEffect, useState, useCallback, useRef } from 'react';
+import { useSession } from "@/lib/auth-client";
+import { Ionicons } from "@expo/vector-icons";
+import BottomSheet, {
+  BottomSheetBackdrop,
+  BottomSheetView,
+} from "@gorhom/bottom-sheet";
+import { formatDistanceToNow } from "date-fns";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
-  View,
-  Text,
-  StyleSheet,
-  TextInput,
-  TouchableOpacity,
+  Animated,
   FlatList,
+  Image,
   KeyboardAvoidingView,
   Platform,
-  Image,
-  Animated,
-} from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import { formatDistanceToNow } from 'date-fns';
-import BottomSheet, { BottomSheetBackdrop, BottomSheetView } from '@gorhom/bottom-sheet';
-import { Swipeable } from 'react-native-gesture-handler';
-import { useSession } from '@/lib/auth-client';
-import { useComments } from '../hooks';
-import { PostComment } from '../types';
-import { feedTheme } from '../theme';
-import { processDisplayName } from '../utils/formatters';
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from "react-native";
+import { Swipeable } from "react-native-gesture-handler";
+import { useComments } from "../hooks";
+import { feedTheme } from "../theme";
+import { PostComment } from "../types";
+import { processDisplayName } from "../utils/formatters";
 
 interface CommentsSheetProps {
   postId: string | null;
@@ -36,11 +39,17 @@ export const CommentsSheet: React.FC<CommentsSheetProps> = ({
   onClose,
   onCommentCountChange,
 }) => {
-  const [inputText, setInputText] = useState('');
+  const [inputText, setInputText] = useState("");
   const { data: session } = useSession();
   const currentUserId = session?.user?.id;
-  const { comments, isLoading, isSubmitting, fetchComments, addComment, deleteComment } =
-    useComments(postId || '');
+  const {
+    comments,
+    isLoading,
+    isSubmitting,
+    fetchComments,
+    addComment,
+    deleteComment,
+  } = useComments(postId || "");
   const swipeableRefs = useRef<Map<string, Swipeable | null>>(new Map());
 
   useEffect(() => {
@@ -54,31 +63,34 @@ export const CommentsSheet: React.FC<CommentsSheetProps> = ({
 
     const newComment = await addComment(inputText.trim());
     if (newComment) {
-      setInputText('');
+      setInputText("");
       onCommentCountChange(postId, comments.length + 1);
     }
   }, [inputText, postId, addComment, comments.length, onCommentCountChange]);
 
-  const handleDelete = useCallback(async (commentId: string) => {
-    if (!postId) return;
+  const handleDelete = useCallback(
+    async (commentId: string) => {
+      if (!postId) return;
 
-    // Close the swipeable before deleting
-    const swipeableRef = swipeableRefs.current.get(commentId);
-    if (swipeableRef) {
-      swipeableRef.close();
-    }
+      // Close the swipeable before deleting
+      const swipeableRef = swipeableRefs.current.get(commentId);
+      if (swipeableRef) {
+        swipeableRef.close();
+      }
 
-    const success = await deleteComment(commentId);
-    if (success) {
-      onCommentCountChange(postId, comments.length - 1);
-    }
-  }, [postId, deleteComment, comments.length, onCommentCountChange]);
+      const success = await deleteComment(commentId);
+      if (success) {
+        onCommentCountChange(postId, comments.length - 1);
+      }
+    },
+    [postId, deleteComment, comments.length, onCommentCountChange],
+  );
 
   const renderRightActions = useCallback(
     (commentId: string) =>
       (
         _progress: Animated.AnimatedInterpolation<number>,
-        _dragX: Animated.AnimatedInterpolation<number>
+        _dragX: Animated.AnimatedInterpolation<number>,
       ) => (
         <TouchableOpacity
           style={styles.deleteAction}
@@ -89,33 +101,43 @@ export const CommentsSheet: React.FC<CommentsSheetProps> = ({
           <Text style={styles.deleteActionText}>Delete</Text>
         </TouchableOpacity>
       ),
-    [handleDelete]
+    [handleDelete],
   );
 
-  const renderCommentContent = useCallback((item: PostComment) => (
-    <View style={styles.commentItem}>
-      {item.user.image ? (
-        <Image source={{ uri: item.user.image }} style={styles.commentAvatar} />
-      ) : (
-        <View style={[styles.commentAvatar, styles.commentAvatarPlaceholder]}>
-          <Text style={styles.commentAvatarText}>
-            {item.user.name?.trim() ? item.user.name.charAt(0).toUpperCase() : 'D'}
-          </Text>
+  const renderCommentContent = useCallback(
+    (item: PostComment) => (
+      <View style={styles.commentItem}>
+        {item.user.image ? (
+          <Image
+            source={{ uri: item.user.image }}
+            style={styles.commentAvatar}
+          />
+        ) : (
+          <View style={[styles.commentAvatar, styles.commentAvatarPlaceholder]}>
+            <Text style={styles.commentAvatarText}>
+              {item.user.name?.trim()
+                ? item.user.name.charAt(0).toUpperCase()
+                : "D"}
+            </Text>
+          </View>
+        )}
+        <View style={styles.commentContent}>
+          <View style={styles.commentHeader}>
+            <Text style={styles.commentAuthor} numberOfLines={1}>
+              {processDisplayName(item.user.name, 20)}
+            </Text>
+            <Text style={styles.commentTime}>
+              {formatDistanceToNow(new Date(item.createdAt), {
+                addSuffix: false,
+              })}
+            </Text>
+          </View>
+          <Text style={styles.commentText}>{item.text}</Text>
         </View>
-      )}
-      <View style={styles.commentContent}>
-        <View style={styles.commentHeader}>
-          <Text style={styles.commentAuthor} numberOfLines={1}>
-            {processDisplayName(item.user.name, 20)}
-          </Text>
-          <Text style={styles.commentTime}>
-            {formatDistanceToNow(new Date(item.createdAt), { addSuffix: false })}
-          </Text>
-        </View>
-        <Text style={styles.commentText}>{item.text}</Text>
       </View>
-    </View>
-  ), []);
+    ),
+    [],
+  );
 
   const renderComment = useCallback(
     ({ item }: { item: PostComment }) => {
@@ -142,7 +164,7 @@ export const CommentsSheet: React.FC<CommentsSheetProps> = ({
 
       return renderCommentContent(item);
     },
-    [currentUserId, renderRightActions, renderCommentContent]
+    [currentUserId, renderRightActions, renderCommentContent],
   );
 
   const renderBackdrop = useCallback(
@@ -154,14 +176,14 @@ export const CommentsSheet: React.FC<CommentsSheetProps> = ({
         opacity={0.5}
       />
     ),
-    []
+    [],
   );
 
   return (
     <BottomSheet
       ref={bottomSheetRef}
       index={-1}
-      snapPoints={['60%', '90%']}
+      snapPoints={["30%", "90%"]}
       enablePanDownToClose
       onClose={onClose}
       backdropComponent={renderBackdrop}
@@ -178,13 +200,13 @@ export const CommentsSheet: React.FC<CommentsSheetProps> = ({
           showsVerticalScrollIndicator={false}
           ListEmptyComponent={
             <Text style={styles.emptyText}>
-              {isLoading ? 'Loading comments...' : 'Be the first to comment!'}
+              {isLoading ? "Loading comments..." : "Be the first to comment!"}
             </Text>
           }
         />
 
         <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
           keyboardVerticalOffset={100}
         >
           <View style={styles.inputContainer}>
@@ -198,14 +220,21 @@ export const CommentsSheet: React.FC<CommentsSheetProps> = ({
               maxLength={200}
             />
             <TouchableOpacity
-              style={[styles.sendButton, !inputText.trim() && styles.sendButtonDisabled]}
+              style={[
+                styles.sendButton,
+                !inputText.trim() && styles.sendButtonDisabled,
+              ]}
               onPress={handleSubmit}
               disabled={!inputText.trim() || isSubmitting}
             >
               <Ionicons
                 name="send"
                 size={20}
-                color={inputText.trim() ? feedTheme.colors.primary : feedTheme.colors.textTertiary}
+                color={
+                  inputText.trim()
+                    ? feedTheme.colors.primary
+                    : feedTheme.colors.textTertiary
+                }
               />
             </TouchableOpacity>
           </View>
@@ -222,10 +251,10 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 18,
-    fontWeight: '600',
+    fontWeight: "600",
     color: feedTheme.colors.textPrimary,
     marginBottom: 16,
-    textAlign: 'center',
+    textAlign: "center",
   },
   list: {
     flex: 1,
@@ -234,9 +263,9 @@ const styles = StyleSheet.create({
     paddingBottom: 16,
   },
   commentItem: {
-    flexDirection: 'row',
+    flexDirection: "row",
     marginBottom: 16,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: "#FFFFFF",
   },
   commentAvatar: {
     width: 36,
@@ -245,26 +274,26 @@ const styles = StyleSheet.create({
   },
   commentAvatarPlaceholder: {
     backgroundColor: feedTheme.colors.primary,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
   },
   commentAvatarText: {
-    color: '#FFFFFF',
+    color: "#FFFFFF",
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   commentContent: {
     flex: 1,
     marginLeft: 10,
   },
   commentHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     marginBottom: 4,
   },
   commentAuthor: {
     fontSize: 13,
-    fontWeight: '600',
+    fontWeight: "600",
     color: feedTheme.colors.textPrimary,
   },
   commentTime: {
@@ -278,13 +307,13 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   emptyText: {
-    textAlign: 'center',
+    textAlign: "center",
     color: feedTheme.colors.textSecondary,
     marginTop: 40,
   },
   inputContainer: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
+    flexDirection: "row",
+    alignItems: "flex-end",
     paddingVertical: 12,
     borderTopWidth: 1,
     borderTopColor: feedTheme.colors.border,
@@ -307,17 +336,17 @@ const styles = StyleSheet.create({
     opacity: 0.5,
   },
   deleteAction: {
-    backgroundColor: '#DC2626',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: "#DC2626",
+    justifyContent: "center",
+    alignItems: "center",
     width: 80,
     marginBottom: 16,
     borderRadius: 8,
   },
   deleteActionText: {
-    color: '#FFFFFF',
+    color: "#FFFFFF",
     fontSize: 12,
-    fontWeight: '600',
+    fontWeight: "600",
     marginTop: 4,
   },
 });
