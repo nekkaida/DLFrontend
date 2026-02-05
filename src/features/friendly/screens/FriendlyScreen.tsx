@@ -502,9 +502,6 @@ const styles = StyleSheet.create({
   },
   contentWrapper: {
     flex: 1,
-  },
-  contentWrapper: {
-    flex: 1,
     backgroundColor: '#F9FAFB',
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
