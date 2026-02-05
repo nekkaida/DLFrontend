@@ -23,6 +23,7 @@ import { FriendlyMatchCard, FriendlyMatch } from '../components/FriendlyMatchCar
 import { FriendlyFilterBottomSheet, FriendlyFilterBottomSheetRef, FriendlyFilterOptions } from '../components/FriendlyFilterBottomSheet';
 import { HorizontalDateScroll } from '../components/HorizontalDateScroll';
 import * as Haptics from 'expo-haptics';
+import { LinearGradient } from "expo-linear-gradient";
 
 // Cache key for friendly match summary
 const FRIENDLY_SUMMARY_CACHE_KEY = 'friendly_matches_summary';
@@ -360,52 +361,44 @@ export const FriendlyScreen: React.FC<FriendlyScreenProps> = ({ sport }) => {
 
   return (
     <View style={styles.container}>
+      {/* Header Section */}
+      <View style={[styles.headerSection, { borderBottomColor: sportColors.background + '20', paddingHorizontal: 0, paddingTop: 0, paddingBottom: 0, backgroundColor: 'transparent', borderBottomWidth: 0 }]}> 
+        <LinearGradient
+          colors={["#FFFFFF", `${sportColors.background}79`, sportColors.background]}
+          style={styles.headerGradient}
+        >
+          <View style={[styles.headerGradient, {paddingHorizontal: 16}]}> 
+            <View style={styles.headerTop}>
+              <Text style={styles.headerTitle}>Friendly Matches</Text>
+              <TouchableOpacity
+                style={[
+                  styles.headerFilterButton,
+                  activeFilterCount > 0 && { backgroundColor: sportColors.background }
+                ]}
+                onPress={handleFilterButtonPress}
+                accessibilityLabel={`Filter matches, ${activeFilterCount} filters active`}
+              >
+                <Ionicons
+                  name="options-outline"
+                  size={20}
+                  color={activeFilterCount > 0 ? '#FFFFFF' : '#6B7280'}
+                />
+              </TouchableOpacity>
+            </View>
+            <View style={styles.headerDateRow}>
+              <Text style={styles.dateLabel}>Select Date</Text>
+              <HorizontalDateScroll
+                selectedDate={selectedDate}
+                onDateSelect={setSelectedDate}
+                sportColor={sportColors.background}
+              />
+            </View>
+          </View>
+        </LinearGradient>
+      </View>
+
       {/* Content */}
       <View style={styles.contentWrapper}>
-        {/* Filter Controls */}
-        <View style={styles.controlsContainer}>
-          {/* Filter Button */}
-          <TouchableOpacity
-            style={[
-              styles.filterButton,
-              (filters.status !== 'all' || filters.gameType !== null || filters.skillLevels.length > 0) && {
-                backgroundColor: sportColors.background,
-                borderColor: sportColors.background
-              }
-            ]}
-            onPress={handleFilterButtonPress}
-            accessibilityLabel={`Filter matches, ${activeFilterCount} filters active`}
-          >
-            <Ionicons
-              name="options-outline"
-              size={20}
-              color={(filters.status !== 'all' || filters.gameType !== null || filters.skillLevels.length > 0) ? '#FFFFFF' : '#6B7280'}
-            />
-            <Text
-              style={[
-                styles.filterButtonText,
-                (filters.status !== 'all' || filters.gameType !== null || filters.skillLevels.length > 0) && styles.filterButtonTextActive
-              ]}
-            >
-              {(filters.status !== 'all' || filters.gameType !== null || filters.skillLevels.length > 0)
-                ? `${(filters.status !== 'all' ? 1 : 0) + (filters.gameType !== null ? 1 : 0) + (filters.skillLevels.length > 0 ? 1 : 0)}`
-                : 'Filter'}
-            </Text>
-          </TouchableOpacity>
-
-          {/* Vertical Divider */}
-          <View style={styles.verticalDivider} />
-
-          {/* Horizontal Date Scroll */}
-          <View style={styles.dateScrollContainer}>
-            <HorizontalDateScroll
-              selectedDate={selectedDate}
-              onDateSelect={setSelectedDate}
-              sportColor={sportColors.background}
-            />
-          </View>
-        </View>
-
         {/* Matches List - Animated */}
         <Animated.View
           style={[
@@ -464,6 +457,41 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
+  headerSection: {
+    backgroundColor: '#FFFFFF',
+    paddingTop: 16,
+    paddingBottom: 16,
+
+  },
+  headerTop: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  headerTitle: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: '#111827',
+  },
+  headerFilterButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#F3F4F6',
+    position: 'relative',
+  },
+  dateContainer: {
+    gap: 8,
+  },
+  dateLabel: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#000000',
+  },
   header: {
     paddingHorizontal: 16,
     paddingBottom: 16,
@@ -472,14 +500,22 @@ const styles = StyleSheet.create({
   headerContent: {
     alignItems: 'center',
   },
-  headerTitle: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: '#FFFFFF',
+  contentWrapper: {
+    flex: 1,
   },
   contentWrapper: {
     flex: 1,
+    backgroundColor: '#F9FAFB',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    marginTop: -20,
     paddingTop: 16,
+  },
+
+  headerDateRow: {
+    paddingHorizontal: 16,
+    marginTop: 8,
+    gap: 12,
   },
   matchListWrapper: {
     flex: 1,
@@ -542,11 +578,6 @@ const styles = StyleSheet.create({
     height: 1,
     backgroundColor: '#D1D5DB',
   },
-  dateLabel: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#9CA3AF',
-  },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
@@ -574,6 +605,11 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#6B7280',
     textAlign: 'center',
+  },
+   headerGradient: {
+    paddingTop: 20,
+    paddingBottom: 16,
+    paddingHorizontal: 0,
   },
   fab: {
     position: 'absolute',
