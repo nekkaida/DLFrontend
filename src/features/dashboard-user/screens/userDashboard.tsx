@@ -603,9 +603,9 @@ export default function DashboardScreen() {
           </View>
         </View>
         <View style={styles.contentContainer}>
-          <View style={styles.contentBox}>
+          {/* <View style={styles.contentBox}> */}
             <FriendlyScreen sport={selectedSport} />
-          </View>
+          {/* </View> */}
         </View>
         <NavBar
           activeTab={activeTab}
