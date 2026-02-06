@@ -368,30 +368,43 @@ export const FriendlyScreen: React.FC<FriendlyScreenProps> = ({ sport }) => {
           style={styles.headerGradient}
         >
           <View style={[styles.headerGradient, {paddingHorizontal: 16}]}> 
-            <View style={styles.headerTop}>
-              <Text style={styles.headerTitle}>Friendly Matches</Text>
-              <TouchableOpacity
-                style={[
-                  styles.headerFilterButton,
-                  activeFilterCount > 0 && { backgroundColor: sportColors.background }
-                ]}
-                onPress={handleFilterButtonPress}
-                accessibilityLabel={`Filter matches, ${activeFilterCount} filters active`}
-              >
-                <Ionicons
-                  name="options-outline"
-                  size={20}
-                  color={activeFilterCount > 0 ? '#FFFFFF' : '#6B7280'}
-                />
-              </TouchableOpacity>
-            </View>
-            <View style={styles.headerDateRow}>
-              <Text style={styles.dateLabel}>Select Date</Text>
-              <HorizontalDateScroll
-                selectedDate={selectedDate}
-                onDateSelect={setSelectedDate}
-                sportColor={sportColors.background}
-              />
+            {/* Two-column header: left title, right filter + date */}
+            <View style={styles.headerTopRow}>
+              <View style={styles.headerLeftColumn}>
+                <Text style={styles.headerTitle}>Friendly Matches</Text>
+              </View>
+              <View style={styles.headerRightColumn}>
+                <TouchableOpacity
+                  style={[
+                    styles.headerFilterButton,
+                    activeFilterCount > 0 && { backgroundColor: sportColors.background }
+                  ]}
+                  onPress={handleFilterButtonPress}
+                  accessibilityLabel={`Filter matches, ${activeFilterCount} filters active`}
+                >
+                  <Ionicons
+                    name="options-outline"
+                    size={20}
+                    color={activeFilterCount > 0 ? '#FFFFFF' : '#6B7280'}
+                  />
+                  {activeFilterCount > 0 && (
+                    <Text style={styles.filterButtonText}>
+                      {activeFilterCount}
+                    </Text>
+                  )}
+                </TouchableOpacity>
+
+                <View style={styles.headerDateSection}>
+                  <Text style={styles.dateLabel}>Select Date</Text>
+                  <View style={styles.headerDateScrollWrapper}>
+                    <HorizontalDateScroll
+                      selectedDate={selectedDate}
+                      onDateSelect={setSelectedDate}
+                      sportColor={sportColors.background}
+                    />
+                  </View>
+                </View>
+              </View>
             </View>
           </View>
         </LinearGradient>
@@ -410,24 +423,30 @@ export const FriendlyScreen: React.FC<FriendlyScreenProps> = ({ sport }) => {
           ]}
         >
           {showSkeleton ? (
-            <MatchCardSkeleton count={4} />
+            <View style={{ flex: 1 }} key="skeleton-view">
+              <MatchCardSkeleton count={4} />
+            </View>
           ) : Object.keys(groupedMatches).length === 0 ? (
-            renderEmptyState()
+            <View style={{ flex: 1 }} key="empty-view">
+              {renderEmptyState()}
+            </View>
           ) : (
-            <FlatList
-              data={Object.entries(groupedMatches)}
-              keyExtractor={([dateKey]) => dateKey}
-              renderItem={({ item: [dateKey, dateMatches] }) => renderMatchGroup(dateKey, dateMatches)}
-              contentContainerStyle={styles.listContent}
-              refreshControl={
-                <RefreshControl
-                  refreshing={refreshing}
-                  onRefresh={onRefresh}
-                  tintColor={sportColors.background}
-                />
-              }
-              showsVerticalScrollIndicator={false}
-            />
+            <View style={{ flex: 1 }} key="list-view">
+              <FlatList
+                data={Object.entries(groupedMatches)}
+                keyExtractor={([dateKey]) => dateKey}
+                renderItem={({ item: [dateKey, dateMatches] }) => renderMatchGroup(dateKey, dateMatches)}
+                contentContainerStyle={styles.listContent}
+                refreshControl={
+                  <RefreshControl
+                    refreshing={refreshing}
+                    onRefresh={onRefresh}
+                    tintColor={sportColors.background}
+                  />
+                }
+                showsVerticalScrollIndicator={false}
+              />
+            </View>
           )}
         </Animated.View>
       </View>
@@ -461,7 +480,44 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     paddingTop: 16,
     paddingBottom: 16,
-
+  },
+  headerTopRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: 16,
+  },
+  headerLeftColumn: {
+    flex: 1,
+    justifyContent: 'flex-start',
+  },
+  headerRightColumn: {
+    width: '50%',
+    alignItems: 'flex-end',
+    gap: 12,
+  },
+  headerDateSection: {
+    width: '100%',
+    gap: 8,
+  },
+  headerDateScrollWrapper: {
+    width: '100%',
+    overflow: 'hidden',
+  },
+  headerRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 12,
+    gap: 16,
+  },
+  headerLeft: {
+    flex: 1,
+    justifyContent: 'center',
+  },
+  headerRight: {
+    flex: 1,
+    gap: 8,
   },
   headerTop: {
     flexDirection: 'row',
@@ -478,11 +534,16 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    width: 44,
-    height: 44,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
     borderRadius: 22,
     backgroundColor: '#F3F4F6',
-    position: 'relative',
+    gap: 8,
+  },
+  filterButtonText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#FFFFFF',
   },
   dateContainer: {
     gap: 8,
@@ -507,12 +568,6 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 20,
     marginTop: -20,
     paddingTop: 16,
-  },
-
-  headerDateRow: {
-    paddingHorizontal: 16,
-    marginTop: 8,
-    gap: 12,
   },
   matchListWrapper: {
     flex: 1,
