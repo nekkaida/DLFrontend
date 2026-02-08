@@ -466,9 +466,7 @@ export default function DashboardScreen() {
           </View>
         </View>
         <View style={styles.contentContainer}>
-          <View style={styles.contentBox}>
-            <FeedScreen sport={selectedSport} />
-          </View>
+          <FeedScreen sport={selectedSport} />
         </View>
         <NavBar
           activeTab={activeTab}
@@ -533,12 +531,7 @@ export default function DashboardScreen() {
           </View>
         </View>
         <View style={styles.contentContainer}>
-          <View style={styles.contentBox}>
-            <MyGamesScreen
-              sport={selectedSport}
-              initialTab={myGamesInitialTab}
-            />
-          </View>
+          <MyGamesScreen sport={selectedSport} initialTab={myGamesInitialTab} />
         </View>
         <NavBar
           activeTab={activeTab}
@@ -610,9 +603,9 @@ export default function DashboardScreen() {
           </View>
         </View>
         <View style={styles.contentContainer}>
-          <View style={styles.contentBox}>
+          {/* <View style={styles.contentBox}> */}
             <FriendlyScreen sport={selectedSport} />
-          </View>
+          {/* </View> */}
         </View>
         <NavBar
           activeTab={activeTab}

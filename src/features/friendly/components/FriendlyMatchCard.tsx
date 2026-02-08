@@ -320,7 +320,7 @@ const styles = StyleSheet.create({
     color: '#9CA3AF',
   },
   friendlyBadgeCard: {
-    backgroundColor: '#5A5E6A',
+    backgroundColor: '#83CFF9',
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 12,

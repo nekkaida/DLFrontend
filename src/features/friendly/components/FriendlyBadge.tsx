@@ -1,7 +1,7 @@
-import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import React from "react";
+import { StyleSheet, Text, View } from "react-native";
 
-const FRIENDLY_BADGE_COLOR = '#5A5E6A';
+const FRIENDLY_BADGE_COLOR = "#83CFF9";
 
 interface FriendlyBadgeProps {
   style?: any;
@@ -22,12 +22,12 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#4A4E5A',
+    borderColor: "#83CFF9",
   },
   badgeText: {
-    color: '#FFFFFF',
+    color: "#FFFFFF",
     fontSize: 10,
-    fontWeight: '600',
+    fontWeight: "600",
     letterSpacing: 0.25,
   },
 });

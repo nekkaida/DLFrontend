@@ -12,6 +12,8 @@ import React, {
   useState,
 } from "react";
 import { Image, StyleSheet, View } from "react-native";
+import { SolidScorecard } from "./SolidScorecard";
+import { TransparentScorecard } from "./TransparentScorecard";
 
 interface ScorecardCaptureWrapperProps {
   match: MatchResult;
@@ -28,7 +30,7 @@ export interface ScorecardCaptureRef {
 /**
  * Wrapper component for MatchResultCard that allows dynamic background style changes
  * for different capture scenarios (white vs transparent backgrounds).
- * Renders as 1080x1080px square with company logo at the top.
+ * Renders as 2048x2048px square with company logo at the top for maximum sharpness.
  */
 export const ScorecardCaptureWrapper = forwardRef<
   ScorecardCaptureRef,
@@ -46,13 +48,14 @@ export const ScorecardCaptureWrapper = forwardRef<
     setBackgroundStyle,
   }));
 
-  // Calculate dimensions for 1080x1080 output
-  const CAPTURE_SIZE = 1080;
-  const PADDING = 24;
+  // Calculate dimensions for 2048x2048 maximum quality output
+  const CAPTURE_SIZE = 2048;
+  const PADDING = 80;
+  const LOGO_HEIGHT = 180;
+  const LOGO_MARGIN_BOTTOM = 60;
+  const TOP_PADDING = 80;
+  const BOTTOM_PADDING = 80;
   const CARD_WIDTH = CAPTURE_SIZE - PADDING * 2;
-
-  // For display in feed, show at normal size. For capture, use full 1080x1080
-  const isCapturing = backgroundStyle !== "white" || true; // Always render at capture size
 
   return (
     <>
@@ -83,33 +86,32 @@ export const ScorecardCaptureWrapper = forwardRef<
             height: CAPTURE_SIZE,
             backgroundColor:
               backgroundStyle === "white" ? "#FFFFFF" : "transparent",
+            paddingTop: TOP_PADDING,
+            paddingBottom: BOTTOM_PADDING,
+            paddingHorizontal: PADDING,
           },
         ]}
       >
         {/* Company Logo */}
-        <View style={styles.logoContainer}>
+        <View
+          style={[
+            styles.logoContainer,
+            { height: LOGO_HEIGHT, marginBottom: LOGO_MARGIN_BOTTOM },
+          ]}
+        >
           <Image
             source={require("@/assets/images/scorecard-watermark.png")}
-            style={styles.logo}
+            style={[styles.logo, { height: LOGO_HEIGHT }]}
             resizeMode="contain"
           />
         </View>
 
-        {/* Match Result Card */}
-        <View style={styles.cardContainer}>
-          <MatchResultCard
-            match={match}
-            index={0}
-            totalResults={1}
-            sportColors={sportColors}
-            isPickleball={isPickleball}
-            cardWidth={CARD_WIDTH}
-            cardGap={0}
-            expandedComments={new Set()}
-            onToggleComments={() => {}}
-            backgroundStyle={backgroundStyle}
-          />
-        </View>
+        {/* Render appropriate scorecard based on background style */}
+        {backgroundStyle === "white" ? (
+          <SolidScorecard match={match} sportColors={sportColors} />
+        ) : (
+          <TransparentScorecard match={match} />
+        )}
       </View>
     </>
   );
@@ -124,29 +126,19 @@ const styles = StyleSheet.create({
     top: 0,
     alignItems: "center",
     justifyContent: "flex-start",
-    paddingTop: 24,
-    paddingHorizontal: 24,
-  },
-  title: {
-    fontSize: 32,
-    fontWeight: "600",
-    color: "#64748B",
-    marginBottom: 20,
-    alignSelf: "flex-start",
   },
   logoContainer: {
     width: "100%",
-    height: 70,
-    marginBottom: 20,
     alignItems: "center",
     justifyContent: "center",
   },
   logo: {
-    width: 200,
-    height: 70,
+    width: 500,
   },
   cardContainer: {
     width: "100%",
     alignItems: "center",
+    flex: 1,
+    justifyContent: "center",
   },
 });

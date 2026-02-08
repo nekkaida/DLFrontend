@@ -13,15 +13,15 @@ export interface Match {
   team1Score?: number;
   team2Score?: number;
   outcome?: string;
-  fee?: 'FREE' | 'SPLIT' | 'FIXED';
+  fee?: "FREE" | "SPLIT" | "FIXED";
   feeAmount?: number | string;
   courtBooked?: boolean;
   description?: string;
-  notes?: string;  // Backend returns 'notes' field
-  isDisputed?: boolean;  // True if match has an active dispute
-  invitationStatus?: 'PENDING' | 'ACCEPTED' | 'DECLINED' | 'EXPIRED';  // Current user's invitation status for DRAFT matches
-  isFriendly?: boolean;  // True if this is a friendly match
-  genderRestriction?: 'MALE' | 'FEMALE' | 'OPEN' | null;
+  notes?: string; // Backend returns 'notes' field
+  isDisputed?: boolean; // True if match has an active dispute
+  invitationStatus?: "PENDING" | "ACCEPTED" | "DECLINED" | "EXPIRED"; // Current user's invitation status for DRAFT matches
+  isFriendly?: boolean; // True if this is a friendly match
+  genderRestriction?: "MALE" | "FEMALE" | "OPEN" | null;
   skillLevels?: string[];
   division?: {
     id: string;
@@ -68,7 +68,7 @@ export interface MatchInvitation {
     notes?: string;
     matchDate?: string;
     duration?: number;
-    fee?: 'FREE' | 'SPLIT' | 'FIXED';
+    fee?: "FREE" | "SPLIT" | "FIXED";
     feeAmount?: number | string;
     courtBooked?: boolean;
     division?: {
@@ -123,11 +123,17 @@ export interface MatchInvitation {
 }
 
 export interface MyGamesScreenProps {
-  sport?: 'pickleball' | 'tennis' | 'padel';
+  sport?: "pickleball" | "tennis" | "padel";
   initialTab?: FilterTab;
 }
 
-export type FilterTab = 'ALL' | 'UPCOMING' | 'PAST' | 'INVITES';
+export type FilterTab =
+  | "ALL"
+  | "UPCOMING"
+  | "PAST"
+  | "INVITES"
+  | "LEAGUE"
+  | "FRIENDLY";
 
 export interface StatusInfo {
   bg: string;
