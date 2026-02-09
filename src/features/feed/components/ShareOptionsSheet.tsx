@@ -1,13 +1,24 @@
 // src/features/feed/components/ShareOptionsSheet.tsx
 
-import React, { useCallback, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Linking, Alert } from 'react-native';
-import BottomSheet, { BottomSheetBackdrop, BottomSheetView } from '@gorhom/bottom-sheet';
-import { Ionicons } from '@expo/vector-icons';
-import { feedTheme } from '../theme';
-import type { ShareError } from '../hooks/useSharePost';
+import { Ionicons } from "@expo/vector-icons";
+import BottomSheet, {
+  BottomSheetBackdrop,
+  BottomSheetView,
+} from "@gorhom/bottom-sheet";
+import React, { useCallback, useState } from "react";
+import {
+  ActivityIndicator,
+  Alert,
+  Linking,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
+import type { ShareError } from "../hooks/useSharePost";
+import { feedTheme } from "../theme";
 
-export type ShareStyle = 'transparent' | 'white';
+export type ShareStyle = "transparent" | "white";
 
 interface ShareOptionsSheetProps {
   bottomSheetRef: React.RefObject<BottomSheet | null>;
@@ -30,7 +41,7 @@ export const ShareOptionsSheet: React.FC<ShareOptionsSheetProps> = ({
   onShareLink,
   onShareInstagram,
   isLoading = false,
-  defaultStyle = 'white',
+  defaultStyle = "white",
   shareError,
   onClearError,
 }) => {
@@ -48,14 +59,14 @@ export const ShareOptionsSheet: React.FC<ShareOptionsSheetProps> = ({
     if (!onShareInstagram) return;
 
     // Check if Instagram is installed
-    const instagramUrl = 'instagram://';
+    const instagramUrl = "instagram://";
     const canOpen = await Linking.canOpenURL(instagramUrl);
 
     if (!canOpen) {
       Alert.alert(
-        'Instagram Not Installed',
-        'Please install Instagram to share directly to your story.',
-        [{ text: 'OK' }]
+        "Instagram Not Installed",
+        "Please install Instagram to share directly to your story.",
+        [{ text: "OK" }],
       );
       return;
     }
@@ -79,14 +90,14 @@ export const ShareOptionsSheet: React.FC<ShareOptionsSheetProps> = ({
         opacity={0.5}
       />
     ),
-    []
+    [],
   );
 
   return (
     <BottomSheet
       ref={bottomSheetRef}
       index={-1}
-      snapPoints={['45%']}
+      snapPoints={["40%"]}
       enablePanDownToClose
       onClose={onClose}
       backdropComponent={renderBackdrop}
@@ -114,15 +125,15 @@ export const ShareOptionsSheet: React.FC<ShareOptionsSheetProps> = ({
             <TouchableOpacity
               style={[
                 styles.styleOption,
-                selectedStyle === 'white' && styles.styleOptionSelected,
+                selectedStyle === "white" && styles.styleOptionSelected,
               ]}
-              onPress={() => setSelectedStyle('white')}
+              onPress={() => setSelectedStyle("white")}
               activeOpacity={0.7}
             >
               <Text
                 style={[
                   styles.styleOptionText,
-                  selectedStyle === 'white' && styles.styleOptionTextSelected,
+                  selectedStyle === "white" && styles.styleOptionTextSelected,
                 ]}
               >
                 Standard
@@ -131,15 +142,16 @@ export const ShareOptionsSheet: React.FC<ShareOptionsSheetProps> = ({
             <TouchableOpacity
               style={[
                 styles.styleOption,
-                selectedStyle === 'transparent' && styles.styleOptionSelected,
+                selectedStyle === "transparent" && styles.styleOptionSelected,
               ]}
-              onPress={() => setSelectedStyle('transparent')}
+              onPress={() => setSelectedStyle("transparent")}
               activeOpacity={0.7}
             >
               <Text
                 style={[
                   styles.styleOptionText,
-                  selectedStyle === 'transparent' && styles.styleOptionTextSelected,
+                  selectedStyle === "transparent" &&
+                    styles.styleOptionTextSelected,
                 ]}
               >
                 Transparent
@@ -147,9 +159,9 @@ export const ShareOptionsSheet: React.FC<ShareOptionsSheetProps> = ({
             </TouchableOpacity>
           </View>
           <Text style={styles.styleHint}>
-            {selectedStyle === 'white' 
-              ? 'White background - ready to share' 
-              : 'Transparent background - for editing'}
+            {selectedStyle === "white"
+              ? "White background - ready to share"
+              : "Transparent background - for editing"}
           </Text>
         </View>
 
@@ -164,12 +176,22 @@ export const ShareOptionsSheet: React.FC<ShareOptionsSheetProps> = ({
           <Ionicons
             name="share-outline"
             size={24}
-            color={isLoading ? feedTheme.colors.textTertiary : feedTheme.colors.primary}
+            color={
+              isLoading
+                ? feedTheme.colors.textTertiary
+                : feedTheme.colors.primary
+            }
           />
           <Text style={[styles.optionText, isLoading && styles.disabledText]}>
             Share as Image
           </Text>
-          {isLoading && <ActivityIndicator size="small" color={feedTheme.colors.primary} style={styles.loader} />}
+          {isLoading && (
+            <ActivityIndicator
+              size="small"
+              color={feedTheme.colors.primary}
+              style={styles.loader}
+            />
+          )}
         </TouchableOpacity>
 
         {onShareInstagram && (
@@ -182,12 +204,18 @@ export const ShareOptionsSheet: React.FC<ShareOptionsSheetProps> = ({
             <Ionicons
               name="logo-instagram"
               size={24}
-              color={isLoading ? feedTheme.colors.textTertiary : '#E4405F'}
+              color={isLoading ? feedTheme.colors.textTertiary : "#E4405F"}
             />
             <Text style={[styles.optionText, isLoading && styles.disabledText]}>
-              Share to Instagram
+              Share to Instagram (Comming soon)
             </Text>
-            {isLoading && <ActivityIndicator size="small" color={feedTheme.colors.primary} style={styles.loader} />}
+            {isLoading && (
+              <ActivityIndicator
+                size="small"
+                color={feedTheme.colors.primary}
+                style={styles.loader}
+              />
+            )}
           </TouchableOpacity>
         )}
 
@@ -200,14 +228,24 @@ export const ShareOptionsSheet: React.FC<ShareOptionsSheetProps> = ({
           <Ionicons
             name="download-outline"
             size={24}
-            color={isLoading ? feedTheme.colors.textTertiary : feedTheme.colors.primary}
+            color={
+              isLoading
+                ? feedTheme.colors.textTertiary
+                : feedTheme.colors.primary
+            }
           />
           <Text style={[styles.optionText, isLoading && styles.disabledText]}>
             Save to Gallery
           </Text>
-          {isLoading && <ActivityIndicator size="small" color={feedTheme.colors.primary} style={styles.loader} />}
+          {isLoading && (
+            <ActivityIndicator
+              size="small"
+              color={feedTheme.colors.primary}
+              style={styles.loader}
+            />
+          )}
         </TouchableOpacity>
-
+        {/* 
         <TouchableOpacity
           style={styles.option}
           onPress={onShareLink}
@@ -217,13 +255,23 @@ export const ShareOptionsSheet: React.FC<ShareOptionsSheetProps> = ({
           <Ionicons
             name="link-outline"
             size={24}
-            color={isLoading ? feedTheme.colors.textTertiary : feedTheme.colors.primary}
+            color={
+              isLoading
+                ? feedTheme.colors.textTertiary
+                : feedTheme.colors.primary
+            }
           />
           <Text style={[styles.optionText, isLoading && styles.disabledText]}>
             Share Link
           </Text>
-          {isLoading && <ActivityIndicator size="small" color={feedTheme.colors.primary} style={styles.loader} />}
-        </TouchableOpacity>
+          {isLoading && (
+            <ActivityIndicator
+              size="small"
+              color={feedTheme.colors.primary}
+              style={styles.loader}
+            />
+          )}
+        </TouchableOpacity> */}
       </BottomSheetView>
     </BottomSheet>
   );
@@ -241,12 +289,12 @@ const styles = StyleSheet.create({
   },
   styleSelectorLabel: {
     fontSize: 13,
-    fontWeight: '500',
+    fontWeight: "500",
     color: feedTheme.colors.textSecondary,
     marginBottom: 8,
   },
   styleToggle: {
-    flexDirection: 'row',
+    flexDirection: "row",
     backgroundColor: feedTheme.colors.border,
     borderRadius: 8,
     padding: 3,
@@ -254,12 +302,12 @@ const styles = StyleSheet.create({
   styleOption: {
     flex: 1,
     paddingVertical: 8,
-    alignItems: 'center',
+    alignItems: "center",
     borderRadius: 6,
   },
   styleOptionSelected: {
-    backgroundColor: '#FFFFFF',
-    shadowColor: '#000',
+    backgroundColor: "#FFFFFF",
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
     shadowRadius: 2,
@@ -267,7 +315,7 @@ const styles = StyleSheet.create({
   },
   styleOptionText: {
     fontSize: 14,
-    fontWeight: '500',
+    fontWeight: "500",
     color: feedTheme.colors.textSecondary,
   },
   styleOptionTextSelected: {
@@ -277,7 +325,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: feedTheme.colors.textTertiary,
     marginTop: 6,
-    textAlign: 'center',
+    textAlign: "center",
   },
   divider: {
     height: 1,
@@ -286,8 +334,8 @@ const styles = StyleSheet.create({
     marginHorizontal: 12,
   },
   option: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     paddingVertical: 14,
     paddingHorizontal: 12,
   },
@@ -304,9 +352,9 @@ const styles = StyleSheet.create({
     marginLeft: 8,
   },
   errorBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#FFF0F0',
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#FFF0F0",
     paddingVertical: 10,
     paddingHorizontal: 12,
     borderRadius: 8,
@@ -316,18 +364,18 @@ const styles = StyleSheet.create({
   errorText: {
     flex: 1,
     fontSize: 13,
-    color: '#FF3B30',
+    color: "#FF3B30",
     marginLeft: 8,
   },
   retryButton: {
     paddingVertical: 6,
     paddingHorizontal: 12,
-    backgroundColor: '#FF3B30',
+    backgroundColor: "#FF3B30",
     borderRadius: 6,
   },
   retryButtonText: {
     fontSize: 13,
-    fontWeight: '600',
-    color: '#FFFFFF',
+    fontWeight: "600",
+    color: "#FFFFFF",
   },
 });

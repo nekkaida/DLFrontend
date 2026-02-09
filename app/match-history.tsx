@@ -1,105 +1,121 @@
-import React, { useState, useCallback, useMemo, useRef, useEffect } from 'react';
+import CasualHandshakeIcon from "@/assets/icons/casual-handshake.svg";
+import { getSportColors } from "@/constants/SportsColor";
+import { moderateScale, scale, verticalScale } from "@/core/utils/responsive";
+import { useMatchHistory } from "@/src/features/profile/hooks/useMatchHistory";
 import {
-  View,
-  Text,
-  StyleSheet,
-  Pressable,
-  Platform,
-  FlatList,
-  RefreshControl,
+  MatchHistoryFilters,
+  MatchHistoryItem,
+  MatchParticipant,
+  SetScore,
+  SportType,
+} from "@/src/features/profile/types/matchHistory";
+import { theme } from "@core/theme/theme";
+import { Ionicons } from "@expo/vector-icons";
+import * as Haptics from "expo-haptics";
+import { LinearGradient } from "expo-linear-gradient";
+import { router } from "expo-router";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import {
   ActivityIndicator,
   Animated,
-  Image,
   Dimensions,
+  FlatList,
+  Image,
   Modal,
+  Platform,
+  Pressable,
+  RefreshControl,
+  StyleSheet,
+  Text,
   TouchableOpacity,
   TouchableWithoutFeedback,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { LinearGradient } from 'expo-linear-gradient';
-import { Ionicons } from '@expo/vector-icons';
-import { theme } from '@core/theme/theme';
-import { router } from 'expo-router';
-import * as Haptics from 'expo-haptics';
-import { useMatchHistory } from '@/src/features/profile/hooks/useMatchHistory';
-import {
-  MatchHistoryItem,
-  MatchHistoryFilters,
-  SetScore,
-  MatchParticipant,
-  SportType,
-} from '@/src/features/profile/types/matchHistory';
-import CasualHandshakeIcon from '@/assets/icons/casual-handshake.svg';
-import { getSportColors } from '@/constants/SportsColor';
-import { scale, verticalScale, moderateScale } from '@/core/utils/responsive';
+  View,
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
 // Colors
 const COLORS = {
   // Ribbon colors
-  leagueRibbon: '#FEA04D',      // Orange for league matches
-  friendlyRibbon: '#5A5E6A',    // Gray for friendly matches (with scores)
-  casualRibbon: '#8B5CF6',      // Purple for casual play (no scores)
+  leagueRibbon: "#FEA04D", // Orange for league matches
+  friendlyRibbon: "#83CFF9",
+  casualRibbon: "#8B5CF6", // Purple for casual play (no scores)
   // Card backgrounds - subtle tints on white base
-  cardDefault: '#FFFFFF',
-  winBg: '#F0FDF4',      // Very subtle green tint
-  lossBg: '#FEF2F2',     // Very subtle red tint
-  drawBg: '#FAFAFA',     // Very subtle gray
-  walkoverBg: '#FFFBEB', // Very subtle amber/yellow
-  disputedBg: '#FFF7ED', // Very subtle orange
-  cancelledBg: '#F5F5F5', // Light gray
+  cardDefault: "#FFFFFF",
+  winBg: "#F0FDF4", // Very subtle green tint
+  lossBg: "#FEF2F2", // Very subtle red tint
+  drawBg: "#FAFAFA", // Very subtle gray
+  walkoverBg: "#FFFBEB", // Very subtle amber/yellow
+  disputedBg: "#FFF7ED", // Very subtle orange
+  cancelledBg: "#F5F5F5", // Light gray
   // Accent colors
-  winAccent: '#16a34a',
-  lossAccent: '#dc2626',
-  walkoverAccent: '#D97706', // Amber
-  disputedAccent: '#EA580C', // Orange
-  cancelledAccent: '#737373', // Gray
-  casualAccent: '#8B5CF6',   // Purple
-  avatarDefault: '#E8B4BC',
-  textPrimary: '#1A1C1E',
-  textSecondary: '#6B7280',
-  textMuted: '#9CA3AF',
-  divider: 'rgba(0, 0, 0, 0.05)',
-  setScoresBg: 'rgba(255, 255, 255, 0.8)',
+  winAccent: "#16a34a",
+  lossAccent: "#dc2626",
+  walkoverAccent: "#D97706", // Amber
+  disputedAccent: "#EA580C", // Orange
+  cancelledAccent: "#737373", // Gray
+  casualAccent: "#8B5CF6", // Purple
+  avatarDefault: "#E8B4BC",
+  textPrimary: "#1A1C1E",
+  textSecondary: "#6B7280",
+  textMuted: "#9CA3AF",
+  divider: "rgba(0, 0, 0, 0.05)",
+  setScoresBg: "rgba(255, 255, 255, 0.8)",
   // Sport colors
-  tennis: '#65B741',
-  padel: '#3B82F6',
-  pickleball: '#A04DFE',
+  tennis: "#65B741",
+  padel: "#3B82F6",
+  pickleball: "#A04DFE",
 };
 
 // Sport filter options
-const SPORT_OPTIONS: { value: SportType | 'all'; label: string; color?: string }[] = [
-  { value: 'all', label: 'All Sports' },
-  { value: 'TENNIS', label: 'Tennis', color: COLORS.tennis },
-  { value: 'PADEL', label: 'Padel', color: COLORS.padel },
-  { value: 'PICKLEBALL', label: 'Pickleball', color: COLORS.pickleball },
+const SPORT_OPTIONS: {
+  value: SportType | "all";
+  label: string;
+  color?: string;
+}[] = [
+  { value: "all", label: "All Sports" },
+  { value: "TENNIS", label: "Tennis", color: COLORS.tennis },
+  { value: "PADEL", label: "Padel", color: COLORS.padel },
+  { value: "PICKLEBALL", label: "Pickleball", color: COLORS.pickleball },
 ];
 
 // Sport gradient colors for header
-const SPORT_GRADIENTS: Record<SportType | 'all', [string, string]> = {
-  all: [theme.colors.primary, '#FFA366'],      // Default orange
-  TENNIS: ['#65B741', '#8FD468'],              // Green gradient
-  PADEL: ['#3B82F6', '#60A5FA'],               // Blue gradient
-  PICKLEBALL: ['#A04DFE', '#C084FC'],          // Purple gradient
+const SPORT_GRADIENTS: Record<SportType | "all", [string, string]> = {
+  all: [theme.colors.primary, "#FFA366"], // Default orange
+  TENNIS: ["#65B741", "#8FD468"], // Green gradient
+  PADEL: ["#3B82F6", "#60A5FA"], // Blue gradient
+  PICKLEBALL: ["#A04DFE", "#C084FC"], // Purple gradient
 };
 
 // Get theme color for selected sport
-const getSportThemeColor = (sport: SportType | 'all'): string => {
+const getSportThemeColor = (sport: SportType | "all"): string => {
   switch (sport) {
-    case 'TENNIS': return COLORS.tennis;
-    case 'PADEL': return COLORS.padel;
-    case 'PICKLEBALL': return COLORS.pickleball;
-    default: return theme.colors.primary;
+    case "TENNIS":
+      return COLORS.tennis;
+    case "PADEL":
+      return COLORS.padel;
+    case "PICKLEBALL":
+      return COLORS.pickleball;
+    default:
+      return theme.colors.primary;
   }
 };
 
 // Calculate overall match score (sets won by each side)
-const calculateMatchScore = (setScores: SetScore[]): { user: number; opponent: number } => {
+const calculateMatchScore = (
+  setScores: SetScore[],
+): { user: number; opponent: number } => {
   let userSets = 0;
   let opponentSets = 0;
 
-  setScores.forEach(set => {
+  setScores.forEach((set) => {
     if (set.userGames > set.opponentGames) {
       userSets++;
     } else if (set.opponentGames > set.userGames) {
@@ -140,12 +156,13 @@ const Avatar = ({
     );
   }
 
-  const initials = participant?.name
-    ?.split(' ')
-    .map(n => n[0])
-    .join('')
-    .toUpperCase()
-    .slice(0, 2) || '?';
+  const initials =
+    participant?.name
+      ?.split(" ")
+      .map((n) => n[0])
+      .join("")
+      .toUpperCase()
+      .slice(0, 2) || "?";
 
   return (
     <View
@@ -159,7 +176,9 @@ const Avatar = ({
         },
       ]}
     >
-      <Text style={[styles.avatarInitials, { fontSize: size * 0.35 }]}>{initials}</Text>
+      <Text style={[styles.avatarInitials, { fontSize: size * 0.35 }]}>
+        {initials}
+      </Text>
     </View>
   );
 };
@@ -186,7 +205,7 @@ const DoublesAvatarStack = ({
 // Types: LEAGUE (orange), FRIENDLY (gray - with scores), CASUAL (purple - no scores)
 const CornerRibbon = ({
   isFriendly,
-  isCasualPlay
+  isCasualPlay,
 }: {
   isFriendly?: boolean;
   isCasualPlay?: boolean;
@@ -198,9 +217,9 @@ const CornerRibbon = ({
   };
 
   const getRibbonText = () => {
-    if (isCasualPlay) return 'CASUAL';
-    if (isFriendly) return 'FRIENDLY';
-    return 'LEAGUE';
+    if (isCasualPlay) return "CASUAL";
+    if (isFriendly) return "FRIENDLY";
+    return "LEAGUE";
   };
 
   return (
@@ -227,14 +246,19 @@ const FilterChip = ({
   <Pressable
     style={[
       styles.filterChip,
-      isActive && [styles.filterChipActive, activeColor ? { backgroundColor: activeColor } : null],
+      isActive && [
+        styles.filterChipActive,
+        activeColor ? { backgroundColor: activeColor } : null,
+      ],
     ]}
     onPress={() => {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       onPress();
     }}
   >
-    <Text style={[styles.filterChipText, isActive && styles.filterChipTextActive]}>
+    <Text
+      style={[styles.filterChipText, isActive && styles.filterChipTextActive]}
+    >
       {label}
     </Text>
   </Pressable>
@@ -247,10 +271,14 @@ interface MatchCardProps {
   onSharePress?: (matchId: string) => void;
 }
 
-const MatchCard: React.FC<MatchCardProps> = ({ match, onPress, onSharePress }) => {
-  const isWin = match.outcome === 'WIN';
-  const isLoss = match.outcome === 'LOSS';
-  const isDoubles = match.matchType === 'DOUBLES';
+const MatchCard: React.FC<MatchCardProps> = ({
+  match,
+  onPress,
+  onSharePress,
+}) => {
+  const isWin = match.outcome === "WIN";
+  const isLoss = match.outcome === "LOSS";
+  const isDoubles = match.matchType === "DOUBLES";
   const isWalkover = match.isWalkover;
   const isFriendly = match.isFriendly;
 
@@ -265,14 +293,14 @@ const MatchCard: React.FC<MatchCardProps> = ({ match, onPress, onSharePress }) =
   const formatMatchDateTime = (dateStr: string): string => {
     try {
       const date = new Date(dateStr);
-      const datePart = date.toLocaleDateString('en-US', {
-        day: 'numeric',
-        month: 'short',
-        year: 'numeric',
+      const datePart = date.toLocaleDateString("en-US", {
+        day: "numeric",
+        month: "short",
+        year: "numeric",
       });
-      const timePart = date.toLocaleTimeString('en-US', {
-        hour: 'numeric',
-        minute: '2-digit',
+      const timePart = date.toLocaleTimeString("en-US", {
+        hour: "numeric",
+        minute: "2-digit",
         hour12: true,
       });
       return `${datePart} at ${timePart}`;
@@ -282,16 +310,22 @@ const MatchCard: React.FC<MatchCardProps> = ({ match, onPress, onSharePress }) =
   };
 
   // Get display name
-  const getDisplayName = (participant?: MatchParticipant, short = false): string => {
-    if (!participant?.name) return 'Unknown';
+  const getDisplayName = (
+    participant?: MatchParticipant,
+    short = false,
+  ): string => {
+    if (!participant?.name) return "Unknown";
     if (short) {
-      return participant.name.split(' ')[0];
+      return participant.name.split(" ")[0];
     }
     return participant.name;
   };
 
   // Get team display for doubles
-  const getTeamDisplay = (player?: MatchParticipant, partner?: MatchParticipant): string => {
+  const getTeamDisplay = (
+    player?: MatchParticipant,
+    partner?: MatchParticipant,
+  ): string => {
     const p1Name = getDisplayName(player, true);
     if (!partner?.name) return p1Name;
     const p2Name = getDisplayName(partner, true);
@@ -321,7 +355,7 @@ const MatchCard: React.FC<MatchCardProps> = ({ match, onPress, onSharePress }) =
   };
 
   // Check if any set has a tiebreak
-  const hasTiebreaks = match.setScores.some(s => s.hasTiebreak);
+  const hasTiebreaks = match.setScores.some((s) => s.hasTiebreak);
 
   return (
     <Pressable
@@ -355,7 +389,10 @@ const MatchCard: React.FC<MatchCardProps> = ({ match, onPress, onSharePress }) =
           ) : (
             <Avatar participant={match.userTeam.player} size={56} />
           )}
-          <Text style={[styles.playerName, isWin && styles.playerNameWinner]} numberOfLines={1}>
+          <Text
+            style={[styles.playerName, isWin && styles.playerNameWinner]}
+            numberOfLines={1}
+          >
             {isDoubles
               ? getTeamDisplay(match.userTeam.player, match.userTeam.partner)
               : getDisplayName(match.userTeam.player)}
@@ -369,7 +406,10 @@ const MatchCard: React.FC<MatchCardProps> = ({ match, onPress, onSharePress }) =
             <View
               style={[
                 styles.sportBadge,
-                { backgroundColor: getSportColors(match.sportType).background + '20' },
+                {
+                  backgroundColor:
+                    getSportColors(match.sportType).background + "20",
+                },
               ]}
             >
               <Text
@@ -378,7 +418,8 @@ const MatchCard: React.FC<MatchCardProps> = ({ match, onPress, onSharePress }) =
                   { color: getSportColors(match.sportType).background },
                 ]}
               >
-                {match.sportType.charAt(0) + match.sportType.slice(1).toLowerCase()}
+                {match.sportType.charAt(0) +
+                  match.sportType.slice(1).toLowerCase()}
               </Text>
             </View>
           )}
@@ -388,15 +429,32 @@ const MatchCard: React.FC<MatchCardProps> = ({ match, onPress, onSharePress }) =
               <CasualHandshakeIcon
                 width={40}
                 height={32}
-                fill={match.sportType ? getSportColors(match.sportType).background : COLORS.casualAccent}
+                fill={
+                  match.sportType
+                    ? getSportColors(match.sportType).background
+                    : COLORS.casualAccent
+                }
               />
-              <Text style={[styles.vsText, { color: match.sportType ? getSportColors(match.sportType).background : COLORS.casualAccent }]}>PLAYED</Text>
+              <Text
+                style={[
+                  styles.vsText,
+                  {
+                    color: match.sportType
+                      ? getSportColors(match.sportType).background
+                      : COLORS.casualAccent,
+                  },
+                ]}
+              >
+                PLAYED
+              </Text>
             </>
           ) : isWalkover ? (
             // Walkover - show W/O
             <>
-              <Text style={[styles.walkoverText, { color: getScoreColor() }]}>W/O</Text>
-              <Text style={styles.vsText}>{isWin ? 'WIN' : 'LOSS'}</Text>
+              <Text style={[styles.walkoverText, { color: getScoreColor() }]}>
+                W/O
+              </Text>
+              <Text style={styles.vsText}>{isWin ? "WIN" : "LOSS"}</Text>
             </>
           ) : hasScores ? (
             // Normal match with scores
@@ -409,7 +467,11 @@ const MatchCard: React.FC<MatchCardProps> = ({ match, onPress, onSharePress }) =
           ) : (
             // No scores available
             <>
-              <Text style={[styles.matchScoreText, { color: COLORS.textMuted }]}>-</Text>
+              <Text
+                style={[styles.matchScoreText, { color: COLORS.textMuted }]}
+              >
+                -
+              </Text>
               <Text style={styles.vsText}>VS</Text>
             </>
           )}
@@ -426,18 +488,29 @@ const MatchCard: React.FC<MatchCardProps> = ({ match, onPress, onSharePress }) =
               <Text
                 style={[
                   styles.ratingDeltaText,
-                  { color: match.ratingChange.delta > 0 ? COLORS.winAccent : COLORS.lossAccent },
+                  {
+                    color:
+                      match.ratingChange.delta > 0
+                        ? COLORS.winAccent
+                        : COLORS.lossAccent,
+                  },
                 ]}
               >
-                ({match.ratingChange.delta > 0 ? '+' : ''}{match.ratingChange.delta})
+                ({match.ratingChange.delta > 0 ? "+" : ""}
+                {match.ratingChange.delta})
               </Text>
               <Text
                 style={[
                   styles.ratingChangeArrow,
-                  { color: match.ratingChange.delta > 0 ? COLORS.winAccent : COLORS.lossAccent },
+                  {
+                    color:
+                      match.ratingChange.delta > 0
+                        ? COLORS.winAccent
+                        : COLORS.lossAccent,
+                  },
                 ]}
               >
-                {match.ratingChange.delta > 0 ? '↗' : '↘'}
+                {match.ratingChange.delta > 0 ? "↗" : "↘"}
               </Text>
             </View>
           )}
@@ -446,7 +519,11 @@ const MatchCard: React.FC<MatchCardProps> = ({ match, onPress, onSharePress }) =
             <TouchableOpacity
               style={[
                 styles.cardShareButton,
-                { backgroundColor: match.sportType ? getSportColors(match.sportType).background : theme.colors.primary },
+                {
+                  backgroundColor: match.sportType
+                    ? getSportColors(match.sportType).background
+                    : theme.colors.primary,
+                },
               ]}
               onPress={(e) => {
                 e.stopPropagation();
@@ -471,9 +548,15 @@ const MatchCard: React.FC<MatchCardProps> = ({ match, onPress, onSharePress }) =
           ) : (
             <Avatar participant={match.opponentTeam.player} size={56} />
           )}
-          <Text style={[styles.playerName, isLoss && styles.playerNameWinner]} numberOfLines={1}>
+          <Text
+            style={[styles.playerName, isLoss && styles.playerNameWinner]}
+            numberOfLines={1}
+          >
             {isDoubles
-              ? getTeamDisplay(match.opponentTeam.player, match.opponentTeam.partner)
+              ? getTeamDisplay(
+                  match.opponentTeam.player,
+                  match.opponentTeam.partner,
+                )
               : getDisplayName(match.opponentTeam.player)}
           </Text>
         </View>
@@ -485,7 +568,10 @@ const MatchCard: React.FC<MatchCardProps> = ({ match, onPress, onSharePress }) =
           {/* Set Labels Row */}
           <View style={styles.setScoresRow}>
             {match.setScores.map((setScore) => (
-              <View key={`label-${setScore.setNumber}`} style={styles.setColumn}>
+              <View
+                key={`label-${setScore.setNumber}`}
+                style={styles.setColumn}
+              >
                 <Text style={styles.setLabel}>Set {setScore.setNumber}</Text>
               </View>
             ))}
@@ -493,7 +579,10 @@ const MatchCard: React.FC<MatchCardProps> = ({ match, onPress, onSharePress }) =
           {/* Set Scores Row */}
           <View style={styles.setScoresRow}>
             {match.setScores.map((setScore) => (
-              <View key={`score-${setScore.setNumber}`} style={styles.setColumn}>
+              <View
+                key={`score-${setScore.setNumber}`}
+                style={styles.setColumn}
+              >
                 <Text style={styles.setScore}>
                   {setScore.userGames}-{setScore.opponentGames}
                 </Text>
@@ -505,7 +594,9 @@ const MatchCard: React.FC<MatchCardProps> = ({ match, onPress, onSharePress }) =
             <View style={styles.tiebreakRow}>
               {match.setScores.map((setScore) => (
                 <View key={`tb-${setScore.setNumber}`} style={styles.setColumn}>
-                  {setScore.hasTiebreak && setScore.userTiebreak !== undefined && setScore.opponentTiebreak !== undefined ? (
+                  {setScore.hasTiebreak &&
+                  setScore.userTiebreak !== undefined &&
+                  setScore.opponentTiebreak !== undefined ? (
                     <Text style={styles.tiebreakText}>
                       ({setScore.userTiebreak}-{setScore.opponentTiebreak})
                     </Text>
@@ -522,7 +613,7 @@ const MatchCard: React.FC<MatchCardProps> = ({ match, onPress, onSharePress }) =
       {/* Context Footer */}
       <View style={styles.contextFooter}>
         <Text style={styles.contextText} numberOfLines={1}>
-          {contextParts.join(' · ')}
+          {contextParts.join(" · ")}
         </Text>
       </View>
     </Pressable>
@@ -531,32 +622,58 @@ const MatchCard: React.FC<MatchCardProps> = ({ match, onPress, onSharePress }) =
 
 // Loading skeleton - VS Style
 const MatchCardSkeleton = () => (
-  <View style={[styles.matchCard, styles.skeletonCard, { backgroundColor: COLORS.cardDefault }]}>
+  <View
+    style={[
+      styles.matchCard,
+      styles.skeletonCard,
+      { backgroundColor: COLORS.cardDefault },
+    ]}
+  >
     {/* Ribbon skeleton */}
     <View style={styles.ribbonContainer}>
-      <View style={[styles.skeleton, { width: 60, height: 20, borderBottomRightRadius: 8 }]} />
+      <View
+        style={[
+          styles.skeleton,
+          { width: 60, height: 20, borderBottomRightRadius: 8 },
+        ]}
+      />
     </View>
     {/* VS Section skeleton */}
     <View style={styles.vsSection}>
       <View style={styles.playerColumn}>
-        <View style={[styles.skeleton, { width: 56, height: 56, borderRadius: 28 }]} />
-        <View style={[styles.skeleton, { width: 60, height: 14, marginTop: 8 }]} />
+        <View
+          style={[styles.skeleton, { width: 56, height: 56, borderRadius: 28 }]}
+        />
+        <View
+          style={[styles.skeleton, { width: 60, height: 14, marginTop: 8 }]}
+        />
       </View>
       <View style={styles.centerScore}>
         <View style={[styles.skeleton, { width: 60, height: 28 }]} />
-        <View style={[styles.skeleton, { width: 24, height: 12, marginTop: 4 }]} />
+        <View
+          style={[styles.skeleton, { width: 24, height: 12, marginTop: 4 }]}
+        />
       </View>
       <View style={styles.playerColumn}>
-        <View style={[styles.skeleton, { width: 56, height: 56, borderRadius: 28 }]} />
-        <View style={[styles.skeleton, { width: 80, height: 14, marginTop: 8 }]} />
+        <View
+          style={[styles.skeleton, { width: 56, height: 56, borderRadius: 28 }]}
+        />
+        <View
+          style={[styles.skeleton, { width: 80, height: 14, marginTop: 8 }]}
+        />
       </View>
     </View>
     {/* Set scores skeleton */}
     <View style={styles.setScoresContainer}>
       <View style={styles.setScoresRow}>
-        {[1, 2].map(i => (
+        {[1, 2].map((i) => (
           <View key={i} style={styles.setColumn}>
-            <View style={[styles.skeleton, { width: 40, height: 12, marginBottom: 4 }]} />
+            <View
+              style={[
+                styles.skeleton,
+                { width: 40, height: 12, marginBottom: 4 },
+              ]}
+            />
             <View style={[styles.skeleton, { width: 30, height: 18 }]} />
           </View>
         ))}
@@ -575,7 +692,7 @@ const EmptyState = () => (
     <Ionicons name="tennisball-outline" size={64} color="#E5E7EB" />
     <Text style={styles.emptyTitle}>No Match History</Text>
     <Text style={styles.emptyText}>
-      You haven't completed any matches yet.{'\n'}
+      You haven't completed any matches yet.{"\n"}
       Play some matches to see your history here!
     </Text>
   </View>
@@ -591,24 +708,26 @@ const FilterBar = ({
   onFilterChange: (filters: MatchHistoryFilters) => void;
   activeColor?: string;
 }) => {
-  const [activeOutcome, setActiveOutcome] = useState<'all' | 'win' | 'loss'>(
-    filters.outcome || 'all'
+  const [activeOutcome, setActiveOutcome] = useState<"all" | "win" | "loss">(
+    filters.outcome || "all",
   );
-  const [activeType, setActiveType] = useState<'all' | 'SINGLES' | 'DOUBLES'>('all');
+  const [activeType, setActiveType] = useState<"all" | "SINGLES" | "DOUBLES">(
+    "all",
+  );
 
-  const handleOutcomeChange = (outcome: 'all' | 'win' | 'loss') => {
+  const handleOutcomeChange = (outcome: "all" | "win" | "loss") => {
     setActiveOutcome(outcome);
     onFilterChange({
       ...filters,
-      outcome: outcome === 'all' ? undefined : outcome,
+      outcome: outcome === "all" ? undefined : outcome,
     });
   };
 
-  const handleTypeChange = (type: 'all' | 'SINGLES' | 'DOUBLES') => {
+  const handleTypeChange = (type: "all" | "SINGLES" | "DOUBLES") => {
     setActiveType(type);
     onFilterChange({
       ...filters,
-      matchType: type === 'all' ? undefined : type,
+      matchType: type === "all" ? undefined : type,
     });
   };
 
@@ -617,33 +736,37 @@ const FilterBar = ({
       <View style={styles.filterRow}>
         <FilterChip
           label="All"
-          isActive={activeOutcome === 'all'}
-          onPress={() => handleOutcomeChange('all')}
+          isActive={activeOutcome === "all"}
+          onPress={() => handleOutcomeChange("all")}
           activeColor={activeColor}
         />
         <FilterChip
           label="Wins"
-          isActive={activeOutcome === 'win'}
-          onPress={() => handleOutcomeChange('win')}
+          isActive={activeOutcome === "win"}
+          onPress={() => handleOutcomeChange("win")}
           activeColor={activeColor}
         />
         <FilterChip
           label="Losses"
-          isActive={activeOutcome === 'loss'}
-          onPress={() => handleOutcomeChange('loss')}
+          isActive={activeOutcome === "loss"}
+          onPress={() => handleOutcomeChange("loss")}
           activeColor={activeColor}
         />
         <View style={styles.filterDivider} />
         <FilterChip
           label="Singles"
-          isActive={activeType === 'SINGLES'}
-          onPress={() => handleTypeChange(activeType === 'SINGLES' ? 'all' : 'SINGLES')}
+          isActive={activeType === "SINGLES"}
+          onPress={() =>
+            handleTypeChange(activeType === "SINGLES" ? "all" : "SINGLES")
+          }
           activeColor={activeColor}
         />
         <FilterChip
           label="Doubles"
-          isActive={activeType === 'DOUBLES'}
-          onPress={() => handleTypeChange(activeType === 'DOUBLES' ? 'all' : 'DOUBLES')}
+          isActive={activeType === "DOUBLES"}
+          onPress={() =>
+            handleTypeChange(activeType === "DOUBLES" ? "all" : "DOUBLES")
+          }
           activeColor={activeColor}
         />
       </View>
@@ -676,12 +799,19 @@ export default function MatchHistoryScreen() {
 
   // Sport dropdown state
   const [showSportDropdown, setShowSportDropdown] = useState(false);
-  const selectedSport = filters.sportType || 'all';
-  const selectedSportOption = SPORT_OPTIONS.find(o => o.value === selectedSport) || SPORT_OPTIONS[0];
+  const selectedSport = filters.sportType || "all";
+  const selectedSportOption =
+    SPORT_OPTIONS.find((o) => o.value === selectedSport) || SPORT_OPTIONS[0];
 
   // Get gradient colors and theme color based on selected sport
-  const gradientColors = useMemo(() => SPORT_GRADIENTS[selectedSport], [selectedSport]);
-  const themeColor = useMemo(() => getSportThemeColor(selectedSport), [selectedSport]);
+  const gradientColors = useMemo(
+    () => SPORT_GRADIENTS[selectedSport],
+    [selectedSport],
+  );
+  const themeColor = useMemo(
+    () => getSportThemeColor(selectedSport),
+    [selectedSport],
+  );
 
   // Entry animation effect
   useEffect(() => {
@@ -733,13 +863,13 @@ export default function MatchHistoryScreen() {
     if (router.canGoBack()) {
       router.back();
     } else {
-      router.replace('/profile');
+      router.replace("/profile");
     }
   };
 
-  const handleSportSelect = (value: SportType | 'all') => {
+  const handleSportSelect = (value: SportType | "all") => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    updateFilter('sportType', value === 'all' ? undefined : value);
+    updateFilter("sportType", value === "all" ? undefined : value);
     setShowSportDropdown(false);
   };
 
@@ -748,10 +878,10 @@ export default function MatchHistoryScreen() {
     // Let match-details fetch full details from API since match-history
     // has incomplete participant data (user's own ID is not available)
     router.push({
-      pathname: '/match/match-details',
+      pathname: "/match/match-details",
       params: {
         matchId: match.id,
-        isFriendly: match.isFriendly ? 'true' : 'false',
+        isFriendly: match.isFriendly ? "true" : "false",
       },
     });
   };
@@ -759,10 +889,10 @@ export default function MatchHistoryScreen() {
   const handleSharePress = (matchId: string) => {
     // Navigate to match-details with share mode enabled
     router.push({
-      pathname: '/match/match-details',
+      pathname: "/match/match-details",
       params: {
         matchId,
-        shareMode: 'true',
+        shareMode: "true",
       },
     });
   };
@@ -775,7 +905,7 @@ export default function MatchHistoryScreen() {
         onSharePress={handleSharePress}
       />
     ),
-    []
+    [],
   );
 
   const renderFooter = () => {
@@ -804,7 +934,7 @@ export default function MatchHistoryScreen() {
           end={{ x: 1, y: 1 }}
           style={styles.headerGradient}
         >
-          <SafeAreaView edges={['top']} style={styles.safeHeader}>
+          <SafeAreaView edges={["top"]} style={styles.safeHeader}>
             <View style={styles.header}>
               <Pressable
                 style={styles.backButton}
@@ -824,7 +954,9 @@ export default function MatchHistoryScreen() {
                   setShowSportDropdown(true);
                 }}
               >
-                <Text style={styles.sportDropdownButtonText}>{selectedSportOption.label}</Text>
+                <Text style={styles.sportDropdownButtonText}>
+                  {selectedSportOption.label}
+                </Text>
                 <Ionicons name="chevron-down" size={16} color="#FFFFFF" />
               </Pressable>
             </View>
@@ -841,46 +973,53 @@ export default function MatchHistoryScreen() {
         }}
       >
         {/* Filter Bar */}
-        <FilterBar filters={filters} onFilterChange={setFilters} activeColor={themeColor} />
+        <FilterBar
+          filters={filters}
+          onFilterChange={setFilters}
+          activeColor={themeColor}
+        />
 
         {/* Content */}
         {isLoading ? (
-        <View style={styles.loadingContainer}>
-          <MatchCardSkeleton />
-          <MatchCardSkeleton />
-          <MatchCardSkeleton />
-        </View>
-      ) : error ? (
-        <View style={styles.errorContainer}>
-          <Ionicons name="alert-circle-outline" size={48} color="#EF4444" />
-          <Text style={styles.errorTitle}>Failed to Load</Text>
-          <Text style={styles.errorText}>{error}</Text>
-          <Pressable style={[styles.retryButton, { backgroundColor: themeColor }]} onPress={refresh}>
-            <Text style={styles.retryButtonText}>Try Again</Text>
-          </Pressable>
-        </View>
-      ) : matches.length === 0 ? (
-        <EmptyState />
-      ) : (
-        <FlatList
-          data={matches}
-          renderItem={renderItem}
-          keyExtractor={keyExtractor}
-          contentContainerStyle={styles.listContent}
-          showsVerticalScrollIndicator={false}
-          onEndReached={loadMore}
-          onEndReachedThreshold={0.5}
-          ListFooterComponent={renderFooter}
-          refreshControl={
-            <RefreshControl
-              refreshing={isRefreshing}
-              onRefresh={refresh}
-              colors={[themeColor]}
-              tintColor={themeColor}
-            />
-          }
-        />
-      )}
+          <View style={styles.loadingContainer}>
+            <MatchCardSkeleton />
+            <MatchCardSkeleton />
+            <MatchCardSkeleton />
+          </View>
+        ) : error ? (
+          <View style={styles.errorContainer}>
+            <Ionicons name="alert-circle-outline" size={48} color="#EF4444" />
+            <Text style={styles.errorTitle}>Failed to Load</Text>
+            <Text style={styles.errorText}>{error}</Text>
+            <Pressable
+              style={[styles.retryButton, { backgroundColor: themeColor }]}
+              onPress={refresh}
+            >
+              <Text style={styles.retryButtonText}>Try Again</Text>
+            </Pressable>
+          </View>
+        ) : matches.length === 0 ? (
+          <EmptyState />
+        ) : (
+          <FlatList
+            data={matches}
+            renderItem={renderItem}
+            keyExtractor={keyExtractor}
+            contentContainerStyle={styles.listContent}
+            showsVerticalScrollIndicator={false}
+            onEndReached={loadMore}
+            onEndReachedThreshold={0.5}
+            ListFooterComponent={renderFooter}
+            refreshControl={
+              <RefreshControl
+                refreshing={isRefreshing}
+                onRefresh={refresh}
+                colors={[themeColor]}
+                tintColor={themeColor}
+              />
+            }
+          />
+        )}
       </Animated.View>
 
       {/* Sport Dropdown Modal */}
@@ -903,23 +1042,35 @@ export default function MatchHistoryScreen() {
                       key={option.value}
                       style={[
                         styles.sportDropdownOption,
-                        isSelected && { backgroundColor: optionColor + '15' },
+                        isSelected && { backgroundColor: optionColor + "15" },
                       ]}
                       onPress={() => handleSportSelect(option.value)}
                     >
                       {option.color && (
-                        <View style={[styles.sportColorDot, { backgroundColor: option.color }]} />
+                        <View
+                          style={[
+                            styles.sportColorDot,
+                            { backgroundColor: option.color },
+                          ]}
+                        />
                       )}
                       <Text
                         style={[
                           styles.sportDropdownOptionText,
-                          isSelected && { color: optionColor, fontWeight: '600' },
+                          isSelected && {
+                            color: optionColor,
+                            fontWeight: "600",
+                          },
                         ]}
                       >
                         {option.label}
                       </Text>
                       {isSelected && (
-                        <Ionicons name="checkmark" size={20} color={optionColor} />
+                        <Ionicons
+                          name="checkmark"
+                          size={20}
+                          color={optionColor}
+                        />
                       )}
                     </TouchableOpacity>
                   );
@@ -941,9 +1092,9 @@ const styles = StyleSheet.create({
   headerGradient: {},
   safeHeader: {},
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     paddingHorizontal: scale(theme.spacing.lg),
     paddingVertical: verticalScale(theme.spacing.md),
   },
@@ -951,14 +1102,14 @@ const styles = StyleSheet.create({
     width: moderateScale(40),
     height: moderateScale(40),
     borderRadius: moderateScale(20),
-    backgroundColor: 'rgba(255, 255, 255, 0.3)',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: "rgba(255, 255, 255, 0.3)",
+    justifyContent: "center",
+    alignItems: "center",
   },
   headerTitle: {
     fontSize: moderateScale(theme.typography.fontSize.xl),
     fontWeight: theme.typography.fontWeight.bold,
-    color: '#FFFFFF',
+    color: "#FFFFFF",
     fontFamily: theme.typography.fontFamily.primary,
   },
   headerSpacer: {
@@ -967,37 +1118,37 @@ const styles = StyleSheet.create({
 
   // Sport dropdown button in header
   sportDropdownButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.25)',
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "rgba(255, 255, 255, 0.25)",
     paddingHorizontal: scale(12),
     paddingVertical: verticalScale(8),
     borderRadius: moderateScale(20),
     gap: scale(6),
   },
   sportDropdownButtonText: {
-    color: '#FFFFFF',
+    color: "#FFFFFF",
     fontSize: moderateScale(13),
-    fontWeight: '600',
+    fontWeight: "600",
   },
 
   // Sport dropdown modal
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    justifyContent: "center",
+    alignItems: "center",
     padding: scale(24),
   },
   sportDropdownModal: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: "#FFFFFF",
     borderRadius: moderateScale(16),
     padding: scale(16),
-    width: '100%',
+    width: "100%",
     maxWidth: scale(300),
     ...Platform.select({
       ios: {
-        shadowColor: '#000',
+        shadowColor: "#000",
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.15,
         shadowRadius: 12,
@@ -1009,21 +1160,21 @@ const styles = StyleSheet.create({
   },
   sportDropdownTitle: {
     fontSize: moderateScale(16),
-    fontWeight: '700',
+    fontWeight: "700",
     color: COLORS.textPrimary,
     marginBottom: verticalScale(12),
-    textAlign: 'center',
+    textAlign: "center",
   },
   sportDropdownOption: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     paddingVertical: verticalScale(14),
     paddingHorizontal: scale(12),
     borderRadius: moderateScale(10),
     marginBottom: verticalScale(4),
   },
   sportDropdownOptionActive: {
-    backgroundColor: theme.colors.primary + '10',
+    backgroundColor: theme.colors.primary + "10",
   },
   sportColorDot: {
     width: moderateScale(12),
@@ -1035,25 +1186,25 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: moderateScale(15),
     color: COLORS.textPrimary,
-    fontWeight: '500',
+    fontWeight: "500",
   },
   sportDropdownOptionTextActive: {
     color: theme.colors.primary,
-    fontWeight: '600',
+    fontWeight: "600",
   },
 
   // Filter bar
   filterBar: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: "#FFFFFF",
     paddingHorizontal: scale(theme.spacing.md),
     paddingVertical: verticalScale(theme.spacing.sm),
     borderBottomWidth: 1,
     borderBottomColor: theme.colors.neutral.gray[200],
   },
   filterRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flexWrap: 'wrap',
+    flexDirection: "row",
+    alignItems: "center",
+    flexWrap: "wrap",
     gap: scale(8),
   },
   filterChip: {
@@ -1067,11 +1218,11 @@ const styles = StyleSheet.create({
   },
   filterChipText: {
     fontSize: moderateScale(13),
-    fontWeight: '500',
+    fontWeight: "500",
     color: theme.colors.neutral.gray[600],
   },
   filterChipTextActive: {
-    color: '#FFFFFF',
+    color: "#FFFFFF",
   },
   filterDivider: {
     width: 1,
@@ -1090,12 +1241,12 @@ const styles = StyleSheet.create({
   matchCard: {
     borderRadius: moderateScale(16),
     marginBottom: verticalScale(16),
-    overflow: 'hidden',
+    overflow: "hidden",
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: "#E5E7EB",
     ...Platform.select({
       ios: {
-        shadowColor: '#000',
+        shadowColor: "#000",
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.06,
         shadowRadius: 8,
@@ -1112,7 +1263,7 @@ const styles = StyleSheet.create({
 
   // Corner Ribbon
   ribbonContainer: {
-    position: 'absolute',
+    position: "absolute",
     top: 0,
     left: 0,
     zIndex: 10,
@@ -1123,15 +1274,15 @@ const styles = StyleSheet.create({
     borderBottomRightRadius: moderateScale(10),
   },
   ribbonText: {
-    color: '#FFFFFF',
+    color: "#FFFFFF",
     fontSize: moderateScale(10),
-    fontWeight: '700',
+    fontWeight: "700",
     letterSpacing: 0.5,
   },
 
   // Arrow indicator - top right
   arrowIndicator: {
-    position: 'absolute',
+    position: "absolute",
     top: verticalScale(12),
     right: scale(12),
     zIndex: 10,
@@ -1139,66 +1290,66 @@ const styles = StyleSheet.create({
 
   // VS Section
   vsSection: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     paddingHorizontal: scale(16),
     paddingTop: verticalScale(36),
     paddingBottom: verticalScale(16),
   },
   playerColumn: {
-    alignItems: 'center',
+    alignItems: "center",
     flex: 1,
   },
   playerName: {
     fontSize: moderateScale(13),
-    fontWeight: '500',
+    fontWeight: "500",
     color: COLORS.textSecondary,
-    textAlign: 'center',
+    textAlign: "center",
     marginTop: verticalScale(8),
     maxWidth: scale(90),
   },
   playerNameWinner: {
-    fontWeight: '700',
+    fontWeight: "700",
     color: COLORS.textPrimary,
   },
 
   // Center Score
   centerScore: {
-    alignItems: 'center',
+    alignItems: "center",
     paddingHorizontal: scale(12),
   },
   matchScoreText: {
     fontSize: moderateScale(32),
-    fontWeight: '800',
+    fontWeight: "800",
     color: COLORS.textPrimary,
     letterSpacing: 1,
   },
   walkoverText: {
     fontSize: moderateScale(28),
-    fontWeight: '800',
+    fontWeight: "800",
     letterSpacing: 2,
   },
   vsText: {
     fontSize: moderateScale(11),
-    fontWeight: '600',
+    fontWeight: "600",
     color: COLORS.textMuted,
     marginTop: verticalScale(2),
     letterSpacing: 1,
   },
   ratingChangeBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     marginTop: verticalScale(6),
     paddingHorizontal: scale(8),
     paddingVertical: verticalScale(3),
     borderRadius: moderateScale(10),
-    backgroundColor: 'rgba(0, 0, 0, 0.04)',
+    backgroundColor: "rgba(0, 0, 0, 0.04)",
     gap: scale(3),
   },
   ratingTransitionText: {
     fontSize: moderateScale(11),
-    fontWeight: '600',
+    fontWeight: "600",
     color: COLORS.textSecondary,
   },
   ratingArrowSymbol: {
@@ -1207,18 +1358,18 @@ const styles = StyleSheet.create({
   },
   ratingDeltaText: {
     fontSize: moderateScale(11),
-    fontWeight: '700',
+    fontWeight: "700",
   },
   ratingChangeArrow: {
     fontSize: moderateScale(11),
-    fontWeight: '600',
+    fontWeight: "600",
   },
 
   // Share button in card
   cardShareButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
     paddingHorizontal: scale(12),
     paddingVertical: verticalScale(6),
     borderRadius: moderateScale(14),
@@ -1226,41 +1377,41 @@ const styles = StyleSheet.create({
     gap: scale(4),
   },
   cardShareButtonText: {
-    color: '#FFFFFF',
+    color: "#FFFFFF",
     fontSize: moderateScale(12),
-    fontWeight: '600',
+    fontWeight: "600",
   },
 
   // Avatar styles
   avatar: {
     backgroundColor: theme.colors.neutral.gray[200],
     borderWidth: 3,
-    borderColor: '#FFFFFF',
+    borderColor: "#FFFFFF",
   },
   avatarPlaceholder: {
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     borderWidth: 3,
-    borderColor: '#FFFFFF',
+    borderColor: "#FFFFFF",
   },
   avatarInitials: {
-    color: '#FFFFFF',
-    fontWeight: '700',
+    color: "#FFFFFF",
+    fontWeight: "700",
   },
 
   // Doubles Avatar Stack
   doublesStack: {
     width: scale(76),
     height: verticalScale(56),
-    position: 'relative',
+    position: "relative",
   },
   doublesAvatarBack: {
-    position: 'absolute',
+    position: "absolute",
     left: 0,
     top: 0,
   },
   doublesAvatarFront: {
-    position: 'absolute',
+    position: "absolute",
     right: 0,
     top: 0,
   },
@@ -1274,42 +1425,42 @@ const styles = StyleSheet.create({
     paddingHorizontal: scale(16),
   },
   setScoresRow: {
-    flexDirection: 'row',
-    justifyContent: 'center',
+    flexDirection: "row",
+    justifyContent: "center",
     gap: scale(24),
   },
   setColumn: {
-    alignItems: 'center',
+    alignItems: "center",
     minWidth: scale(50),
   },
   setLabel: {
     fontSize: moderateScale(11),
-    fontWeight: '600',
+    fontWeight: "600",
     color: COLORS.textMuted,
     marginBottom: verticalScale(4),
-    textTransform: 'uppercase',
+    textTransform: "uppercase",
   },
   setScore: {
     fontSize: moderateScale(18),
-    fontWeight: '700',
+    fontWeight: "700",
     color: COLORS.textPrimary,
   },
   tiebreakRow: {
-    flexDirection: 'row',
-    justifyContent: 'center',
+    flexDirection: "row",
+    justifyContent: "center",
     gap: scale(24),
     marginTop: verticalScale(2),
   },
   tiebreakText: {
     fontSize: moderateScale(11),
-    fontWeight: '500',
+    fontWeight: "500",
     color: COLORS.textSecondary,
   },
 
   // Context Footer
   contextFooter: {
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     paddingVertical: verticalScale(12),
     paddingHorizontal: scale(16),
     borderTopWidth: 1,
@@ -1319,7 +1470,7 @@ const styles = StyleSheet.create({
   contextText: {
     fontSize: moderateScale(12),
     color: COLORS.textSecondary,
-    textAlign: 'center',
+    textAlign: "center",
   },
   sportBadge: {
     paddingHorizontal: scale(10),
@@ -1329,7 +1480,7 @@ const styles = StyleSheet.create({
   },
   sportBadgeText: {
     fontSize: moderateScale(11),
-    fontWeight: '600',
+    fontWeight: "600",
   },
 
   // Loading states
@@ -1339,7 +1490,7 @@ const styles = StyleSheet.create({
   },
   loadingFooter: {
     paddingVertical: verticalScale(theme.spacing.lg),
-    alignItems: 'center',
+    alignItems: "center",
   },
   skeletonCard: {
     opacity: 0.7,
@@ -1352,13 +1503,13 @@ const styles = StyleSheet.create({
   // Empty state
   emptyContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     paddingHorizontal: scale(theme.spacing.xl),
   },
   emptyTitle: {
     fontSize: moderateScale(20),
-    fontWeight: '700',
+    fontWeight: "700",
     color: theme.colors.neutral.gray[700],
     marginTop: verticalScale(theme.spacing.lg),
     marginBottom: verticalScale(theme.spacing.sm),
@@ -1366,20 +1517,20 @@ const styles = StyleSheet.create({
   emptyText: {
     fontSize: moderateScale(14),
     color: theme.colors.neutral.gray[600],
-    textAlign: 'center',
+    textAlign: "center",
     lineHeight: verticalScale(22),
   },
 
   // Error state
   errorContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     paddingHorizontal: scale(theme.spacing.xl),
   },
   errorTitle: {
     fontSize: moderateScale(18),
-    fontWeight: '700',
+    fontWeight: "700",
     color: theme.colors.neutral.gray[700],
     marginTop: verticalScale(theme.spacing.md),
     marginBottom: verticalScale(theme.spacing.xs),
@@ -1387,7 +1538,7 @@ const styles = StyleSheet.create({
   errorText: {
     fontSize: moderateScale(14),
     color: theme.colors.neutral.gray[600],
-    textAlign: 'center',
+    textAlign: "center",
     marginBottom: verticalScale(theme.spacing.lg),
   },
   retryButton: {
@@ -1397,8 +1548,8 @@ const styles = StyleSheet.create({
     borderRadius: moderateScale(8),
   },
   retryButtonText: {
-    color: '#FFFFFF',
+    color: "#FFFFFF",
     fontSize: moderateScale(14),
-    fontWeight: '600',
+    fontWeight: "600",
   },
 });
