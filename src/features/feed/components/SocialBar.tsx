@@ -3,11 +3,7 @@
 import React from "react";
 import { Image, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { feedTheme } from "../theme";
-
-// Import custom icons with correct file names
-const likeIcon = require("../../../../assets/icons/activity/thumbs-up.png");
-const commentIcon = require("../../../../assets/icons/activity/comment.png");
-const shareIcon = require("../../../../assets/icons/activity/share.png");
+import { Ionicons } from "@expo/vector-icons";
 
 interface SocialBarProps {
   likeCount: number;
@@ -82,19 +78,17 @@ export const SocialBar: React.FC<SocialBarProps> = ({
           disabled={isLiking}
           activeOpacity={0.7}
         >
-          <Image
-            source={likeIcon}
-            style={[
-              styles.iconStyle,
-              {
-                tintColor: likeIconColor,
-                opacity: isLiked ? 1 : 0.7,
-              },
-            ]}
-            resizeMode="contain"
+          <Ionicons 
+            name={isLiked ? "thumbs-up" : "thumbs-up-outline"} 
+            size={20} 
+            color={likeIconColor}
+            style={{ opacity: isLiked ? 1 : 0.7 }}
           />
           <Text style={[styles.actionText, { color: likeIconColor }]}>
-            {likeCount}
+            {isLiked ? 'Liked' : 'Like'}
+          </Text>
+          <Text style={[styles.actionText, styles.countText, { color: likeIconColor }]}>
+            {likeCount > 0 ? likeCount : ''}
           </Text>
         </TouchableOpacity>
 
@@ -103,15 +97,15 @@ export const SocialBar: React.FC<SocialBarProps> = ({
           onPress={onCommentPress}
           activeOpacity={0.7}
         >
-          <Image
-            source={commentIcon}
-            style={[
-              styles.iconStyle,
-              { tintColor: feedTheme.colors.textPrimary },
-            ]}
-            resizeMode="contain"
+          <Ionicons 
+            name="chatbubble-ellipses-outline" 
+            size={20} 
+            color={feedTheme.colors.textPrimary}
           />
-          <Text style={styles.actionText}>{commentCount}</Text>
+          <Text style={styles.actionText}>Comment</Text>
+          <Text style={[styles.actionText, styles.countText]}>
+            {commentCount > 0 ? commentCount : ''}
+          </Text>
         </TouchableOpacity>
 
         {showShareButton && (
@@ -120,15 +114,12 @@ export const SocialBar: React.FC<SocialBarProps> = ({
             onPress={onSharePress}
             activeOpacity={0.7}
           >
-            <Image
-              source={shareIcon}
-              style={[
-                styles.shareIcon,
-                { tintColor: feedTheme.colors.textPrimary },
-              ]}
-              resizeMode="contain"
+            <Ionicons 
+              name="share-outline" 
+              size={20} 
+              color={feedTheme.colors.textPrimary}
             />
-            {/* <Text style={styles.actionText}>Share</Text> */}
+            <Text style={styles.actionText}>Share</Text>
           </TouchableOpacity>
         )}
       </View>
@@ -168,6 +159,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     marginRight: 16,
     minHeight: 40,
+    gap: 6,
   },
   shareButton: {
     marginLeft: "auto",
@@ -176,13 +168,14 @@ const styles = StyleSheet.create({
   actionText: {
     ...feedTheme.typography.socialCount,
     color: feedTheme.colors.textSecondary,
-    marginLeft: 0,
     lineHeight: 20,
   },
+  countText: {
+    fontWeight: '600',
+  },
   iconStyle: {
-    width: 24,
-    height: 24,
-    marginRight: 6,
+    width: 20,
+    height: 20,
   },
   shareIcon: {
     width: 30,

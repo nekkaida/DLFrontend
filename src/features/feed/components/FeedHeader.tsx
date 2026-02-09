@@ -10,8 +10,9 @@ interface FeedHeaderProps {
   userFilter?: 'all' | 'friends';
   onFilterPress?: () => void;
   onFriendListPress: () => void;
-  onCreatePostPress?: () => void;
   onUserFilterToggle?: () => void;
+  activeTab: 'activity' | 'friends';
+  onTabChange: (tab: 'activity' | 'friends') => void;
 }
 
 export const FeedHeader: React.FC<FeedHeaderProps> = ({
@@ -19,31 +20,31 @@ export const FeedHeader: React.FC<FeedHeaderProps> = ({
   userFilter = 'all',
   onFilterPress,
   onFriendListPress,
-  onCreatePostPress,
   onUserFilterToggle,
+  activeTab,
+  onTabChange,
 }) => {
   return (
     <View style={styles.container}>
-      <View style={styles.titleRow}>
-        <Text style={styles.title}>Activity</Text>
-        <View style={styles.headerButtons}>
-          {onCreatePostPress && (
-            <TouchableOpacity
-              style={styles.headerButton}
-              onPress={onCreatePostPress}
-              activeOpacity={0.7}
-            >
-              <Ionicons name="add-circle-outline" size={26} color={feedTheme.colors.primary} />
-            </TouchableOpacity>
-          )}
-          <TouchableOpacity
-            style={styles.headerButton}
-            onPress={onFriendListPress}
-            activeOpacity={0.7}
-          >
-            <Ionicons name="people" size={26} color={feedTheme.colors.textPrimary} />
-          </TouchableOpacity>
-        </View>
+      <View style={styles.tabsContainer}>
+        <TouchableOpacity
+          style={[styles.tab, activeTab === 'activity' && styles.tabActive]}
+          onPress={() => onTabChange('activity')}
+          activeOpacity={0.7}
+        >
+          <Text style={[styles.tabText, activeTab === 'activity' && styles.tabTextActive]}>
+            Activity
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.tab, activeTab === 'friends' && styles.tabActive]}
+          onPress={() => onTabChange('friends')}
+          activeOpacity={0.7}
+        >
+          <Text style={[styles.tabText, activeTab === 'friends' && styles.tabTextActive]}>
+            Friends
+          </Text>
+        </TouchableOpacity>
       </View>
 
       {/* Filters Row */}
@@ -91,23 +92,28 @@ const styles = StyleSheet.create({
     paddingTop: 12,
     paddingBottom: 16,
   },
-  titleRow: {
+  tabsContainer: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
+    gap: 24,
   },
-  title: {
-    ...feedTheme.typography.feedTitle,
+  tab: {
+    paddingVertical: 8,
+    paddingBottom: 12,
+    borderBottomWidth: 3,
+    borderBottomColor: 'transparent',
+  },
+  tabActive: {
+    borderBottomColor: feedTheme.colors.primary,
+  },
+  tabText: {
+    fontSize: 20,
+    fontWeight: '600',
+    color: feedTheme.colors.textSecondary,
+  },
+  tabTextActive: {
     color: feedTheme.colors.textPrimary,
-  },
-  headerButtons: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  headerButton: {
-    padding: 8,
-    borderRadius: 20,
+    fontWeight: '700',
   },
   filtersRow: {
     flexDirection: 'row',
