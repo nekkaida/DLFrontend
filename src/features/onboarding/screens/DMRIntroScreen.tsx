@@ -26,7 +26,7 @@ const horizontalPadding = Math.max(screenWidth * 0.08, 20);
 const videoSize = isSmallDevice ? 200 : isMediumDevice ? 250 : 300;
 
 const DMRIntroScreen = () => {
-  const { data } = useOnboarding();
+  const { data, isLoading } = useOnboarding();
 
   // Create video player for the intro animation
   const videoPlayer = useVideoPlayer(require('@/assets/videos/connect_partner.mp4'), player => {
@@ -36,6 +36,12 @@ const DMRIntroScreen = () => {
   });
 
   const handleLetsGo = () => {
+    // Don't navigate if still loading - prevents race condition
+    if (isLoading) {
+      console.log('DMRIntroScreen: Still loading, waiting for data...');
+      return;
+    }
+
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
 
     // Navigate to skill assessment for first selected sport
@@ -44,6 +50,7 @@ const DMRIntroScreen = () => {
       router.push(`/onboarding/skill-assessment?sport=${selectedSports[0]}&sportIndex=0`);
     } else {
       // Fallback - shouldn't happen if flow is correct
+      console.warn('DMRIntroScreen: No sports selected, redirecting to dashboard');
       router.push('/user-dashboard');
     }
   };
@@ -100,15 +107,16 @@ const DMRIntroScreen = () => {
       <View style={styles.buttonContainer}>
         <TouchableOpacity
           onPress={handleLetsGo}
-          style={styles.buttonTouchableContainer}
+          style={[styles.buttonTouchableContainer, isLoading && styles.buttonDisabled]}
+          disabled={isLoading}
         >
           <LinearGradient
-            colors={['#FEA04D', '#FF8C1A']}
+            colors={isLoading ? ['#CCCCCC', '#AAAAAA'] : ['#FEA04D', '#FF8C1A']}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}
             style={styles.button}
           >
-            <Text style={styles.buttonText}>Let's Go!</Text>
+            <Text style={styles.buttonText}>{isLoading ? 'Loading...' : "Let's Go!"}</Text>
           </LinearGradient>
         </TouchableOpacity>
       </View>
@@ -188,6 +196,9 @@ const styles = StyleSheet.create({
     borderRadius: 22,
     overflow: 'hidden',
     width: screenWidth * 0.7,
+  },
+  buttonDisabled: {
+    opacity: 0.7,
   },
   button: {
     height: 44,
