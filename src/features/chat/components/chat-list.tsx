@@ -1,9 +1,5 @@
+import { moderateScale, scale, verticalScale } from "@/core/utils/responsive";
 import { useSession } from "@/lib/auth-client";
-import {
-  scale,
-  verticalScale,
-  moderateScale,
-} from '@/core/utils/responsive';
 import { Ionicons } from "@expo/vector-icons";
 import React, { useCallback, useMemo } from "react";
 import {
@@ -15,16 +11,16 @@ import {
   Text,
   View,
 } from "react-native";
-import { useChatStore } from "../stores/ChatStore";
-import { Thread } from "../types";
-import { GroupAvatarStack } from "./GroupAvatarStack";
-import { FriendlyMatchRequestAttachment } from "./FriendlyMatchRequestAttachment";
-import { LeagueMatchAttachment } from "./LeagueMatchAttachment";
 import {
   FLATLIST_CONFIG,
   getSportChatColors,
-  UI_DIMENSIONS
+  UI_DIMENSIONS,
 } from "../constants";
+import { useChatStore } from "../stores/ChatStore";
+import { Thread } from "../types";
+import { FriendlyMatchRequestAttachment } from "./FriendlyMatchRequestAttachment";
+import { GroupAvatarStack } from "./GroupAvatarStack";
+import { LeagueMatchAttachment } from "./LeagueMatchAttachment";
 
 interface ThreadListProps {
   onThreadSelect: (thread: Thread) => void;
@@ -38,34 +34,37 @@ const ThreadItem = React.memo<{
   onSelect: (thread: Thread) => void;
 }>(({ item, userId, onSelect }) => {
   const sportColors = getSportChatColors(item.sportType);
-  const isGroupChat = item.type === 'group';
+  const isGroupChat = item.type === "group";
 
   // For direct chats, find the other participant
   const otherParticipant = !isGroupChat
     ? item.participants?.find((p) => p.id !== userId)
     : null;
 
-  const avatarImage = otherParticipant?.avatar || (otherParticipant as { image?: string })?.image || null;
+  const avatarImage =
+    otherParticipant?.avatar ||
+    (otherParticipant as { image?: string })?.image ||
+    null;
   const avatarInitial = isGroupChat
-    ? item.name?.charAt(0) || 'G'
-    : otherParticipant?.name?.charAt(0) || item.name?.charAt(0) || '?';
+    ? item.name?.charAt(0) || "G"
+    : otherParticipant?.name?.charAt(0) || item.name?.charAt(0) || "?";
 
   const seasonName = item.division?.season?.name || item.metadata?.seasonName;
 
   // Get unread badge color based on sport context
   const getUnreadBadgeColor = (): string => {
-    if (item.unreadCount === 0) return '#DC2626';
-    if (item.type === 'direct' && item.recentSportContext?.isValid) {
-      return sportColors.badge || '#A855F7';
+    if (item.unreadCount === 0) return "#DC2626";
+    if (item.type === "direct" && item.recentSportContext?.isValid) {
+      return sportColors.badge || "#A855F7";
     }
-    return '#DEE0E2';
+    return "#DEE0E2";
   };
 
   const getUnreadTextColor = (): string => {
-    if (item.type === 'direct' && item.recentSportContext?.isValid) {
-      return '#FFFFFF';
+    if (item.type === "direct" && item.recentSportContext?.isValid) {
+      return "#FFFFFF";
     }
-    return '#1D1D1F';
+    return "#1D1D1F";
   };
 
   // Parse match data safely
@@ -79,13 +78,13 @@ const ThreadItem = React.memo<{
     }
 
     const isMatchMessage =
-      (item.lastMessage as { messageType?: string }).messageType === 'MATCH' ||
-      item.lastMessage.type === 'match';
+      (item.lastMessage as { messageType?: string }).messageType === "MATCH" ||
+      item.lastMessage.type === "match";
 
     let matchData = item.lastMessage.matchData;
 
     if (isMatchMessage && matchData) {
-      if (typeof matchData === 'string') {
+      if (typeof matchData === "string") {
         try {
           matchData = JSON.parse(matchData);
         } catch {
@@ -116,9 +115,10 @@ const ThreadItem = React.memo<{
     }
 
     // For group chats, show sender name before message
-    const senderName = isGroupChat && item.lastMessage.metadata?.sender?.name
-      ? item.lastMessage.metadata.sender.name.split(' ')[0]
-      : null;
+    const senderName =
+      isGroupChat && item.lastMessage.metadata?.sender?.name
+        ? item.lastMessage.metadata.sender.name.split(" ")[0]
+        : null;
 
     const messageContent = item.lastMessage.metadata?.isDeleted
       ? "This message was deleted"
@@ -128,13 +128,11 @@ const ThreadItem = React.memo<{
       <Text
         style={[
           styles.lastMessage,
-          item.lastMessage.metadata?.isDeleted && styles.deletedMessage
+          item.lastMessage.metadata?.isDeleted && styles.deletedMessage,
         ]}
         numberOfLines={2}
       >
-        {senderName && (
-          <Text style={styles.senderName}>{senderName}: </Text>
-        )}
+        {senderName && <Text style={styles.senderName}>{senderName}: </Text>}
         {messageContent}
       </Text>
     );
@@ -144,7 +142,7 @@ const ThreadItem = React.memo<{
     <Pressable
       style={({ pressed }) => [
         styles.threadItem,
-        pressed && styles.threadItemPressed
+        pressed && styles.threadItemPressed,
       ]}
       onPress={() => onSelect(item)}
     >
@@ -168,19 +166,23 @@ const ThreadItem = React.memo<{
         {isGroupChat && (sportColors.label || seasonName) && (
           <View style={styles.badgeRow}>
             {sportColors.label && (
-              <View style={[styles.sportBadge, { borderColor: sportColors.badge }]}>
-                <Text style={[styles.sportBadgeText, { color: sportColors.badge }]}>
+              <View
+                style={[styles.sportBadge, { borderColor: sportColors.badge }]}
+              >
+                <Text
+                  style={[styles.sportBadgeText, { color: sportColors.badge }]}
+                >
                   {sportColors.label}
                 </Text>
               </View>
             )}
-            {seasonName && (
+            {/* {seasonName && (
               <View style={[styles.sportBadge, styles.seasonBadge]}>
                 <Text style={[styles.sportBadgeText, styles.seasonBadgeText]}>
                   {seasonName}
                 </Text>
               </View>
-            )}
+            )} */}
           </View>
         )}
 
@@ -190,7 +192,7 @@ const ThreadItem = React.memo<{
           </Text>
           <Text style={styles.timestamp}>
             {new Date(
-              item.lastMessage?.timestamp || item.updatedAt
+              item.lastMessage?.timestamp || item.updatedAt,
             ).toLocaleTimeString([], {
               hour: "2-digit",
               minute: "2-digit",
@@ -199,12 +201,17 @@ const ThreadItem = React.memo<{
         </View>
 
         <View style={styles.messageRow}>
-          <View style={styles.messageContainer}>
-            {renderLastMessage()}
-          </View>
+          <View style={styles.messageContainer}>{renderLastMessage()}</View>
           {item.unreadCount > 0 && (
-            <View style={[styles.unreadBadge, { backgroundColor: getUnreadBadgeColor() }]}>
-              <Text style={[styles.unreadText, { color: getUnreadTextColor() }]}>
+            <View
+              style={[
+                styles.unreadBadge,
+                { backgroundColor: getUnreadBadgeColor() },
+              ]}
+            >
+              <Text
+                style={[styles.unreadText, { color: getUnreadTextColor() }]}
+              >
                 {item.unreadCount}
               </Text>
             </View>
@@ -215,7 +222,7 @@ const ThreadItem = React.memo<{
   );
 });
 
-ThreadItem.displayName = 'ThreadItem';
+ThreadItem.displayName = "ThreadItem";
 
 // Empty component - memoized
 const EmptyList = React.memo(() => (
@@ -231,9 +238,12 @@ const EmptyList = React.memo(() => (
   </View>
 ));
 
-EmptyList.displayName = 'EmptyList';
+EmptyList.displayName = "EmptyList";
 
-export const ThreadList: React.FC<ThreadListProps> = ({ onThreadSelect, threads: filteredThreads }) => {
+export const ThreadList: React.FC<ThreadListProps> = ({
+  onThreadSelect,
+  threads: filteredThreads,
+}) => {
   const { threads: storeThreads, loadThreads, isLoading } = useChatStore();
 
   // Use filtered threads if provided, otherwise fall back to store threads
@@ -246,13 +256,13 @@ export const ThreadList: React.FC<ThreadListProps> = ({ onThreadSelect, threads:
     ({ item }: ListRenderItemInfo<Thread>) => (
       <ThreadItem item={item} userId={userId} onSelect={onThreadSelect} />
     ),
-    [userId, onThreadSelect]
+    [userId, onThreadSelect],
   );
 
   // Memoized key extractor
   const keyExtractor = useCallback(
     (item: Thread) => item?.id || `null-thread-${Math.random()}`,
-    []
+    [],
   );
 
   // Memoized refresh handler
@@ -269,13 +279,16 @@ export const ThreadList: React.FC<ThreadListProps> = ({ onThreadSelect, threads:
       offset: FLATLIST_CONFIG.THREAD_ITEM_HEIGHT * index,
       index,
     }),
-    []
+    [],
   );
 
   // Memoized content container style
   const contentContainerStyle = useMemo(
-    () => (!threads || threads.length === 0 ? styles.emptyListContainer : styles.listContainer),
-    [threads]
+    () =>
+      !threads || threads.length === 0
+        ? styles.emptyListContainer
+        : styles.listContainer,
+    [threads],
   );
 
   return (
@@ -317,31 +330,31 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   threadItem: {
-    flexDirection: 'row',
+    flexDirection: "row",
     padding: moderateScale(16),
     borderBottomWidth: 1,
-    borderBottomColor: '#F1F5F9',
-    backgroundColor: '#FFFFFF',
-    alignItems: 'center',
+    borderBottomColor: "#F1F5F9",
+    backgroundColor: "#FFFFFF",
+    alignItems: "center",
   },
   threadItemPressed: {
-    opacity: 0.7,
+    backgroundColor: "#F9FAFB",
   },
   avatarContainer: {
-    position: 'relative',
+    position: "relative",
     marginRight: scale(12),
     minWidth: scale(48),
     minHeight: verticalScale(48),
-    justifyContent: 'center',
-    alignItems: 'flex-start',
+    justifyContent: "center",
+    alignItems: "flex-start",
   },
   avatarPlaceholder: {
     width: scale(48),
     height: verticalScale(48),
     borderRadius: moderateScale(24),
-    backgroundColor: '#6de9a0',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: "#6de9a0",
+    justifyContent: "center",
+    alignItems: "center",
   },
   avatarImage: {
     width: scale(48),
@@ -352,9 +365,9 @@ const styles = StyleSheet.create({
     marginBottom: verticalScale(12),
   },
   avatarText: {
-    color: '#FFFFFF',
+    color: "#FFFFFF",
     fontSize: moderateScale(16),
-    fontWeight: '600',
+    fontWeight: "600",
   },
   unreadBadge: {
     backgroundColor: "#DC2626",
@@ -372,13 +385,13 @@ const styles = StyleSheet.create({
   },
   threadContent: {
     flex: 1,
-    justifyContent: 'center',
+    justifyContent: "center",
     marginRight: scale(12),
   },
   nameRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     marginBottom: verticalScale(4),
   },
   threadName: {
@@ -389,8 +402,8 @@ const styles = StyleSheet.create({
     marginRight: scale(8),
   },
   badgeRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: scale(6),
     marginBottom: verticalScale(4),
   },
@@ -398,29 +411,29 @@ const styles = StyleSheet.create({
     paddingHorizontal: scale(8),
     paddingVertical: verticalScale(2),
     borderRadius: moderateScale(10),
-    backgroundColor: 'transparent',
+    backgroundColor: "transparent",
     borderWidth: 1.5,
-    alignSelf: 'flex-start',
+    alignSelf: "flex-start",
   },
   sportBadgeText: {
     fontSize: moderateScale(10),
-    fontWeight: '600',
-    textTransform: 'uppercase',
+    fontWeight: "600",
+    textTransform: "uppercase",
   },
   seasonBadge: {
-    borderColor: '#6B7280',
+    borderColor: "#6B7280",
   },
   seasonBadgeText: {
-    color: '#6B7280',
+    color: "#6B7280",
   },
   timestamp: {
     fontSize: moderateScale(12),
     color: "#86868B",
-    fontWeight: '500',
+    fontWeight: "500",
   },
   messageRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     marginTop: verticalScale(2),
   },
   messageContainer: {
@@ -433,17 +446,17 @@ const styles = StyleSheet.create({
     lineHeight: verticalScale(20),
   },
   senderName: {
-    fontWeight: '600',
-    color: '#374151',
+    fontWeight: "600",
+    color: "#374151",
   },
   deletedMessage: {
-    fontStyle: 'italic',
+    fontStyle: "italic",
     color: "#9CA3AF",
   },
   emptyMessage: {
     fontSize: moderateScale(14),
     color: "#9CA3AF",
-    fontStyle: 'italic',
+    fontStyle: "italic",
   },
   emptyContainer: {
     justifyContent: "center",
