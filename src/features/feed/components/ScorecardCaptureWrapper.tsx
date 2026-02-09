@@ -11,7 +11,7 @@ import React, {
   useRef,
   useState,
 } from "react";
-import { Image, StyleSheet, View } from "react-native";
+import { StyleSheet, View } from "react-native";
 import { SolidScorecard } from "./SolidScorecard";
 import { TransparentScorecard } from "./TransparentScorecard";
 
@@ -93,7 +93,7 @@ export const ScorecardCaptureWrapper = forwardRef<
         ]}
       >
         {/* Company Logo */}
-        <View
+        {/* <View
           style={[
             styles.logoContainer,
             { height: LOGO_HEIGHT, marginBottom: LOGO_MARGIN_BOTTOM },
@@ -104,7 +104,7 @@ export const ScorecardCaptureWrapper = forwardRef<
             style={[styles.logo, { height: LOGO_HEIGHT }]}
             resizeMode="contain"
           />
-        </View>
+        </View> */}
 
         {/* Render appropriate scorecard based on background style */}
         {backgroundStyle === "white" ? (
