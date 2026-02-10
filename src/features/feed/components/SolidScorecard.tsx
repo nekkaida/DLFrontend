@@ -1,5 +1,8 @@
 // src/features/feed/components/SolidScorecard.tsx
 
+import SCardPadel from "@/assets/backgrounds/Scard-Padel.svg";
+import SCardPickleball from "@/assets/backgrounds/Scard-Pickleball.svg";
+import SCardTennis from "@/assets/backgrounds/Scard-Tennis.svg";
 import { MatchResult, SportColors } from "@/features/standings/types";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
@@ -10,6 +13,7 @@ interface SolidScorecardProps {
   match: MatchResult;
   sportColors: SportColors;
   isFriendly?: boolean;
+  isSingles?: boolean;
   matchType?: string;
 }
 
@@ -24,6 +28,26 @@ const getSportIcon = (sportType: string | undefined) => {
   return iconMap[normalizedType] || "tennisball";
 };
 
+// Map sport types to their background images
+const getSportBackground = (sportType: string | undefined) => {
+  const normalizedType = sportType?.toUpperCase() || "TENNIS";
+  console.log(
+    "[SolidScorecard] Sport:",
+    sportType,
+    "→ Normalized:",
+    normalizedType,
+  );
+  switch (normalizedType) {
+    case "PICKLEBALL":
+      return <SCardPickleball width="100%" height="100%" />;
+    case "PADEL":
+      return <SCardPadel width="100%" height="100%" />;
+    case "TENNIS":
+    default:
+      return <SCardTennis width="100%" height="100%" />;
+  }
+};
+
 export const SolidScorecard: React.FC<SolidScorecardProps> = ({
   match,
   sportColors,
@@ -31,7 +55,7 @@ export const SolidScorecard: React.FC<SolidScorecardProps> = ({
   matchType = "SINGLES",
 }) => {
   // Helper function to render player photo
-  const renderPlayerPhoto = (player: any, size: number = 120) => {
+  const renderPlayerPhoto = (player: any, size: number = 70) => {
     if (player.image) {
       return (
         <Image
@@ -72,7 +96,14 @@ export const SolidScorecard: React.FC<SolidScorecardProps> = ({
 
   const isTeam1Winner = match.outcome === "team1";
   const isTeam2Winner = match.outcome === "team2";
-  const scores = match.gameScores || match.setScores || [];
+
+  // Handle different score structures for different sports
+  // Pickleball uses gameScores with team1Points/team2Points
+  // Tennis/Padel use setScores with team1Games/team2Games
+  const scores =
+    (match.gameScores?.length ?? 0) > 0
+      ? match.gameScores
+      : match.setScores || [];
   const isSingles = match.team1Players.length === 1;
   const matchTypeLabel = isFriendly ? "Friendly" : "League";
 
@@ -84,271 +115,276 @@ export const SolidScorecard: React.FC<SolidScorecardProps> = ({
 
   return (
     <View style={styles.scorecardContainer}>
-      {/* League/Match Info Header */}
-      <LinearGradient
-        colors={[
-          `rgba(${parseInt(sportColors.background.slice(1, 3), 16)}, ${parseInt(sportColors.background.slice(3, 5), 16)}, ${parseInt(sportColors.background.slice(5, 7), 16)}, 0.08)`,
-          "#FFFFFF",
-        ]}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 0, y: 1 }}
-        style={styles.header}
-      >
-        {/* Header with icon and badge */}
-        <View style={styles.headerTopRow}>
-          <View style={styles.headerContent}>
-            <View style={styles.leagueRow}>
-              <Ionicons
-                name={getSportIcon((match as any).sportType)}
-                size={80}
-                color={sportColors.background}
-                style={styles.sportIcon}
-              />
-              <Text style={styles.leagueText}>
-                {match.leagueName || "Match"}
-              </Text>
-            </View>
-
-            {/* Season and Division */}
-            {(seasonName || divisionName) && (
-              <Text style={styles.seasonDivisionText}>
-                {seasonName}
-                {seasonName && divisionName && " • "}
-                {divisionName}
-              </Text>
-            )}
-          </View>
-          <View
-            style={[
-              styles.matchTypeBadge,
-              {
-                backgroundColor: isFriendly ? "#E0E7FF" : "#FFFFFF",
-                borderColor: isFriendly ? "#83CFF9" : "#FEA04D",
-              },
-            ]}
-          >
-            <Text
-              style={[
-                styles.matchTypeText,
-                {
-                  color: isFriendly ? "#83CFF9" : "#FEA04D",
-                },
-              ]}
-            >
-              {matchTypeLabel}
-            </Text>
-          </View>
-        </View>
-      </LinearGradient>
-
-      {/* Main Score Section */}
-      <View style={styles.mainScoreSection}>
-        {/* Team 1 */}
-        <View style={styles.teamContainer}>
-          {isSingles ? (
-            <>
-              <View style={styles.teamPhotos}>
-                {renderPlayerPhoto(match.team1Players[0], 140)}
-              </View>
-              <Text
-                style={[
-                  styles.teamName,
-                  isTeam1Winner && {
-                    color: sportColors.background,
-                    fontWeight: "700",
-                  },
-                ]}
-                numberOfLines={2}
-              >
-                {formatPlayerName(match.team1Players[0].name)}
-              </Text>
-            </>
-          ) : (
-            <View style={styles.doublesContainer}>
-              <View style={styles.doublesPhotos}>
-                {renderPlayerPhoto(match.team1Players[0], 120)}
-                <View style={{ marginLeft: -30 }}>
-                  {renderPlayerPhoto(match.team1Players[1], 120)}
-                </View>
-              </View>
-              <View style={styles.doublesNames}>
-                <Text
-                  style={[
-                    styles.doublesPlayerName,
-                    isTeam1Winner && {
-                      color: sportColors.background,
-                      fontWeight: "700",
-                    },
-                  ]}
-                  numberOfLines={1}
-                >
-                  {formatPlayerName(match.team1Players[0].name, true)}
-                </Text>
-                <Text
-                  style={[
-                    styles.doublesPlayerName,
-                    isTeam1Winner && {
-                      color: sportColors.background,
-                      fontWeight: "700",
-                    },
-                  ]}
-                  numberOfLines={1}
-                >
-                  {formatPlayerName(match.team1Players[1].name, true)}
-                </Text>
-              </View>
-            </View>
-          )}
-        </View>
-
-        {/* Score Display */}
-        <View style={styles.scoreDisplay}>
-          <Text style={styles.scoreText}>{match.team1Score || 0}</Text>
-          <Text style={styles.scoreDivider}>-</Text>
-          <Text style={styles.scoreText}>{match.team2Score || 0}</Text>
-        </View>
-
-        {/* Team 2 */}
-        <View style={styles.teamContainer}>
-          {isSingles ? (
-            <>
-              <View style={styles.teamPhotos}>
-                {renderPlayerPhoto(match.team2Players[0], 140)}
-              </View>
-              <Text
-                style={[
-                  styles.teamName,
-                  isTeam2Winner && {
-                    color: sportColors.background,
-                    fontWeight: "700",
-                  },
-                ]}
-                numberOfLines={2}
-              >
-                {formatPlayerName(match.team2Players[0].name)}
-              </Text>
-            </>
-          ) : (
-            <View style={styles.doublesContainer}>
-              <View style={styles.doublesPhotos}>
-                {renderPlayerPhoto(match.team2Players[0], 120)}
-                <View style={{ marginLeft: -30 }}>
-                  {renderPlayerPhoto(match.team2Players[1], 120)}
-                </View>
-              </View>
-              <View style={styles.doublesNames}>
-                <Text
-                  style={[
-                    styles.doublesPlayerName,
-                    isTeam2Winner && {
-                      color: sportColors.background,
-                      fontWeight: "700",
-                    },
-                  ]}
-                  numberOfLines={1}
-                >
-                  {formatPlayerName(match.team2Players[0].name, true)}
-                </Text>
-                <Text
-                  style={[
-                    styles.doublesPlayerName,
-                    isTeam2Winner && {
-                      color: sportColors.background,
-                      fontWeight: "700",
-                    },
-                  ]}
-                  numberOfLines={1}
-                >
-                  {formatPlayerName(match.team2Players[1].name, true)}
-                </Text>
-              </View>
-            </View>
-          )}
-        </View>
+      {/* Sport Background Image */}
+      <View style={styles.backgroundImage}>
+        {getSportBackground(match.sport)}
       </View>
 
-      {/* Scores Table */}
-      {scores.length > 0 && (
-        <View style={styles.scoresTable}>
-          {/* Table Header */}
-          <View
-            style={[
-              styles.tableHeader,
-              { backgroundColor: sportColors.background },
+      {/* Content Overlay */}
+      <View style={styles.contentContainer}>
+        <View style={styles.cardContainer}>
+          {/* League/Match Info Header */}
+          <LinearGradient
+            colors={[
+              `rgba(${parseInt(sportColors.background.slice(1, 3), 16)}, ${parseInt(sportColors.background.slice(3, 5), 16)}, ${parseInt(sportColors.background.slice(5, 7), 16)}, 0.08)`,
+              "#FFFFFF",
             ]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 0, y: 1 }}
+            style={styles.header}
           >
-            <View style={styles.tableNameHeaderCell}>
-              <Text style={styles.tableHeaderText}>Sets</Text>
-            </View>
-            {scores.map((_, idx) => {
-              const ordinalMap = ['1st', '2nd', '3rd', '4th', '5th'];
-              return (
-                <View key={idx} style={styles.tableScoreHeaderCell}>
-                  <Text style={styles.tableHeaderText}>{ordinalMap[idx] || `${idx + 1}th`}</Text>
-                </View>
-              );
-            })}
-          </View>
-
-          {/* Team 1 Row */}
-          <View style={styles.tableRow}>
-            <View style={styles.tableNameCell}>
-              <Text style={styles.tableNameText} numberOfLines={1}>
-                {isSingles
-                  ? formatPlayerName(match.team1Players[0].name, true)
-                  : `${formatPlayerName(match.team1Players[0].name, true)}, ${formatPlayerName(match.team1Players[1].name, true)}`}
-              </Text>
-            </View>
-            {scores.map((score, idx) => {
-              const team1Score = "team1Games" in score ? score.team1Games : "team1Points" in score ? score.team1Points : 0;
-              const team2Score = "team2Games" in score ? score.team2Games : "team2Points" in score ? score.team2Points : 0;
-              const isWinner = team1Score > team2Score;
-              
-              return (
-                <View key={idx} style={styles.tableScoreCell}>
-                  <Text style={[
-                    styles.tableScoreText,
-                    isWinner && styles.winningScoreText
-                  ]}>
-                    {team1Score}
+            {/* Header with icon and badge */}
+            <View style={styles.headerTopRow}>
+              <View style={styles.headerContent}>
+                <View style={styles.leagueRow}>
+                  <Ionicons
+                    name={getSportIcon(match.sport) as any}
+                    size={40}
+                    color={sportColors.background}
+                    style={styles.sportIcon}
+                  />
+                  <Text style={styles.leagueText}>
+                    {match.leagueName || "Match"}
                   </Text>
                 </View>
-              );
-            })}
+
+                {/* Season and Division */}
+                {(seasonName || divisionName) && (
+                  <Text style={styles.seasonDivisionText}>
+                    {seasonName}
+                    {seasonName && divisionName && " • "}
+                    {divisionName}
+                  </Text>
+                )}
+              </View>
+              <View
+                style={[
+                  styles.matchTypeBadge,
+                  {
+                    backgroundColor: isFriendly ? "#E0E7FF" : "#FFFFFF",
+                    borderColor: isFriendly ? "#83CFF9" : "#FEA04D",
+                  },
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.matchTypeText,
+                    {
+                      color: isFriendly ? "#83CFF9" : "#FEA04D",
+                    },
+                  ]}
+                >
+                  {matchTypeLabel}
+                </Text>
+              </View>
+            </View>
+          </LinearGradient>
+
+          {/* Main Score Section */}
+          <View style={styles.mainScoreSection}>
+            {/* Team 1 */}
+            <View style={styles.teamContainer}>
+              {isSingles ? (
+                <>
+                  <View style={styles.teamPhotos}>
+                    {renderPlayerPhoto(match.team1Players[0], 140)}
+                  </View>
+                  <Text
+                    style={[
+                      styles.teamName,
+                      isTeam1Winner && {
+                        color: sportColors.background,
+                        fontWeight: "700",
+                      },
+                    ]}
+                    numberOfLines={2}
+                  >
+                    {formatPlayerName(match.team1Players[0].name)}
+                  </Text>
+                </>
+              ) : (
+                <View style={styles.doublesContainer}>
+                  <View style={styles.doublesPhotos}>
+                    {renderPlayerPhoto(match.team1Players[0], 120)}
+                    <View style={{ marginLeft: -30 }}>
+                      {renderPlayerPhoto(match.team1Players[1], 120)}
+                    </View>
+                  </View>
+                  <View style={styles.doublesNames}>
+                    <Text
+                      style={[
+                        styles.doublesPlayerName,
+                        isTeam1Winner && {
+                          color: sportColors.background,
+                          fontWeight: "700",
+                        },
+                      ]}
+                      numberOfLines={1}
+                    >
+                      {formatPlayerName(match.team1Players[0].name, true)}
+                    </Text>
+                    <Text
+                      style={[
+                        styles.doublesPlayerName,
+                        isTeam1Winner && {
+                          color: sportColors.background,
+                          fontWeight: "700",
+                        },
+                      ]}
+                      numberOfLines={1}
+                    >
+                      {formatPlayerName(match.team1Players[1].name, true)}
+                    </Text>
+                  </View>
+                </View>
+              )}
+            </View>
+
+            {/* Score Display */}
+            <View style={styles.scoreDisplay}>
+              <Text style={styles.scoreText}>{match.team1Score || 0}</Text>
+              <Text style={styles.scoreDivider}>-</Text>
+              <Text style={styles.scoreText}>{match.team2Score || 0}</Text>
+            </View>
+
+            {/* Team 2 */}
+            <View style={styles.teamContainer}>
+              {isSingles ? (
+                <>
+                  <View style={styles.teamPhotos}>
+                    {renderPlayerPhoto(match.team2Players[0], 140)}
+                  </View>
+                  <Text
+                    style={[
+                      styles.teamName,
+                      isTeam2Winner && {
+                        color: sportColors.background,
+                        fontWeight: "700",
+                      },
+                    ]}
+                    numberOfLines={2}
+                  >
+                    {formatPlayerName(match.team2Players[0].name)}
+                  </Text>
+                </>
+              ) : (
+                <View style={styles.doublesContainer}>
+                  <View style={styles.doublesPhotos}>
+                    {renderPlayerPhoto(match.team2Players[0], 120)}
+                    <View style={{ marginLeft: -30 }}>
+                      {renderPlayerPhoto(match.team2Players[1], 120)}
+                    </View>
+                  </View>
+                  <View style={styles.doublesNames}>
+                    <Text
+                      style={[
+                        styles.doublesPlayerName,
+                        isTeam2Winner && {
+                          color: sportColors.background,
+                          fontWeight: "700",
+                        },
+                      ]}
+                      numberOfLines={1}
+                    >
+                      {formatPlayerName(match.team2Players[0].name, true)}
+                    </Text>
+                    <Text
+                      style={[
+                        styles.doublesPlayerName,
+                        isTeam2Winner && {
+                          color: sportColors.background,
+                          fontWeight: "700",
+                        },
+                      ]}
+                      numberOfLines={1}
+                    >
+                      {formatPlayerName(match.team2Players[1].name, true)}
+                    </Text>
+                  </View>
+                </View>
+              )}
+            </View>
           </View>
 
-          {/* Team 2 Row */}
-          <View style={styles.tableRow}>
-            <View style={styles.tableNameCell}>
-              <Text style={styles.tableNameText} numberOfLines={1}>
-                {isSingles
-                  ? formatPlayerName(match.team2Players[0].name, true)
-                  : `${formatPlayerName(match.team2Players[0].name, true)}, ${formatPlayerName(match.team2Players[1].name, true)}`}
-              </Text>
-            </View>
-            {scores.map((score, idx) => {
-              const team1Score = "team1Games" in score ? score.team1Games : "team1Points" in score ? score.team1Points : 0;
-              const team2Score = "team2Games" in score ? score.team2Games : "team2Points" in score ? score.team2Points : 0;
-              const isWinner = team2Score > team1Score;
-              
-              return (
-                <View key={idx} style={styles.tableScoreCell}>
-                  <Text style={[
-                    styles.tableScoreText,
-                    isWinner && styles.winningScoreText
-                  ]}>
-                    {team2Score}
+          {/* Scores Columns */}
+          {/* Scores Columns */}
+          {scores && scores.length > 0 && (
+            <View style={styles.scoresSection}>
+              {/* 2. The Header Row with rounded edges */}
+              <View
+                style={[
+                  styles.scoreHeaderRow,
+                  { backgroundColor: sportColors.background },
+                ]}
+              >
+                <View style={styles.nameColumnHeaderBox}>
+                  <Text style={styles.setHeaderText}>Sets</Text>
+                </View>
+                {scores.map((_, idx) => (
+                  <View key={`header-${idx}`} style={styles.setColumnHeaderBox}>
+                    <Text style={styles.setHeaderText}>
+                      {["1st", "2nd", "3rd", "4th", "5th"][idx] ||
+                        `${idx + 1}th`}
+                    </Text>
+                  </View>
+                ))}
+              </View>
+
+              {/* 3. Spaced out scores section */}
+              <View style={styles.scoresColumns}>
+                {/* Names Column */}
+                <View style={styles.nameColumn}>
+                  <Text style={styles.nameColumnText} numberOfLines={1}>
+                    {isSingles
+                      ? formatPlayerName(match.team1Players[0].name, true)
+                      : `${formatPlayerName(match.team1Players[0].name, true)}, ${formatPlayerName(match.team1Players[1].name, true)}`}
+                  </Text>
+                  <Text style={styles.nameColumnText} numberOfLines={1}>
+                    {isSingles
+                      ? formatPlayerName(match.team2Players[0].name, true)
+                      : `${formatPlayerName(match.team2Players[0].name, true)}, ${formatPlayerName(match.team2Players[1].name, true)}`}
                   </Text>
                 </View>
-              );
-            })}
-          </View>
+
+                {/* Scores Map */}
+                {scores.map((score, idx) => {
+                  const team1Score =
+                    (score as any).team1Points ??
+                    (score as any).team1Games ??
+                    0;
+                  const team2Score =
+                    (score as any).team2Points ??
+                    (score as any).team2Games ??
+                    0;
+                  return (
+                    <View key={idx} style={styles.setColumn}>
+                      <View style={styles.setScoreBox}>
+                        <Text
+                          style={[
+                            styles.setScoreText,
+                            team1Score > team2Score && styles.winningScoreText,
+                          ]}
+                        >
+                          {team1Score}
+                        </Text>
+                      </View>
+                      <View style={styles.setScoreBox}>
+                        <Text
+                          style={[
+                            styles.setScoreText,
+                            team2Score > team1Score && styles.winningScoreText,
+                          ]}
+                        >
+                          {team2Score}
+                        </Text>
+                      </View>
+                    </View>
+                  );
+                })}
+              </View>
+            </View>
+          )}
         </View>
-      )}
-      
-      {/* DEUCE Logo */}
-      <View style={styles.logoContainer}>
-        <Text style={styles.logoText}>DEUCE</Text>
       </View>
     </View>
   );
@@ -357,19 +393,146 @@ export const SolidScorecard: React.FC<SolidScorecardProps> = ({
 const styles = StyleSheet.create({
   scorecardContainer: {
     width: "100%",
-    backgroundColor: "#FFFFFF",
-    borderRadius: 32,
+    aspectRatio: 9 / 16,
     overflow: "hidden",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.15,
-    shadowRadius: 24,
-    elevation: 10,
+  },
+  backgroundImage: {
+    position: "absolute",
+    width: "100%",
+    height: "100%",
+  },
+  contentContainer: {
+    flex: 1,
+    padding: 20,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  cardContainer: {
+    width: "100%",
+    maxWidth: 850,
+    height: "100%",
+    maxHeight: 450,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 20,
+    overflow: "hidden",
   },
   header: {
-    paddingVertical: 40,
-    paddingHorizontal: 60,
+    padding: 16,
+    backgroundColor: "#FFFFFF",
+  },
+  leagueText: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: "#111827",
+  },
+  seasonDivisionText: {
+    fontSize: 11,
+    color: "#6B7280",
+  },
+  matchTypeBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 2,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  matchTypeText: {
+    fontSize: 10,
+    fontWeight: "700",
+    textTransform: "uppercase",
+  },
+  mainScoreSection: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingVertical: 20,
+    backgroundColor: "#FFFFFF",
+    paddingHorizontal: 10,
+  },
+  teamContainer: {
+    flex: 1,
+    alignItems: "center",
+  },
+  teamName: {
+    fontSize: 14,
+    fontWeight: "600",
+    marginTop: 8,
+    textAlign: "center",
+  },
+  scoreDisplay: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  scoreText: {
+    fontSize: 48,
+    fontWeight: "900",
+    color: "#111827",
+  },
+  scoreDivider: {
+    fontSize: 24,
+    color: "#9CA3AF",
+    marginHorizontal: 8,
+  },
+  scoresSection: {
+    backgroundColor: "#FFFFFF", // 1. Card content bg is white
+    paddingVertical: 20,
+    paddingHorizontal: 24,
+    marginTop: 10,
+  },
+  scoreHeaderRow: {
+    flexDirection: "row",
+    borderRadius: 100, // 2. Fully rounded edges
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    marginBottom: 16,
+    alignItems: "center",
+  },
+  nameColumnHeaderBox: {
+    minWidth: 140,
+  },
+  setColumnHeaderBox: {
+    flex: 1,
+    alignItems: "center",
+  },
+  scoresColumns: {
+    flexDirection: "row",
     alignItems: "flex-start",
+    paddingHorizontal: 16,
+  },
+  nameColumn: {
+    minWidth: 140,
+    justifyContent: "space-around",
+  },
+  nameColumnText: {
+    fontSize: 15, // Slightly larger for "cleaner" look
+    fontWeight: "700",
+    color: "#374151",
+    height: 40, // Match setScoreBox height
+    textAlignVertical: "center",
+    lineHeight: 40,
+  },
+  setColumn: {
+    flex: 1,
+    alignItems: "center",
+  },
+  setScoreBox: {
+    height: 40,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  setHeaderText: {
+    fontSize: 12,
+    fontWeight: "800",
+    color: "#FFFFFF",
+    textTransform: "uppercase",
+  },
+  winningScoreText: {
+    color: "#FEA04D",
+    fontWeight: "900",
+  },
+  setScoreText: {
+    fontSize: 16,
+    fontWeight: "800",
+    color: "#374151",
   },
   headerTopRow: {
     flexDirection: "row",
@@ -384,48 +547,13 @@ const styles = StyleSheet.create({
   leagueRow: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 8,
+    marginBottom: 4,
   },
   sportIcon: {
-    marginRight: 12,
-  },
-  leagueText: {
-    fontSize: 48,
-    fontWeight: "700",
-    color: "#111827",
-  },
-  seasonDivisionText: {
-    fontSize: 36,
-    fontWeight: "500",
-    color: "#6B7280",
-  },
-  matchTypeBadge: {
-    width: 240, // Doubled size
-    height: 80, // Doubled size
-    borderRadius: 40,
-    borderWidth: 4, // Thicker border for visibility
-    justifyContent: "center", // Vertical center
-    alignItems: "center", // Horizontal center
-  },
-  matchTypeText: {
-    fontSize: 32, // Much larger
-    fontWeight: "800", // Heavier weight
-    textTransform: "uppercase", // Usually looks better for export labels
-  },
-  mainScoreSection: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: 60,
-    paddingVertical: 60,
-    backgroundColor: "#FFFFFF",
-  },
-  teamContainer: {
-    flex: 1,
-    alignItems: "center",
+    marginRight: 8,
   },
   teamPhotos: {
-    marginBottom: 24,
+    marginBottom: 12,
   },
   doublesPhotos: {
     flexDirection: "row",
@@ -438,162 +566,28 @@ const styles = StyleSheet.create({
   },
   doublesNames: {
     flexDirection: "column",
-    marginLeft: 20,
+    marginLeft: 12,
     alignItems: "flex-start",
   },
   doublesPlayerName: {
-    fontSize: 36,
+    fontSize: 20,
     fontWeight: "600",
     color: "#1F2937",
-    marginVertical: 4,
+    marginVertical: 2,
   },
   playerPhoto: {
-    borderWidth: 4,
+    borderWidth: 2,
     borderColor: "#E5E7EB",
   },
   playerPhotoDefault: {
     backgroundColor: "#6DE9A0",
     justifyContent: "center",
     alignItems: "center",
-    borderWidth: 4,
+    borderWidth: 2,
     borderColor: "#E5E7EB",
   },
   playerPhotoText: {
     color: "#FFFFFF",
     fontWeight: "700",
-  },
-  teamName: {
-    fontSize: 44,
-    fontWeight: "600",
-    color: "#1F2937",
-    textAlign: "center",
-    paddingHorizontal: 20,
-  },
-  scoreDisplay: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    paddingHorizontal: 40,
-  },
-  scoreText: {
-    fontSize: 220,
-    fontWeight: "900",
-    color: "#111827",
-    letterSpacing: -10,
-  },
-  scoreDivider: {
-    fontSize: 120,
-    fontWeight: "300",
-    color: "#9CA3AF",
-    marginHorizontal: 30,
-  },
-  // scoresTable: {
-  //   backgroundColor: "#F9FAFB",
-  //   paddingBottom: 40,
-  // },
-  // tableHeader: {
-  //   flexDirection: "row",
-  //   paddingVertical: 24,
-  //   paddingHorizontal: 60,
-  //   borderRadius: 60,
-  //   marginHorizontal: 20,
-  //   marginTop: 20,
-  // },
-  tableNameHeaderCell: {
-    flex: 2,
-    alignItems: "flex-start",
-    justifyContent: "center",
-    paddingVertical: 30,
-    paddingLeft: 0,
-  },
-  tableScoreHeaderCell: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    paddingVertical: 30,
-  },
-  // tableHeaderText: {
-  //   fontSize: 42,
-  //   fontWeight: "700",
-  //   color: "#FFFFFF",
-  // },
-  // tableRow: {
-  //   flexDirection: "row",
-  //   paddingVertical: 20,
-  //   paddingHorizontal: 60,
-  //   borderBottomWidth: 2,
-  //   borderBottomColor: "#E5E7EB",
-  // },
-  tableNameCell: {
-    flex: 2,
-    justifyContent: "center",
-    alignItems: "flex-start",
-  },
-  // tableNameText: {
-  //   fontSize: 40,
-  //   fontWeight: "500",
-  //   color: "#374151",
-  // },
-  tableScoreCell: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  // tableScoreText: {
-  //   fontSize: 48,
-  //   fontWeight: "600",
-  //   color: "#1F2937",
-  // },
-
-  scoresTable: {
-    backgroundColor: "#F3F4F6",
-    paddingBottom: 60,
-    paddingTop: 20,
-  },
-  tableHeader: {
-    flexDirection: "row",
-    paddingVertical: 30,
-    paddingHorizontal: 60,
-    borderRadius: 30,
-    marginHorizontal: 40,
-  },
-  tableHeaderText: {
-    fontSize: 48,
-    fontWeight: "800",
-    color: "#FFFFFF",
-  },
-  tableRow: {
-    flexDirection: "row",
-    paddingVertical: 35,
-    paddingHorizontal: 60,
-  },
-  tableNameText: {
-    fontSize: 44,
-    fontWeight: "700",
-    color: "#374151",
-  },
-  tableScoreText: {
-    fontSize: 54,
-    fontWeight: "800",
-    color: "#111827",
-  },
-  winningScoreText: {
-    fontSize: 64,
-    fontWeight: "900",
-    color: "#FEA04D",
-  },
-  logoContainer: {
-    alignItems: "center",
-    paddingVertical: 40,
-    backgroundColor: "#FFFFFF",
-  },
-  logoText: {
-    fontSize: 48,
-    fontWeight: "900",
-    color: "#FEA04D",
-    letterSpacing: 4,
-    textShadowColor: "rgba(0, 0, 0, 0.1)",
-    textShadowOffset: { width: 0, height: 2 },
-    textShadowRadius: 4,
   },
 });
