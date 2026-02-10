@@ -65,6 +65,7 @@ export interface MatchResult {
   id: string;
   matchType: string;
   matchDate: string;
+  sport?: string;
   team1Score: number;
   team2Score: number;
   outcome: string;

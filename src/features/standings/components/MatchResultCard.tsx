@@ -10,8 +10,8 @@ import {
   View,
   ViewStyle,
 } from "react-native";
-import { MatchPlayer, MatchResult, SportColors } from "../types";
-import { formatPlayerName, getOrdinalSuffix } from "../utils";
+import { MatchResult, SportColors } from "../types";
+import { formatPlayerName } from "../utils";
 
 // Map sport types to their icons using Ionicons (temporary solution)
 const getSportIcon = (sportType: string | undefined) => {
@@ -24,7 +24,7 @@ const getSportIcon = (sportType: string | undefined) => {
   return iconMap[normalizedType] || "tennisball";
 };
 
-export type CardBackgroundStyle = "white" | "transparent";
+export type CardBackgroundStyle = "white" | "transparent" | "dark";
 
 interface MatchResultCardProps {
   match: MatchResult;
@@ -55,11 +55,17 @@ export const MatchResultCard: React.FC<MatchResultCardProps> = ({
 }) => {
   const isTeam1Winner = match.outcome === "team1";
   const isTeam2Winner = match.outcome === "team2";
-  const scores = match.gameScores || match.setScores || [];
+
+  // Handle different score structures for different sports
+  // Pickleball uses gameScores with team1Points/team2Points
+  // Tennis/Padel use setScores with team1Games/team2Games
+  const scores =
+    match.gameScores?.length > 0 ? match.gameScores : match.setScores || [];
   const totalSets = scores?.length || 0;
   const isExpanded = expandedComments.has(match.id);
   const isSingles = match.team1Players.length === 1;
-  const isFriendly = (match as any).isFriendly || (match as any).matchType === "FRIENDLY";
+  const isFriendly =
+    (match as any).isFriendly || (match as any).matchType === "FRIENDLY";
   const matchTypeLabel = isFriendly ? "Friendly" : "League";
 
   // Get season and division info
@@ -68,7 +74,7 @@ export const MatchResultCard: React.FC<MatchResultCardProps> = ({
   const divisionName =
     (match as any).division?.name || (match as any).divisionName || "";
 
-  // Helper function to render player photo  
+  // Helper function to render player photo
   const renderPlayerPhoto = (player: any, size: number = 120) => {
     if (player.image) {
       return (
@@ -111,10 +117,12 @@ export const MatchResultCard: React.FC<MatchResultCardProps> = ({
             <Text style={styles.tableHeaderText}>Sets</Text>
           </View>
           {scores.map((_, idx) => {
-            const ordinalMap = ['1st', '2nd', '3rd', '4th', '5th'];
+            const ordinalMap = ["1st", "2nd", "3rd", "4th", "5th"];
             return (
               <View key={idx} style={styles.tableScoreHeaderCell}>
-                <Text style={styles.tableHeaderText}>{ordinalMap[idx] || `${idx + 1}th`}</Text>
+                <Text style={styles.tableHeaderText}>
+                  {ordinalMap[idx] || `${idx + 1}th`}
+                </Text>
               </View>
             );
           })}
@@ -130,16 +138,19 @@ export const MatchResultCard: React.FC<MatchResultCardProps> = ({
             </Text>
           </View>
           {scores.map((score, idx) => {
-            const team1Score = "team1Games" in score ? score.team1Games : "team1Points" in score ? score.team1Points : 0;
-            const team2Score = "team2Games" in score ? score.team2Games : "team2Points" in score ? score.team2Points : 0;
+            // Handle both gameScores (pickleball) and setScores (tennis/padel)
+            const team1Score = score.team1Points ?? score.team1Games ?? 0;
+            const team2Score = score.team2Points ?? score.team2Games ?? 0;
             const isWinner = team1Score > team2Score;
-            
+
             return (
               <View key={idx} style={styles.tableScoreCell}>
-                <Text style={[
-                  styles.tableScoreText,
-                  isWinner && styles.winningScoreText
-                ]}>
+                <Text
+                  style={[
+                    styles.tableScoreText,
+                    isWinner && styles.winningScoreText,
+                  ]}
+                >
                   {team1Score}
                 </Text>
               </View>
@@ -157,16 +168,19 @@ export const MatchResultCard: React.FC<MatchResultCardProps> = ({
             </Text>
           </View>
           {scores.map((score, idx) => {
-            const team1Score = "team1Games" in score ? score.team1Games : "team1Points" in score ? score.team1Points : 0;
-            const team2Score = "team2Games" in score ? score.team2Games : "team2Points" in score ? score.team2Points : 0;
+            // Handle both gameScores (pickleball) and setScores (tennis/padel)
+            const team1Score = score.team1Points ?? score.team1Games ?? 0;
+            const team2Score = score.team2Points ?? score.team2Games ?? 0;
             const isWinner = team2Score > team1Score;
-            
+
             return (
               <View key={idx} style={styles.tableScoreCell}>
-                <Text style={[
-                  styles.tableScoreText,
-                  isWinner && styles.winningScoreText
-                ]}>
+                <Text
+                  style={[
+                    styles.tableScoreText,
+                    isWinner && styles.winningScoreText,
+                  ]}
+                >
                   {team2Score}
                 </Text>
               </View>
@@ -334,7 +348,7 @@ export const MatchResultCard: React.FC<MatchResultCardProps> = ({
       {/* Venue Name */}
       <Text style={styles.cardVenueName}>{match.location || "Venue TBD"}</Text>
 
-      {/* Main Score Section */}}
+      {/* Main Score Section */}
       <View style={styles.mainScoreSection}>
         {/* Team 1 */}
         <View style={styles.teamContainer}>
@@ -479,10 +493,10 @@ const styles = StyleSheet.create({
   resultCardNew: {
     backgroundColor: "#FFFFFF",
     borderRadius: 12,
-    overflow: "hidden", 
+    overflow: "hidden",
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,  
+    shadowOpacity: 0.06,
     shadowRadius: 6,
     elevation: 2,
   },
@@ -558,7 +572,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   doublesNames: {
-    flexDirection: "column", 
+    flexDirection: "column",
     marginLeft: 8,
     alignItems: "flex-start",
   },
@@ -613,17 +627,17 @@ const styles = StyleSheet.create({
     paddingBottom: 12,
     paddingTop: 4,
   },
-tableHeader: {
-  flexDirection: "row",
-  paddingVertical: 6, 
-  paddingHorizontal: 16,
-  borderRadius: 50, 
-  marginHorizontal: 16,
-  
-  marginTop: 20,
-  marginBottom: 10,
-  alignItems: "center", 
-},
+  tableHeader: {
+    flexDirection: "row",
+    paddingVertical: 6,
+    paddingHorizontal: 16,
+    borderRadius: 50,
+    marginHorizontal: 16,
+
+    marginTop: 20,
+    marginBottom: 10,
+    alignItems: "center",
+  },
   tableNameHeaderCell: {
     flex: 2,
     alignItems: "flex-start",
@@ -654,7 +668,7 @@ tableHeader: {
   },
   tableNameText: {
     fontSize: 12,
-    fontWeight: "700", 
+    fontWeight: "700",
     color: "#374151",
   },
   tableScoreCell: {

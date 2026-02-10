@@ -18,7 +18,7 @@ import {
 import type { ShareError } from "../hooks/useSharePost";
 import { feedTheme } from "../theme";
 
-export type ShareStyle = "transparent" | "white";
+export type ShareStyle = "transparent" | "white" | "dark";
 
 interface ShareOptionsSheetProps {
   bottomSheetRef: React.RefObject<BottomSheet | null>;
@@ -121,7 +121,7 @@ export const ShareOptionsSheet: React.FC<ShareOptionsSheetProps> = ({
         {/* Style Selector */}
         <View style={styles.styleSelector}>
           <Text style={styles.styleSelectorLabel}>Background Style (PNG)</Text>
-          <View style={styles.styleToggle}>
+          <View style={styles.styleToggleThree}>
             <TouchableOpacity
               style={[
                 styles.styleOption,
@@ -137,6 +137,23 @@ export const ShareOptionsSheet: React.FC<ShareOptionsSheetProps> = ({
                 ]}
               >
                 Standard
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[
+                styles.styleOption,
+                selectedStyle === "dark" && styles.styleOptionSelected,
+              ]}
+              onPress={() => setSelectedStyle("dark")}
+              activeOpacity={0.7}
+            >
+              <Text
+                style={[
+                  styles.styleOptionText,
+                  selectedStyle === "dark" && styles.styleOptionTextSelected,
+                ]}
+              >
+                Dark
               </Text>
             </TouchableOpacity>
             <TouchableOpacity
@@ -160,8 +177,10 @@ export const ShareOptionsSheet: React.FC<ShareOptionsSheetProps> = ({
           </View>
           <Text style={styles.styleHint}>
             {selectedStyle === "white"
-              ? "White background - ready to share"
-              : "Transparent background - for editing"}
+              ? "Sport-themed background - ready to share"
+              : selectedStyle === "dark"
+                ? "Dark themed background - ready to share"
+                : "Transparent background - for editing"}
           </Text>
         </View>
 
@@ -294,6 +313,12 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   styleToggle: {
+    flexDirection: "row",
+    backgroundColor: feedTheme.colors.border,
+    borderRadius: 8,
+    padding: 3,
+  },
+  styleToggleThree: {
     flexDirection: "row",
     backgroundColor: feedTheme.colors.border,
     borderRadius: 8,
