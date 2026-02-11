@@ -53,24 +53,127 @@ axiosInstance.interceptors.request.use(
   }
 );
 
+/**
+ * Response normalizer interceptor.
+ *
+ * Guarantees every successful response has the shape:
+ *   { success: true, data: T, message?: string, pagination?: {...} }
+ *
+ * Handles all legacy backend patterns:
+ *   - ApiResponse class: { success, status, data, message }
+ *   - Triple-nesting: { success, data: { data: [...], pagination }, message }
+ *   - Manual envelope: { success, data, message }
+ *   - Raw Prisma objects: { id, name, ... }
+ *   - Named paginated: { matches, pagination } or { players, pagination }
+ */
 axiosInstance.interceptors.response.use(
   (res) => {
+    const body = res.data;
+
+    // Non-object or null — pass through
+    if (!body || typeof body !== "object") return res;
+
+    // Array at top level — wrap it
+    if (Array.isArray(body)) {
+      res.data = { success: true, data: body };
+      return res;
+    }
+
+    // Has success + data — standard or ApiResponse envelope
+    if ("success" in body && "data" in body) {
+      // Detect triple-nesting: data contains both `data` (array) and `pagination`
+      if (
+        body.data &&
+        typeof body.data === "object" &&
+        !Array.isArray(body.data) &&
+        "data" in body.data &&
+        "pagination" in body.data
+      ) {
+        const { data: nestedData, pagination, ...rest } = body.data;
+        res.data = {
+          success: body.success,
+          data: nestedData,
+          pagination,
+          ...rest,
+          ...(body.message && { message: body.message }),
+        };
+        return res;
+      }
+
+      // Strip legacy `status` number field from ApiResponse
+      if ("status" in body && typeof body.status === "number") {
+        const { status: _status, ...rest } = body;
+        res.data = rest;
+      }
+
+      return res;
+    }
+
+    // No `success` field — raw Prisma object or legacy format
+
+    // Check for named paginated shape: { someArray, pagination }
+    if ("pagination" in body) {
+      const { pagination, ...rest } = body;
+      const arrayKey = Object.keys(rest).find((k: string) => Array.isArray(rest[k]));
+      if (arrayKey) {
+        const { [arrayKey]: items, ...otherMeta } = rest;
+        res.data = { success: true, data: items, pagination, ...otherMeta };
+        return res;
+      }
+    }
+
+    // Check for inline pagination: { someArray, total, page, limit, totalPages }
+    const keys = Object.keys(body);
+    const arrayKey = keys.find((k: string) => Array.isArray(body[k]));
+    if (arrayKey && ("total" in body || "totalPages" in body)) {
+      const { [arrayKey]: items, page, limit, total, totalPages, ...otherMeta } = body;
+      res.data = {
+        success: true,
+        data: items,
+        pagination: {
+          page: page || 1,
+          limit: limit || items.length,
+          total: total || items.length,
+          totalPages: totalPages || 1,
+        },
+        ...otherMeta,
+      };
+      return res;
+    }
+
+    // Plain object — wrap it
+    res.data = { success: true, data: body };
     return res;
   },
   (error: AxiosError) => {
-    console.error("\n❌ [Axios] ========== RESPONSE ERROR ==========");
-    console.error(`   Message: ${error.message}`);
-    console.error(`   Code: ${error.code}`);
-    if (error.response) {
-      console.error(`   Status: ${error.response.status}`);
-      console.error(`   URL: ${error.config?.url}`);
-      console.error(`   Data:`, error.response.data);
-    } else if (error.request) {
-      console.error(`   No response received`);
-      console.error(`   Request URL: ${error.config?.baseURL}${error.config?.url}`);
-      console.error(`   Request was made but no response`);
-    } else {
-      console.error(`   Error setting up request: ${error.message}`);
+    // Normalize error response to standard shape
+    if (error.response?.data && typeof error.response.data === "object") {
+      const d = error.response.data as Record<string, unknown>;
+      if (d.error && !d.message) {
+        d.message = d.error;
+      }
+      if (!("data" in d)) {
+        d.data = null;
+      }
+      if (!("success" in d)) {
+        d.success = false;
+      }
+    }
+    if (__DEV__) {
+      console.error("\n❌ [Axios] ========== RESPONSE ERROR ==========");
+      console.error(`   Message: ${error.message}`);
+      console.error(`   Code: ${error.code}`);
+      if (error.response) {
+        console.error(`   Status: ${error.response.status}`);
+        console.error(`   URL: ${error.config?.url}`);
+        console.error(`   Data:`, error.response.data);
+      } else if (error.request) {
+        console.error(`   No response received`);
+        console.error(`   Request URL: ${error.config?.baseURL}${error.config?.url}`);
+        console.error(`   Request was made but no response`);
+      } else {
+        console.error(`   Error setting up request: ${error.message}`);
+      }
     }
     return Promise.reject(error);
   }
