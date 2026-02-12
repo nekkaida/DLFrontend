@@ -70,12 +70,9 @@ export class ProfileDataService {
 
       console.log('Profile API response:', authResponse);
 
-      const data = authResponse as { data?: { data?: any } & any };
-      if (data?.data?.data) {
-        console.log('Setting profile data:', data.data.data);
-        return data.data.data;
-      } else if (data?.data) {
-        console.log('Setting profile data (direct):', data.data);
+      const data = authResponse as { data?: any };
+      if (data?.data) {
+        console.log('Setting profile data:', data.data);
         return data.data;
       } else {
         console.error('No profile data received from authClient');
