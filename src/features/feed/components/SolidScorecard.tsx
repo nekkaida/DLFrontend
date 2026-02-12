@@ -19,6 +19,8 @@ interface SolidScorecardProps {
   matchType?: string;
 }
 
+const PHOTO_SIZE = 80;
+const NAME_COLUMN_WIDTH = 160;
 // Map sport types to their icons
 const getSportIcon = (sportType: string | undefined, color: string, size: number = 66) => {
   const normalizedType = sportType?.toUpperCase() || "TENNIS";
@@ -60,7 +62,7 @@ export const SolidScorecard: React.FC<SolidScorecardProps> = ({
   isFriendly = false,
   matchType = "SINGLES",
 }) => {
-  const PHOTO_SIZE = 80;
+
   // Helper function to render player photo
   const renderPlayerPhoto = (player: any, size: number = PHOTO_SIZE) => {
     if (player.image) {
@@ -141,47 +143,29 @@ export const SolidScorecard: React.FC<SolidScorecardProps> = ({
             style={styles.header}
           >
             {/* Header with icon and badge */}
+         <View style={styles.header}>
             <View style={styles.headerTopRow}>
-              <View style={styles.headerContent}>
-                <View style={styles.leagueRow}>
-                  <View style={styles.sportIcon}>
-                    {getSportIcon(match.sport, sportColors.background, 40)}
-                  </View>
-                  <Text style={styles.leagueText}>
-                    {match.leagueName || "Match"}
-                  </Text>
+              <View style={styles.headerLeft}>
+                <View style={styles.sportIcon}>
+                  {getSportIcon(match.sport, sportColors.background, 66)}
                 </View>
-
-                {/* Season and Division */}
-                {(seasonName || divisionName) && (
-                  <Text style={styles.seasonDivisionText}>
-                    {seasonName}
-                    {seasonName && divisionName && " • "}
-                    {divisionName}
-                  </Text>
-                )}
+                <View style={styles.titleContainer}>
+                  <Text style={styles.leagueText}>{match.leagueName || "Match"}</Text>
+                  {(seasonName || divisionName) && (
+                    <Text style={styles.seasonDivisionText}>
+                      {seasonName}{seasonName && divisionName && " • "}{divisionName}
+                    </Text>
+                  )}
+                </View>
               </View>
-              <View
-                style={[
-                  styles.matchTypeBadge,
-                  {
-                    backgroundColor: isFriendly ? "#E0E7FF" : "#FFFFFF",
-                    borderColor: isFriendly ? "#83CFF9" : "#FEA04D",
-                  },
-                ]}
-              >
-                <Text
-                  style={[
-                    styles.matchTypeText,
-                    {
-                      color: isFriendly ? "#83CFF9" : "#FEA04D",
-                    },
-                  ]}
-                >
+
+              <View style={[styles.matchTypeBadge, { borderColor: isFriendly ? "#83CFF9" : "#FEA04D" }]}>
+                <Text style={[styles.matchTypeText, { color: isFriendly ? "#83CFF9" : "#FEA04D" }]}>
                   {matchTypeLabel}
                 </Text>
               </View>
             </View>
+          </View>
           </LinearGradient>
 
           {/* Main Score Section */}
@@ -394,6 +378,33 @@ export const SolidScorecard: React.FC<SolidScorecardProps> = ({
 };
 
 const styles = StyleSheet.create({
+  header: {
+    padding: 20,
+  },
+  headerTopRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  headerLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    flex: 1,
+  },
+  titleContainer: {
+    flexDirection: "column",
+    marginLeft: 12,
+  },
+  leagueText: {
+    fontSize: 24,
+    fontWeight: "800",
+    color: "#111827",
+  },
+  seasonDivisionText: {
+    fontSize: 20,
+    color: "#6B7280",
+    fontWeight: "500",
+  },
   scorecardContainer: {
     width: "100%",
     aspectRatio: 9 / 16,
@@ -417,20 +428,13 @@ const styles = StyleSheet.create({
     maxHeight: 550,
     backgroundColor: "#FFFFFF",
     borderRadius: 20,
-    overflow: "hidden",
-  },
-  header: {
-    padding: 16,
-    backgroundColor: "#FFFFFF",
-  },
-  leagueText: {
-    fontSize: 30,
-    fontWeight: "700",
-    color: "#111827",
-  },
-  seasonDivisionText: {
-    fontSize: 30,
-    color: "#6B7280",
+    borderWidth: 1.5,
+    borderColor: "#d9dbe0",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.1,
+    shadowRadius: 15,
+    elevation: 10,
   },
   matchTypeBadge: {
     paddingHorizontal: 10,
@@ -490,7 +494,8 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   nameColumnHeaderBox: {
-    minWidth: 140,
+    width: NAME_COLUMN_WIDTH, 
+    paddingLeft: 8,
   },
   setColumnHeaderBox: {
     flex: 1,
@@ -502,8 +507,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
   },
   nameColumn: {
-    minWidth: 140,
+    width: NAME_COLUMN_WIDTH,
     justifyContent: "space-around",
+    paddingLeft: 8,
   },
   nameColumnText: {
     fontSize: 24,
@@ -536,13 +542,6 @@ const styles = StyleSheet.create({
     fontSize: 22,
     fontWeight: "800",
     color: "#374151",
-  },
-  headerTopRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "flex-start",
-    width: "100%",
-    marginBottom: 12,
   },
   headerContent: {
     flex: 1,
