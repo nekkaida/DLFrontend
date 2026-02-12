@@ -230,27 +230,50 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
           >
             <NumberInput
               key={question.key}
-              value={currentPageAnswers[question.key] ? String(currentPageAnswers[question.key]) : ''}
+              value={currentPageAnswers[question.key] !== undefined ? String(currentPageAnswers[question.key]) : ''}
               onChangeText={(text) => {
-                const numValue = parseFloat(text);
-                if (!isNaN(numValue) &&
-                    (!question.min_value || numValue >= question.min_value) &&
-                    (!question.max_value || numValue <= question.max_value)) {
-                  onAnswer(question.key, numValue);
-                }
+                // Always store the text to allow typing intermediate values (e.g., "5." while typing "5.35")
+                // Store as string to preserve user's input; validation happens on submit
+                onAnswer(question.key, text);
               }}
               onSubmit={() => {
-                const text = currentPageAnswers[question.key] ? String(currentPageAnswers[question.key]) : '';
-                const numValue = parseFloat(text);
-                if (!isNaN(numValue) &&
-                    (!question.min_value || numValue >= question.min_value) &&
-                    (!question.max_value || numValue <= question.max_value)) {
-                  onAnswer(question.key, numValue);
-                } else {
-                  toast.error('Invalid Input', {
-                    description: `Please enter a valid number ${question.min_value ? `between ${question.min_value} and ${question.max_value}` : ''}`,
+                const text = currentPageAnswers[question.key] !== undefined ? String(currentPageAnswers[question.key]) : '';
+                const numValue = parseFloat(text.replace(',', '.')); // Support comma as decimal separator
+
+                if (text.trim() === '') {
+                  // Empty is only valid if question is optional
+                  if (question.optional) {
+                    return; // Let skip handle it
+                  }
+                  toast.error('Required Field', {
+                    description: 'Please enter a value',
                   });
+                  return;
                 }
+
+                if (isNaN(numValue)) {
+                  toast.error('Invalid Input', {
+                    description: 'Please enter a valid number',
+                  });
+                  return;
+                }
+
+                if (question.min_value !== undefined && numValue < question.min_value) {
+                  toast.error('Value Too Low', {
+                    description: `Please enter a value of at least ${question.min_value}`,
+                  });
+                  return;
+                }
+
+                if (question.max_value !== undefined && numValue > question.max_value) {
+                  toast.error('Value Too High', {
+                    description: `Please enter a value no more than ${question.max_value}`,
+                  });
+                  return;
+                }
+
+                // Value is valid - store as number for calculation
+                onAnswer(question.key, numValue);
               }}
               onSkipAndProceed={question.optional ? onSkipAndProceed : undefined}
               minValue={question.min_value}

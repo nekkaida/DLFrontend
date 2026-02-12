@@ -4,6 +4,7 @@ import Animated, {
   Extrapolation,
   interpolate,
   useSharedValue,
+  runOnJS,
 } from 'react-native-reanimated';
 import Carousel, { ICarouselInstance, TAnimationStyle } from 'react-native-reanimated-carousel';
 import { QuestionCard } from '../../../components/QuestionContainer';
@@ -46,6 +47,9 @@ export const QuestionnaireFlow: React.FC<QuestionnaireFlowProps> = ({
 
   // Track swipe direction for rotation animation
   const directionAnimVal = useSharedValue(0);
+
+  // Shared value to track last card state for worklet access
+  const isLastCardShared = useSharedValue(false);
 
   // Track if we're programmatically navigating (to avoid double-triggers)
   const isProgrammaticNav = useRef(false);
@@ -151,6 +155,11 @@ export const QuestionnaireFlow: React.FC<QuestionnaireFlowProps> = ({
     }
   }, [currentVisibleIndex]);
 
+  // Update shared value for worklet access - track if on last card
+  useEffect(() => {
+    isLastCardShared.value = carouselDisplayIndex >= visibleQuestions.length - 1;
+  }, [carouselDisplayIndex, visibleQuestions.length, isLastCardShared]);
+
   // Initialize carouselDisplayIndex when currentVisibleIndex changes from parent
   useEffect(() => {
     setCarouselDisplayIndex(currentVisibleIndex);
@@ -168,6 +177,22 @@ export const QuestionnaireFlow: React.FC<QuestionnaireFlowProps> = ({
     }
     isProgrammaticNav.current = false;
   }, [currentVisibleIndex]);
+
+  // Handle last card swipe completion (called from worklet via runOnJS)
+  const handleLastCardSwipe = useCallback(() => {
+    // Only proceed if answer is selected (same logic as isNextEnabled)
+    const question = visibleQuestions?.[carouselDisplayIndex];
+    if (!question) return;
+
+    const hasAnswer = currentPageAnswers[question.key] !== undefined ||
+                     responses[question.key] !== undefined;
+    const canProceed = question.type === 'number' ? (hasAnswer || question.optional) : hasAnswer;
+
+    if (canProceed) {
+      console.log('Last card swipe detected, triggering completion');
+      onNext();
+    }
+  }, [visibleQuestions, carouselDisplayIndex, currentPageAnswers, responses, onNext]);
 
   // Programmatic navigation to next
   // Use carouselDisplayIndex for accurate last-question detection
@@ -293,6 +318,15 @@ export const QuestionnaireFlow: React.FC<QuestionnaireFlowProps> = ({
                 'worklet';
                 // Track swipe direction for rotation animation
                 directionAnimVal.value = Math.sign(e.translationX);
+              });
+              gesture.onEnd((e) => {
+                'worklet';
+                // Detect left swipe (negative translationX) on last card with sufficient velocity/distance
+                // This allows users to swipe the last question to complete the questionnaire
+                const isLeftSwipe = e.translationX < -50 || e.velocityX < -500;
+                if (isLastCardShared.value && isLeftSwipe) {
+                  runOnJS(handleLastCardSwipe)();
+                }
               });
             }}
             // Only allow swiping forward (left swipe = next), not backward
