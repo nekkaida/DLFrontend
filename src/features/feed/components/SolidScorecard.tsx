@@ -3,8 +3,10 @@
 import SCardPadel from "@/assets/backgrounds/Scard-Padel.svg";
 import SCardPickleball from "@/assets/backgrounds/Scard-Pickleball.svg";
 import SCardTennis from "@/assets/backgrounds/Scard-Tennis.svg";
+import PaddleIcon from "@/assets/icons/sports/Paddle.svg";
+import PickleballIcon from "@/assets/icons/sports/Pickleball.svg";
+import TennisIcon from "@/assets/icons/sports/Tennis.svg";
 import { MatchResult, SportColors } from "@/features/standings/types";
-import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import React from "react";
 import { Image, StyleSheet, Text, View } from "react-native";
@@ -17,15 +19,19 @@ interface SolidScorecardProps {
   matchType?: string;
 }
 
-// Map sport types to their icons using Ionicons (temporary solution)
-const getSportIcon = (sportType: string | undefined) => {
+// Map sport types to their icons
+const getSportIcon = (sportType: string | undefined, color: string, size: number = 66) => {
   const normalizedType = sportType?.toUpperCase() || "TENNIS";
-  const iconMap: { [key: string]: string } = {
-    PICKLEBALL: "tennisball",
-    TENNIS: "tennisball",
-    PADEL: "tennisball",
-  };
-  return iconMap[normalizedType] || "tennisball";
+  
+  switch (normalizedType) {
+    case "PICKLEBALL":
+      return <PickleballIcon width={size} height={size} fill={color} />;
+    case "PADEL":
+      return <PaddleIcon width={size} height={size} fill={color} />;
+    case "TENNIS":
+    default:
+      return <TennisIcon width={size} height={size} fill={color} />;
+  }
 };
 
 // Map sport types to their background images
@@ -54,8 +60,9 @@ export const SolidScorecard: React.FC<SolidScorecardProps> = ({
   isFriendly = false,
   matchType = "SINGLES",
 }) => {
+  const PHOTO_SIZE = 80;
   // Helper function to render player photo
-  const renderPlayerPhoto = (player: any, size: number = 70) => {
+  const renderPlayerPhoto = (player: any, size: number = PHOTO_SIZE) => {
     if (player.image) {
       return (
         <Image
@@ -137,12 +144,9 @@ export const SolidScorecard: React.FC<SolidScorecardProps> = ({
             <View style={styles.headerTopRow}>
               <View style={styles.headerContent}>
                 <View style={styles.leagueRow}>
-                  <Ionicons
-                    name={getSportIcon(match.sport) as any}
-                    size={40}
-                    color={sportColors.background}
-                    style={styles.sportIcon}
-                  />
+                  <View style={styles.sportIcon}>
+                    {getSportIcon(match.sport, sportColors.background, 40)}
+                  </View>
                   <Text style={styles.leagueText}>
                     {match.leagueName || "Match"}
                   </Text>
@@ -187,7 +191,7 @@ export const SolidScorecard: React.FC<SolidScorecardProps> = ({
               {isSingles ? (
                 <>
                   <View style={styles.teamPhotos}>
-                    {renderPlayerPhoto(match.team1Players[0], 140)}
+                    {renderPlayerPhoto(match.team1Players[0], PHOTO_SIZE)}
                   </View>
                   <Text
                     style={[
@@ -205,9 +209,9 @@ export const SolidScorecard: React.FC<SolidScorecardProps> = ({
               ) : (
                 <View style={styles.doublesContainer}>
                   <View style={styles.doublesPhotos}>
-                    {renderPlayerPhoto(match.team1Players[0], 120)}
+                    {renderPlayerPhoto(match.team1Players[0], PHOTO_SIZE)}
                     <View style={{ marginLeft: -30 }}>
-                      {renderPlayerPhoto(match.team1Players[1], 120)}
+                      {renderPlayerPhoto(match.team1Players[1], PHOTO_SIZE)}
                     </View>
                   </View>
                   <View style={styles.doublesNames}>
@@ -252,7 +256,7 @@ export const SolidScorecard: React.FC<SolidScorecardProps> = ({
               {isSingles ? (
                 <>
                   <View style={styles.teamPhotos}>
-                    {renderPlayerPhoto(match.team2Players[0], 140)}
+                    {renderPlayerPhoto(match.team2Players[0], PHOTO_SIZE)}
                   </View>
                   <Text
                     style={[
@@ -270,9 +274,9 @@ export const SolidScorecard: React.FC<SolidScorecardProps> = ({
               ) : (
                 <View style={styles.doublesContainer}>
                   <View style={styles.doublesPhotos}>
-                    {renderPlayerPhoto(match.team2Players[0], 120)}
+                    {renderPlayerPhoto(match.team2Players[0], PHOTO_SIZE)}
                     <View style={{ marginLeft: -30 }}>
-                      {renderPlayerPhoto(match.team2Players[1], 120)}
+                      {renderPlayerPhoto(match.team2Players[1], PHOTO_SIZE)}
                     </View>
                   </View>
                   <View style={styles.doublesNames}>
@@ -306,7 +310,6 @@ export const SolidScorecard: React.FC<SolidScorecardProps> = ({
             </View>
           </View>
 
-          {/* Scores Columns */}
           {/* Scores Columns */}
           {scores && scores.length > 0 && (
             <View style={styles.scoresSection}>
@@ -411,7 +414,7 @@ const styles = StyleSheet.create({
     width: "100%",
     maxWidth: 850,
     height: "100%",
-    maxHeight: 450,
+    maxHeight: 550,
     backgroundColor: "#FFFFFF",
     borderRadius: 20,
     overflow: "hidden",
@@ -421,12 +424,12 @@ const styles = StyleSheet.create({
     backgroundColor: "#FFFFFF",
   },
   leagueText: {
-    fontSize: 15,
+    fontSize: 30,
     fontWeight: "700",
     color: "#111827",
   },
   seasonDivisionText: {
-    fontSize: 11,
+    fontSize: 30,
     color: "#6B7280",
   },
   matchTypeBadge: {
@@ -436,7 +439,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   matchTypeText: {
-    fontSize: 10,
+    fontSize: 20,
     fontWeight: "700",
     textTransform: "uppercase",
   },
@@ -453,7 +456,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   teamName: {
-    fontSize: 14,
+    fontSize: 18,
     fontWeight: "600",
     marginTop: 8,
     textAlign: "center",
@@ -463,24 +466,24 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   scoreText: {
-    fontSize: 48,
+    fontSize: 100,
     fontWeight: "900",
     color: "#111827",
   },
   scoreDivider: {
-    fontSize: 24,
-    color: "#9CA3AF",
+    fontSize: 64,
+    color: "#2c2c2c",
     marginHorizontal: 8,
   },
   scoresSection: {
-    backgroundColor: "#FFFFFF", // 1. Card content bg is white
+    backgroundColor: "#FFFFFF",
     paddingVertical: 20,
     paddingHorizontal: 24,
     marginTop: 10,
   },
   scoreHeaderRow: {
     flexDirection: "row",
-    borderRadius: 100, // 2. Fully rounded edges
+    borderRadius: 100,
     paddingVertical: 8,
     paddingHorizontal: 16,
     marginBottom: 16,
@@ -503,10 +506,10 @@ const styles = StyleSheet.create({
     justifyContent: "space-around",
   },
   nameColumnText: {
-    fontSize: 15, // Slightly larger for "cleaner" look
+    fontSize: 24,
     fontWeight: "700",
     color: "#374151",
-    height: 40, // Match setScoreBox height
+    height: 40,
     textAlignVertical: "center",
     lineHeight: 40,
   },
@@ -520,7 +523,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   setHeaderText: {
-    fontSize: 12,
+    fontSize: 22,
     fontWeight: "800",
     color: "#FFFFFF",
     textTransform: "uppercase",
@@ -530,7 +533,7 @@ const styles = StyleSheet.create({
     fontWeight: "900",
   },
   setScoreText: {
-    fontSize: 16,
+    fontSize: 22,
     fontWeight: "800",
     color: "#374151",
   },

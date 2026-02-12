@@ -84,7 +84,7 @@ export const ScorecardCaptureWrapper = forwardRef<
               backgroundStyle === "dark"
                 ? "transparent"
                 : backgroundStyle === "white"
-                  ? "#FFFFFF"
+                  ? "transparent"
                   : "transparent",
             padding: PADDING,
           },
@@ -108,7 +108,7 @@ ScorecardCaptureWrapper.displayName = "ScorecardCaptureWrapper";
 const styles = StyleSheet.create({
   captureContainer: {
     position: "absolute",
-    left: -10000, // Hide off-screen
+    left: -10000,
     top: 0,
     alignItems: "center",
     justifyContent: "center",
