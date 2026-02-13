@@ -131,7 +131,8 @@ export const NavigationInterceptor: React.FC<NavigationInterceptorProps> = ({ ch
       console.log('NavigationInterceptor: Onboarding response status:', onboardingResponse.status);
 
       // Success response (2xx) - process the data
-      const onboardingData = onboardingResponse.data;
+      // Backend returns {data: {...}, success: true}, so unwrap the data property
+      const onboardingData = onboardingResponse.data?.data || onboardingResponse.data;
       console.log('NavigationInterceptor: Onboarding data received:', onboardingData);
 
       if (onboardingData?.completedOnboarding) {
@@ -161,7 +162,8 @@ export const NavigationInterceptor: React.FC<NavigationInterceptorProps> = ({ ch
           const retryResponse = await axiosInstance.get(`/api/onboarding/status/${userId}?t=${Date.now()}`);
 
           if (retryResponse.status === 200) {
-            const retryData = retryResponse.data;
+            // Backend returns {data: {...}, success: true}, so unwrap the data property
+            const retryData = retryResponse.data?.data || retryResponse.data;
             console.log('NavigationInterceptor: Retry data received:', retryData);
 
             if (retryData?.completedOnboarding) {

@@ -17,6 +17,7 @@ export { ShareOptionsSheet } from "./ShareOptionsSheet";
 export type { ShareStyle } from "./ShareOptionsSheet";
 export { SocialBar } from "./SocialBar";
 export { SolidScorecard } from "./SolidScorecard";
+export { DarkThemeScorecard } from "./DarkThemeScorecard";
 export { SportFilterSheet } from "./SportFilterSheet";
 export { TransparentScorecard } from "./TransparentScorecard";
 

@@ -2,8 +2,8 @@
 
 import { getSportColors, SportType } from "@/constants/SportsColor";
 import { useSession } from "@/lib/auth-client";
+import { Ionicons } from "@expo/vector-icons";
 import BottomSheet from "@gorhom/bottom-sheet";
-import { Ionicons } from '@expo/vector-icons';
 import { router } from "expo-router";
 import React, {
   useCallback,
@@ -95,7 +95,9 @@ export default function FeedScreen({ sport = "default" }: FeedScreenProps) {
     string | undefined
   >(sport);
   const [userFilter, setUserFilter] = useState<"all" | "friends">("all");
-  const [activeTab, setActiveTab] = useState<'activity' | 'friends'>('activity');
+  const [activeTab, setActiveTab] = useState<"activity" | "friends">(
+    "activity",
+  );
 
   // Cleanup on unmount
   useEffect(() => {
@@ -128,7 +130,7 @@ export default function FeedScreen({ sport = "default" }: FeedScreenProps) {
     setUserFilter((prev) => (prev === "all" ? "friends" : "all"));
   }, []);
 
-  const handleTabChange = useCallback((tab: 'activity' | 'friends') => {
+  const handleTabChange = useCallback((tab: "activity" | "friends") => {
     setActiveTab(tab);
     // OLD LOGIC: Navigate to friend list page
     // if (tab === 'friends') {
@@ -227,12 +229,12 @@ export default function FeedScreen({ sport = "default" }: FeedScreenProps) {
     router.push(`/player-profile/${authorId}` as any);
   }, []);
 
-  const handleMatchPress = useCallback((matchId: string) => {
-    router.push({
-      pathname: "/match/match-details",
-      params: { matchId },
-    } as any);
-  }, []);
+  // const handleMatchPress = useCallback((matchId: string) => {
+  //   router.push({
+  //     pathname: "/match/match-details",
+  //     params: { matchId },
+  //   } as any);
+  // }, []);
 
   const handleLikeCountPress = useCallback(
     (postId: string, likeCount: number) => {
@@ -430,7 +432,7 @@ export default function FeedScreen({ sport = "default" }: FeedScreenProps) {
           onLikeCountPress={handleLikeCountPress}
           onOptionsPress={handleOptionsPress}
           onSharePress={handleSharePress}
-          onMatchPress={handleMatchPress}
+          // onMatchPress={handleMatchPress}
           showOptionsButton={isOwnPost}
           currentUserId={currentUserId}
           onScorecardRef={(postId, ref) => {
@@ -450,7 +452,7 @@ export default function FeedScreen({ sport = "default" }: FeedScreenProps) {
       handleLikeCountPress,
       handleOptionsPress,
       handleSharePress,
-      handleMatchPress,
+      // handleMatchPress,
       currentUserId,
     ],
   );
@@ -489,14 +491,17 @@ export default function FeedScreen({ sport = "default" }: FeedScreenProps) {
       />
 
       {/* Conditionally render based on active tab */}
-      {activeTab === 'friends' ? (
-        <FriendsList sport={sport as 'pickleball' | 'tennis' | 'padel'} />
+      {activeTab === "friends" ? (
+        <FriendsList sport={sport as "pickleball" | "tennis" | "padel"} />
       ) : (
         // Activity/Feed View
         <>
           {isLoading && posts.length === 0 ? (
             <View style={styles.loadingContainer}>
-              <ActivityIndicator size="large" color={feedTheme.colors.primary} />
+              <ActivityIndicator
+                size="large"
+                color={feedTheme.colors.primary}
+              />
             </View>
           ) : error && posts.length === 0 ? (
             <View style={styles.errorContainer}>
@@ -691,15 +696,15 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   fab: {
-    position: 'absolute',
+    position: "absolute",
     bottom: 100,
     right: 20,
     width: 56,
     height: 56,
     borderRadius: 28,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#000',
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
