@@ -36,6 +36,10 @@ import { useProfileHandlers } from '../hooks/useProfileHandlers';
 import { useProfileState } from '../hooks/useProfileState';
 import { ProfileDataTransformer } from '../services/ProfileDataTransformer';
 import { useProfileImageUpload } from '@/src/shared/hooks/useProfileImageUpload';
+import { useAchievementSocket } from '@/src/features/achievements/hooks/useAchievementSocket';
+import { AchievementUnlockSheet } from '@/src/features/achievements/components/AchievementUnlockSheet';
+import type { AchievementData } from '@/src/features/achievements/components/AchievementCard';
+import type { AchievementUnlockPayload } from '@/src/features/achievements/hooks/useAchievementSocket';
 import type { GameData } from '../types';
 
 const { width } = Dimensions.get('window');
@@ -46,6 +50,7 @@ export default function ProfileScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [profileData, setProfileData] = useState<any>(null);
   const [achievements, setAchievements] = useState<any[]>([]);
+  const [achievementCounts, setAchievementCounts] = useState<{ completed: number; total: number }>({ completed: 0, total: 0 });
   const [ratingHistory, setRatingHistory] = useState<GameData[]>([]);
   const [selectedGraphIndex, setSelectedGraphIndex] = useState<number | null>(null);
   const [leagueStatsData, setLeagueStatsData] = useState<{
@@ -54,6 +59,39 @@ export default function ProfileScreen() {
     matchesPlayed: number;
   }>({ wins: 0, losses: 0, matchesPlayed: 0 });
   const hasInitializedSport = useRef(false);
+
+  // Achievement unlock state
+  const [pendingUnlocks, setPendingUnlocks] = useState<AchievementData[]>([]);
+  const [showUnlockSheet, setShowUnlockSheet] = useState(false);
+  const needsAchievementRefresh = useRef(false);
+
+  // Listen for real-time achievement unlocks via socket
+  const handleAchievementUnlock = useCallback((payload: AchievementUnlockPayload) => {
+    const unlockData: AchievementData = {
+      id: payload.achievementId,
+      title: payload.title,
+      description: payload.description,
+      icon: payload.icon,
+      tier: payload.tier,
+      category: payload.category,
+      scope: '',
+      threshold: 1,
+      sportFilter: null,
+      gameTypeFilter: null,
+      sortOrder: 0,
+      isHidden: false,
+      points: payload.points,
+      progress: 1,
+      isCompleted: true,
+      unlockedAt: new Date().toISOString(),
+    };
+    setPendingUnlocks((prev) => [...prev, unlockData]);
+    setShowUnlockSheet(true);
+    // Flag for refresh on next render cycle
+    needsAchievementRefresh.current = true;
+  }, []);
+
+  useAchievementSocket(handleAchievementUnlock);
 
   // Entry animation values
   const profilePictureEntryOpacity = useRef(new Animated.Value(0)).current;
@@ -185,7 +223,12 @@ export default function ProfileScreen() {
       }
 
       if (achievementsResponse && (achievementsResponse as any).data?.achievements) {
-        setAchievements((achievementsResponse as any).data.achievements);
+        const achData = (achievementsResponse as any).data;
+        setAchievements(achData.achievements);
+        setAchievementCounts({
+          completed: achData.completedCount ?? 0,
+          total: achData.totalCount ?? 0,
+        });
       }
     } catch (error) {
       console.error('Error fetching profile:', error);
@@ -200,6 +243,14 @@ export default function ProfileScreen() {
   useEffect(() => {
     fetchProfileData();
   }, [fetchProfileData]);
+
+  // Refresh achievements when socket event triggers
+  useEffect(() => {
+    if (needsAchievementRefresh.current) {
+      needsAchievementRefresh.current = false;
+      fetchProfileData();
+    }
+  }, [showUnlockSheet, fetchProfileData]);
 
   // Fetch rating history when game type, sport, or profile data changes
   useEffect(() => {
@@ -506,6 +557,12 @@ export default function ProfileScreen() {
           >
             <ProfileAchievementsCard
               achievements={userData.achievements || []}
+              completedCount={achievementCounts.completed}
+              totalCount={achievementCounts.total}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                router.navigate('/achievements' as any);
+              }}
             />
           </Animated.View>
 
@@ -592,6 +649,16 @@ export default function ProfileScreen() {
           onCancel={handleCropCancel}
         />
       )}
+
+      {/* Achievement Unlock Celebration Sheet */}
+      <AchievementUnlockSheet
+        achievements={pendingUnlocks}
+        visible={showUnlockSheet}
+        onDismiss={() => {
+          setShowUnlockSheet(false);
+          setPendingUnlocks([]);
+        }}
+      />
     </View>
   );
 }
