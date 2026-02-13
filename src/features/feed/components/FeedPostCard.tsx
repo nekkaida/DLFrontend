@@ -216,6 +216,9 @@ export const FeedPostCard = forwardRef<View, FeedPostCardProps>(
           currentUserId={currentUserId}
           postAuthorId={post.authorId}
         />
+
+        {/* Divider - End of Post */}
+        <View style={styles.postDivider} />
       </View>
     );
   },
@@ -226,9 +229,9 @@ FeedPostCard.displayName = "FeedPostCard";
 const styles = StyleSheet.create({
   container: {
     backgroundColor: feedTheme.colors.cardBackground,
-    borderRadius: feedTheme.spacing.cardBorderRadius,
+    // borderRadius: feedTheme.spacing.cardBorderRadius,
     marginBottom: feedTheme.spacing.sectionGap,
-    ...feedTheme.shadows.card,
+    // ...feedTheme.shadows.card,
   },
   captionContainer: {
     paddingHorizontal: feedTheme.spacing.cardPadding,
@@ -247,5 +250,12 @@ const styles = StyleSheet.create({
   },
   scorecardPressed: {
     opacity: 0.7,
+  },
+  postDivider: {
+    height: 1,
+    backgroundColor: feedTheme.colors.border,
+    width: "100%",
+    alignSelf: "stretch",
+    marginTop: feedTheme.spacing.cardPadding,
   },
 });

@@ -148,8 +148,8 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     paddingTop: 8,
-    borderTopWidth: 1,
-    borderTopColor: feedTheme.colors.border,
+    // borderTopWidth: 1,
+    // borderTopColor: feedTheme.colors.border,
   },
   actionButton: {
     flexDirection: "row",
