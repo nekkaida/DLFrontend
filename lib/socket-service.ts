@@ -197,6 +197,12 @@ export class SocketService {
         this.emit('match_comment_deleted', data);
       });
 
+      // Achievement events
+      this._socket.on('achievement_unlocked', (data) => {
+        console.log('SocketService: Achievement unlocked:', data);
+        this.emit('achievement_unlocked', data);
+      });
+
       // Join user to their personal room for notifications
       if (session.data.user?.id) {
         this._socket.emit('join_user_room', { userId: session.data.user.id });
