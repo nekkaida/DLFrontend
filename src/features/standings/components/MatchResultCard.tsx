@@ -1,5 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { format } from "date-fns";
+import { LinearGradient } from "expo-linear-gradient";
 import React from "react";
 import {
   Image,
@@ -9,10 +10,21 @@ import {
   View,
   ViewStyle,
 } from "react-native";
-import { MatchPlayer, MatchResult, SportColors } from "../types";
-import { formatPlayerName, getOrdinalSuffix } from "../utils";
+import { MatchResult, SportColors } from "../types";
+import { formatPlayerName } from "../utils";
 
-export type CardBackgroundStyle = "white" | "transparent";
+// Map sport types to their icons using Ionicons (temporary solution)
+const getSportIcon = (sportType: string | undefined) => {
+  const normalizedType = sportType?.toUpperCase() || "TENNIS";
+  const iconMap: { [key: string]: string } = {
+    PICKLEBALL: "tennisball",
+    TENNIS: "tennisball",
+    PADEL: "tennisball",
+  };
+  return iconMap[normalizedType] || "tennisball";
+};
+
+export type CardBackgroundStyle = "white" | "transparent" | "dark";
 
 interface MatchResultCardProps {
   match: MatchResult;
@@ -43,18 +55,33 @@ export const MatchResultCard: React.FC<MatchResultCardProps> = ({
 }) => {
   const isTeam1Winner = match.outcome === "team1";
   const isTeam2Winner = match.outcome === "team2";
-  const scores = isPickleball ? match.gameScores : match.setScores;
+
+  // Handle different score structures for different sports
+  // Pickleball uses gameScores with team1Points/team2Points
+  // Tennis/Padel use setScores with team1Games/team2Games
+  const scores =
+    match.gameScores?.length > 0 ? match.gameScores : match.setScores || [];
   const totalSets = scores?.length || 0;
   const isExpanded = expandedComments.has(match.id);
+  const isSingles = match.team1Players.length === 1;
+  const isFriendly =
+    (match as any).isFriendly || (match as any).matchType === "FRIENDLY";
+  const matchTypeLabel = isFriendly ? "Friendly" : "League";
 
-  console.log("sports", sportColors);
-  const renderPlayerPhoto = (player: MatchPlayer, size: number = 30) => {
+  // Get season and division info
+  const seasonName =
+    (match as any).division?.season?.name || (match as any).seasonName || "";
+  const divisionName =
+    (match as any).division?.name || (match as any).divisionName || "";
+
+  // Helper function to render player photo
+  const renderPlayerPhoto = (player: any, size: number = 120) => {
     if (player.image) {
       return (
         <Image
           source={{ uri: player.image }}
           style={[
-            styles.cardPlayerPhoto,
+            styles.playerPhoto,
             { width: size, height: size, borderRadius: size / 2 },
           ]}
         />
@@ -63,221 +90,102 @@ export const MatchResultCard: React.FC<MatchResultCardProps> = ({
     return (
       <View
         style={[
-          styles.cardPlayerPhotoDefault,
+          styles.playerPhotoDefault,
           { width: size, height: size, borderRadius: size / 2 },
         ]}
       >
-        <Text
-          style={[styles.cardPlayerPhotoDefaultText, { fontSize: size * 0.4 }]}
-        >
-          {player.name?.charAt(0).toUpperCase() || "D"}
+        <Text style={[styles.playerPhotoText, { fontSize: size * 0.4 }]}>
+          {player.name?.charAt(0).toUpperCase() || "P"}
         </Text>
       </View>
-    );
-  };
-
-  const renderTeamPhotos = (players: MatchPlayer[]) => {
-    const isSingles = players.length === 1;
-
-    if (isSingles) {
-      return (
-        <View style={styles.cardTeamPhotosContainer}>
-          {renderPlayerPhoto(players[0], 38)}
-        </View>
-      );
-    }
-
-    // Doubles - overlapping photos
-    return (
-      <View style={styles.cardTeamPhotosContainer}>
-        <View style={styles.cardDoublesPhotos}>
-          {renderPlayerPhoto(players[0], 38)}
-          <View style={styles.cardDoublesPhotoOverlap}>
-            {renderPlayerPhoto(players[1], 38)}
-          </View>
-        </View>
-      </View>
-    );
-  };
-
-  const renderTeamNames = (players: MatchPlayer[], isWinner: boolean) => {
-    const isSingles = players.length === 1;
-    const nameStyle = isWinner
-      ? [styles.cardPlayerName, { color: sportColors.background }]
-      : styles.cardPlayerName;
-
-    if (isSingles) {
-      return (
-        <Text style={nameStyle} numberOfLines={1}>
-          {formatPlayerName(players[0].name, true)}
-        </Text>
-      );
-    }
-
-    // Doubles - comma-separated first names
-    const names = players.map((p) => formatPlayerName(p.name, true)).join(", ");
-
-    return (
-      <Text style={nameStyle} numberOfLines={2}>
-        {names}
-      </Text>
     );
   };
 
   const renderScoresTable = () => {
     if (!scores || scores.length === 0) return null;
 
-    const isSingles = match.team1Players.length === 1;
-
     return (
-      <View style={styles.cardScoresTable}>
+      <View style={styles.scoresTable}>
         {/* Table Header */}
         <View
           style={[
-            styles.cardTableHeader,
+            styles.tableHeader,
             { backgroundColor: sportColors.background },
           ]}
         >
-          <View style={styles.cardTableHeaderLabelCell}>
-            <Text style={styles.cardTableHeaderText}></Text>
+          <View style={styles.tableNameHeaderCell}>
+            <Text style={styles.tableHeaderText}>Sets</Text>
           </View>
-          {scores.map((_, idx) => (
-            <View key={idx} style={styles.cardTableHeaderCell}>
-              <Text style={styles.cardTableHeaderText}>
-                {isPickleball ? `${idx + 1}` : getOrdinalSuffix(idx + 1)}
-              </Text>
-            </View>
-          ))}
+          {scores.map((_, idx) => {
+            const ordinalMap = ["1st", "2nd", "3rd", "4th", "5th"];
+            return (
+              <View key={idx} style={styles.tableScoreHeaderCell}>
+                <Text style={styles.tableHeaderText}>
+                  {ordinalMap[idx] || `${idx + 1}th`}
+                </Text>
+              </View>
+            );
+          })}
         </View>
 
         {/* Team 1 Row */}
-        <View style={styles.cardTableRow}>
-          <View style={styles.cardTableLabelCell}>
-            <Text
-              style={[
-                styles.cardTablePlayerName,
-                isTeam1Winner && styles.cardTablePlayerNameWinner,
-              ]}
-              numberOfLines={1}
-            >
+        <View style={styles.tableRow}>
+          <View style={styles.tableNameCell}>
+            <Text style={styles.tableNameText} numberOfLines={1}>
               {isSingles
                 ? formatPlayerName(match.team1Players[0].name, true)
-                : match.team1Players
-                    .map((p) => formatPlayerName(p.name, true))
-                    .join(", ")}
+                : `${formatPlayerName(match.team1Players[0].name, true)}, ${formatPlayerName(match.team1Players[1].name, true)}`}
             </Text>
           </View>
-          {isPickleball
-            ? (match.gameScores || []).map((game, idx) => {
-                const isWinningScore = game.team1Points > game.team2Points;
-                return (
-                  <View key={idx} style={styles.cardTableScoreCell}>
-                    <Text
-                      style={[
-                        styles.cardTableScore,
-                        isWinningScore
-                          ? [
-                              styles.cardTableScoreWinner,
-                              { color: sportColors.background },
-                            ]
-                          : styles.cardTableScoreLoser,
-                      ]}
-                    >
-                      {game.team1Points}
-                    </Text>
-                  </View>
-                );
-              })
-            : match.setScores.map((set, idx) => {
-                const isWinningScore = set.team1Games > set.team2Games;
-                return (
-                  <View key={idx} style={styles.cardTableScoreCell}>
-                    <Text
-                      style={[
-                        styles.cardTableScore,
-                        isWinningScore
-                          ? [
-                              styles.cardTableScoreWinner,
-                              { color: sportColors.background },
-                            ]
-                          : styles.cardTableScoreLoser,
-                      ]}
-                    >
-                      {set.team1Games}
-                      {set.hasTiebreak && set.team1Tiebreak != null && (
-                        <Text style={styles.cardTiebreakScore}>
-                          ({set.team1Tiebreak})
-                        </Text>
-                      )}
-                    </Text>
-                  </View>
-                );
-              })}
+          {scores.map((score, idx) => {
+            // Handle both gameScores (pickleball) and setScores (tennis/padel)
+            const team1Score = score.team1Points ?? score.team1Games ?? 0;
+            const team2Score = score.team2Points ?? score.team2Games ?? 0;
+            const isWinner = team1Score > team2Score;
+
+            return (
+              <View key={idx} style={styles.tableScoreCell}>
+                <Text
+                  style={[
+                    styles.tableScoreText,
+                    isWinner && styles.winningScoreText,
+                  ]}
+                >
+                  {team1Score}
+                </Text>
+              </View>
+            );
+          })}
         </View>
 
         {/* Team 2 Row */}
-        <View style={[styles.cardTableRow, styles.cardTableRowLast]}>
-          <View style={styles.cardTableLabelCell}>
-            <Text
-              style={[
-                styles.cardTablePlayerName,
-                isTeam2Winner && styles.cardTablePlayerNameWinner,
-              ]}
-              numberOfLines={1}
-            >
+        <View style={styles.tableRow}>
+          <View style={styles.tableNameCell}>
+            <Text style={styles.tableNameText} numberOfLines={1}>
               {isSingles
                 ? formatPlayerName(match.team2Players[0].name, true)
-                : match.team2Players
-                    .map((p) => formatPlayerName(p.name, true))
-                    .join(", ")}
+                : `${formatPlayerName(match.team2Players[0].name, true)}, ${formatPlayerName(match.team2Players[1].name, true)}`}
             </Text>
           </View>
-          {isPickleball
-            ? (match.gameScores || []).map((game, idx) => {
-                const isWinningScore = game.team2Points > game.team1Points;
-                return (
-                  <View key={idx} style={styles.cardTableScoreCell}>
-                    <Text
-                      style={[
-                        styles.cardTableScore,
-                        isWinningScore
-                          ? [
-                              styles.cardTableScoreWinner,
-                              { color: sportColors.background },
-                            ]
-                          : styles.cardTableScoreLoser,
-                      ]}
-                    >
-                      {game.team2Points}
-                    </Text>
-                  </View>
-                );
-              })
-            : match.setScores.map((set, idx) => {
-                const isWinningScore = set.team2Games > set.team1Games;
-                return (
-                  <View key={idx} style={styles.cardTableScoreCell}>
-                    <Text
-                      style={[
-                        styles.cardTableScore,
-                        isWinningScore
-                          ? [
-                              styles.cardTableScoreWinner,
-                              { color: sportColors.background },
-                            ]
-                          : styles.cardTableScoreLoser,
-                      ]}
-                    >
-                      {set.team2Games}
-                      {set.hasTiebreak && set.team2Tiebreak != null && (
-                        <Text style={styles.cardTiebreakScore}>
-                          ({set.team2Tiebreak})
-                        </Text>
-                      )}
-                    </Text>
-                  </View>
-                );
-              })}
+          {scores.map((score, idx) => {
+            // Handle both gameScores (pickleball) and setScores (tennis/padel)
+            const team1Score = score.team1Points ?? score.team1Games ?? 0;
+            const team2Score = score.team2Points ?? score.team2Games ?? 0;
+            const isWinner = team2Score > team1Score;
+
+            return (
+              <View key={idx} style={styles.tableScoreCell}>
+                <Text
+                  style={[
+                    styles.tableScoreText,
+                    isWinner && styles.winningScoreText,
+                  ]}
+                >
+                  {team2Score}
+                </Text>
+              </View>
+            );
+          })}
         </View>
       </View>
     );
@@ -379,65 +287,198 @@ export const MatchResultCard: React.FC<MatchResultCardProps> = ({
   console.log("match", match);
   return (
     <View style={[styles.resultCardNew, cardStyle]}>
-      {/* League Header */}
-      <View
-        style={[
-          styles.cardLeagueHeader,
-          { backgroundColor: sportColors.background },
+      {/* League/Match Info Header */}
+      <LinearGradient
+        colors={[
+          `rgba(${parseInt(sportColors.background.slice(1, 3), 16)}, ${parseInt(sportColors.background.slice(3, 5), 16)}, ${parseInt(sportColors.background.slice(5, 7), 16)}, 0.08)`,
+          "#FFFFFF",
         ]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 0, y: 1 }}
+        style={styles.header}
       >
-        <Text style={styles.cardLeagueHeaderTitle} numberOfLines={1}>
-          {match.leagueName || match.divisionName || "League"} -{" "}
-          {isPickleball ? "Pickleball" : "Tennis"} League
-        </Text>
-        <View style={styles.cardLeagueBadge}>
-          <Text style={styles.cardLeagueBadgeText}>LEAGUE</Text>
+        {/* Header with icon and badge */}
+        <View style={styles.headerTopRow}>
+          <View style={styles.headerContent}>
+            <View style={styles.leagueRow}>
+              <Ionicons
+                name={getSportIcon((match as any).sportType)}
+                size={20}
+                color={sportColors.background}
+                style={styles.sportIcon}
+              />
+              <Text style={styles.leagueText}>
+                {match.leagueName || "Match"}
+              </Text>
+            </View>
+
+            {/* Season and Division */}
+            {(seasonName || divisionName) && (
+              <Text style={styles.seasonDivisionText}>
+                {seasonName}
+                {seasonName && divisionName && " • "}
+                {divisionName}
+              </Text>
+            )}
+          </View>
+          <View
+            style={[
+              styles.matchTypeBadge,
+              {
+                backgroundColor: "transparent",
+                borderColor: isFriendly ? "#83CFF9" : "#FEA04D",
+                borderWidth: 1,
+              },
+            ]}
+          >
+            <Text
+              style={[
+                styles.matchTypeText,
+                {
+                  color: isFriendly ? "#83CFF9" : "#FEA04D",
+                },
+              ]}
+            >
+              {matchTypeLabel}
+            </Text>
+          </View>
         </View>
-      </View>
+      </LinearGradient>
 
       {/* Venue Name */}
       <Text style={styles.cardVenueName}>{match.location || "Venue TBD"}</Text>
 
-      {/* Score Display with Photos */}
-      <View style={styles.cardScoreSection}>
+      {/* Main Score Section */}
+      <View style={styles.mainScoreSection}>
         {/* Team 1 */}
-        <View style={styles.cardTeamSection}>
-          {renderTeamPhotos(match.team1Players)}
-          {renderTeamNames(match.team1Players, isTeam1Winner)}
-        </View>
-
-        {/* Center Score */}
-        <View style={styles.cardCenterSection}>
-          <View style={styles.cardScoreRow}>
-            <Text style={styles.cardScoreNumber}>{match.team1Score}</Text>
-            <Text style={styles.cardScoreDash}> - </Text>
-            <Text style={styles.cardScoreNumber}>{match.team2Score}</Text>
-          </View>
-          <Text style={styles.cardMatchDate}>
-            {format(new Date(match.matchDate), "d MMM yyyy")}
-          </Text>
-          {match.isWalkover && <Text style={styles.cardWalkover}>W/O</Text>}
-          {onSharePress && (
-            <TouchableOpacity
-              style={[
-                styles.cardShareButton,
-                { backgroundColor: sportColors.background },
-              ]}
-              onPress={() => onSharePress(match.id)}
-              activeOpacity={0.7}
-            >
-              <Ionicons name="share-outline" size={14} color="#FFFFFF" />
-              <Text style={styles.cardShareButtonText}>Share</Text>
-            </TouchableOpacity>
+        <View style={styles.teamContainer}>
+          {isSingles ? (
+            <>
+              <View style={styles.teamPhotos}>
+                {renderPlayerPhoto(match.team1Players[0], 45)}
+              </View>
+              <Text
+                style={[
+                  styles.teamName,
+                  isTeam1Winner && {
+                    color: sportColors.background,
+                    fontWeight: "700",
+                  },
+                ]}
+                numberOfLines={2}
+              >
+                {formatPlayerName(match.team1Players[0].name)}
+              </Text>
+            </>
+          ) : (
+            <View style={styles.doublesContainer}>
+              <View style={styles.doublesPhotos}>
+                {renderPlayerPhoto(match.team1Players[0], 38)}
+                <View style={{ marginLeft: -10 }}>
+                  {renderPlayerPhoto(match.team1Players[1], 38)}
+                </View>
+              </View>
+              <View style={styles.doublesNames}>
+                <Text
+                  style={[
+                    styles.doublesPlayerName,
+                    isTeam1Winner && {
+                      color: sportColors.background,
+                      fontWeight: "700",
+                    },
+                  ]}
+                  numberOfLines={1}
+                >
+                  {formatPlayerName(match.team1Players[0].name, true)}
+                </Text>
+                <Text
+                  style={[
+                    styles.doublesPlayerName,
+                    isTeam1Winner && {
+                      color: sportColors.background,
+                      fontWeight: "700",
+                    },
+                  ]}
+                  numberOfLines={1}
+                >
+                  {formatPlayerName(match.team1Players[1].name, true)}
+                </Text>
+              </View>
+            </View>
           )}
         </View>
 
+        {/* Score Display */}
+        <View style={styles.scoreDisplay}>
+          <Text style={styles.scoreText}>{match.team1Score || 0}</Text>
+          <Text style={styles.scoreDivider}>-</Text>
+          <Text style={styles.scoreText}>{match.team2Score || 0}</Text>
+        </View>
+
         {/* Team 2 */}
-        <View style={styles.cardTeamSection}>
-          {renderTeamPhotos(match.team2Players)}
-          {renderTeamNames(match.team2Players, isTeam2Winner)}
+        <View style={styles.teamContainer}>
+          {isSingles ? (
+            <>
+              <View style={styles.teamPhotos}>
+                {renderPlayerPhoto(match.team2Players[0], 45)}
+              </View>
+              <Text
+                style={[
+                  styles.teamName,
+                  isTeam2Winner && {
+                    color: sportColors.background,
+                    fontWeight: "700",
+                  },
+                ]}
+                numberOfLines={2}
+              >
+                {formatPlayerName(match.team2Players[0].name)}
+              </Text>
+            </>
+          ) : (
+            <View style={styles.doublesContainer}>
+              <View style={styles.doublesPhotos}>
+                {renderPlayerPhoto(match.team2Players[0], 38)}
+                <View style={{ marginLeft: -10 }}>
+                  {renderPlayerPhoto(match.team2Players[1], 38)}
+                </View>
+              </View>
+              <View style={styles.doublesNames}>
+                <Text
+                  style={[
+                    styles.doublesPlayerName,
+                    isTeam2Winner && {
+                      color: sportColors.background,
+                      fontWeight: "700",
+                    },
+                  ]}
+                  numberOfLines={1}
+                >
+                  {formatPlayerName(match.team2Players[0].name, true)}
+                </Text>
+                <Text
+                  style={[
+                    styles.doublesPlayerName,
+                    isTeam2Winner && {
+                      color: sportColors.background,
+                      fontWeight: "700",
+                    },
+                  ]}
+                  numberOfLines={1}
+                >
+                  {formatPlayerName(match.team2Players[1].name, true)}
+                </Text>
+              </View>
+            </View>
+          )}
         </View>
       </View>
+
+      {/* Match Date */}
+      <Text style={styles.cardMatchDate}>
+        {format(new Date(match.matchDate), "d MMM yyyy")}
+      </Text>
+      {match.isWalkover && <Text style={styles.cardWalkover}>W/O</Text>}
 
       {/* Set Scores Table */}
       {renderScoresTable()}
@@ -450,204 +491,223 @@ export const MatchResultCard: React.FC<MatchResultCardProps> = ({
 
 const styles = StyleSheet.create({
   resultCardNew: {
-    backgroundColor: "#FEFEFE",
+    backgroundColor: "#FFFFFF",
     borderRadius: 12,
-    borderWidth: 1,
-    borderColor: "rgba(186, 186, 186, 0.4)",
     overflow: "hidden",
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.06,
     shadowRadius: 6,
     elevation: 2,
-    alignSelf: "flex-start",
   },
-  cardLeagueHeader: {
+  header: {
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    alignItems: "flex-start",
+  },
+  headerTopRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    width: "100%",
+    marginBottom: 4,
+  },
+  headerContent: {
+    flex: 1,
+  },
+  leagueRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 2,
+  },
+  sportIcon: {
+    marginRight: 6,
+  },
+  leagueText: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: "#111827",
+  },
+  seasonDivisionText: {
+    fontSize: 11,
+    fontWeight: "500",
+    color: "#6B7280",
+  },
+  matchTypeBadge: {
+    backgroundColor: "transparent",
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    borderRadius: 12,
+    borderWidth: 2,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  matchTypeText: {
+    fontSize: 10,
+    fontWeight: "700",
+    textTransform: "uppercase",
+  },
+  mainScoreSection: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+    backgroundColor: "#FFFFFF",
+  },
+  teamContainer: {
+    flex: 1,
+    alignItems: "center",
+  },
+  teamPhotos: {
+    marginBottom: 8,
+  },
+  doublesPhotos: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  doublesContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  doublesNames: {
+    flexDirection: "column",
+    marginLeft: 8,
+    alignItems: "flex-start",
+  },
+  doublesPlayerName: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#1F2937",
+    marginVertical: 1,
+  },
+  playerPhoto: {
+    borderWidth: 2,
+    borderColor: "#E5E7EB",
+  },
+  playerPhotoDefault: {
+    backgroundColor: "#6DE9A0",
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 2,
+    borderColor: "#E5E7EB",
+  },
+  playerPhotoText: {
+    color: "#FFFFFF",
+    fontWeight: "700",
+  },
+  teamName: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#1F2937",
+    textAlign: "center",
+    paddingHorizontal: 8,
+  },
+  scoreDisplay: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 12,
+  },
+  scoreText: {
+    fontSize: 32,
+    fontWeight: "900",
+    color: "#111827",
+    letterSpacing: -2,
+  },
+  scoreDivider: {
+    fontSize: 40,
+    fontWeight: "600",
+    color: "#000000",
+    marginHorizontal: 8,
+  },
+  scoresTable: {
+    backgroundColor: "#ffffff",
+    paddingBottom: 12,
+    paddingTop: 4,
+  },
+  tableHeader: {
+    flexDirection: "row",
+    paddingVertical: 6,
+    paddingHorizontal: 16,
+    borderRadius: 50,
+    marginHorizontal: 16,
+
+    marginTop: 20,
+    marginBottom: 10,
+    alignItems: "center",
+  },
+  tableNameHeaderCell: {
+    flex: 2,
+    alignItems: "flex-start",
+    justifyContent: "center",
+    paddingVertical: 8,
+    paddingLeft: 0,
+  },
+  tableScoreHeaderCell: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 8,
+  },
+  tableHeaderText: {
+    fontSize: 11,
+    fontWeight: "800",
+    color: "#FFFFFF",
+  },
+  tableRow: {
+    flexDirection: "row",
     paddingVertical: 10,
     paddingHorizontal: 16,
-    gap: 8,
   },
-  cardLeagueHeaderTitle: {
-    flex: 1,
-    fontSize: 13,
-    fontWeight: "600",
-    color: "#FFFFFF",
+  tableNameCell: {
+    flex: 2,
+    justifyContent: "center",
+    alignItems: "flex-start",
   },
-  cardLeagueBadge: {
-    backgroundColor: "#FEA04D",
-    paddingVertical: 4,
-    paddingHorizontal: 12,
-    borderRadius: 12,
-  },
-  cardLeagueBadgeText: {
-    fontSize: 11,
+  tableNameText: {
+    fontSize: 12,
     fontWeight: "700",
-    color: "#FFFFFF",
+    color: "#374151",
+  },
+  tableScoreCell: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  tableScoreText: {
+    fontSize: 14,
+    fontWeight: "800",
+    color: "#111827",
+  },
+  winningScoreText: {
+    fontSize: 16,
+    fontWeight: "900",
+    color: "#FEA04D",
   },
   cardVenueName: {
     fontSize: 12,
     fontWeight: "600",
     color: "#86868B",
     textAlign: "center",
-    marginTop: 16,
+    marginTop: 12,
     marginBottom: 12,
     paddingHorizontal: 18,
-  },
-  cardScoreSection: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    justifyContent: "space-between",
-    marginBottom: 16,
-    paddingHorizontal: 18,
-  },
-  cardTeamSection: {
-    flex: 1,
-    alignItems: "center",
-  },
-  cardTeamPhotosContainer: {
-    marginBottom: 6,
-  },
-  cardDoublesPhotos: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  cardDoublesPhotoOverlap: {
-    marginLeft: -8,
-  },
-  cardPlayerPhoto: {
-    borderWidth: 2,
-    borderColor: "#FFFFFF",
-  },
-  cardPlayerPhotoDefault: {
-    backgroundColor: "#FEA04D",
-    justifyContent: "center",
-    alignItems: "center",
-    borderWidth: 2,
-    borderColor: "#FFFFFF",
-  },
-  cardPlayerPhotoDefaultText: {
-    color: "#FFFFFF",
-    fontWeight: "700",
-  },
-  cardPlayerName: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: "#1D1D1F",
-    textAlign: "center",
-  },
-  cardCenterSection: {
-    alignItems: "center",
-    paddingHorizontal: 8,
-  },
-  cardScoreRow: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  cardScoreNumber: {
-    fontSize: 36,
-    fontWeight: "600",
-    color: "#1D1D1F",
-  },
-  cardScoreDash: {
-    fontSize: 34,
-    fontWeight: "500",
-    color: "#1D1D1F",
   },
   cardMatchDate: {
     fontSize: 10,
     fontWeight: "400",
     color: "#86868B",
     marginTop: 4,
+    textAlign: "center",
   },
   cardWalkover: {
     fontSize: 8,
     fontWeight: "600",
     color: "#F59E0B",
     marginTop: 2,
-  },
-  cardShareButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderRadius: 16,
-    marginTop: 8,
-  },
-  cardShareButtonText: {
-    fontSize: 12,
-    fontWeight: "600",
-    color: "#FFFFFF",
-  },
-  cardScoresTable: {
-    borderRadius: 8,
-    overflow: "hidden",
-    marginBottom: 8,
-    marginHorizontal: 18,
-  },
-  cardTableHeader: {
-    flexDirection: "row",
-    paddingVertical: 10,
-    paddingHorizontal: 14,
-  },
-  cardTableHeaderLabelCell: {
-    flex: 1,
-  },
-  cardTableHeaderCell: {
-    width: 50,
-    alignItems: "center",
-  },
-  cardTableHeaderText: {
-    fontSize: 11,
-    fontWeight: "700",
-    color: "#FFFFFF",
-  },
-  cardTableRow: {
-    flexDirection: "row",
-    paddingVertical: 12,
-    paddingHorizontal: 14,
-    backgroundColor: "#FFFFFF",
-    borderBottomWidth: 1,
-    borderBottomColor: "#E5E7EB",
-  },
-  cardTableRowLast: {
-    borderBottomWidth: 0,
-  },
-  cardTableLabelCell: {
-    flex: 1,
-    justifyContent: "center",
-  },
-  cardTablePlayerName: {
-    fontSize: 13,
-    fontWeight: "400",
-    color: "#6B7280",
-  },
-  cardTablePlayerNameWinner: {
-    fontWeight: "600",
-  },
-  cardTableScoreCell: {
-    width: 50,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  cardTableScore: {
-    fontSize: 14,
-    fontWeight: "400",
-    color: "#6B7280",
-  },
-  cardTableScoreWinner: {
-    fontWeight: "700",
-  },
-  cardTableScoreLoser: {
-    fontWeight: "400",
-    color: "#6B7280",
-  },
-  cardTiebreakScore: {
-    fontSize: 9,
-    color: "#6B7280",
+    textAlign: "center",
   },
   cardCommentSection: {
     flexDirection: "row",

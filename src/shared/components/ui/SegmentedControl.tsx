@@ -1,13 +1,12 @@
-import React, { useCallback, useEffect } from 'react';
-import { LayoutChangeEvent, Pressable, StyleSheet, View } from 'react-native';
+import * as Haptics from "expo-haptics";
+import React, { useCallback, useEffect } from "react";
+import { LayoutChangeEvent, Pressable, StyleSheet, View } from "react-native";
 import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withSpring,
-  interpolateColor,
-  runOnJS,
-} from 'react-native-reanimated';
-import * as Haptics from 'expo-haptics';
+    interpolateColor,
+    useAnimatedStyle,
+    useSharedValue,
+    withSpring
+} from "react-native-reanimated";
 
 interface SegmentOption<T extends string> {
   value: T;
@@ -31,7 +30,7 @@ export function SegmentedControl<T extends string>({
   options,
   value,
   onChange,
-  activeColor = '#111827',
+  activeColor = "#111827",
 }: SegmentedControlProps<T>) {
   const selectedIndex = options.findIndex((opt) => opt.value === value);
   const segmentWidth = useSharedValue(0);
@@ -39,7 +38,10 @@ export function SegmentedControl<T extends string>({
 
   // Update position when selection changes
   useEffect(() => {
-    translateX.value = withSpring(selectedIndex * segmentWidth.value, SPRING_CONFIG);
+    translateX.value = withSpring(
+      selectedIndex * segmentWidth.value,
+      SPRING_CONFIG,
+    );
   }, [selectedIndex, translateX, segmentWidth]);
 
   const handleLayout = useCallback(
@@ -49,7 +51,7 @@ export function SegmentedControl<T extends string>({
       // Set initial position without animation
       translateX.value = selectedIndex * width;
     },
-    [options.length, selectedIndex, segmentWidth, translateX]
+    [options.length, selectedIndex, segmentWidth, translateX],
   );
 
   const handlePress = useCallback(
@@ -59,7 +61,7 @@ export function SegmentedControl<T extends string>({
         onChange(optionValue);
       }
     },
-    [value, onChange]
+    [value, onChange],
   );
 
   const indicatorStyle = useAnimatedStyle(() => ({
@@ -69,14 +71,8 @@ export function SegmentedControl<T extends string>({
 
   return (
     <View style={styles.container} onLayout={handleLayout}>
-      {/* Sliding indicator */}
-      <Animated.View
-        style={[
-          styles.indicator,
-          { backgroundColor: activeColor },
-          indicatorStyle,
-        ]}
-      />
+      {/* Underline indicator */}
+      <Animated.View style={[styles.indicator, indicatorStyle]} />
 
       {/* Segment buttons */}
       {options.map((option, index) => (
@@ -99,7 +95,12 @@ interface SegmentButtonProps {
   onPress: () => void;
 }
 
-function SegmentButton({ label, isActive, activeColor, onPress }: SegmentButtonProps) {
+function SegmentButton({
+  label,
+  isActive,
+  activeColor,
+  onPress,
+}: SegmentButtonProps) {
   const progress = useSharedValue(isActive ? 1 : 0);
 
   useEffect(() => {
@@ -110,41 +111,43 @@ function SegmentButton({ label, isActive, activeColor, onPress }: SegmentButtonP
   }, [isActive, progress]);
 
   const textStyle = useAnimatedStyle(() => ({
-    color: interpolateColor(progress.value, [0, 1], ['#6B7280', '#FFFFFF']),
+    color: interpolateColor(progress.value, [0, 1], ["#6B7280", "#111827"]),
   }));
 
   return (
     <Pressable style={styles.segment} onPress={onPress}>
-      <Animated.Text style={[styles.segmentText, textStyle]}>{label}</Animated.Text>
+      <Animated.Text style={[styles.segmentText, textStyle]}>
+        {label}
+      </Animated.Text>
     </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    flexDirection: 'row',
-    backgroundColor: '#F3F4F6',
-    borderRadius: 10,
-    padding: 3,
-    position: 'relative',
+    flexDirection: "row",
+    backgroundColor: "transparent",
+    position: "relative",
+    borderBottomWidth: 1,
+    borderBottomColor: "#E5E7EB",
   },
   indicator: {
-    position: 'absolute',
-    top: 3,
-    bottom: 3,
-    left: 3,
-    borderRadius: 8,
+    position: "absolute",
+    bottom: -1,
+    left: 0,
+    height: 2,
+    backgroundColor: "#FEA04D",
   },
   segment: {
     flex: 1,
-    paddingVertical: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
+    paddingVertical: 10,
+    alignItems: "center",
+    justifyContent: "center",
     zIndex: 1,
   },
   segmentText: {
-    fontSize: 13,
-    fontWeight: '600',
+    fontSize: 14,
+    fontWeight: "600",
   },
 });
 
