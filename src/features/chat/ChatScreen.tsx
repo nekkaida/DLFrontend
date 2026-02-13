@@ -1,18 +1,20 @@
-import { getBackendBaseURL } from '@/config/network';
-import {
-  scale,
-  verticalScale,
-  moderateScale,
-} from '@/core/utils/responsive';
-import { authClient, useSession } from '@/lib/auth-client';
-import { NavBar } from '@/shared/components/layout';
-import { AnimatedFilterChip } from '@/shared/components/ui/AnimatedFilterChip';
-import { SegmentedControl } from '@/shared/components/ui/SegmentedControl';
-import { chatLogger } from '@/utils/logger';
-import { Ionicons } from '@expo/vector-icons';
-import * as Haptics from 'expo-haptics';
-import { router } from 'expo-router';
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { getBackendBaseURL } from "@/config/network";
+import { moderateScale, scale, verticalScale } from "@/core/utils/responsive";
+import { authClient, useSession } from "@/lib/auth-client";
+import { NavBar } from "@/shared/components/layout";
+import { AnimatedFilterChip } from "@/shared/components/ui/AnimatedFilterChip";
+import { SegmentedControl } from "@/shared/components/ui/SegmentedControl";
+import { chatLogger } from "@/utils/logger";
+import { Ionicons } from "@expo/vector-icons";
+import * as Haptics from "expo-haptics";
+import { router } from "expo-router";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import {
   Animated,
   AppState,
@@ -24,28 +26,30 @@ import {
   StyleSheet,
   Text,
   TextInput,
-  View
-} from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { ThreadList } from './components/chat-list';
-import { useChatSocketEvents } from './hooks/useChatSocketEvents';
-import { ChatService } from './services/ChatService';
-import { useChatStore } from './stores/ChatStore';
+  View,
+} from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { ThreadList } from "./components/chat-list";
+import { useChatSocketEvents } from "./hooks/useChatSocketEvents";
+import { ChatService } from "./services/ChatService";
+import { useChatStore } from "./stores/ChatStore";
 
-import { Thread } from './types';
+import { Thread } from "./types";
 
-type SportFilter = 'all' | 'pickleball' | 'tennis' | 'padel';
-type TypeFilter = 'all' | 'personal' | 'league';
+type SportFilter = "all" | "pickleball" | "tennis" | "padel";
+type TypeFilter = "all" | "personal" | "league";
 
 const SPORT_COLORS = {
-  all: '#111827',
-  pickleball: '#A04DFE',
-  tennis: '#65B741',
-  padel: '#3B82F6',
+  all: "#111827",
+  pickleball: "#A04DFE",
+  tennis: "#65B741",
+  padel: "#3B82F6",
 };
 
 // Safe haptics wrapper
-const triggerHaptic = async (style: Haptics.ImpactFeedbackStyle = Haptics.ImpactFeedbackStyle.Light) => {
+const triggerHaptic = async (
+  style: Haptics.ImpactFeedbackStyle = Haptics.ImpactFeedbackStyle.Light,
+) => {
   try {
     await Haptics.impactAsync(style);
   } catch {
@@ -73,34 +77,34 @@ interface AuthResponse {
 interface ChatScreenProps {
   activeTab?: number;
   onTabPress?: (tabIndex: number) => void;
-  sport?: 'pickleball' | 'tennis' | 'padel';
+  sport?: "pickleball" | "tennis" | "padel";
   chatUnreadCount?: number;
 }
 
 export const ChatScreen: React.FC<ChatScreenProps> = ({
   activeTab = 4,
   onTabPress,
-  sport = 'pickleball',
+  sport = "pickleball",
   chatUnreadCount = 0,
 }) => {
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery, setSearchQuery] = useState("");
   const { data: session } = useSession();
   const user = session?.user;
 
   // Register socket event listeners for real-time chat list updates
-  useChatSocketEvents(null, user?.id || '');
+  useChatSocketEvents(null, user?.id || "");
 
   const [profileData, setProfileData] = useState<ProfileData | null>(null);
   const [appStateKey, setAppStateKey] = useState(0);
-  const [sportFilter, setSportFilter] = useState<SportFilter>('all');
-  const [typeFilter, setTypeFilter] = useState<TypeFilter>('all');
+  const [sportFilter, setSportFilter] = useState<SportFilter>("all");
+  const [typeFilter, setTypeFilter] = useState<TypeFilter>("all");
   const appStateRef = useRef<AppStateStatus>(AppState.currentState);
   const searchInputRef = useRef<TextInput>(null);
   const insets = useSafeAreaInsets();
 
   // Entry animation values - only for thread list
-  const contentEntryOpacity = useRef(new Animated.Value(0)).current;
-  const contentEntryTranslateY = useRef(new Animated.Value(30)).current;
+  const contentEntryOpacity = useRef(new Animated.Value(1)).current;
+  const contentEntryTranslateY = useRef(new Animated.Value(0)).current;
   const hasPlayedEntryAnimation = useRef(false);
   const animationRef = useRef<Animated.CompositeAnimation | null>(null);
   const isMountedRef = useRef(true);
@@ -159,7 +163,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
     const handleAppStateChange = (nextAppState: AppStateStatus) => {
       if (
         appStateRef.current.match(/inactive|background/) &&
-        nextAppState === 'active'
+        nextAppState === "active"
       ) {
         // Clear any existing timeout to prevent accumulation
         if (timeoutId) {
@@ -168,14 +172,17 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
         timeoutId = setTimeout(() => {
           // Check if still mounted before updating state
           if (isMountedRef.current) {
-            setAppStateKey(prev => prev + 1);
+            setAppStateKey((prev) => prev + 1);
           }
         }, 100);
       }
       appStateRef.current = nextAppState;
     };
 
-    const subscription = AppState.addEventListener('change', handleAppStateChange);
+    const subscription = AppState.addEventListener(
+      "change",
+      handleAppStateChange,
+    );
 
     return () => {
       subscription.remove();
@@ -213,15 +220,18 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
       profileFetchAbortRef.current = new AbortController();
 
       const backendUrl = getBackendBaseURL();
-      chatLogger.debug("Fetching profile data from:", `${backendUrl}/api/player/profile/me`);
+      chatLogger.debug(
+        "Fetching profile data from:",
+        `${backendUrl}/api/player/profile/me`,
+      );
 
-      const authResponse = await authClient.$fetch(
+      const authResponse = (await authClient.$fetch(
         `${backendUrl}/api/player/profile/me`,
         {
           method: "GET",
           signal: profileFetchAbortRef.current.signal,
-        }
-      ) as AuthResponse | null;
+        },
+      )) as AuthResponse | null;
 
       // Check if still mounted before updating state
       if (!isMountedRef.current) return;
@@ -237,7 +247,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
       }
     } catch (error: unknown) {
       // Ignore abort errors
-      if (error instanceof Error && error.name === 'AbortError') return;
+      if (error instanceof Error && error.name === "AbortError") return;
       chatLogger.error("Error fetching profile data:", error);
     }
   };
@@ -261,25 +271,25 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
   const displayedThreads = useMemo(() => {
     if (!threads) return [];
 
-    return threads.filter(thread => {
+    return threads.filter((thread) => {
       // Search filter
-      if (searchQuery.trim() !== '') {
+      if (searchQuery.trim() !== "") {
         const query = searchQuery.toLowerCase();
         const matchesSearch =
           thread.name?.toLowerCase().includes(query) ||
-          thread.participants?.some(participant =>
-            participant.name?.toLowerCase().includes(query)
+          thread.participants?.some((participant) =>
+            participant.name?.toLowerCase().includes(query),
           ) ||
           thread.lastMessage?.content.toLowerCase().includes(query);
         if (!matchesSearch) return false;
       }
 
       // Sport filter
-      if (sportFilter !== 'all') {
+      if (sportFilter !== "all") {
         const threadSport = thread.sportType?.toLowerCase();
         if (threadSport !== sportFilter) {
           // For direct chats without sport type, include them in 'all' only
-          if (!threadSport && thread.type === 'direct') {
+          if (!threadSport && thread.type === "direct") {
             return false;
           }
           if (threadSport && threadSport !== sportFilter) {
@@ -289,9 +299,9 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
       }
 
       // Type filter
-      if (typeFilter !== 'all') {
-        if (typeFilter === 'personal' && thread.type !== 'direct') return false;
-        if (typeFilter === 'league' && thread.type !== 'group') return false;
+      if (typeFilter !== "all") {
+        if (typeFilter === "personal" && thread.type !== "direct") return false;
+        if (typeFilter === "league" && thread.type !== "group") return false;
       }
 
       return true;
@@ -300,10 +310,11 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
 
   // Handle keyboard hide to blur search input on Android
   useEffect(() => {
-    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+    const hideEvent =
+      Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide";
 
     const keyboardHideListener = Keyboard.addListener(hideEvent, () => {
-      if (Platform.OS === 'android') {
+      if (Platform.OS === "android") {
         searchInputRef.current?.blur();
       }
     });
@@ -313,60 +324,78 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
     };
   }, []);
 
-  const handleThreadSelect = useCallback(async (thread: Thread) => {
-    chatLogger.debug('Thread selected:', thread.name);
+  const handleThreadSelect = useCallback(
+    async (thread: Thread) => {
+      chatLogger.debug("Thread selected:", thread.name);
 
-    // Store thread in store for the chat screen to access
-    setCurrentThread(thread);
+      // Store thread in store for the chat screen to access
+      setCurrentThread(thread);
 
-    // Navigate to chat thread using native navigation first (faster UX)
-    // Pass the dashboard's selected sport so it can be used for friendly match requests
-    router.push({
-      pathname: '/chat/[threadId]',
-      params: { threadId: thread.id, sport }
-    });
+      // Navigate to chat thread using native navigation first (faster UX)
+      // Pass the dashboard's selected sport so it can be used for friendly match requests
+      router.push({
+        pathname: "/chat/[threadId]",
+        params: { threadId: thread.id, sport },
+      });
 
-    // Mark thread as read in background after navigation
-    if (user?.id && thread.unreadCount > 0) {
-      chatLogger.debug('Marking thread as read, unread count:', thread.unreadCount);
-      try {
-        await ChatService.markAllAsRead(thread.id, user.id);
-        // Check if still mounted before updating state
-        if (!isMountedRef.current) return;
-        chatLogger.debug('Thread marked as read successfully');
-        updateThread({
-          ...thread,
-          unreadCount: 0,
-        });
-      } catch (error) {
-        chatLogger.error('Error marking thread as read:', error);
+      // Mark thread as read in background after navigation
+      if (user?.id && thread.unreadCount > 0) {
+        chatLogger.debug(
+          "Marking thread as read, unread count:",
+          thread.unreadCount,
+        );
+        try {
+          await ChatService.markAllAsRead(thread.id, user.id);
+          // Check if still mounted before updating state
+          if (!isMountedRef.current) return;
+          chatLogger.debug("Thread marked as read successfully");
+          updateThread({
+            ...thread,
+            unreadCount: 0,
+          });
+        } catch (error) {
+          chatLogger.error("Error marking thread as read:", error);
+        }
       }
-    }
-  }, [user?.id, setCurrentThread, updateThread, sport]);
+    },
+    [user?.id, setCurrentThread, updateThread, sport],
+  );
 
   const clearSearch = useCallback(() => {
-    setSearchQuery('');
+    setSearchQuery("");
   }, []);
 
   // Memoized filter handlers to prevent re-renders
-  const handleSportFilterAll = useCallback(() => setSportFilter('all'), []);
-  const handleSportFilterPickle = useCallback(() => setSportFilter('pickleball'), []);
-  const handleSportFilterTennis = useCallback(() => setSportFilter('tennis'), []);
-  const handleSportFilterPadel = useCallback(() => setSportFilter('padel'), []);
+  const handleSportFilterAll = useCallback(() => setSportFilter("all"), []);
+  const handleSportFilterPickle = useCallback(
+    () => setSportFilter("pickleball"),
+    [],
+  );
+  const handleSportFilterTennis = useCallback(
+    () => setSportFilter("tennis"),
+    [],
+  );
+  const handleSportFilterPadel = useCallback(() => setSportFilter("padel"), []);
 
   // Memoized SegmentedControl options to prevent re-renders
-  const typeFilterOptions = useMemo(() => [
-    { value: 'all' as TypeFilter, label: 'All' },
-    { value: 'personal' as TypeFilter, label: 'Personal' },
-    { value: 'league' as TypeFilter, label: 'League' },
-  ], []);
+  const typeFilterOptions = useMemo(
+    () => [
+      { value: "all" as TypeFilter, label: "All" },
+      { value: "personal" as TypeFilter, label: "Personal" },
+      { value: "league" as TypeFilter, label: "League" },
+    ],
+    [],
+  );
 
   // Memoized animated container style
-  const animatedContainerStyle = useMemo(() => ({
-    flex: 1,
-    opacity: contentEntryOpacity,
-    transform: [{ translateY: contentEntryTranslateY }],
-  }), [contentEntryOpacity, contentEntryTranslateY]);
+  const animatedContainerStyle = useMemo(
+    () => ({
+      flex: 1,
+      opacity: contentEntryOpacity,
+      transform: [{ translateY: contentEntryTranslateY }],
+    }),
+    [contentEntryOpacity, contentEntryTranslateY],
+  );
 
   const handleOpenNewMessage = useCallback(() => {
     triggerHaptic(Haptics.ImpactFeedbackStyle.Light);
@@ -374,7 +403,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
     searchInputRef.current?.blur();
     Keyboard.dismiss();
     // Navigate to the new message modal screen
-    router.push('/chat/new-message');
+    router.push("/chat/new-message");
   }, []);
 
   // Only show error UI if there's an error and no threads to display
@@ -395,7 +424,12 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
 
       <View style={styles.threadsContainer}>
         {/* Header with Chats title and New Message button - No animation, instant */}
-        <View style={[styles.chatsHeaderContainer, { paddingTop: STATUS_BAR_HEIGHT }]}>
+        <View
+          style={[
+            styles.chatsHeaderContainer,
+            { paddingTop: STATUS_BAR_HEIGHT },
+          ]}
+        >
           <Text style={styles.chatsTitle}>Chats</Text>
           <Pressable
             onPress={handleOpenNewMessage}
@@ -411,7 +445,12 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
         {/* Search and filters - No animation, instant */}
         <View style={styles.searchContainer}>
           <View style={styles.searchBar}>
-            <Ionicons name="search-outline" size={moderateScale(18)} color="#9CA3AF" style={styles.searchIcon} />
+            <Ionicons
+              name="search-outline"
+              size={moderateScale(18)}
+              color="#9CA3AF"
+              style={styles.searchIcon}
+            />
             <TextInput
               ref={searchInputRef}
               style={styles.searchInput}
@@ -429,7 +468,11 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
                 accessibilityLabel="Clear search"
                 accessibilityRole="button"
               >
-                <Ionicons name="close-circle" size={moderateScale(18)} color="#9CA3AF" />
+                <Ionicons
+                  name="close-circle"
+                  size={moderateScale(18)}
+                  color="#9CA3AF"
+                />
               </Pressable>
             )}
           </View>
@@ -451,25 +494,25 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
           <View style={styles.sportFilterContainer}>
             <AnimatedFilterChip
               label="All"
-              isActive={sportFilter === 'all'}
+              isActive={sportFilter === "all"}
               activeColor={SPORT_COLORS.all}
               onPress={handleSportFilterAll}
             />
             <AnimatedFilterChip
               label="Pickleball"
-              isActive={sportFilter === 'pickleball'}
+              isActive={sportFilter === "pickleball"}
               activeColor={SPORT_COLORS.pickleball}
               onPress={handleSportFilterPickle}
             />
             <AnimatedFilterChip
               label="Tennis"
-              isActive={sportFilter === 'tennis'}
+              isActive={sportFilter === "tennis"}
               activeColor={SPORT_COLORS.tennis}
               onPress={handleSportFilterTennis}
             />
             <AnimatedFilterChip
               label="Padel"
-              isActive={sportFilter === 'padel'}
+              isActive={sportFilter === "padel"}
               activeColor={SPORT_COLORS.padel}
               onPress={handleSportFilterPadel}
             />
@@ -480,7 +523,11 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
         <Animated.View style={animatedContainerStyle}>
           {displayedThreads.length === 0 ? (
             <View style={styles.emptyContainer}>
-              <Ionicons name="chatbubble-outline" size={moderateScale(64)} color="#9CA3AF" />
+              <Ionicons
+                name="chatbubble-outline"
+                size={moderateScale(64)}
+                color="#9CA3AF"
+              />
               <Text style={styles.emptyTitle}>No chats yet</Text>
               <Text style={styles.emptyDescription}>
                 Start a conversation by tapping "New Message" above
@@ -510,26 +557,26 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: "#FFFFFF",
   },
   threadsContainer: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: "#FFFFFF",
   },
   searchContainer: {
     paddingHorizontal: scale(16),
     marginBottom: verticalScale(10),
-    backgroundColor: '#FFFFFF',
+    backgroundColor: "#FFFFFF",
   },
   searchBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#FFFFFF',
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#FFFFFF",
     borderRadius: moderateScale(10),
     paddingHorizontal: scale(10),
     height: verticalScale(36),
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: "#E5E7EB",
   },
   searchIcon: {
     marginRight: scale(6),
@@ -537,33 +584,33 @@ const styles = StyleSheet.create({
   searchInput: {
     flex: 1,
     fontSize: moderateScale(13),
-    color: '#1F2937',
+    color: "#1F2937",
     paddingVertical: 0,
-    textAlignVertical: 'center',
+    textAlignVertical: "center",
   },
   centerContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     padding: moderateScale(20),
   },
   errorText: {
     fontSize: moderateScale(16),
-    color: '#DC2626',
-    textAlign: 'center',
+    color: "#DC2626",
+    textAlign: "center",
     marginBottom: verticalScale(8),
   },
   errorSubtext: {
     fontSize: moderateScale(14),
-    color: '#9CA3AF',
-    textAlign: 'center',
+    color: "#9CA3AF",
+    textAlign: "center",
   },
   chatsHeaderContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    width: '100%',
-    backgroundColor: '#FFFFFF',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    width: "100%",
+    backgroundColor: "#FFFFFF",
     paddingHorizontal: scale(20),
     paddingTop: verticalScale(12),
     paddingBottom: verticalScale(16),
@@ -571,13 +618,13 @@ const styles = StyleSheet.create({
   },
   chatsTitle: {
     fontSize: moderateScale(32),
-    fontWeight: '700',
-    color: '#111827',
+    fontWeight: "700",
+    color: "#111827",
   },
   newMessageButton: {
     fontSize: moderateScale(16),
-    fontWeight: '600',
-    color: '#FEA04D',
+    fontWeight: "600",
+    color: "#FEA04D",
   },
   filterSection: {
     paddingHorizontal: scale(16),
@@ -585,28 +632,28 @@ const styles = StyleSheet.create({
     gap: verticalScale(10),
   },
   typeFilterContainer: {
-    width: '100%',
+    width: "100%",
   },
   sportFilterContainer: {
-    flexDirection: 'row',
+    flexDirection: "row",
     gap: scale(8),
   },
   emptyContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     paddingHorizontal: scale(32),
     paddingBottom: verticalScale(120),
     gap: verticalScale(12),
   },
   emptyTitle: {
     fontSize: moderateScale(18),
-    fontWeight: '700',
-    color: '#111827',
+    fontWeight: "700",
+    color: "#111827",
   },
   emptyDescription: {
     fontSize: moderateScale(14),
-    color: '#6B7280',
-    textAlign: 'center',
+    color: "#6B7280",
+    textAlign: "center",
   },
 });

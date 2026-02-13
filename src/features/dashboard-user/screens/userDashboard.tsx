@@ -584,7 +584,12 @@ export default function DashboardScreen() {
 
           {/* Center: DeuceLogo */}
           <View style={{ flex: 1, alignItems: "center", marginLeft: 50 }}>
-            <DeuceLogo width={40} height={40} />
+            {/* <DeuceLogo width={40} height={40} /> */}
+          <SportSwitcher
+            currentSport={selectedSport}
+            availableSports={getUserSelectedSports()}
+            onSportChange={setSelectedSport}
+          />
           </View>
 
           {/* Right: ? button and NotificationBell */}

@@ -73,7 +73,7 @@ export const useSharePost = (): UseSharePostReturn => {
   /**
    * Get capture configuration based on style
    *
-   * Output format: PNG (2048x2048px for maximum quality)
+   * Output format: PNG (1080x1920px for 9:16 ratio - optimal for social sharing)
    *
    * Style affects the background rendering:
    * - 'white': Solid white background PNG (standard format)
@@ -83,13 +83,22 @@ export const useSharePost = (): UseSharePostReturn => {
    * The wrapper renders the scorecard with company logo and title for sharing.
    */
   const getCaptureConfig = useCallback((style: ShareStyle = "white") => {
-    return {
+    const config = {
       format: "png" as const,
       quality: 1.0, // Maximum quality
       result: "tmpfile" as const,
-      width: 2048, // Higher resolution for maximum sharpness
-      height: 2048,
+      width: 1080, // 9:16 ratio
+      height: 1920,
+      backgroundColor: "transparent" as const, // Preserve transparency in rounded corners
     };
+    console.log(
+      "[useSharePost] Capture config:",
+      config.width,
+      "x",
+      config.height,
+      "(9:16 ratio)",
+    );
+    return config;
   }, []);
 
   /**
@@ -120,13 +129,16 @@ export const useSharePost = (): UseSharePostReturn => {
         }
 
         // Capture with maximum quality settings for sharpest image
+        console.log("[useSharePost] Starting capture for sharing...");
         const capturedUri = await captureRef(viewRef, {
           format: "png",
           quality: 1.0, // Maximum quality
           result: "tmpfile",
-          width: 2048, // High resolution
-          height: 2048,
+          width: 1080, // 9:16 ratio
+          height: 1920,
+          backgroundColor: "transparent", // Preserve transparency in rounded corners
         });
+        console.log("[useSharePost] Image captured at 1080x1920 (9:16 ratio)");
 
         // Share directly (skip re-processing to maintain quality)
         await Sharing.shareAsync(capturedUri, {
@@ -193,20 +205,23 @@ export const useSharePost = (): UseSharePostReturn => {
         }
 
         // Capture with maximum quality settings for sharpest image
+        console.log("[useSharePost] Starting capture for saving...");
         const capturedUri = await captureRef(viewRef, {
           format: "png",
           quality: 1.0, // Maximum quality
           result: "tmpfile",
-          width: 2048, // High resolution
-          height: 2048,
+          width: 1080, // 9:16 ratio
+          height: 1920,
+          backgroundColor: "transparent", // Preserve transparency in rounded corners
         });
+        console.log("[useSharePost] Image captured at 1080x1920 (9:16 ratio)");
 
         // Save directly to camera roll (skip re-processing to maintain quality)
         await MediaLibrary.saveToLibraryAsync(capturedUri);
 
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         toast.success("Saved to Camera Roll");
-        console.log("High-quality image saved successfully!");
+        console.log("High-quality image saved successfully at 1080x1920!");
         return true;
       } catch (err) {
         console.error("Error capturing and saving post:", err);
