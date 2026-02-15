@@ -39,6 +39,10 @@ export const ScorecardCaptureWrapper = forwardRef<
     useState<CardBackgroundStyle>("white");
   const viewRef = useRef<View>(null);
 
+  // Derive isFriendly from match data
+  const isFriendly =
+    (match as any).isFriendly || (match as any).matchType === "FRIENDLY";
+
   // Expose both the view ref and the style setter to parent
   useImperativeHandle(ref, () => ({
     get viewRef() {
@@ -92,9 +96,17 @@ export const ScorecardCaptureWrapper = forwardRef<
       >
         {/* Render appropriate scorecard based on background style */}
         {backgroundStyle === "white" ? (
-          <SolidScorecard match={match} sportColors={sportColors} />
+          <SolidScorecard
+            match={match}
+            sportColors={sportColors}
+            isFriendly={isFriendly}
+          />
         ) : backgroundStyle === "dark" ? (
-          <DarkThemeScorecard match={match} sportColors={sportColors} />
+          <DarkThemeScorecard
+            match={match}
+            sportColors={sportColors}
+            isFriendly={isFriendly}
+          />
         ) : (
           <TransparentScorecard match={match} />
         )}
