@@ -423,13 +423,17 @@ const styles = StyleSheet.create({
   },
 
   matchTypeBadge: {
-    paddingHorizontal: 10,
-    paddingVertical: 2,
-    borderRadius: 12,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    backgroundColor: "#FFFFFF",
+    minWidth: 120, 
+    justifyContent: "center",
+    alignItems: "center",
+    borderRadius: 40,
     borderWidth: 1,
   },
   matchTypeText: {
-    fontSize: 20,
+    fontSize: 24,
     fontWeight: "700",
     textTransform: "uppercase",
   },
@@ -451,6 +455,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
   },
   teamContainer: {
+    flex: 1, 
     alignItems: "center",
   },
   singlesRow: {
@@ -480,7 +485,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   scoreText: {
-    fontSize: 102,
+    fontSize: 100,
     fontWeight: "900",
     color: "1D1D1F",
   },
@@ -547,10 +552,10 @@ const styles = StyleSheet.create({
   winningScoreText: {
     color: "#FEA04D",
     fontWeight: "900",
-    fontSize: 26,
+    fontSize: 32,
   },
   setScoreText: {
-    fontSize: 24,
+    fontSize: 30,
     fontWeight: "800",
     color: "#374151",
   },

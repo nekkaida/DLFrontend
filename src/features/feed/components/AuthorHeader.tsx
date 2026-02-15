@@ -2,33 +2,55 @@
 
 import React from 'react';
 import { View, Text, Image, StyleSheet, TouchableOpacity } from 'react-native';
-import { formatDistanceToNow } from 'date-fns';
 import { Ionicons } from '@expo/vector-icons';
 import { PostAuthor } from '../types';
 import { feedTheme } from '../theme';
-import { processDisplayName } from '../utils/formatters';
+import { processDisplayName, formatPostTime } from '../utils/formatters';
+import TennisIcon from "@/assets/icons/sports/Tennis.svg";
+import PickleballIcon from "@/assets/icons/sports/Pickleball.svg";
+import PaddleIcon from "@/assets/icons/sports/Paddle.svg";
 
 interface AuthorHeaderProps {
   author: PostAuthor;
   createdAt: string;
   updatedAt?: string;
+  sportType?: string;
+  sportColor?: string;
   onAuthorPress?: (authorId: string) => void;
   showOptionsButton?: boolean;
   onOptionsPress?: () => void;
 }
 
+// Map sport types to their icons
+const getSportIcon = (
+  sportType: string | undefined,
+  color: string,
+  size: number = 20,
+) => {
+  const normalizedType = sportType?.toUpperCase() || "TENNIS";
+
+  switch (normalizedType) {
+    case "PICKLEBALL":
+      return <PickleballIcon width={size} height={size} fill={color} />;
+    case "PADEL":
+      return <PaddleIcon width={size} height={size} fill={color} />;
+    case "TENNIS":
+    default:
+      return <TennisIcon width={size} height={size} fill={color} />;
+  }
+};
+
 export const AuthorHeader: React.FC<AuthorHeaderProps> = ({
   author,
   createdAt,
   updatedAt,
+  sportType,
+  sportColor = feedTheme.colors.primary,
   onAuthorPress,
   showOptionsButton = false,
   onOptionsPress,
 }) => {
-  const timeAgo = formatDistanceToNow(new Date(createdAt), { addSuffix: false });
-
-  // Check if post was edited (updatedAt > createdAt)
-  const isEdited = updatedAt && new Date(updatedAt) > new Date(createdAt);
+  const timeAgo = formatPostTime(createdAt);
 
   const renderAvatar = () => {
     // Use actual name for initial if available, otherwise "D" for Deleted
@@ -62,22 +84,17 @@ export const AuthorHeader: React.FC<AuthorHeaderProps> = ({
       >
         {renderAvatar()}
         <View style={styles.info}>
-          <View style={styles.nameRow}>
-            <Text style={styles.name} numberOfLines={1}>
-              {processDisplayName(author.name, 20)}
-            </Text>
-            <Text style={styles.dot}> . </Text>
-            <Text style={styles.timestamp}>{timeAgo}</Text>
-            {isEdited && (
-              <>
-                <Text style={styles.dot}> . </Text>
-                <Text style={styles.editedIndicator}>(edited)</Text>
-              </>
+          <Text style={styles.name} numberOfLines={1}>
+            {processDisplayName(author.name, 20)}
+          </Text>
+          <View style={styles.timeRow}>
+            {sportType && (
+              <View style={styles.sportIconContainer}>
+                {getSportIcon(sportType, sportColor, 18)}
+              </View>
             )}
+            <Text style={styles.timestamp}>{timeAgo}</Text>
           </View>
-          {author.username && author.name && (
-            <Text style={styles.username}>@{author.username}</Text>
-          )}
         </View>
       </TouchableOpacity>
       {showOptionsButton && (
@@ -125,29 +142,20 @@ const styles = StyleSheet.create({
     marginLeft: 10,
     flex: 1,
   },
-  nameRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
   name: {
     ...feedTheme.typography.authorName,
     color: feedTheme.colors.textPrimary,
   },
-  dot: {
-    color: feedTheme.colors.textTertiary,
-    fontSize: 12,
+  timeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 2,
+  },
+  sportIconContainer: {
+    marginRight: 6,
   },
   timestamp: {
     ...feedTheme.typography.timestamp,
-  },
-  editedIndicator: {
-    fontSize: 12,
-    fontStyle: 'italic',
-    color: feedTheme.colors.textTertiary,
-  },
-  username: {
-    ...feedTheme.typography.authorUsername,
-    marginTop: 1,
   },
   optionsButton: {
     padding: 4,

@@ -39,6 +39,7 @@ import { toast } from 'sonner-native';
 import { FriendlyBadge } from '@/src/features/friendly/components/FriendlyBadge';
 import { useChatStore } from '@/src/features/chat/stores/ChatStore';
 import { useMyGamesStore } from '@/src/features/dashboard-user/stores/MyGamesStore';
+import { MatchResult, MatchPlayer } from '@/features/standings/types';
 
 export default function JoinMatchScreen() {
   const insets = useSafeAreaInsets();
@@ -115,6 +116,10 @@ export default function JoinMatchScreen() {
   // Comments state
   const [comments, setComments] = useState<MatchComment[]>([]);
   const [isLoadingComments, setIsLoadingComments] = useState(false);
+  const [scorecardScores, setScorecardScores] = useState<{
+    setScores: any[];
+    gameScores: any[];
+  }>({ setScores: [], gameScores: [] });
   
   const bottomSheetModalRef = useRef<BottomSheetModal>(null);
   const cancelSheetRef = useRef<BottomSheetModal>(null);
@@ -150,6 +155,21 @@ export default function JoinMatchScreen() {
     : (fetchedMatchDetails?.participants || []);
   const matchStatus = (params.status as string) || fetchedMatchDetails?.status || 'SCHEDULED';
   const isFriendly = params.isFriendly === 'true' || fetchedMatchDetails?.isFriendly || false;
+
+  // Helper function to get reliable match status
+  const getReliableStatus = (): string => {
+    const urlStatus = matchStatus?.toUpperCase();
+    const apiStatus = matchData.status?.toUpperCase();
+    
+    // Trust URL params for completed states (most up-to-date)
+    if (urlStatus === 'COMPLETED' || urlStatus === 'FINISHED') {
+      return urlStatus;
+    }
+    
+    // Otherwise use API data with URL fallback
+    return apiStatus || urlStatus;
+  };
+
   // Share mode - auto-open share sheet when navigating from match history
   const shareMode = params.shareMode === 'true';
   // Chat message params - used to update the message bubble after joining
@@ -164,7 +184,8 @@ export default function JoinMatchScreen() {
 
       // Check if we already have the essential params from URL
       const hasEssentialParams = params.date && params.time && params.participants;
-      if (hasEssentialParams) return;
+      const needsScoreData = matchData.team1Score == null && matchData.team2Score == null;
+      if (hasEssentialParams && !needsScoreData) return;
 
       setIsLoadingMatchDetails(true);
       try {
@@ -198,6 +219,38 @@ export default function JoinMatchScreen() {
         }
 
         if (data) {
+          // Parse scores based on backend data structure:
+          // - Pickleball: uses setScores JSON field or pickleballScores relation with team1Points/team2Points
+          // - Tennis/Padel: uses scores relation (MatchScore[]) with player1Games/player2Games
+          
+          const normalizedSport = (data.sportType || sportType || '').toUpperCase();
+          const isPickleballMatch = normalizedSport === 'PICKLEBALL';
+          
+          if (isPickleballMatch) {
+            // For pickleball: try pickleballScores relation first, then setScores JSON
+            const pickleballScores = data.pickleballScores || (typeof data.setScores === 'string' ? JSON.parse(data.setScores) : data.setScores);
+            if (pickleballScores && Array.isArray(pickleballScores) && pickleballScores.length > 0) {
+              // Map pickleball scores to gameScores format (team1Points/team2Points)
+              const gameScores = pickleballScores.map((score: any) => ({
+                gameNumber: score.gameNumber || score.setNumber,
+                team1Points: score.team1Points ?? score.player1Points ?? 0,
+                team2Points: score.team2Points ?? score.player2Points ?? 0,
+              }));
+              setScorecardScores({ setScores: [], gameScores });
+            }
+          } else {
+            // For tennis/padel: use scores relation (MatchScore[])
+            const tennisScores = data.scores;
+            if (tennisScores && Array.isArray(tennisScores) && tennisScores.length > 0) {
+              // Map MatchScore to setScores format (team1Games/team2Games)
+              const setScores = tennisScores.map((score: any) => ({
+                setNumber: score.setNumber,
+                team1Games: score.player1Games ?? 0,
+                team2Games: score.player2Games ?? 0,
+              }));
+              setScorecardScores({ setScores, gameScores: [] });
+            }
+          }
           setFetchedMatchDetails({
             date: data.date,
             time: data.time,
@@ -258,7 +311,7 @@ export default function JoinMatchScreen() {
     };
 
     fetchFullMatchDetails();
-  }, [matchId, session?.user?.id, params.date, params.time, params.participants, params.isFriendly]);
+  }, [matchId, session?.user?.id, params.date, params.time, params.participants, params.isFriendly, matchData.team1Score, matchData.team2Score]);
 
   // Snap points for match result sheet
   const snapPoints = useMemo(() => ['75%', '90%'], []);
@@ -280,6 +333,59 @@ export default function JoinMatchScreen() {
 
   const sportColors = getSportColors(sportType?.toUpperCase() as SportType);
   const themeColor = sportColors.background;
+  const isPickleball = sportType?.toUpperCase() === 'PICKLEBALL';
+
+  const scorecardMatch = useMemo<MatchResult>(() => {
+    const roster = participantsWithDetails.length > 0 ? participantsWithDetails : participants;
+    const normalizeTeam = (team?: string) => (team || '').toLowerCase();
+    const team1Candidates = roster.filter((p: any) => {
+      const team = normalizeTeam(p.team);
+      return team === 'team1' || team === 'team_a' || team === 'a';
+    });
+    const team2Candidates = roster.filter((p: any) => {
+      const team = normalizeTeam(p.team);
+      return team === 'team2' || team === 'team_b' || team === 'b';
+    });
+
+    const fallbackTeamSize = matchType === 'SINGLES' ? 1 : 2;
+    const fallbackTeam1 = roster.slice(0, fallbackTeamSize);
+    const fallbackTeam2 = roster.slice(fallbackTeamSize, fallbackTeamSize * 2);
+
+    const toPlayer = (p: any): MatchPlayer => ({
+      id: p.userId || p.id || '',
+      name: p.name || p.user?.name || null,
+      username: p.username || p.user?.username,
+      image: p.image || p.user?.image || null,
+    });
+
+    const team1Players = (team1Candidates.length > 0 ? team1Candidates : fallbackTeam1).map(toPlayer);
+    const team2Players = (team2Candidates.length > 0 ? team2Candidates : fallbackTeam2).map(toPlayer);
+
+    const team1Score = matchData.team1Score ?? 0;
+    const team2Score = matchData.team2Score ?? 0;
+    const outcome = team1Score === team2Score
+      ? ''
+      : team1Score > team2Score
+        ? 'team1'
+        : 'team2';
+
+    return {
+      id: matchId,
+      matchType,
+      matchDate: matchData.matchDate || new Date().toISOString(),
+      sport: sportType,
+      team1Score,
+      team2Score,
+      outcome,
+      setScores: scorecardScores.setScores,
+      gameScores: scorecardScores.gameScores,
+      team1Players,
+      team2Players,
+      isWalkover: matchData.isWalkover ?? false,
+      location,
+      leagueName,
+    };
+  }, [participantsWithDetails, participants, matchType, matchData, matchId, sportType, location, leagueName, scorecardScores]);
 
   // Backdrop component for bottom sheet
   const renderBackdrop = useCallback(
@@ -319,6 +425,7 @@ export default function JoinMatchScreen() {
           headers: {
             'x-user-id': session.user.id,
           },
+          cache: 'no-cache', // Ensure fresh data
         });
         
         if (response.ok) {
@@ -391,9 +498,12 @@ export default function JoinMatchScreen() {
         ? endpoints.friendly.getComments(matchId)
         : endpoints.match.getComments(matchId);
       const response = await axiosInstance.get(endpoint);
-      setComments(response.data);
+      const payload = response.data?.data ?? response.data;
+      // Normalize to an array for rendering
+      setComments(Array.isArray(payload) ? payload : []);
     } catch (error) {
       if (__DEV__) console.error('Failed to fetch comments:', error);
+      setComments([]);
     } finally {
       setIsLoadingComments(false);
     }
@@ -454,7 +564,7 @@ export default function JoinMatchScreen() {
       : endpoints.match.createComment(matchId);
     const response = await axiosInstance.post(endpoint, { comment: text });
     // Update local state immediately with the response
-    const newComment = response.data;
+    const newComment = response.data?.data ?? response.data;
     setComments((prev) => {
       // Avoid duplicates in case socket already added it
       if (prev.some((c) => c.id === newComment.id)) {
@@ -470,7 +580,7 @@ export default function JoinMatchScreen() {
       : endpoints.match.updateComment(matchId, commentId);
     const response = await axiosInstance.put(endpoint, { comment: text });
     // Update local state immediately with the response
-    const updatedComment = response.data;
+    const updatedComment = response.data?.data ?? response.data;
     setComments((prev) =>
       prev.map((c) => (c.id === updatedComment.id ? updatedComment : c))
     );
@@ -488,7 +598,7 @@ export default function JoinMatchScreen() {
   // Auto-approval countdown timer (24 hours from result submission)
   useEffect(() => {
     // Only show countdown when match is ONGOING (result submitted, awaiting confirmation)
-    const status = matchData.status?.toUpperCase();
+    const status = getReliableStatus();
     if (status !== 'ONGOING' || !matchData.resultSubmittedAt) {
       setAutoApprovalCountdown(null);
       return;
@@ -1098,6 +1208,64 @@ export default function JoinMatchScreen() {
         console.error('Error message:', error.message);
       }
 
+      // Handle "already completed" error gracefully
+      if (error.response?.data?.message?.includes('already been completed')) {
+        // Update status to COMPLETED and refresh match data
+        setMatchData(prev => ({
+          ...prev,
+          status: 'COMPLETED',
+        }));
+        
+        // Refresh the full match details to get the latest state
+        // Re-run the fetchMatchData function to update status
+        if (matchId && session?.user?.id) {
+          // Re-fetch match data directly using the same logic
+          const fetchLatestMatchData = async () => {
+            try {
+              const backendUrl = getBackendBaseURL();
+              const endpoint = isFriendly 
+                ? `${backendUrl}/api/friendly/${matchId}`
+                : `${backendUrl}/api/match/${matchId}`;
+              
+              const response = await fetch(endpoint, {
+                headers: {
+                  'x-user-id': session.user.id,
+                },
+                cache: 'no-cache', // Ensure fresh data
+              });
+              
+              if (response.ok) {
+                const data = await response.json();
+                const match = data.match || data;
+                setMatchData({
+                  createdById: match.createdById || null,
+                  resultSubmittedById: match.resultSubmittedById || null,
+                  resultSubmittedAt: match.resultSubmittedAt || null,
+                  status: match.status || 'SCHEDULED',
+                  team1Score: match.team1Score ?? match.playerScore ?? null,
+                  team2Score: match.team2Score ?? match.opponentScore ?? null,
+                  isDisputed: match.isDisputed || false,
+                  matchDate: match.matchDate || match.scheduledStartTime || null,
+                  genderRestriction: match.genderRestriction || null,
+                  skillLevels: match.skillLevels || [],
+                  isWalkover: match.isWalkover || false,
+                  walkoverReason: match.walkoverReason || null,
+                  walkover: match.walkover || null,
+                });
+              }
+            } catch (error) {
+              if (__DEV__) console.error('Error refreshing match data:', error);
+            }
+          };
+          
+          fetchLatestMatchData();
+        }
+        
+        toast.error('This match has already been completed');
+        bottomSheetModalRef.current?.dismiss();
+        return;
+      }
+
       const errorMessage = error.response?.data?.error ||
                           error.response?.data?.message ||
                           error.message ||
@@ -1210,7 +1378,7 @@ export default function JoinMatchScreen() {
     setShowSharePrompt(false);
     // Only navigate back if this was shown automatically after confirmation
     // Don't navigate if user manually opened share sheet from completed match
-    if (matchData.status !== 'COMPLETED') {
+    if (getReliableStatus() !== 'COMPLETED') {
       router.back();
     }
   };
@@ -1286,7 +1454,7 @@ export default function JoinMatchScreen() {
 
   // Check if match can be cancelled (only SCHEDULED matches)
   const canCancelMatch = () => {
-    const status = matchData.status?.toUpperCase() || matchStatus.toUpperCase();
+    const status = getReliableStatus();
     // Can only cancel SCHEDULED matches
     if (status !== 'SCHEDULED') return false;
 
@@ -1353,7 +1521,7 @@ export default function JoinMatchScreen() {
 
   // Determine result sheet mode based on match status and user role
   const getResultSheetMode = (): 'submit' | 'view' | 'review' | 'disputed' => {
-    const status = matchData.status?.toUpperCase() || matchStatus.toUpperCase();
+    const status = getReliableStatus();
 
     // If match is ONGOING and DISPUTED - show view-only mode with dispute banner
     if (status === 'ONGOING' && matchData.isDisputed) {
@@ -1880,7 +2048,7 @@ export default function JoinMatchScreen() {
         <View style={styles.divider} />
 
         {/* DRAFT Status Banner - Match invitations expired/declined */}
-        {matchData.status?.toUpperCase() === 'DRAFT' && (
+        {getReliableStatus() === 'DRAFT' && (
           <View style={styles.draftStatusBanner}>
             <Ionicons name="document-outline" size={24} color="#6B7280" />
             <View style={styles.draftStatusContent}>
@@ -1898,7 +2066,7 @@ export default function JoinMatchScreen() {
         )}
 
         {/* VOID Status Banner - Match voided by admin */}
-        {matchData.status?.toUpperCase() === 'VOID' && (
+        {getReliableStatus() === 'VOID' && (
           <View style={styles.voidStatusBanner}>
             <Ionicons name="ban-outline" size={24} color="#DC2626" />
             <View style={styles.voidStatusContent}>
@@ -1911,7 +2079,7 @@ export default function JoinMatchScreen() {
         )}
 
         {/* UNFINISHED Status Banner - Match started but not completed */}
-        {matchData.status?.toUpperCase() === 'UNFINISHED' && (
+        {getReliableStatus() === 'UNFINISHED' && (
           <View style={styles.unfinishedStatusBanner}>
             <Ionicons name="pause-circle-outline" size={24} color="#D97706" />
             <View style={styles.unfinishedStatusContent}>
@@ -1924,7 +2092,7 @@ export default function JoinMatchScreen() {
         )}
 
         {/* Partnership Status for Doubles - Only show for league matches (not friendly) if match not full */}
-        {matchType === 'DOUBLES' && !isFriendly && !allSlotsFilled && matchData.status?.toUpperCase() === 'SCHEDULED' && (
+        {matchType === 'DOUBLES' && !isFriendly && !allSlotsFilled && getReliableStatus() === 'SCHEDULED' && (
           <View style={styles.partnershipStatus}>
             {partnerInfo.hasPartner ? (
               <View style={styles.successBanner}>
@@ -1951,7 +2119,7 @@ export default function JoinMatchScreen() {
           comments={comments}
           isUserParticipant={isUserParticipant}
           canComment={['ONGOING', 'COMPLETED', 'UNFINISHED', 'FINISHED'].includes(
-            (matchData.status || matchStatus).toUpperCase()
+            getReliableStatus().toUpperCase()
           )}
           currentUserId={session?.user?.id}
           onCreateComment={handleCreateComment}
@@ -1973,7 +2141,14 @@ export default function JoinMatchScreen() {
           <View style={styles.buttonGroup}>
             {/* Dynamic button based on user role and match status */}
             {(() => {
-              const status = matchData.status?.toUpperCase() || matchStatus.toUpperCase();
+              // Smart status priority: Trust URL params for completed states, otherwise use API data
+              const urlStatus = matchStatus?.toUpperCase();
+              const apiStatus = matchData.status?.toUpperCase();
+              
+              const status = (urlStatus === 'COMPLETED' || urlStatus === 'FINISHED') 
+                ? urlStatus  // Trust URL param for completed states
+                : (apiStatus || urlStatus);
+              
 
               // Priority 1: User has pending invite - show Accept Invite button
               if (isUserPendingInvite) {
@@ -2216,23 +2391,9 @@ export default function JoinMatchScreen() {
       <PostMatchShareSheet
         visible={showSharePrompt}
         bottomSheetRef={postMatchShareSheetRef}
-        matchData={{
-          matchId,
-          sport: sportType,
-          matchType: matchType,
-          gameType: isFriendly ? 'FRIENDLY' : 'LEAGUE',
-          winnerNames: participantsWithDetails
-            .filter(p => p.team === 'team1')
-            .map(p => p.name || 'Unknown'),
-          loserNames: participantsWithDetails
-            .filter(p => p.team === 'team2')
-            .map(p => p.name || 'Unknown'),
-          scores: {
-            team1Score: matchData.team1Score ?? 0,
-            team2Score: matchData.team2Score ?? 0,
-          },
-          matchDate: date,
-        }}
+        scorecardMatch={scorecardMatch}
+        sportColors={sportColors}
+        isPickleball={isPickleball}
         onPost={handleSharePost}
         onSkip={handleSkipShare}
         onClose={handleCloseShareSheet}

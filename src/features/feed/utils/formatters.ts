@@ -39,3 +39,61 @@ export const processDisplayName = (
   if (displayName === DELETED_USER_FALLBACK) return displayName;
   return truncateName(displayName, maxLength);
 };
+
+/**
+ * Format post timestamp for activity feed based on age.
+ * Spec:
+ * - Under 60 minutes: "Just now" (< 5 mins), "5m", "32m"
+ * - Under 24 hours: "2h", "13h"
+ * - Yesterday/1-2 days ago: "Yesterday", "1 day ago", "2 days ago"
+ * - Within 7 days: "Mon", "Tue"
+ * - Older than 7 days: "12 Jan", "12 Jan 2026" (only if different year)
+ */
+export const formatPostTime = (dateString: string): string => {
+  const now = new Date();
+  const postDate = new Date(dateString);
+  const diffMs = now.getTime() - postDate.getTime();
+  const diffMinutes = Math.floor(diffMs / 60000);
+  const diffHours = Math.floor(diffMs / 3600000);
+  const diffDays = Math.floor(diffMs / 86400000);
+
+  // Under 60 minutes
+  if (diffMinutes < 5) {
+    return 'Just now';
+  }
+  if (diffMinutes < 60) {
+    return `${diffMinutes}m`;
+  }
+
+  // Under 24 hours
+  if (diffHours < 24) {
+    return `${diffHours}h`;
+  }
+
+  // Yesterday/1 day ago/2 days ago
+  if (diffDays === 1) {
+    return 'Yesterday';
+  }
+  if (diffDays === 2) {
+    return '2 days ago';
+  }
+
+  // Within 7 days - show day of week
+  if (diffDays < 7) {
+    const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    return days[postDate.getDay()];
+  }
+
+  // Older than 7 days - show date
+  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const day = postDate.getDate();
+  const month = months[postDate.getMonth()];
+  const year = postDate.getFullYear();
+  const currentYear = now.getFullYear();
+
+  // Only show year if different from current year
+  if (year !== currentYear) {
+    return `${day} ${month} ${year}`;
+  }
+  return `${day} ${month}`;
+};

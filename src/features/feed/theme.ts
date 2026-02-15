@@ -20,7 +20,7 @@ export const feedTheme = {
       letterSpacing: -0.52,
     },
     authorName: {
-      fontSize: 12,
+      fontSize: 16,
       fontWeight: '600' as const,
       lineHeight: 16,
     },
@@ -30,7 +30,7 @@ export const feedTheme = {
       color: '#86868B',
     },
     timestamp: {
-      fontSize: 8,
+      fontSize: 12,
       fontWeight: '400' as const,
       color: '#86868B',
     },
