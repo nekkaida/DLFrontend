@@ -7,12 +7,14 @@ import { MatchResult, SportColors } from "@/features/standings/types";
 import { format } from "date-fns";
 import { LinearGradient } from "expo-linear-gradient";
 import React from "react";
-import { Image, StyleSheet, Text, View } from "react-native";
+import { Image, StyleSheet, Text, View, ViewStyle } from "react-native";
 
 interface ScoreCardProps {
   match: MatchResult;
   sportColors: SportColors;
   isFriendly?: boolean;
+  containerStyle?: ViewStyle;
+  scoreHeaderRowStyle?: ViewStyle;
 }
 
 // Map sport types to their icons
@@ -41,6 +43,8 @@ const ScoreCard: React.FC<ScoreCardProps> = ({
   match,
   sportColors,
   isFriendly = false,
+  containerStyle,
+  scoreHeaderRowStyle,
 }) => {
   // Helper function to render player photo
   const renderPlayerPhoto = (player: any, size: number = PHOTO_SIZE) => {
@@ -102,7 +106,7 @@ const ScoreCard: React.FC<ScoreCardProps> = ({
     (match as any).division?.name || (match as any).divisionName || "";
 
   return (
-    <View style={styles.cardContainer}>
+    <View style={[styles.cardContainer, containerStyle]}>
       {/* League/Match Info Header */}
       <LinearGradient
         colors={[
@@ -162,21 +166,18 @@ const ScoreCard: React.FC<ScoreCardProps> = ({
         <View style={styles.teamContainer}>
           {isSingles ? (
             <>
-              <View style={styles.teamPhotos}>
+              <View style={styles.singlesRow}>
                 {renderPlayerPhoto(match.team1Players[0], PHOTO_SIZE)}
+                <Text
+                  style={[
+                    styles.teamName,
+                    isTeam1Winner ? styles.winnerName : styles.loserName,
+                  ]}
+                  numberOfLines={2}
+                >
+                  {formatPlayerName(match.team1Players[0].name)}
+                </Text>
               </View>
-              <Text
-                style={[
-                  styles.teamName,
-                  isTeam1Winner && {
-                    color: sportColors.background,
-                    fontWeight: "700",
-                  },
-                ]}
-                numberOfLines={2}
-              >
-                {formatPlayerName(match.team1Players[0].name)}
-              </Text>
             </>
           ) : (
             <View style={styles.doublesContainer}>
@@ -190,10 +191,7 @@ const ScoreCard: React.FC<ScoreCardProps> = ({
                 <Text
                   style={[
                     styles.doublesPlayerName,
-                    isTeam1Winner && {
-                      color: sportColors.background,
-                      fontWeight: "700",
-                    },
+                    isTeam1Winner ? styles.winnerName : styles.loserName,
                   ]}
                   numberOfLines={1}
                 >
@@ -202,10 +200,7 @@ const ScoreCard: React.FC<ScoreCardProps> = ({
                 <Text
                   style={[
                     styles.doublesPlayerName,
-                    isTeam1Winner && {
-                      color: sportColors.background,
-                      fontWeight: "700",
-                    },
+                    isTeam1Winner ? styles.winnerName : styles.loserName,
                   ]}
                   numberOfLines={1}
                 >
@@ -227,21 +222,18 @@ const ScoreCard: React.FC<ScoreCardProps> = ({
         <View style={styles.teamContainer}>
           {isSingles ? (
             <>
-              <View style={styles.teamPhotos}>
+              <View style={styles.singlesRow}>
                 {renderPlayerPhoto(match.team2Players[0], PHOTO_SIZE)}
+                <Text
+                  style={[
+                    styles.teamName,
+                    isTeam2Winner ? styles.winnerName : styles.loserName,
+                  ]}
+                  numberOfLines={2}
+                >
+                  {formatPlayerName(match.team2Players[0].name)}
+                </Text>
               </View>
-              <Text
-                style={[
-                  styles.teamName,
-                  isTeam2Winner && {
-                    color: sportColors.background,
-                    fontWeight: "700",
-                  },
-                ]}
-                numberOfLines={2}
-              >
-                {formatPlayerName(match.team2Players[0].name)}
-              </Text>
             </>
           ) : (
             <View style={styles.doublesContainer}>
@@ -255,10 +247,7 @@ const ScoreCard: React.FC<ScoreCardProps> = ({
                 <Text
                   style={[
                     styles.doublesPlayerName,
-                    isTeam2Winner && {
-                      color: sportColors.background,
-                      fontWeight: "700",
-                    },
+                    isTeam2Winner ? styles.winnerName : styles.loserName,
                   ]}
                   numberOfLines={1}
                 >
@@ -267,10 +256,7 @@ const ScoreCard: React.FC<ScoreCardProps> = ({
                 <Text
                   style={[
                     styles.doublesPlayerName,
-                    isTeam2Winner && {
-                      color: sportColors.background,
-                      fontWeight: "700",
-                    },
+                    isTeam2Winner ? styles.winnerName : styles.loserName,
                   ]}
                   numberOfLines={1}
                 >
@@ -284,79 +270,107 @@ const ScoreCard: React.FC<ScoreCardProps> = ({
 
       {/* Match Date */}
       <Text style={styles.cardMatchDate}>
-        {format(new Date(match.matchDate), "d MMM yyyy")}
+        {format(new Date(match.matchDate), "d MMM yyyy, h:mm a")}
       </Text>
       {match.isWalkover && <Text style={styles.cardWalkover}>W/O</Text>}
       {/* Scores Columns */}
       {scores && scores.length > 0 && (
         <View style={styles.scoresSection}>
           {/* Header Row with rounded edges */}
-          <View
-            style={[
-              styles.scoreHeaderRow,
-              { backgroundColor: sportColors.background },
-            ]}
-          >
-            <View style={styles.nameColumnHeaderBox}>
-              <Text style={styles.setHeaderText}>Sets</Text>
-            </View>
-            {scores.map((_, idx) => (
-              <View key={`header-${idx}`} style={styles.setColumnHeaderBox}>
-                <Text style={styles.setHeaderText}>
-                  {["1st", "2nd", "3rd", "4th", "5th"][idx] || `${idx + 1}th`}
-                </Text>
-              </View>
-            ))}
-          </View>
-
-          {/* Spaced out scores section */}
-          <View style={styles.scoresColumns}>
-            {/* Names Column */}
-            <View style={styles.nameColumn}>
-              <Text style={styles.nameColumnText} numberOfLines={1}>
-                {isSingles
-                  ? formatPlayerName(match.team1Players[0].name, true)
-                  : `${formatPlayerName(match.team1Players[0].name, true)}, ${formatPlayerName(match.team1Players[1].name, true)}`}
-              </Text>
-              <Text style={styles.nameColumnText} numberOfLines={1}>
-                {isSingles
-                  ? formatPlayerName(match.team2Players[0].name, true)
-                  : `${formatPlayerName(match.team2Players[0].name, true)}, ${formatPlayerName(match.team2Players[1].name, true)}`}
-              </Text>
-            </View>
-
-            {/* Scores Map */}
-            {scores.map((score, idx) => {
-              const team1Score =
-                (score as any).team1Points ?? (score as any).team1Games ?? 0;
-              const team2Score =
-                (score as any).team2Points ?? (score as any).team2Games ?? 0;
-              return (
-                <View key={idx} style={styles.setColumn}>
-                  <View style={styles.setScoreBox}>
-                    <Text
-                      style={[
-                        styles.setScoreText,
-                        team1Score > team2Score && styles.winningScoreText,
-                      ]}
-                    >
-                      {team1Score}
-                    </Text>
+          {(() => {
+            const displayScores =
+              scores.length === 2
+                ? [...scores, { __placeholder: true }]
+                : scores;
+            return (
+              <>
+                <View
+                  style={[
+                    styles.scoreHeaderRow,
+                    { backgroundColor: sportColors.background },
+                    scoreHeaderRowStyle,
+                  ]}
+                >
+                  <View style={styles.nameColumnHeaderBox}>
+                    <Text style={styles.setHeaderText}>Sets</Text>
                   </View>
-                  <View style={styles.setScoreBox}>
-                    <Text
-                      style={[
-                        styles.setScoreText,
-                        team2Score > team1Score && styles.winningScoreText,
-                      ]}
+                  {displayScores.map((_, idx) => (
+                    <View
+                      key={`header-${idx}`}
+                      style={styles.setColumnHeaderBox}
                     >
-                      {team2Score}
-                    </Text>
-                  </View>
+                      <Text style={styles.setHeaderText}>
+                        {["1st", "2nd", "3rd", "4th", "5th"][idx] ||
+                          `${idx + 1}th`}
+                      </Text>
+                    </View>
+                  ))}
                 </View>
-              );
-            })}
-          </View>
+
+                {/* Spaced out scores section */}
+                <View style={styles.scoresColumns}>
+                  {/* Names Column */}
+                  <View style={styles.nameColumn}>
+                    <Text style={styles.nameColumnText} numberOfLines={1}>
+                      {isSingles
+                        ? formatPlayerName(match.team1Players[0].name, true)
+                        : `${formatPlayerName(match.team1Players[0].name, true)}, ${formatPlayerName(match.team1Players[1].name, true)}`}
+                    </Text>
+                    <Text style={styles.nameColumnText} numberOfLines={1}>
+                      {isSingles
+                        ? formatPlayerName(match.team2Players[0].name, true)
+                        : `${formatPlayerName(match.team2Players[0].name, true)}, ${formatPlayerName(match.team2Players[1].name, true)}`}
+                    </Text>
+                  </View>
+
+                  {/* Scores Map */}
+                  {displayScores.map((score, idx) => {
+                    const isPlaceholder = !!(score as any).__placeholder;
+                    const team1Score = isPlaceholder
+                      ? "-"
+                      : ((score as any).team1Points ??
+                        (score as any).team1Games ??
+                        0);
+                    const team2Score = isPlaceholder
+                      ? "-"
+                      : ((score as any).team2Points ??
+                        (score as any).team2Games ??
+                        0);
+                    return (
+                      <View key={idx} style={styles.setColumn}>
+                        <View style={styles.setScoreBox}>
+                          <Text
+                            style={[
+                              styles.setScoreText,
+                              !isPlaceholder &&
+                                (team1Score as number) >
+                                  (team2Score as number) &&
+                                styles.winningScoreText,
+                            ]}
+                          >
+                            {team1Score}
+                          </Text>
+                        </View>
+                        <View style={styles.setScoreBox}>
+                          <Text
+                            style={[
+                              styles.setScoreText,
+                              !isPlaceholder &&
+                                (team2Score as number) >
+                                  (team1Score as number) &&
+                                styles.winningScoreText,
+                            ]}
+                          >
+                            {team2Score}
+                          </Text>
+                        </View>
+                      </View>
+                    );
+                  })}
+                </View>
+              </>
+            );
+          })()}
         </View>
       )}
     </View>
@@ -385,13 +399,13 @@ const styles = StyleSheet.create({
     marginLeft: 12,
   },
   leagueText: {
-    fontSize: 24,
+    fontSize: 28,
     fontWeight: "800",
     color: "#111827",
   },
   seasonDivisionText: {
-    fontSize: 20,
-    color: "#6B7280",
+    fontSize: 24,
+    color: "#4C4C4B",
     fontWeight: "500",
   },
   cardContainer: {
@@ -401,7 +415,7 @@ const styles = StyleSheet.create({
     maxHeight: 600,
     backgroundColor: "#FFFFFF",
     borderRadius: 32,
-    borderWidth: 1.5,
+    borderWidth: 1,
     borderColor: "#a1a2a5",
     overflow: "hidden",
     // NEW: This replaces ios shadow props and android elevation
@@ -422,55 +436,70 @@ const styles = StyleSheet.create({
   mainScoreSection: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
-    paddingVertical: 20,
+    justifyContent: "center",
+    paddingVertical: 10,
     backgroundColor: "#FFFFFF",
-    paddingHorizontal: 10,
+    paddingHorizontal: 20,
+    gap: 20,
   },
   cardVenueName: {
     fontSize: 32,
-    fontWeight: "600",
-    color: "#86868B",
+    fontWeight: "700",
+    color: "#1D1D1F",
     textAlign: "center",
     marginTop: 12,
-    marginBottom: 12,
-    paddingHorizontal: 18,
+    paddingHorizontal: 12,
   },
   teamContainer: {
-    flex: 1,
     alignItems: "center",
   },
+  singlesRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 10,
+  },
   teamName: {
-    fontSize: 18,
+    fontSize: 26,
     fontWeight: "600",
     marginTop: 8,
     textAlign: "center",
+  },
+  winnerName: {
+    color: "#1D1D1F",
+    fontWeight: "900",
+    fontSize: 28,
+  },
+  loserName: {
+    color: "#1F2937",
+    fontWeight: "600",
+    fontSize: 24,
   },
   scoreDisplay: {
     flexDirection: "row",
     alignItems: "center",
   },
   scoreText: {
-    fontSize: 100,
+    fontSize: 102,
     fontWeight: "900",
-    color: "#111827",
+    color: "1D1D1F",
   },
   scoreDivider: {
-    fontSize: 64,
-    color: "#2c2c2c",
+    fontSize: 100,
+    color: "#1D1D1F",
     marginHorizontal: 8,
   },
   scoresSection: {
-    backgroundColor: "#FFFFFF",
+    backgroundColor: "transparent",
     paddingVertical: 20,
     paddingHorizontal: 24,
     marginTop: 10,
   },
   scoreHeaderRow: {
     flexDirection: "row",
-    borderRadius: 100,
+    borderRadius: 18,
     paddingVertical: 8,
-    paddingHorizontal: 16,
+    paddingHorizontal: 20,
     marginBottom: 16,
     alignItems: "center",
   },
@@ -493,19 +522,19 @@ const styles = StyleSheet.create({
     paddingLeft: 8,
   },
   nameColumnText: {
-    fontSize: 24,
+    fontSize: 26,
     fontWeight: "700",
     color: "#374151",
-    height: 40,
+    height: 48,
     textAlignVertical: "center",
-    lineHeight: 40,
+    lineHeight: 48,
   },
   setColumn: {
     flex: 1,
     alignItems: "center",
   },
   setScoreBox: {
-    height: 40,
+    height: 48,
     justifyContent: "center",
     alignItems: "center",
   },
@@ -518,9 +547,10 @@ const styles = StyleSheet.create({
   winningScoreText: {
     color: "#FEA04D",
     fontWeight: "900",
+    fontSize: 26,
   },
   setScoreText: {
-    fontSize: 22,
+    fontSize: 24,
     fontWeight: "800",
     color: "#374151",
   },
@@ -563,14 +593,14 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
   cardMatchDate: {
-    fontSize: 10,
-    fontWeight: "400",
+    fontSize: 26,
+    fontWeight: "500",
     color: "#86868B",
     marginTop: 4,
     textAlign: "center",
   },
   cardWalkover: {
-    fontSize: 8,
+    fontSize: 12,
     fontWeight: "600",
     color: "#F59E0B",
     marginTop: 2,

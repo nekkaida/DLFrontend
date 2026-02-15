@@ -1,7 +1,4 @@
-import {
-  MatchResultCard,
-  type CardBackgroundStyle,
-} from "@/features/standings/components";
+import { type CardBackgroundStyle } from "@/features/standings/components";
 import { MatchResult, SportColors } from "@/features/standings/types";
 import React, {
   forwardRef,
@@ -11,6 +8,7 @@ import React, {
 } from "react";
 import { StyleSheet, View } from "react-native";
 import { DarkThemeScorecard } from "./DarkThemeScorecard";
+import ScoreCard from "./ScoreCard";
 import { SolidScorecard } from "./SolidScorecard";
 import { TransparentScorecard } from "./TransparentScorecard";
 
@@ -54,14 +52,27 @@ export const ScorecardCaptureWrapper = forwardRef<
   // Calculate dimensions for 1080x1920 (9:16 ratio) optimal quality output
   const CAPTURE_WIDTH = 1080;
   const CAPTURE_HEIGHT = 1920;
-  const PADDING = 0; // No padding for full bleed backgrounds
+  const PADDING = 0;
   const CARD_WIDTH = CAPTURE_WIDTH;
+
+  const DISPLAY_BASE_WIDTH = 850;
+  const DISPLAY_BASE_HEIGHT = 600;
+  const displayScale = Math.min(1, cardWidth / DISPLAY_BASE_WIDTH);
+  const displayHeight = DISPLAY_BASE_HEIGHT * displayScale;
 
   return (
     <>
       {/* Display version - shown in feed */}
-      <View style={{ width: cardWidth }}>
-        <MatchResultCard
+      <View
+        style={{
+          width: cardWidth,
+          height: displayHeight,
+          overflow: "hidden",
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
+        {/* <MatchResultCard
           match={match}
           index={0}
           totalResults={1}
@@ -72,6 +83,20 @@ export const ScorecardCaptureWrapper = forwardRef<
           expandedComments={new Set()}
           onToggleComments={() => {}}
           backgroundStyle="white"
+        /> */}
+        <ScoreCard
+          match={match}
+          sportColors={sportColors}
+          isFriendly={isFriendly}
+          scoreHeaderRowStyle={{ borderRadius: 22 }}
+          containerStyle={{
+            width: DISPLAY_BASE_WIDTH,
+            height: DISPLAY_BASE_HEIGHT,
+            borderWidth: 0,
+            borderColor: "transparent",
+            boxShadow: "none",
+            transform: [{ scale: displayScale }],
+          }}
         />
       </View>
 
