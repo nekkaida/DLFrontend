@@ -330,13 +330,17 @@ export default function FeedScreen({ sport = "default" }: FeedScreenProps) {
   }, []);
 
   const handleShareImage = useCallback(
-    async (style?: "transparent" | "white") => {
+    async (style?: "transparent" | "white" | "dark") => {
       if (!sharePostId) return;
       const scorecardRef = scorecardRefs.current.get(sharePostId);
       if (scorecardRef) {
         // Set background style based on selection
         scorecardRef.setBackgroundStyle(
-          style === "transparent" ? "transparent" : "white",
+          style === "dark"
+            ? "dark"
+            : style === "transparent"
+              ? "transparent"
+              : "white",
         );
         // Small delay to ensure style is applied before capture
         await new Promise((resolve) => setTimeout(resolve, 50));
@@ -357,13 +361,17 @@ export default function FeedScreen({ sport = "default" }: FeedScreenProps) {
   );
 
   const handleSaveImage = useCallback(
-    async (style?: "transparent" | "white") => {
+    async (style?: "transparent" | "white" | "dark") => {
       if (!sharePostId) return;
       const scorecardRef = scorecardRefs.current.get(sharePostId);
       if (scorecardRef) {
         // Set background style based on selection
         scorecardRef.setBackgroundStyle(
-          style === "transparent" ? "transparent" : "white",
+          style === "dark"
+            ? "dark"
+            : style === "transparent"
+              ? "transparent"
+              : "white",
         );
         // Small delay to ensure style is applied before capture
         await new Promise((resolve) => setTimeout(resolve, 50));
@@ -384,13 +392,17 @@ export default function FeedScreen({ sport = "default" }: FeedScreenProps) {
   );
 
   const handleShareToInstagram = useCallback(
-    async (style?: "transparent" | "white") => {
+    async (style?: "transparent" | "white" | "dark") => {
       if (!sharePostId) return;
       const scorecardRef = scorecardRefs.current.get(sharePostId);
       if (scorecardRef) {
         // Set background style based on selection
         scorecardRef.setBackgroundStyle(
-          style === "transparent" ? "transparent" : "white",
+          style === "dark"
+            ? "dark"
+            : style === "transparent"
+              ? "transparent"
+              : "white",
         );
         // Small delay to ensure style is applied before capture
         await new Promise((resolve) => setTimeout(resolve, 50));
