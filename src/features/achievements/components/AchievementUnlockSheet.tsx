@@ -54,20 +54,12 @@ export const AchievementUnlockSheet: React.FC<AchievementUnlockSheetProps> = ({
   // Open / close sheet based on visible prop
   useEffect(() => {
     if (visible && achievements.length > 0) {
-      setCurrentIndex(0);
       bottomSheetRef.current?.snapToIndex(0);
       playEntrance();
     } else {
       bottomSheetRef.current?.close();
     }
-  }, [visible, achievements.length, playEntrance]);
-
-  // Replay entrance when cycling through achievements
-  useEffect(() => {
-    if (visible && achievements.length > 0) {
-      playEntrance();
-    }
-  }, [currentIndex, visible, achievements.length, playEntrance]);
+  }, [visible, achievements.length, currentIndex, playEntrance]);
 
   const handleDismiss = useCallback(() => {
     if (currentIndex < achievements.length - 1) {
@@ -80,10 +72,10 @@ export const AchievementUnlockSheet: React.FC<AchievementUnlockSheetProps> = ({
   const handleSheetChange = useCallback(
     (index: number) => {
       if (index === -1) {
-        onDismiss();
+        handleDismiss();
       }
     },
-    [onDismiss]
+    [handleDismiss]
   );
 
   const renderBackdrop = useCallback(
