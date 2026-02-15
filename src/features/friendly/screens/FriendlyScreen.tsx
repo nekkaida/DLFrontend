@@ -1,4 +1,10 @@
-import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import React, {
+  useState,
+  useEffect,
+  useCallback,
+  useRef,
+  useMemo,
+} from "react";
 import {
   View,
   Text,
@@ -7,29 +13,38 @@ import {
   RefreshControl,
   StyleSheet,
   Animated,
-} from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { MatchCardSkeleton } from '@/src/components/MatchCardSkeleton';
-import { Ionicons } from '@expo/vector-icons';
-import { format } from 'date-fns';
-import { toast } from 'sonner-native';
-import { router } from 'expo-router';
-import { useFocusEffect } from '@react-navigation/native';
-import { useSession } from '@/lib/auth-client';
-import axiosInstance, { endpoints } from '@/lib/endpoints';
-import { getBackendBaseURL } from '@/src/config/network';
-import { getSportColors, SportType } from '@/constants/SportsColor';
-import { FriendlyMatchCard, FriendlyMatch } from '../components/FriendlyMatchCard';
-import { FriendlyFilterBottomSheet, FriendlyFilterBottomSheetRef, FriendlyFilterOptions } from '../components/FriendlyFilterBottomSheet';
-import { HorizontalDateScroll } from '../components/HorizontalDateScroll';
-import * as Haptics from 'expo-haptics';
+  Dimensions,
+} from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { MatchCardSkeleton } from "@/src/components/MatchCardSkeleton";
+import { Ionicons } from "@expo/vector-icons";
+import { format } from "date-fns";
+import { toast } from "sonner-native";
+import { router } from "expo-router";
+import { useFocusEffect } from "@react-navigation/native";
+import { useSession } from "@/lib/auth-client";
+import axiosInstance, { endpoints } from "@/lib/endpoints";
+import { getBackendBaseURL } from "@/src/config/network";
+import { getSportColors, SportType } from "@/constants/SportsColor";
+import {
+  FriendlyMatchCard,
+  FriendlyMatch,
+} from "../components/FriendlyMatchCard";
+import {
+  FriendlyFilterBottomSheet,
+  FriendlyFilterBottomSheetRef,
+  FriendlyFilterOptions,
+} from "../components/FriendlyFilterBottomSheet";
+import { HorizontalDateScroll } from "../components/HorizontalDateScroll";
+import * as Haptics from "expo-haptics";
 import { LinearGradient } from "expo-linear-gradient";
 
+const { width } = Dimensions.get("window");
 // Cache key for friendly match summary
-const FRIENDLY_SUMMARY_CACHE_KEY = 'friendly_matches_summary';
+const FRIENDLY_SUMMARY_CACHE_KEY = "friendly_matches_summary";
 
 interface FriendlyScreenProps {
-  sport: 'pickleball' | 'tennis' | 'padel';
+  sport: "pickleball" | "tennis" | "padel";
 }
 
 export const FriendlyScreen: React.FC<FriendlyScreenProps> = ({ sport }) => {
@@ -44,7 +59,7 @@ export const FriendlyScreen: React.FC<FriendlyScreenProps> = ({ sport }) => {
 
   // Filter state
   const [filters, setFilters] = useState<FriendlyFilterOptions>({
-    status: 'all',
+    status: "all",
     gameType: null,
     skillLevels: [],
   });
@@ -67,9 +82,12 @@ export const FriendlyScreen: React.FC<FriendlyScreenProps> = ({ sport }) => {
 
     try {
       const backendUrl = getBackendBaseURL();
-      const response = await fetch(`${backendUrl}/api/friendly/summary?sport=${sportType}`, {
-        headers: { 'x-user-id': session.user.id },
-      });
+      const response = await fetch(
+        `${backendUrl}/api/friendly/summary?sport=${sportType}`,
+        {
+          headers: { "x-user-id": session.user.id },
+        },
+      );
 
       if (!response.ok) return true; // If summary fails, assume new content
 
@@ -95,82 +113,87 @@ export const FriendlyScreen: React.FC<FriendlyScreenProps> = ({ sport }) => {
 
       return hasNewContent;
     } catch (error) {
-      console.error('Error checking for new friendly content:', error);
+      console.error("Error checking for new friendly content:", error);
       return true; // On error, assume new content to be safe
     }
   }, [session?.user?.id, sportType]);
 
-  const fetchFriendlyMatches = useCallback(async (isManualRefresh = false) => {
-    // Only show skeleton on very first initialization, not on tab switches
-    const cacheKey = `${FRIENDLY_SUMMARY_CACHE_KEY}_${sportType}`;
+  const fetchFriendlyMatches = useCallback(
+    async (isManualRefresh = false) => {
+      // Only show skeleton on very first initialization, not on tab switches
+      const cacheKey = `${FRIENDLY_SUMMARY_CACHE_KEY}_${sportType}`;
 
-    if (!hasInitializedRef.current) {
-      // First load ever - check if we have cached data
-      const cachedSummaryStr = await AsyncStorage.getItem(cacheKey);
-      if (!cachedSummaryStr) {
-        // No cache = truly first time, show skeleton
-        setShowSkeleton(true);
-      } else {
-        // Has cache = check for new content
+      if (!hasInitializedRef.current) {
+        // First load ever - check if we have cached data
+        const cachedSummaryStr = await AsyncStorage.getItem(cacheKey);
+        if (!cachedSummaryStr) {
+          // No cache = truly first time, show skeleton
+          setShowSkeleton(true);
+        } else {
+          // Has cache = check for new content
+          const hasNewContent = await checkForNewContent();
+          if (hasNewContent) {
+            setShowSkeleton(true);
+          }
+        }
+        hasInitializedRef.current = true;
+      } else if (!isManualRefresh) {
+        // Subsequent automatic loads - check for new content
         const hasNewContent = await checkForNewContent();
         if (hasNewContent) {
           setShowSkeleton(true);
         }
       }
-      hasInitializedRef.current = true;
-    } else if (!isManualRefresh) {
-      // Subsequent automatic loads - check for new content
-      const hasNewContent = await checkForNewContent();
-      if (hasNewContent) {
-        setShowSkeleton(true);
+      // Manual refresh - never show skeleton
+
+      try {
+        const params: any = {
+          sport: sportType,
+          page: "1",
+          limit: "100",
+        };
+
+        if (selectedDate) {
+          // Set start date to beginning of selected day
+          const startOfDay = new Date(selectedDate);
+          startOfDay.setHours(0, 0, 0, 0);
+          params.fromDate = startOfDay.toISOString();
+
+          // Set end date to end of same day
+          const endOfDay = new Date(selectedDate);
+          endOfDay.setHours(23, 59, 59, 999);
+          params.toDate = endOfDay.toISOString();
+        }
+
+        // Add skill level filter if any are selected
+        if (filters.skillLevels.length > 0) {
+          params.skillLevels = filters.skillLevels;
+        }
+
+        const response = await axiosInstance.get(endpoints.friendly.getAll, {
+          params,
+        });
+        const data = response.data?.data || response.data;
+        const matchesData = data?.matches || data || [];
+
+        setMatches(Array.isArray(matchesData) ? matchesData : []);
+      } catch (error: any) {
+        console.error("Error fetching friendly matches:", error);
+        toast.error("Failed to load friendly matches");
+        setMatches([]);
+      } finally {
+        setRefreshing(false);
+        setShowSkeleton(false);
       }
-    }
-    // Manual refresh - never show skeleton
-
-    try {
-      const params: any = {
-        sport: sportType,
-        page: '1',
-        limit: '100',
-      };
-
-      if (selectedDate) {
-        // Set start date to beginning of selected day
-        const startOfDay = new Date(selectedDate);
-        startOfDay.setHours(0, 0, 0, 0);
-        params.fromDate = startOfDay.toISOString();
-
-        // Set end date to end of same day
-        const endOfDay = new Date(selectedDate);
-        endOfDay.setHours(23, 59, 59, 999);
-        params.toDate = endOfDay.toISOString();
-      }
-
-      // Add skill level filter if any are selected
-      if (filters.skillLevels.length > 0) {
-        params.skillLevels = filters.skillLevels;
-      }
-
-      const response = await axiosInstance.get(endpoints.friendly.getAll, { params });
-      const data = response.data?.data || response.data;
-      const matchesData = data?.matches || data || [];
-
-      setMatches(Array.isArray(matchesData) ? matchesData : []);
-    } catch (error: any) {
-      console.error('Error fetching friendly matches:', error);
-      toast.error('Failed to load friendly matches');
-      setMatches([]);
-    } finally {
-      setRefreshing(false);
-      setShowSkeleton(false);
-    }
-  }, [sportType, selectedDate, filters.skillLevels, checkForNewContent]);
+    },
+    [sportType, selectedDate, filters.skillLevels, checkForNewContent],
+  );
 
   // Refresh matches when screen comes into focus (e.g., after creating a match)
   useFocusEffect(
     useCallback(() => {
       fetchFriendlyMatches();
-    }, [fetchFriendlyMatches])
+    }, [fetchFriendlyMatches]),
   );
 
   // Reset animation values when skeleton starts showing
@@ -184,7 +207,11 @@ export const FriendlyScreen: React.FC<FriendlyScreenProps> = ({ sport }) => {
 
   // Entry animation effect - trigger when skeleton finishes
   useEffect(() => {
-    if (!showSkeleton && !hasPlayedEntryAnimation.current && hasInitializedRef.current) {
+    if (
+      !showSkeleton &&
+      !hasPlayedEntryAnimation.current &&
+      hasInitializedRef.current
+    ) {
       // Only animate if we were showing skeleton before
       hasPlayedEntryAnimation.current = true;
       Animated.parallel([
@@ -214,38 +241,50 @@ export const FriendlyScreen: React.FC<FriendlyScreenProps> = ({ sport }) => {
     let filtered = [...matches];
 
     // Filter by status (open/full)
-    if (filters.status === 'open') {
-      filtered = filtered.filter(match => {
-        const requiredParticipants = match.matchType === 'DOUBLES' ? 4 : 2;
-        const activeParticipants = match.participants?.filter(
-          p => !p.invitationStatus || p.invitationStatus === 'ACCEPTED' || p.invitationStatus === 'PENDING'
-        ) || [];
+    if (filters.status === "open") {
+      filtered = filtered.filter((match) => {
+        const requiredParticipants = match.matchType === "DOUBLES" ? 4 : 2;
+        const activeParticipants =
+          match.participants?.filter(
+            (p) =>
+              !p.invitationStatus ||
+              p.invitationStatus === "ACCEPTED" ||
+              p.invitationStatus === "PENDING",
+          ) || [];
         return activeParticipants.length < requiredParticipants;
       });
-    } else if (filters.status === 'full') {
-      filtered = filtered.filter(match => {
-        const requiredParticipants = match.matchType === 'DOUBLES' ? 4 : 2;
-        const activeParticipants = match.participants?.filter(
-          p => !p.invitationStatus || p.invitationStatus === 'ACCEPTED' || p.invitationStatus === 'PENDING'
-        ) || [];
+    } else if (filters.status === "full") {
+      filtered = filtered.filter((match) => {
+        const requiredParticipants = match.matchType === "DOUBLES" ? 4 : 2;
+        const activeParticipants =
+          match.participants?.filter(
+            (p) =>
+              !p.invitationStatus ||
+              p.invitationStatus === "ACCEPTED" ||
+              p.invitationStatus === "PENDING",
+          ) || [];
         return activeParticipants.length >= requiredParticipants;
       });
     }
 
     // Filter by game type (singles/doubles)
     if (filters.gameType) {
-      filtered = filtered.filter(match => match.matchType === filters.gameType);
+      filtered = filtered.filter(
+        (match) => match.matchType === filters.gameType,
+      );
     }
 
     // Filter by skill level (match if any selected level overlaps with match's skill levels)
     if (filters.skillLevels.length > 0) {
-      filtered = filtered.filter(match => {
+      filtered = filtered.filter((match) => {
         // If match has no skill levels defined, don't include it when filtering
         if (!match.skillLevels || match.skillLevels.length === 0) {
           return false;
         }
         // Include match if any of the selected skill levels match the match's skill levels
-        return filters.skillLevels.some(level => match.skillLevels?.includes(level));
+        return filters.skillLevels.some((level) =>
+          match.skillLevels?.includes(level),
+        );
       });
     }
 
@@ -268,7 +307,7 @@ export const FriendlyScreen: React.FC<FriendlyScreenProps> = ({ sport }) => {
       if (!dateString) return;
 
       const date = new Date(dateString);
-      const dateKey = format(date, 'EEEE, d MMMM yyyy');
+      const dateKey = format(date, "EEEE, d MMMM yyyy");
 
       if (!grouped[dateKey]) {
         grouped[dateKey] = [];
@@ -279,7 +318,6 @@ export const FriendlyScreen: React.FC<FriendlyScreenProps> = ({ sport }) => {
     return grouped;
   }, [filteredMatches]);
 
-
   const handleMatchPress = (match: FriendlyMatch) => {
     const dateString = match.scheduledTime || match.matchDate;
     if (!dateString) return;
@@ -289,26 +327,26 @@ export const FriendlyScreen: React.FC<FriendlyScreenProps> = ({ sport }) => {
     const endDate = new Date(startDate.getTime() + duration * 60 * 60 * 1000);
 
     router.push({
-      pathname: '/match/match-details' as any,
+      pathname: "/match/match-details" as any,
       params: {
         matchId: match.id,
         matchType: match.matchType,
-        date: format(startDate, 'MMM dd, yyyy'),
-        time: `${format(startDate, 'h:mm a')} – ${format(endDate, 'h:mm a')}`,
-        location: match.location || match.venue || 'TBD',
+        date: format(startDate, "MMM dd, yyyy"),
+        time: `${format(startDate, "h:mm a")} – ${format(endDate, "h:mm a")}`,
+        location: match.location || match.venue || "TBD",
         sportType: sport,
-        leagueName: 'Friendly Match',
-        season: '',
-        division: '',
+        leagueName: "Friendly Match",
+        season: "",
+        division: "",
         status: match.status,
         participants: JSON.stringify(match.participants || []),
-        divisionId: '',
-        seasonId: '',
-        fee: match.fee || 'FREE',
-        feeAmount: String(match.feeAmount || '0.00'),
-        description: match.notes || match.description || '',
-        courtBooked: match.courtBooked ? 'true' : 'false',
-        isFriendly: 'true',
+        divisionId: "",
+        seasonId: "",
+        fee: match.fee || "FREE",
+        feeAmount: String(match.feeAmount || "0.00"),
+        description: match.notes || match.description || "",
+        courtBooked: match.courtBooked ? "true" : "false",
+        isFriendly: "true",
       },
     });
   };
@@ -325,7 +363,7 @@ export const FriendlyScreen: React.FC<FriendlyScreenProps> = ({ sport }) => {
   // Calculate active filter count for badge
   const activeFilterCount = useMemo(() => {
     let count = 0;
-    if (filters.status !== 'all') count++;
+    if (filters.status !== "all") count++;
     if (filters.gameType !== null) count++;
     if (filters.skillLevels.length > 0) count++;
     if (selectedDate !== null) count++;
@@ -338,8 +376,8 @@ export const FriendlyScreen: React.FC<FriendlyScreenProps> = ({ sport }) => {
       <Text style={styles.emptyTitle}>No friendly matches found</Text>
       <Text style={styles.emptyDescription}>
         {activeFilterCount > 0
-          ? 'Try adjusting your filters'
-          : 'Be the first to create a friendly match!'}
+          ? "Try adjusting your filters"
+          : "Be the first to create a friendly match!"}
       </Text>
     </View>
   );
@@ -353,7 +391,11 @@ export const FriendlyScreen: React.FC<FriendlyScreenProps> = ({ sport }) => {
           <View style={styles.dateDividerLine} />
         </View>
         {dateMatches.map((match) => (
-          <FriendlyMatchCard key={match.id} match={match} onPress={handleMatchPress} />
+          <FriendlyMatchCard
+            key={match.id}
+            match={match}
+            onPress={handleMatchPress}
+          />
         ))}
       </View>
     );
@@ -362,13 +404,28 @@ export const FriendlyScreen: React.FC<FriendlyScreenProps> = ({ sport }) => {
   return (
     <View style={styles.container}>
       {/* Header Section */}
-      <View style={[styles.headerSection, { borderBottomColor: sportColors.background + '20', paddingHorizontal: 0, paddingTop: 0, paddingBottom: 0, backgroundColor: 'transparent', borderBottomWidth: 0 }]}> 
+      <View
+        style={[
+          styles.headerSection,
+          {
+            borderBottomColor: sportColors.background + "20",
+            paddingHorizontal: 0,
+            paddingTop: 0,
+            paddingBottom: 0,
+            backgroundColor: "transparent",
+            borderBottomWidth: 0,
+          },
+        ]}
+      >
         <LinearGradient
-          colors={["#FFFFFF", `${sportColors.background}79`, sportColors.background]}
+          colors={[
+            "#FFFFFF",
+            `${sportColors.background}79`,
+            sportColors.background,
+          ]}
           style={styles.headerGradient}
         >
-          <View style={[styles.headerGradient, {paddingHorizontal: 16}]}> 
-            {/* Two-column header: left title, right filter + date */}
+          {/* <View style={[styles.headerGradient, {paddingHorizontal: 16}]}> 
             <View style={styles.headerTopRow}>
               <View style={styles.headerLeftColumn}>
                 <Text style={styles.headerTitle}>Friendly Matches</Text>
@@ -406,6 +463,48 @@ export const FriendlyScreen: React.FC<FriendlyScreenProps> = ({ sport }) => {
                 </View>
               </View>
             </View>
+          </View> */}
+
+          <View style={[styles.headerGradient, { paddingHorizontal: 16 }]}>
+            {/* Header Title */}
+            <Text style={styles.headerTitle}>Friendly Matches</Text>
+
+            {/* Row: Filter | Dates */}
+            <View style={styles.controlsRow}>
+              <TouchableOpacity
+                style={[
+                  styles.filterButtonContainer,
+                  activeFilterCount > 0 && {
+                    backgroundColor: sportColors.background,
+                    borderColor: sportColors.background,
+                  },
+                ]}
+                onPress={handleFilterButtonPress}
+              >
+                <Ionicons
+                  name="options-outline"
+                  size={22}
+                  color={activeFilterCount > 0 ? "#FFFFFF" : "#6B7280"}
+                />
+                {activeFilterCount > 0 && (
+                  <View style={styles.filterBadge}>
+                    <Text style={styles.filterBadgeText}>
+                      {activeFilterCount}
+                    </Text>
+                  </View>
+                )}
+              </TouchableOpacity>
+
+              <View style={styles.verticalDivider} />
+
+              <View style={styles.dateScrollContainer}>
+                <HorizontalDateScroll
+                  selectedDate={selectedDate}
+                  onDateSelect={setSelectedDate}
+                  sportColor={sportColors.background}
+                />
+              </View>
+            </View>
           </View>
         </LinearGradient>
       </View>
@@ -419,7 +518,7 @@ export const FriendlyScreen: React.FC<FriendlyScreenProps> = ({ sport }) => {
             {
               opacity: contentEntryOpacity,
               transform: [{ translateY: contentEntryTranslateY }],
-            }
+            },
           ]}
         >
           {showSkeleton ? (
@@ -435,7 +534,9 @@ export const FriendlyScreen: React.FC<FriendlyScreenProps> = ({ sport }) => {
               <FlatList
                 data={Object.entries(groupedMatches)}
                 keyExtractor={([dateKey]) => dateKey}
-                renderItem={({ item: [dateKey, dateMatches] }) => renderMatchGroup(dateKey, dateMatches)}
+                renderItem={({ item: [dateKey, dateMatches] }) =>
+                  renderMatchGroup(dateKey, dateMatches)
+                }
                 contentContainerStyle={styles.listContent}
                 refreshControl={
                   <RefreshControl
@@ -454,7 +555,12 @@ export const FriendlyScreen: React.FC<FriendlyScreenProps> = ({ sport }) => {
       {/* Create Match FAB */}
       <TouchableOpacity
         style={[styles.fab, { backgroundColor: sportColors.background }]}
-        onPress={() => router.push({ pathname: '/friendly/create', params: { sportType: sport } })}
+        onPress={() =>
+          router.push({
+            pathname: "/friendly/create",
+            params: { sportType: sport },
+          })
+        }
         activeOpacity={0.8}
       >
         <Ionicons name="add" size={28} color="#FFFFFF" />
@@ -476,140 +582,177 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
+  headerGradient: {
+    paddingTop: 50,
+    paddingBottom: 25,
+  },
+  headerTitle: {
+    fontSize: 24,
+    fontWeight: "800",
+    color: "#111827",
+    marginBottom: 20,
+  },
+  controlsRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "flex-start",
+    width: "100%",
+
+    gap: 12,
+  },
+  filterButtonContainer: {
+    width: 50,
+    height: 50,
+    borderRadius: 12,
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "#181818",
+    position: "relative",
+  },
+  filterBadge: {
+    position: "absolute",
+    top: -5,
+    right: -5,
+    backgroundColor: "#FEA04D",
+    borderRadius: 10,
+    width: 20,
+    height: 20,
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 2,
+    borderColor: "#2e2e2e",
+  },
+  filterBadgeText: {
+    color: "#FFFFFF",
+    fontSize: 10,
+    fontWeight: "bold",
+  },
+  verticalDivider: {
+    width: 1,
+    height: 30,
+    backgroundColor: "#3b3b3b",
+    marginHorizontal: 12,
+  },
+  dateScrollContainer: {
+    flex: 1,
+    justifyContent: "center",
+  },
+  contentWrapper: {
+    flex: 1,
+    backgroundColor: "#F9FAFB",
+    borderTopLeftRadius: 30,
+    borderTopRightRadius: 30,
+    marginTop: -20,
+    paddingTop: 20,
+    zIndex: 1,
+  },
   headerSection: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: "#FFFFFF",
     paddingTop: 16,
     paddingBottom: 16,
   },
   headerTopRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "flex-start",
+    justifyContent: "space-between",
     gap: 16,
   },
   headerLeftColumn: {
     flex: 1,
-    justifyContent: 'flex-start',
+    justifyContent: "flex-start",
   },
   headerRightColumn: {
-    width: '50%',
-    alignItems: 'flex-end',
+    width: "50%",
+    alignItems: "flex-end",
     gap: 12,
   },
   headerDateSection: {
-    width: '100%',
+    width: "100%",
     gap: 8,
   },
   headerDateScrollWrapper: {
-    width: '100%',
-    overflow: 'hidden',
+    width: "100%",
+    overflow: "hidden",
   },
   headerRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
     marginBottom: 12,
     gap: 16,
   },
   headerLeft: {
     flex: 1,
-    justifyContent: 'center',
+    justifyContent: "center",
   },
   headerRight: {
     flex: 1,
     gap: 8,
   },
   headerTop: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     marginBottom: 16,
   },
-  headerTitle: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: '#111827',
-  },
   headerFilterButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
     paddingHorizontal: 16,
     paddingVertical: 10,
     borderRadius: 22,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: "#F3F4F6",
     gap: 8,
   },
   filterButtonText: {
     fontSize: 12,
-    fontWeight: '600',
-    color: '#FFFFFF',
+    fontWeight: "600",
+    color: "#FFFFFF",
   },
   dateContainer: {
     gap: 8,
   },
   dateLabel: {
     fontSize: 16,
-    fontWeight: '600',
-    color: '#000000',
+    fontWeight: "600",
+    color: "#000000",
   },
   header: {
     paddingHorizontal: 16,
     paddingBottom: 16,
-    alignItems: 'center',
+    alignItems: "center",
   },
   headerContent: {
-    alignItems: 'center',
-  },
-  contentWrapper: {
-    flex: 1,
-    backgroundColor: '#F9FAFB',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    marginTop: -20,
-    paddingTop: 16,
+    alignItems: "center",
   },
   matchListWrapper: {
     flex: 1,
   },
   controlsContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     paddingLeft: 16,
     marginBottom: 16,
     gap: 12,
-    overflow: 'hidden',
+    overflow: "hidden",
   },
   filterButton: {
-    flexDirection: 'column',
-    alignItems: 'center',
-    justifyContent: 'center',
+    flexDirection: "column",
+    alignItems: "center",
+    justifyContent: "center",
     width: 56,
     height: 72,
     borderRadius: 8,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: "#FFFFFF",
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: "#E5E7EB",
     gap: 4,
   },
-  filterButtonText: {
-    fontSize: 11,
-    fontWeight: '500',
-    color: '#6B7280',
-    textTransform: 'uppercase',
-  },
   filterButtonTextActive: {
-    color: '#FFFFFF',
-    fontWeight: '700',
-  },
-  verticalDivider: {
-    width: 1,
-    height: 48,
-    backgroundColor: '#E5E7EB',
-  },
-  dateScrollContainer: {
-    flex: 1,
-    overflow: 'hidden',
+    color: "#FFFFFF",
+    fontWeight: "700",
   },
   listContent: {
     flexGrow: 1,
@@ -619,8 +762,8 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   dateDivider: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     paddingHorizontal: 16,
     paddingVertical: 16,
     gap: 12,
@@ -628,51 +771,51 @@ const styles = StyleSheet.create({
   dateDividerLine: {
     flex: 1,
     height: 1,
-    backgroundColor: '#D1D5DB',
+    backgroundColor: "#D1D5DB",
   },
   loadingContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     gap: 12,
   },
   loadingText: {
     fontSize: 14,
-    color: '#6B7280',
+    color: "#6B7280",
   },
   emptyContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     paddingHorizontal: 32,
     paddingBottom: 80,
     gap: 12,
   },
   emptyTitle: {
     fontSize: 18,
-    fontWeight: '700',
-    color: '#111827',
+    fontWeight: "700",
+    color: "#111827",
   },
   emptyDescription: {
     fontSize: 14,
-    color: '#6B7280',
-    textAlign: 'center',
+    color: "#6B7280",
+    textAlign: "center",
   },
-   headerGradient: {
-    paddingTop: 20,
-    paddingBottom: 16,
-    paddingHorizontal: 0,
-  },
+  //  headerGradient: {
+  //   paddingTop: 20,
+  //   paddingBottom: 16,
+  //   paddingHorizontal: 0,
+  // },
   fab: {
-    position: 'absolute',
+    position: "absolute",
     bottom: 100,
     right: 20,
     width: 56,
     height: 56,
     borderRadius: 28,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#000',
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,

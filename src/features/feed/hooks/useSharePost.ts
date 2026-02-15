@@ -94,7 +94,7 @@ export const useSharePost = (): UseSharePostReturn => {
       result: "tmpfile" as const,
       width: 1080, // 9:16 ratio
       height: 1920,
-      backgroundColor: "transparent" as const, // Preserve transparency in rounded corners
+      backgroundColor: "transparent" as const,
     };
     console.log(
       "[useSharePost] Capture config:",
@@ -141,7 +141,7 @@ export const useSharePost = (): UseSharePostReturn => {
           result: "tmpfile",
           width: 1080, // 9:16 ratio
           height: 1920,
-          backgroundColor: "transparent", // Preserve transparency in rounded corners
+          // backgroundColor: "transparent", 
         });
         console.log("[useSharePost] Image captured at 1080x1920 (9:16 ratio)");
 
@@ -217,7 +217,7 @@ export const useSharePost = (): UseSharePostReturn => {
           result: "tmpfile",
           width: 1080, // 9:16 ratio
           height: 1920,
-          backgroundColor: "transparent", // Preserve transparency in rounded corners
+          //  backgroundColor: "transparent",
         });
         console.log("[useSharePost] Image captured at 1080x1920 (9:16 ratio)");
 
