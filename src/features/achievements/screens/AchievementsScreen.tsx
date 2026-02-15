@@ -94,12 +94,13 @@ export default function AchievementsScreen() {
         { method: 'GET' }
       );
 
-      const data = response as { data?: AchievementsResponse };
-      if (data?.data) {
-        setAchievements(data.data.achievements || []);
-        setCompletedCount(data.data.completedCount || 0);
-        setTotalCount(data.data.totalCount || 0);
-        setTotalPoints(data.data.totalPoints || 0);
+      const raw = response as any;
+      const payload = raw?.data?.data ?? raw?.data ?? raw;
+      if (payload?.achievements) {
+        setAchievements(payload.achievements || []);
+        setCompletedCount(payload.completedCount || 0);
+        setTotalCount(payload.totalCount || 0);
+        setTotalPoints(payload.totalPoints || 0);
       }
     } catch (error) {
       console.error('Error fetching achievements:', error);
@@ -131,22 +132,29 @@ export default function AchievementsScreen() {
   }, [fetchAchievements]);
 
   // Filter achievements by category
-  const filteredAchievements =
-    selectedCategory === 'ALL'
-      ? achievements
-      : achievements.filter((a) => a.category === selectedCategory);
+  const filteredAchievements = React.useMemo(
+    () =>
+      selectedCategory === 'ALL'
+        ? achievements
+        : achievements.filter((a) => a.category === selectedCategory),
+    [achievements, selectedCategory]
+  );
 
   // Sort: completed first (by unlockedAt desc), then locked (by sortOrder)
-  const sortedAchievements = [...filteredAchievements].sort((a, b) => {
-    if (a.isCompleted && !b.isCompleted) return -1;
-    if (!a.isCompleted && b.isCompleted) return 1;
-    if (a.isCompleted && b.isCompleted) {
-      const dateA = a.unlockedAt ? new Date(a.unlockedAt).getTime() : 0;
-      const dateB = b.unlockedAt ? new Date(b.unlockedAt).getTime() : 0;
-      return dateB - dateA;
-    }
-    return a.sortOrder - b.sortOrder;
-  });
+  const sortedAchievements = React.useMemo(
+    () =>
+      [...filteredAchievements].sort((a, b) => {
+        if (a.isCompleted && !b.isCompleted) return -1;
+        if (!a.isCompleted && b.isCompleted) return 1;
+        if (a.isCompleted && b.isCompleted) {
+          const dateA = a.unlockedAt ? new Date(a.unlockedAt).getTime() : 0;
+          const dateB = b.unlockedAt ? new Date(b.unlockedAt).getTime() : 0;
+          return dateB - dateA;
+        }
+        return a.sortOrder - b.sortOrder;
+      }),
+    [filteredAchievements]
+  );
 
   const progressPercent =
     totalCount > 0 ? (completedCount / totalCount) * 100 : 0;
@@ -247,36 +255,38 @@ export default function AchievementsScreen() {
       </View>
 
       {/* Grid */}
-      {sortedAchievements.length === 0 ? (
-        <View style={styles.emptyContainer}>
-          <Ionicons
-            name="trophy-outline"
-            size={64}
-            color={theme.colors.neutral.gray[300]}
+      <FlatList
+        data={sortedAchievements}
+        renderItem={renderItem}
+        keyExtractor={keyExtractor}
+        numColumns={2}
+        contentContainerStyle={[
+          styles.gridContent,
+          sortedAchievements.length === 0 && styles.emptyGridContent,
+        ]}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={theme.colors.primary}
+            colors={[theme.colors.primary]}
           />
-          <Text style={styles.emptyTitle}>No Achievements</Text>
-          <Text style={styles.emptyText}>
-            No achievements found in this category.
-          </Text>
-        </View>
-      ) : (
-        <FlatList
-          data={sortedAchievements}
-          renderItem={renderItem}
-          keyExtractor={keyExtractor}
-          numColumns={2}
-          contentContainerStyle={styles.gridContent}
-          showsVerticalScrollIndicator={false}
-          refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={onRefresh}
-              tintColor={theme.colors.primary}
-              colors={[theme.colors.primary]}
+        }
+        ListEmptyComponent={
+          <View style={styles.emptyContainer}>
+            <Ionicons
+              name="trophy-outline"
+              size={64}
+              color={theme.colors.neutral.gray[300]}
             />
-          }
-        />
-      )}
+            <Text style={styles.emptyTitle}>No Achievements</Text>
+            <Text style={styles.emptyText}>
+              No achievements found in this category.
+            </Text>
+          </View>
+        }
+      />
 
       {/* Achievement Unlock Celebration Sheet */}
       <AchievementUnlockSheet
@@ -394,6 +404,9 @@ const styles = StyleSheet.create({
   gridContent: {
     padding: 12,
     paddingBottom: 40,
+  },
+  emptyGridContent: {
+    flexGrow: 1,
   },
   emptyContainer: {
     flex: 1,
