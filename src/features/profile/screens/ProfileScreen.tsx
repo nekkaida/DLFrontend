@@ -36,10 +36,6 @@ import { useProfileHandlers } from '../hooks/useProfileHandlers';
 import { useProfileState } from '../hooks/useProfileState';
 import { ProfileDataTransformer } from '../services/ProfileDataTransformer';
 import { useProfileImageUpload } from '@/src/shared/hooks/useProfileImageUpload';
-import { useAchievementSocket } from '@/src/features/achievements/hooks/useAchievementSocket';
-import { AchievementUnlockSheet } from '@/src/features/achievements/components/AchievementUnlockSheet';
-import type { AchievementData } from '@/src/features/achievements/components/AchievementCard';
-import type { AchievementUnlockPayload } from '@/src/features/achievements/hooks/useAchievementSocket';
 import type { GameData } from '../types';
 
 const { width } = Dimensions.get('window');
@@ -59,39 +55,6 @@ export default function ProfileScreen() {
     matchesPlayed: number;
   }>({ wins: 0, losses: 0, matchesPlayed: 0 });
   const hasInitializedSport = useRef(false);
-
-  // Achievement unlock state
-  const [pendingUnlocks, setPendingUnlocks] = useState<AchievementData[]>([]);
-  const [showUnlockSheet, setShowUnlockSheet] = useState(false);
-  const needsAchievementRefresh = useRef(false);
-
-  // Listen for real-time achievement unlocks via socket
-  const handleAchievementUnlock = useCallback((payload: AchievementUnlockPayload) => {
-    const unlockData: AchievementData = {
-      id: payload.achievementId,
-      title: payload.title,
-      description: payload.description,
-      icon: payload.icon,
-      tier: payload.tier,
-      category: payload.category,
-      scope: '',
-      threshold: 1,
-      sportFilter: null,
-      gameTypeFilter: null,
-      sortOrder: 0,
-      isHidden: false,
-      points: payload.points,
-      progress: 1,
-      isCompleted: true,
-      unlockedAt: new Date().toISOString(),
-    };
-    setPendingUnlocks((prev) => [...prev, unlockData]);
-    setShowUnlockSheet(true);
-    // Flag for refresh on next render cycle
-    needsAchievementRefresh.current = true;
-  }, []);
-
-  useAchievementSocket(handleAchievementUnlock);
 
   // Entry animation values
   const profilePictureEntryOpacity = useRef(new Animated.Value(0)).current;
@@ -197,30 +160,39 @@ export default function ProfileScreen() {
 
   // Fetch profile data
   const fetchProfileData = useCallback(async () => {
+    if (!session?.user?.id) {
+      console.log('No user session');
+      setIsLoading(false);
+      return;
+    }
+
+    const backendUrl = getBackendBaseURL();
+
+    // Fetch profile data
     try {
-      if (!session?.user?.id) {
-        console.log('No user session');
-        setIsLoading(false);
-        return;
-      }
+      const profileResponse = await authClient.$fetch(
+        `${backendUrl}/api/player/profile/me`,
+        { method: 'GET' }
+      );
 
-      const backendUrl = getBackendBaseURL();
-
-      // Fetch profile and achievements in parallel
-      const [profileResponse, achievementsResponse] = await Promise.all([
-        authClient.$fetch(`${backendUrl}/api/player/profile/me`, { method: 'GET' }),
-        authClient.$fetch(`${backendUrl}/api/player/profile/achievements`, { method: 'GET' })
-      ]);
-
-      // Comment out API responses after testing to keep terminal clean
-      // API response structure: response.data.data contains the actual profile
       if (profileResponse && (profileResponse as any).data?.data) {
-        // console.log('Setting profile data (nested):', (profileResponse as any).data.data);
         setProfileData((profileResponse as any).data.data);
       } else if (profileResponse && (profileResponse as any).data) {
-        // console.log('Setting profile data (direct):', (profileResponse as any).data);
         setProfileData((profileResponse as any).data);
       }
+    } catch (error) {
+      console.error('Error fetching profile:', error);
+      toast.error('Error', {
+        description: 'Failed to load profile data',
+      });
+    }
+
+    // Fetch achievements independently
+    try {
+      const achievementsResponse = await authClient.$fetch(
+        `${backendUrl}/api/player/profile/achievements`,
+        { method: 'GET' }
+      );
 
       if (achievementsResponse && (achievementsResponse as any).data?.achievements) {
         const achData = (achievementsResponse as any).data;
@@ -231,26 +203,15 @@ export default function ProfileScreen() {
         });
       }
     } catch (error) {
-      console.error('Error fetching profile:', error);
-      toast.error('Error', {
-        description: 'Failed to load profile data',
-      });
-    } finally {
-      setIsLoading(false);
+      console.error('Error fetching achievements:', error);
     }
+
+    setIsLoading(false);
   }, [session]);
 
   useEffect(() => {
     fetchProfileData();
   }, [fetchProfileData]);
-
-  // Refresh achievements when socket event triggers
-  useEffect(() => {
-    if (needsAchievementRefresh.current) {
-      needsAchievementRefresh.current = false;
-      fetchProfileData();
-    }
-  }, [showUnlockSheet, fetchProfileData]);
 
   // Fetch rating history when game type, sport, or profile data changes
   useEffect(() => {
@@ -650,15 +611,6 @@ export default function ProfileScreen() {
         />
       )}
 
-      {/* Achievement Unlock Celebration Sheet */}
-      <AchievementUnlockSheet
-        achievements={pendingUnlocks}
-        visible={showUnlockSheet}
-        onDismiss={() => {
-          setShowUnlockSheet(false);
-          setPendingUnlocks([]);
-        }}
-      />
     </View>
   );
 }
