@@ -82,6 +82,7 @@ export const AchievementBadge: React.FC<AchievementBadgeProps> = ({
 const styles = StyleSheet.create({
   container: {
     position: 'relative',
+    overflow: 'visible',
   },
   circle: {
     justifyContent: 'center',
