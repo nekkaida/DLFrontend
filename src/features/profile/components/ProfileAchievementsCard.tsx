@@ -80,11 +80,16 @@ export const ProfileAchievementsCard: React.FC<ProfileAchievementsCardProps> = (
                   <Text style={styles.achievementText} numberOfLines={2}>
                     {achievement.title}
                   </Text>
-                  {achievement.unlockedAt && (
-                    <Text style={styles.achievementYear}>
-                      ({new Date(achievement.unlockedAt).getFullYear()})
-                    </Text>
-                  )}
+                  {achievement.unlockedAt && (() => {
+                    try {
+                      const year = new Date(achievement.unlockedAt).getFullYear();
+                      return isNaN(year) ? null : (
+                        <Text style={styles.achievementYear}>({year})</Text>
+                      );
+                    } catch {
+                      return null;
+                    }
+                  })()}
                 </View>
               </View>
             ))
