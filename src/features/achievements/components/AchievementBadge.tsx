@@ -1,8 +1,9 @@
 import React from 'react';
-import { View, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
 const TIER_COLORS: Record<string, string> = {
+  NONE: '#6B7280',
   BRONZE: '#CD7F32',
   SILVER: '#C0C0C0',
   GOLD: '#FFD700',
@@ -20,6 +21,7 @@ interface AchievementBadgeProps {
   tier: string;
   size?: 'sm' | 'md' | 'lg';
   isLocked?: boolean;
+  counterValue?: number;
 }
 
 export const AchievementBadge: React.FC<AchievementBadgeProps> = ({
@@ -27,14 +29,17 @@ export const AchievementBadge: React.FC<AchievementBadgeProps> = ({
   tier,
   size = 'md',
   isLocked = false,
+  counterValue,
 }) => {
   const dimension = SIZE_MAP[size];
   const borderWidth = size === 'lg' ? 3 : size === 'md' ? 2.5 : 2;
   const iconSize = Math.round(dimension * 0.45);
   const lockSize = Math.round(dimension * 0.3);
   const lockOffset = Math.round(dimension * -0.05);
+  const showCounter = counterValue != null && counterValue > 0 && !isLocked;
+  const counterFontSize = size === 'lg' ? 22 : size === 'md' ? 16 : 11;
 
-  const borderColor = isLocked ? '#D1D5DB' : (TIER_COLORS[tier] || TIER_COLORS.BRONZE);
+  const borderColor = isLocked ? '#D1D5DB' : (TIER_COLORS[tier] || TIER_COLORS.NONE);
   const bgColor = isLocked ? '#E5E7EB' : '#1C1C1E';
   const iconColor = isLocked ? '#9CA3AF' : '#FFFFFF';
 
@@ -53,7 +58,13 @@ export const AchievementBadge: React.FC<AchievementBadgeProps> = ({
           },
         ]}
       >
-        <Ionicons name={icon as any} size={iconSize} color={iconColor} />
+        {showCounter ? (
+          <Text style={[styles.counterText, { fontSize: counterFontSize, color: iconColor }]}>
+            {counterValue}
+          </Text>
+        ) : (
+          <Ionicons name={icon as any} size={iconSize} color={iconColor} />
+        )}
       </View>
       {isLocked && (
         <View
@@ -95,5 +106,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderWidth: 1.5,
     borderColor: '#FFFFFF',
+  },
+  counterText: {
+    fontWeight: '800',
+    fontVariant: ['tabular-nums'],
   },
 });
