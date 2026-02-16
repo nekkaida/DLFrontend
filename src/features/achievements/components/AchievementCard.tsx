@@ -17,6 +17,8 @@ export interface AchievementData {
   sortOrder: number;
   isHidden: boolean;
   points: number;
+  isRevocable?: boolean;
+  badgeGroup?: string | null;
   progress: number;
   isCompleted: boolean;
   unlockedAt: string | null;
@@ -66,6 +68,7 @@ export const AchievementCard: React.FC<AchievementCardProps> = ({
           tier={achievement.tier}
           size="md"
           isLocked={!isUnlocked}
+          counterValue={achievement.badgeGroup && isUnlocked ? achievement.progress : undefined}
         />
       </View>
 
