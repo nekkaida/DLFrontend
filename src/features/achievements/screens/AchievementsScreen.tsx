@@ -21,14 +21,15 @@ import { AchievementCard } from '../components/AchievementCard';
 import { AchievementUnlockSheet } from '../components/AchievementUnlockSheet';
 import { useAchievementSocket } from '../hooks/useAchievementSocket';
 import type { AchievementData } from '../components/AchievementCard';
-import type { AchievementUnlockPayload } from '../hooks/useAchievementSocket';
+import type { AchievementUnlockPayload, AchievementRevokedPayload } from '../hooks/useAchievementSocket';
 
 const CATEGORIES = [
   { key: 'ALL', label: 'All' },
-  { key: 'COMPETITION', label: 'Competition' },
-  { key: 'RATING', label: 'Rating' },
-  { key: 'SEASON', label: 'Season' },
-  { key: 'SOCIAL', label: 'Social' },
+  { key: 'MATCH_COUNTER', label: 'Matches' },
+  { key: 'LEAGUE_SEASON', label: 'Seasons' },
+  { key: 'WINNING', label: 'Winning' },
+  { key: 'MULTI_SPORT', label: 'Multi-Sport' },
+  { key: 'MATCH_STREAK', label: 'Streak' },
 ];
 
 interface AchievementsResponse {
@@ -79,8 +80,6 @@ export default function AchievementsScreen() {
     needsAchievementRefresh.current = true;
   }, []);
 
-  useAchievementSocket(handleAchievementUnlock);
-
   const fetchAchievements = useCallback(async () => {
     try {
       if (!session?.user?.id) {
@@ -112,6 +111,14 @@ export default function AchievementsScreen() {
     }
   }, [session]);
 
+  // Handle revoked achievements (e.g., match streak broken)
+  const handleAchievementRevoked = useCallback((_payload: AchievementRevokedPayload) => {
+    needsAchievementRefresh.current = true;
+    fetchAchievements();
+  }, [fetchAchievements]);
+
+  useAchievementSocket(handleAchievementUnlock, handleAchievementRevoked);
+
   useEffect(() => {
     fetchAchievements();
   }, [fetchAchievements]);
@@ -131,13 +138,51 @@ export default function AchievementsScreen() {
     setRefreshing(false);
   }, [fetchAchievements]);
 
+  // Apply badge grouping: for badgeGroup achievements, show only the highest unlocked tier
+  // (or lowest tier if none unlocked). For match_streak, hide entirely if no tier completed.
+  const groupedAchievements = React.useMemo(() => {
+    const groups = new Map<string, AchievementData[]>();
+    const ungrouped: AchievementData[] = [];
+
+    for (const a of achievements) {
+      if (a.badgeGroup) {
+        const group = groups.get(a.badgeGroup) || [];
+        group.push(a);
+        groups.set(a.badgeGroup, group);
+      } else {
+        ungrouped.push(a);
+      }
+    }
+
+    const result: AchievementData[] = [...ungrouped];
+
+    for (const [groupKey, items] of groups) {
+      // Sort by threshold ascending so tier order is correct
+      items.sort((a, b) => a.threshold - b.threshold);
+
+      const completed = items.filter(i => i.isCompleted);
+      if (completed.length > 0) {
+        // Show the highest completed tier
+        result.push(completed[completed.length - 1]);
+      } else if (groupKey === 'match_streak') {
+        // Match streak: hide entirely when no tier is completed (streak broken)
+        continue;
+      } else {
+        // Show the lowest tier (locked)
+        result.push(items[0]);
+      }
+    }
+
+    return result;
+  }, [achievements]);
+
   // Filter achievements by category
   const filteredAchievements = React.useMemo(
     () =>
       selectedCategory === 'ALL'
-        ? achievements
-        : achievements.filter((a) => a.category === selectedCategory),
-    [achievements, selectedCategory]
+        ? groupedAchievements
+        : groupedAchievements.filter((a) => a.category === selectedCategory),
+    [groupedAchievements, selectedCategory]
   );
 
   // Sort: completed first (by unlockedAt desc), then locked (by sortOrder)
