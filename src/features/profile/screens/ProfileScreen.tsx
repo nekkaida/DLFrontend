@@ -194,8 +194,9 @@ export default function ProfileScreen() {
         { method: 'GET' }
       );
 
-      if (achievementsResponse && (achievementsResponse as any).data?.achievements) {
-        const achData = (achievementsResponse as any).data;
+      const raw = achievementsResponse as any;
+      const achData = raw?.data?.data ?? raw?.data ?? raw;
+      if (achData?.achievements) {
         setAchievements(achData.achievements);
         setAchievementCounts({
           completed: achData.completedCount ?? 0,
