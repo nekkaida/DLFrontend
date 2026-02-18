@@ -3,6 +3,7 @@ import { useRouter, useSegments, Href } from 'expo-router';
 import { BackHandler } from 'react-native';
 import { useSession, signOut } from '@/lib/auth-client';
 import axiosInstance from '@/lib/endpoints';
+import * as SecureStore from 'expo-secure-store';
 import { AuthStorage, OnboardingStorage } from '@/src/core/storage';
 import { getIsLogoutInProgress } from '@core/navigation/navigationUtils';
 
@@ -103,6 +104,7 @@ export const NavigationInterceptor: React.FC<NavigationInterceptorProps> = ({ ch
   const { data: session, isPending } = useSession();
   const navigationStack = useRef<string[]>([]);
   const isNavigating = useRef(false);
+  const isCleaningUpSession = useRef(false); // Guards against 401 retry loops during session cleanup
   const [onboardingStatus, setOnboardingStatus] = useState<{
     completedOnboarding: boolean;
     hasCompletedAssessment: boolean;
@@ -117,7 +119,7 @@ export const NavigationInterceptor: React.FC<NavigationInterceptorProps> = ({ ch
 
   // Check onboarding completion status from backend (using existing APIs)
   const checkOnboardingStatus = async (userId: string, forceRefresh: boolean = false) => {
-    if (isCheckingOnboarding) return; // Prevent multiple concurrent checks
+    if (isCheckingOnboarding || isCleaningUpSession.current) return; // Prevent checks during cleanup
 
     console.log('NavigationInterceptor: Checking onboarding status for user:', userId, forceRefresh ? '(force refresh)' : '');
     setIsCheckingOnboarding(true);
@@ -226,18 +228,36 @@ export const NavigationInterceptor: React.FC<NavigationInterceptorProps> = ({ ch
       }
 
       if (status === 401) {
-        // Session expired or invalid - the user needs to re-authenticate
-        // Don't sign out here - let the session state handle it naturally
-        // Just log and set backendError so user can retry
-        console.warn('Session expired or invalid (401) - user may need to re-login');
-        // DON'T call signOut() here - it causes the logout loop!
-        // The session will be refreshed naturally by better-auth if needed
-        setOnboardingStatus({
-          completedOnboarding: false,
-          hasCompletedAssessment: false,
-          timestamp: Date.now(),
-          backendError: true
-        });
+        // Prevent re-entry if already cleaning up
+        if (isCleaningUpSession.current) return;
+        isCleaningUpSession.current = true;
+
+        console.warn('Session expired or invalid (401) - clearing local session');
+
+        // 1. Clear persistent session from SecureStore (local-only, no backend call)
+        const keysToDelete = [
+          'deuceleague.sessionToken',
+          'deuceleague.session',
+          'deuceleague.user',
+          'deuceleague.accessToken',
+          'deuceleague.refreshToken',
+        ];
+        await Promise.all(
+          keysToDelete.map(key => SecureStore.deleteItemAsync(key).catch(() => {}))
+        );
+
+        // 2. Try signOut to clear in-memory state (ignore backend failure)
+        try {
+          await Promise.race([
+            signOut(),
+            new Promise(resolve => setTimeout(resolve, 2000)),
+          ]);
+        } catch {
+          // Backend call may fail (expected for expired session)
+        }
+
+        // 3. Reset state - session becoming null triggers redirect to login
+        setOnboardingStatus(null);
         return;
       }
 
@@ -276,9 +296,12 @@ export const NavigationInterceptor: React.FC<NavigationInterceptorProps> = ({ ch
   // Check onboarding status when user session changes
   useEffect(() => {
     if (session?.user?.id && !onboardingStatus) {
-      checkOnboardingStatus(session.user.id);
+      if (!isCleaningUpSession.current) {
+        checkOnboardingStatus(session.user.id);
+      }
     } else if (!session?.user) {
-      // Reset onboarding status when user logs out
+      // Session fully cleared - reset guards and onboarding status
+      isCleaningUpSession.current = false;
       setOnboardingStatus(null);
     }
   }, [session?.user?.id]);
@@ -376,7 +399,7 @@ export const NavigationInterceptor: React.FC<NavigationInterceptorProps> = ({ ch
       // from hitting rate limits or backend issues during rapid navigation
       const STALE_THRESHOLD_MS = 60 * 1000; // 60 seconds
       const isStale = !onboardingStatus?.timestamp || (Date.now() - onboardingStatus.timestamp > STALE_THRESHOLD_MS);
-      const needsRefresh = !onboardingStatus || (!onboardingStatus.completedOnboarding && !isCheckingOnboarding) || isStale;
+      const needsRefresh = !onboardingStatus || (!onboardingStatus.completedOnboarding && !isCheckingOnboarding && !onboardingStatus?.backendError) || (isStale && !onboardingStatus?.backendError);
       
       if (needsRefresh) {
         console.log('NavigationInterceptor: Refreshing onboarding status for protected route...', 
