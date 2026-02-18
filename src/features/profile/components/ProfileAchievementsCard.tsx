@@ -11,6 +11,7 @@ interface Achievement {
   title: string;
   icon: string;
   tier?: string;
+  points?: number;
   isCompleted?: boolean;
   unlockedAt?: string;
 }
@@ -31,14 +32,15 @@ export const ProfileAchievementsCard: React.FC<ProfileAchievementsCardProps> = (
   const router = useRouter();
   const hasAchievements = achievements && achievements.length > 0;
 
-  // Get the 3 most recently unlocked achievements
+  // Show the 3 most impressive unlocked achievements (highest tier, then points)
+  const tierRank: Record<string, number> = { PLATINUM: 4, GOLD: 3, SILVER: 2, BRONZE: 1, NONE: 0 };
   const recentAchievements = hasAchievements
     ? [...achievements]
         .filter((a) => a.isCompleted || a.unlockedAt)
         .sort((a, b) => {
-          const dateA = a.unlockedAt ? new Date(a.unlockedAt).getTime() : 0;
-          const dateB = b.unlockedAt ? new Date(b.unlockedAt).getTime() : 0;
-          return dateB - dateA;
+          const tierDiff = (tierRank[b.tier || 'NONE'] ?? 0) - (tierRank[a.tier || 'NONE'] ?? 0);
+          if (tierDiff !== 0) return tierDiff;
+          return (b.points ?? 0) - (a.points ?? 0);
         })
         .slice(0, 3)
     : [];
