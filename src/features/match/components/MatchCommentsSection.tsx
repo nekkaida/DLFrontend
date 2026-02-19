@@ -43,7 +43,7 @@ const formatRelativeTime = (dateString: string): string => {
 };
 
 export const MatchCommentsSection: React.FC<MatchCommentsSectionProps> = ({
-  comments,
+  comments = [],
   isUserParticipant,
   canComment,
   currentUserId,
@@ -127,17 +127,20 @@ export const MatchCommentsSection: React.FC<MatchCommentsSectionProps> = ({
 
   const showInput = isUserParticipant && canComment;
 
-  const renderComment = (comment: MatchComment) => {
+  const renderComment = (comment: MatchComment, index: number) => {
     const isOwner = comment.userId === currentUserId;
     const isEditing = editingCommentId === comment.id;
     const isMenuOpen = openMenuId === comment.id;
-    const userInitial = comment.user.name?.charAt(0)?.toUpperCase() || '?';
+    const userName = comment.user?.name || 'Unknown';
+    const userInitial = userName.charAt(0).toUpperCase();
+    const userImage = comment.user?.image;
+    const commentKey = comment.id || `${comment.userId || 'user'}-${comment.createdAt || index}-${index}`;
 
     return (
-      <View key={comment.id} style={styles.commentItem}>
-        {comment.user.image ? (
+      <View key={commentKey} style={styles.commentItem}>
+        {userImage ? (
           <Image
-            source={{ uri: comment.user.image }}
+            source={{ uri: userImage }}
             style={styles.avatar}
           />
         ) : (
@@ -149,7 +152,7 @@ export const MatchCommentsSection: React.FC<MatchCommentsSectionProps> = ({
           <View style={styles.commentHeaderRow}>
             <View style={styles.commentHeaderInfo}>
               <Text style={styles.commentAuthor} numberOfLines={1}>
-                {comment.user.name}
+                {userName}
               </Text>
               <Text style={styles.commentTime}>
                 · {formatRelativeTime(comment.createdAt)}
@@ -252,7 +255,7 @@ export const MatchCommentsSection: React.FC<MatchCommentsSectionProps> = ({
           <ActivityIndicator size="small" color="#10B981" />
           <Text style={styles.loadingText}>Loading comments...</Text>
         </View>
-      ) : comments.length === 0 ? (
+      ) : (comments.length === 0) ? (
         <View style={styles.emptyContainer}>
           <View style={styles.emptyIconWrapper}>
             <Ionicons name="chatbubble-ellipses-outline" size={24} color="#9CA3AF" />
@@ -264,7 +267,7 @@ export const MatchCommentsSection: React.FC<MatchCommentsSectionProps> = ({
         </View>
       ) : (
         <View style={styles.commentsList}>
-          {comments.map(renderComment)}
+          {comments.filter(Boolean).map(renderComment)}
         </View>
       )}
 
