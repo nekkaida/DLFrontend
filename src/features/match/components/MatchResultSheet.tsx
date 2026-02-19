@@ -24,6 +24,7 @@ import {
   MatchResultSheetProps,
 } from './MatchResultSheet.types';
 import { formatRelativeTime } from './MatchResultSheet.utils';
+import { MatchComment } from '@/app/match/components/types';
 
 export const MatchResultSheet: React.FC<MatchResultSheetProps> = ({
   matchId,
@@ -173,34 +174,89 @@ export const MatchResultSheet: React.FC<MatchResultSheetProps> = ({
 
           if (response.ok) {
             const data = await response.json();
-            const match = data.match || data;
+            console.log('[MatchResultSheet] Raw response structure:', {
+              hasData: !!data,
+              hasMatch: !!data.match,
+              hasDataData: !!data.data,
+              topLevelKeys: Object.keys(data),
+              dataKeys: data.data ? Object.keys(data.data) : null,
+              matchKeys: data.match ? Object.keys(data.match) : null,
+            });
+            
+            // Try different response structures
+            const match = data.data?.match || data.match || data.data || data;
             setMatchDetails(match);
 
-            // Parse existing scores - handle both setScores (tennis/padel) and gameScores (pickleball)
-            const scoresData = match.setScores || match.gameScores;
-            if (scoresData) {
-              try {
-                const parsedScores = typeof scoresData === 'string' ? JSON.parse(scoresData) : scoresData;
-                if (Array.isArray(parsedScores)) {
-                  // Map to internal format - handle both naming conventions
-                  // Database may store: { gameNumber, team1Points, team2Points } or { setNumber, team1Games, team2Games }
-                  const mappedScores = parsedScores.map((score: any, index: number) => ({
-                    setNumber: score.setNumber || score.gameNumber || (index + 1),
-                    team1Games: score.team1Games ?? score.team1Points ?? 0,
-                    team2Games: score.team2Games ?? score.team2Points ?? 0,
-                    team1Tiebreak: score.team1Tiebreak,
-                    team2Tiebreak: score.team2Tiebreak,
-                  }));
+            console.log('[MatchResultSheet] Score Debug:', {
+              sportTypeProp: sportType,
+              matchSport: match.sport,
+              hasScores: !!match.scores,
+              scoresLength: match.scores?.length,
+              scoresData: match.scores,
+              hasPickleballScores: !!match.pickleballScores,
+              pickleballScoresLength: match.pickleballScores?.length,
+              pickleballScoresData: match.pickleballScores,
+              hasSetScores: !!match.setScores,
+              setScoresType: typeof match.setScores,
+              setScoresData: match.setScores,
+            });
 
-                  setSetScores([
-                    mappedScores[0] || { setNumber: 1, team1Games: 0, team2Games: 0 },
-                    mappedScores[1] || { setNumber: 2, team1Games: 0, team2Games: 0 },
-                    mappedScores[2] || { setNumber: 3, team1Games: 0, team2Games: 0 },
-                  ]);
+            // Parse existing scores based on sport type:
+            // - Tennis/Padel: uses scores[] relation (MatchScore with player1Games/player2Games)
+            // - Pickleball: uses pickleballScores[] relation (PickleballGameScore with player1Points/player2Points)
+            //               OR setScores JSON field
+            
+            const normalizedSport = (sportType || match.sport || '').toUpperCase();
+            const isPickleballMatch = normalizedSport === 'PICKLEBALL';
+            
+            console.log('[MatchResultSheet] Sport determination:', {
+              normalizedSport,
+              isPickleballMatch,
+            });
+            
+            let parsedScores: any[] = [];
+            
+            if (isPickleballMatch) {
+              // For pickleball: try pickleballScores relation first, then setScores/gameScores JSON
+              const pickleballData = match.pickleballScores || match.setScores || match.gameScores;
+              console.log('[MatchResultSheet] Pickleball data:', pickleballData);
+              if (pickleballData) {
+                const rawScores = typeof pickleballData === 'string' ? JSON.parse(pickleballData) : pickleballData;
+                if (Array.isArray(rawScores) && rawScores.length > 0) {
+                  parsedScores = rawScores.map((score: any, index: number) => ({
+                    setNumber: score.gameNumber || score.setNumber || (index + 1),
+                    team1Games: score.player1Points ?? score.team1Points ?? 0,
+                    team2Games: score.player2Points ?? score.team2Points ?? 0,
+                  }));
                 }
-              } catch (e) {
-                console.error('Error parsing scores:', e);
               }
+            } else {
+              // For tennis/padel: use scores relation (MatchScore[])
+              const tennisScores = match.scores;
+              console.log('[MatchResultSheet] Tennis scores:', tennisScores);
+              if (tennisScores && Array.isArray(tennisScores) && tennisScores.length > 0) {
+                parsedScores = tennisScores.map((score: any) => ({
+                  setNumber: score.setNumber,
+                  team1Games: score.player1Games ?? 0,
+                  team2Games: score.player2Games ?? 0,
+                  team1Tiebreak: score.player1Tiebreak,
+                  team2Tiebreak: score.player2Tiebreak,
+                }));
+              }
+            }
+            
+            console.log('[MatchResultSheet] Parsed scores:', parsedScores);
+            
+            if (parsedScores.length > 0) {
+              const finalScores = [
+                parsedScores[0] || { setNumber: 1, team1Games: 0, team2Games: 0 },
+                parsedScores[1] || { setNumber: 2, team1Games: 0, team2Games: 0 },
+                parsedScores[2] || { setNumber: 3, team1Games: 0, team2Games: 0 },
+              ];
+              console.log('[MatchResultSheet] Setting scores to:', finalScores);
+              setSetScores(finalScores);
+            } else {
+              console.log('[MatchResultSheet] No scores parsed, keeping defaults');
             }
 
             // Set comment if exists
@@ -215,7 +271,7 @@ export const MatchResultSheet: React.FC<MatchResultSheetProps> = ({
     };
 
     fetchMatchDetails();
-  }, [matchId, mode, session?.user?.id]);
+  }, [matchId, mode, session?.user?.id, sportType]);
 
   // Fetch partnership info for doubles (still fetch for display purposes)
   useEffect(() => {

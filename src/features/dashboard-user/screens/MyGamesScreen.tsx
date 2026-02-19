@@ -137,7 +137,17 @@ export default function MyGamesScreen({
 
   const fetchMyMatches = useCallback(
     async (isManualRefresh = false) => {
-      if (!session?.user?.id) return;
+      if (!session?.user?.id) {
+        console.log(`[MyGamesScreen] No session or user ID available`, { session });
+        return;
+      }
+
+      console.log(`[MyGamesScreen] Starting fetchMyMatches`, {
+        userId: session.user.id,
+        sessionExists: !!session,
+        userExists: !!session.user,
+        isManualRefresh,
+      });
 
       // Only show skeleton on very first initialization, not on tab switches
       if (!hasInitializedRef.current) {
@@ -173,12 +183,33 @@ export default function MyGamesScreen({
           },
         });
 
+        // console.log(`[MyGamesScreen] API Response status: ${response.status}`);
+
         if (response.ok) {
           const data = await response.json();
-          const matchesData = data.matches || data.data || data;
-          setMatches(Array.isArray(matchesData) ? matchesData : []);
+     
+          // Fix: API returns data in data.data.matches structure
+          const matchesData = data.data?.matches || data.matches || data.data || data;
+          const finalMatches = Array.isArray(matchesData) ? matchesData : [];
+          // console.log(`[MyGamesScreen] Fetched ${finalMatches.length} matches`, {
+          //   activeTab,
+          //   upcomingPastTab,
+          //   matchStatuses: finalMatches.map(m => m?.status || 'unknown'),
+          //   rawData: matchesData,
+          //   apiStructure: {
+          //     hasData: !!data.data,
+          //     hasMatches: !!data.data?.matches,
+          //     matchesLength: data.data?.matches?.length || 0,
+          //   }
+          // });
+          setMatches(finalMatches);
         } else {
-          console.error("Failed to fetch matches:", response.status);
+          const errorText = await response.text();
+          console.error("Failed to fetch matches:", {
+            status: response.status,
+            statusText: response.statusText,
+            errorBody: errorText
+          });
           setMatches([]);
         }
       } catch (error) {
@@ -193,17 +224,24 @@ export default function MyGamesScreen({
   );
 
   const fetchPendingInvitations = useCallback(async () => {
-    if (!session?.user?.id) return;
+    if (!session?.user?.id) {
+      console.log(`[MyGamesScreen] No session for invitations`, { session });
+      return;
+    }
+
+    console.log(`[MyGamesScreen] Fetching pending invitations for user:`, session.user.id);
 
     try {
       const response = await axiosInstance.get(
         endpoints.match.getPendingInvitations,
       );
+      console.log(`[MyGamesScreen] Invitations response:`, response.data);
       setInvitations(Array.isArray(response.data) ? response.data : []);
     } catch (error: any) {
       console.error(
         "Error fetching invitations:",
         error?.response?.status,
+        error?.response?.data,
         error?.message,
       );
       setInvitations([]);
@@ -237,6 +275,10 @@ export default function MyGamesScreen({
           useNativeDriver: false,
         }),
       ]).start();
+    } else if (!showSkeleton && !hasInitializedRef.current) {
+      // Fallback: Show content immediately if not initialized properly
+      contentEntryOpacity.setValue(1);
+      contentEntryTranslateY.setValue(0);
     }
   }, [
     showSkeleton,
@@ -324,6 +366,14 @@ export default function MyGamesScreen({
       return true;
     });
 
+    console.log(`[MyGamesScreen] Filtering matches`, {
+      totalMatches: matches.length,
+      activeTab,
+      upcomingPastTab,
+      beforeFiltering: filtered.length,
+      sportType,
+    });
+
     // Filter by Upcoming/Past tab
     if (upcomingPastTab === "UPCOMING") {
       filtered = filtered.filter((m) =>
@@ -338,6 +388,10 @@ export default function MyGamesScreen({
         ),
       );
     }
+
+    console.log(`[MyGamesScreen] After time filtering: ${filtered.length} matches`, {
+      statuses: filtered.map(m => m.status),
+    });
 
     // Filter by ALL/LEAGUE/FRIENDLY tab
     if (activeTab === "LEAGUE") {
@@ -387,6 +441,12 @@ export default function MyGamesScreen({
         filters.status!.includes(m.status.toUpperCase()),
       );
     }
+
+    console.log(`[MyGamesScreen] Final filtered matches: ${filtered.length}`, {
+      activeTab,
+      upcomingPastTab,
+      matches: filtered.map(m => ({ id: m.id, status: m.status, sport: m.sport })),
+    });
 
     return filtered;
   }, [
@@ -542,7 +602,7 @@ export default function MyGamesScreen({
           {/* My Games Title */}
           <Text style={localStyles.title}>My Games</Text>
 
-          {/* Filter Chips: All, League, Friendly */}
+          {/* Filter Chips: All, League, Friendly, Invites */}
           <View style={localStyles.chipsContainer}>
             <AnimatedFilterChip
               label="All"
@@ -562,46 +622,54 @@ export default function MyGamesScreen({
               activeColor="#83CFF9"
               onPress={() => setActiveTab("FRIENDLY")}
             />
+            <AnimatedFilterChip
+              label="Invites"
+              isActive={activeTab === "INVITES"}
+              activeColor="#A04DFE"
+              onPress={() => setActiveTab("INVITES")}
+            />
           </View>
         </View>
       </LinearGradient>
 
-      {/* Upcoming/Past Tabs */}
+      {/* Upcoming/Past Tabs - Only show when not in INVITES mode */}
       <View style={localStyles.roundedContainer}>
-        <View style={localStyles.tabsContainer}>
-          <TouchableOpacity
-            style={[
-              localStyles.tab,
-              upcomingPastTab === "UPCOMING" && localStyles.activeTab,
-            ]}
-            onPress={() => setUpcomingPastTab("UPCOMING")}
-          >
-            <Text
+        {activeTab !== "INVITES" && (
+          <View style={localStyles.tabsContainer}>
+            <TouchableOpacity
               style={[
-                localStyles.tabText,
-                upcomingPastTab === "UPCOMING" && localStyles.activeTabText,
+                localStyles.tab,
+                upcomingPastTab === "UPCOMING" && localStyles.activeTab,
               ]}
+              onPress={() => setUpcomingPastTab("UPCOMING")}
             >
-              Upcoming
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[
-              localStyles.tab,
-              upcomingPastTab === "PAST" && localStyles.activeTab,
-            ]}
-            onPress={() => setUpcomingPastTab("PAST")}
-          >
-            <Text
+              <Text
+                style={[
+                  localStyles.tabText,
+                  upcomingPastTab === "UPCOMING" && localStyles.activeTabText,
+                ]}
+              >
+                Upcoming
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
               style={[
-                localStyles.tabText,
-                upcomingPastTab === "PAST" && localStyles.activeTabText,
+                localStyles.tab,
+                upcomingPastTab === "PAST" && localStyles.activeTab,
               ]}
+              onPress={() => setUpcomingPastTab("PAST")}
             >
-              Past
-            </Text>
-          </TouchableOpacity>
-        </View>
+              <Text
+                style={[
+                  localStyles.tabText,
+                  upcomingPastTab === "PAST" && localStyles.activeTabText,
+                ]}
+              >
+                Past
+              </Text>
+            </TouchableOpacity>
+          </View>
+        )}
 
         {/* Content wrapper */}
         <View style={styles.contentWrapper}>
@@ -620,16 +688,19 @@ export default function MyGamesScreen({
               <MatchCardSkeleton count={4} />
             ) : activeTab === "INVITES" ? (
               <FlatList
-                data={filteredInvitations}
-                keyExtractor={(item) => item.id}
-                renderItem={({ item }) => (
-                  <InvitationCard
-                    invitation={item}
-                    defaultSport={sport}
-                    onAccept={handleAcceptInvitation}
-                    onDecline={handleDeclineInvitation}
-                  />
-                )}
+                data={filteredInvitations || []}
+                keyExtractor={(item) => item?.id || Math.random().toString()}
+                renderItem={({ item }) => {
+                  if (!item) return null;
+                  return (
+                    <InvitationCard
+                      invitation={item}
+                      defaultSport={sport}
+                      onAccept={handleAcceptInvitation}
+                      onDecline={handleDeclineInvitation}
+                    />
+                  );
+                }}
                 contentContainerStyle={styles.listContent}
                 ListEmptyComponent={renderEmptyInvitationsState}
                 refreshControl={
@@ -642,11 +713,14 @@ export default function MyGamesScreen({
               />
             ) : (
               <FlatList
-                data={filteredMatches}
-                renderItem={({ item }) => (
-                  <MatchCard match={item} onPress={handleMatchPress} />
-                )}
-                keyExtractor={(item) => item.id}
+                data={filteredMatches || []}
+                renderItem={({ item }) => {
+                  if (!item) return null;
+                  return (
+                    <MatchCard match={item} onPress={handleMatchPress} />
+                  );
+                }}
+                keyExtractor={(item) => item?.id || Math.random().toString()}
                 contentContainerStyle={styles.listContent}
                 ListEmptyComponent={renderEmptyState}
                 refreshControl={
