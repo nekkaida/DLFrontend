@@ -335,7 +335,7 @@ export const endpoints = {
   friendly: {
     getAll: "/api/friendly",
     getById: (id: string) => `/api/friendly/${id}`,
-    getDetails: (id: string) => `/api/friendly/${id}/details`, // Full match details for UI display
+    getDetails: (id: string) => `/api/friendly/${id}/details`,
     create: "/api/friendly/create",
     join: (id: string) => `/api/friendly/${id}/join`,
     submitResult: (id: string) => `/api/friendly/${id}/result`,

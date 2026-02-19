@@ -26,23 +26,44 @@ export class NotificationService {
       }
 
       const response = await axiosInstance.get(`${endpoints.notifications.getAll}?${params.toString()}`);
-      const data = response.data.data;
+      
+      const responseData = response.data;
 
-      if (!data) {
-        console.error('No data in response:', response.data);
+      // Expected format from sendPaginated: { success: true, data: Notification[], pagination: {...} }
+      if (responseData.success && Array.isArray(responseData.data) && responseData.pagination) {
         return {
-          notifications: [],
-          pagination: {
-            page: 1,
-            limit: 20,
-            total: 0,
+          notifications: responseData.data,
+          pagination: responseData.pagination,
+        };
+      }
+
+      // Legacy format: data is nested (response.data.data)
+      const nestedData = responseData.data;
+      if (Array.isArray(nestedData)) {
+        return {
+          notifications: nestedData,
+          pagination: responseData.pagination || {
+            page: filter.page || 1,
+            limit: filter.limit || 20,
+            total: nestedData.length,
             totalPages: 1,
             hasMore: false,
           }
         };
       }
 
-      return data;
+      // Fallback: empty response
+      console.error('[NotificationService] Unexpected response format:', responseData);
+      return {
+        notifications: [],
+        pagination: {
+          page: 1,
+          limit: 20,
+          total: 0,
+          totalPages: 1,
+          hasMore: false,
+        }
+      };
     } catch (error) {
       console.error('Error fetching notifications:', error);
       throw error;
