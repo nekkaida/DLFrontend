@@ -4,6 +4,8 @@ import React from "react";
 import { Image, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { feedTheme } from "../theme";
 import { Ionicons } from "@expo/vector-icons";
+import LikeIcon from "@/assets/icons/activity/LIke.svg";
+import CommentIcon from "@/assets/icons/activity/comment.svg";
 
 interface SocialBarProps {
   likeCount: number;
@@ -78,10 +80,10 @@ export const SocialBar: React.FC<SocialBarProps> = ({
           disabled={isLiking}
           activeOpacity={0.7}
         >
-          <Ionicons 
-            name={isLiked ? "thumbs-up" : "thumbs-up-outline"} 
-            size={20} 
-            color={likeIconColor}
+          <LikeIcon 
+            width={20} 
+            height={20} 
+            fill={likeIconColor}
             style={{ opacity: isLiked ? 1 : 0.7 }}
           />
           <Text style={[styles.actionText, { color: likeIconColor }]}>
@@ -97,10 +99,10 @@ export const SocialBar: React.FC<SocialBarProps> = ({
           onPress={onCommentPress}
           activeOpacity={0.7}
         >
-          <Ionicons 
-            name="chatbubble-ellipses-outline" 
-            size={20} 
-            color={feedTheme.colors.textPrimary}
+          <CommentIcon 
+            width={20} 
+            height={20} 
+            fill={feedTheme.colors.textPrimary}
           />
           <Text style={styles.actionText}>Comment</Text>
           <Text style={[styles.actionText, styles.countText]}>
