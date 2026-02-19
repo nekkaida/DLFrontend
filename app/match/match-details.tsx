@@ -2180,7 +2180,7 @@ export default function JoinMatchScreen() {
                 return (
                   <View style={styles.completedMatchButtons}>
                     <TouchableOpacity
-                      style={[styles.joinButton, styles.completedButton, { backgroundColor: "#F59E0B" }]}
+                      style={[styles.joinButton, styles.completedButton, { backgroundColor: "#FEA04D" }]}
                       onPress={() => bottomSheetModalRef.current?.present()}
                     >
                       <Text style={styles.joinButtonText}>View Scores</Text>

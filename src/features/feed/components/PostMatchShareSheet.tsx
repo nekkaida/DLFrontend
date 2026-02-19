@@ -1,6 +1,6 @@
 // src/features/feed/components/PostMatchShareSheet.tsx
 
-import React, { useState, useCallback, useMemo, useRef } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -12,27 +12,22 @@ import {
   ActivityIndicator,
   Linking,
   Alert,
+  Dimensions,
 } from 'react-native';
 import BottomSheet, { BottomSheetBackdrop, BottomSheetScrollView } from '@gorhom/bottom-sheet';
 import { Ionicons } from '@expo/vector-icons';
 import { feedTheme } from '../theme';
 import { useSharePost } from '../hooks';
-import { processDisplayName } from '../utils/formatters';
+import { ScorecardCaptureWrapper, ScorecardCaptureRef } from './ScorecardCaptureWrapper';
+import { MatchResult, SportColors } from '@/features/standings/types';
 
 const MAX_CAPTION_LENGTH = 500;
 
 interface PostMatchShareSheetProps {
   visible: boolean;
-  matchData: {
-    matchId: string;
-    sport: string;
-    matchType: string;
-    gameType: string;
-    winnerNames: string[];
-    loserNames: string[];
-    scores: any;
-    matchDate: string;
-  } | null;
+  scorecardMatch: MatchResult | null;
+  sportColors: SportColors;
+  isPickleball: boolean;
   onPost: (caption: string) => void;
   onSkip: () => void;
   onClose?: () => void;
@@ -44,7 +39,9 @@ interface PostMatchShareSheetProps {
 
 export const PostMatchShareSheet: React.FC<PostMatchShareSheetProps> = ({
   visible,
-  matchData,
+  scorecardMatch,
+  sportColors,
+  isPickleball,
   onPost,
   onSkip,
   onClose,
@@ -54,8 +51,10 @@ export const PostMatchShareSheet: React.FC<PostMatchShareSheetProps> = ({
   bottomSheetRef,
 }) => {
   const [caption, setCaption] = useState('');
-  const shareableViewRef = useRef<View | null>(null);
+  const scorecardRef = useRef<ScorecardCaptureRef>(null);
   const { captureAndSave, shareToInstagram, isCapturing, isSaving } = useSharePost();
+  const cardWidth = Math.min(360, Dimensions.get('window').width - 48);
+  const getCaptureViewRef = () => ({ current: scorecardRef.current?.viewRef || null });
 
   const isOverLimit = caption.length > MAX_CAPTION_LENGTH;
   const canPost = !isOverLimit && !isPosting;
@@ -94,7 +93,7 @@ export const PostMatchShareSheet: React.FC<PostMatchShareSheetProps> = ({
     if (onInstagramShare) {
       onInstagramShare();
     } else {
-      const success = await shareToInstagram(shareableViewRef);
+      const success = await shareToInstagram(getCaptureViewRef());
       if (success) {
         bottomSheetRef.current?.close();
       }
@@ -106,7 +105,7 @@ export const PostMatchShareSheet: React.FC<PostMatchShareSheetProps> = ({
     if (onExternalShare) {
       onExternalShare();
     } else {
-      const success = await captureAndSave(shareableViewRef);
+      const success = await captureAndSave(getCaptureViewRef());
       if (success) {
         bottomSheetRef.current?.close();
       }
@@ -127,79 +126,18 @@ export const PostMatchShareSheet: React.FC<PostMatchShareSheetProps> = ({
     []
   );
 
-  const formattedScore = useMemo(() => {
-    if (!matchData?.scores) return null;
-
-    if (Array.isArray(matchData.scores)) {
-      return matchData.scores.map((score: any) => {
-        if (score.team1Games !== undefined) {
-          return score.team1Games + '-' + score.team2Games;
-        } else if (score.team1Points !== undefined) {
-          return score.team1Points + '-' + score.team2Points;
-        }
-        return '';
-      }).filter(Boolean).join(', ');
-    }
-
-    if (matchData.scores.team1Score !== undefined) {
-      return matchData.scores.team1Score + ' - ' + matchData.scores.team2Score;
-    }
-
-    return null;
-  }, [matchData?.scores]);
-
   const renderMatchPreview = () => {
-    if (!matchData) return null;
-
-    const winnerText = matchData.winnerNames
-      .map(name => processDisplayName(name, 20))
-      .join(' & ');
-    const loserText = matchData.loserNames
-      .map(name => processDisplayName(name, 20))
-      .join(' & ');
-    const isLeague = matchData.gameType === 'league';
-    const isDoubles = matchData.matchType === 'doubles';
+    if (!scorecardMatch) return null;
 
     return (
-      <View ref={shareableViewRef} style={styles.previewCard} collapsable={false}>
-        <View style={styles.previewBadgeRow}>
-          <View style={[styles.badge, isLeague ? styles.leagueBadge : styles.friendlyBadge]}>
-            <Text style={styles.badgeText}>
-              {isLeague ? 'League' : 'Friendly'}
-            </Text>
-          </View>
-          {isDoubles && (
-            <View style={[styles.badge, styles.doublesBadge]}>
-              <Text style={styles.badgeText}>Doubles</Text>
-            </View>
-          )}
-        </View>
-
-        <View style={styles.previewTeamRow}>
-          <Ionicons name="trophy" size={18} color={feedTheme.colors.primary} />
-          <Text style={styles.previewWinnerName} numberOfLines={1}>
-            {winnerText}
-          </Text>
-        </View>
-
-        {formattedScore && (
-          <Text style={styles.previewScore}>{formattedScore}</Text>
-        )}
-
-        <View style={styles.previewTeamRow}>
-          <View style={styles.iconPlaceholder} />
-          <Text style={styles.previewLoserName} numberOfLines={1}>
-            {loserText}
-          </Text>
-        </View>
-
-        <Text style={styles.previewDate}>
-          {new Date(matchData.matchDate).toLocaleDateString('en-US', {
-            month: 'short',
-            day: 'numeric',
-            year: 'numeric',
-          })}
-        </Text>
+      <View style={styles.previewCard} collapsable={false}>
+        <ScorecardCaptureWrapper
+          ref={scorecardRef}
+          match={scorecardMatch}
+          sportColors={sportColors}
+          isPickleball={isPickleball}
+          cardWidth={cardWidth}
+        />
       </View>
     );
   };
@@ -353,70 +291,8 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   previewCard: {
-    backgroundColor: feedTheme.colors.background,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: feedTheme.colors.border,
-    padding: 16,
     marginBottom: 20,
     alignItems: 'center',
-  },
-  previewBadgeRow: {
-    flexDirection: 'row',
-    gap: 8,
-    marginBottom: 12,
-  },
-  badge: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  leagueBadge: {
-    backgroundColor: feedTheme.colors.accent,
-  },
-  friendlyBadge: {
-    backgroundColor: feedTheme.colors.primary,
-  },
-  doublesBadge: {
-    backgroundColor: feedTheme.colors.textSecondary,
-  },
-  badgeText: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: '#FFFFFF',
-  },
-  previewTeamRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    width: '100%',
-    paddingHorizontal: 8,
-  },
-  iconPlaceholder: {
-    width: 18,
-  },
-  previewWinnerName: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: feedTheme.colors.textPrimary,
-    flex: 1,
-  },
-  previewLoserName: {
-    fontSize: 16,
-    fontWeight: '400',
-    color: feedTheme.colors.textSecondary,
-    flex: 1,
-  },
-  previewScore: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: feedTheme.colors.textPrimary,
-    marginVertical: 8,
-  },
-  previewDate: {
-    fontSize: 12,
-    color: feedTheme.colors.textTertiary,
-    marginTop: 8,
   },
   inputContainer: {
     marginBottom: 20,

@@ -529,7 +529,7 @@ export const styles = StyleSheet.create({
     flex: 1,
   },
   shareButton: {
-    backgroundColor: '#10B981',
+    backgroundColor: '#FEA04D',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
