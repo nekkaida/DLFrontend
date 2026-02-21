@@ -10,6 +10,7 @@ interface NotificationData {
   threadId?: string;
   seasonId?: string;
   divisionId?: string;
+  achievementId?: string;
   type?: string;
   category?: string;
   [key: string]: unknown;
@@ -90,6 +91,12 @@ export function usePushNotifications(): UsePushNotificationsReturn {
           pathname: '/match/divisionstandings',
           params: { divisionId: data.divisionId }
         } as any);
+        return;
+      }
+
+      // Priority 5: Achievement notifications → go to achievements
+      if (data?.achievementId) {
+        router.navigate('/achievements' as any);
         return;
       }
 

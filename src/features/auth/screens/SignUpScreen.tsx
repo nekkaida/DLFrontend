@@ -195,7 +195,11 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({
     } catch (error: any) {
       if (__DEV__) console.error('Email check error:', error);
       setEmailStatus('idle');
-      setEmailError(error.response?.data?.message || 'Could not verify email');
+      if (error.code === 'ERR_NETWORK' || !error.response) {
+        setEmailError('Network error — please check your connection');
+      } else {
+        setEmailError(error.response?.data?.message || 'Could not verify email');
+      }
     }
   }, []);
 
@@ -227,7 +231,11 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({
     } catch (error: any) {
       if (__DEV__) console.error('Username check error:', error);
       setUsernameStatus('idle');
-      setUsernameError(error.response?.data?.message || 'Could not verify username');
+      if (error.code === 'ERR_NETWORK' || !error.response) {
+        setUsernameError('Network error — please check your connection');
+      } else {
+        setUsernameError(error.response?.data?.message || 'Could not verify username');
+      }
     }
   }, []);
 

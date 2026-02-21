@@ -61,12 +61,12 @@ export function useNotifications(
       }, userId);
 
       if (append) {
-        setNotifications(prev => [...prev, ...result.notifications]);
+        setNotifications(prev => [...prev, ...(result.notifications || [])]);
       } else {
-        setNotifications(result.notifications);
+        setNotifications(result.notifications || []);
       }
 
-      setHasMore(result.pagination.hasMore);
+      setHasMore(result.pagination?.hasMore ?? false);
       setCurrentPage(page);
     } catch (err) {
       console.error('Error fetching notifications:', err);
