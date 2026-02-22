@@ -14,6 +14,7 @@ interface SolidScorecardProps {
   isFriendly?: boolean;
   isSingles?: boolean;
   matchType?: string;
+  previewScale?: number;
 }
 
 // Map sport types to their background images
@@ -41,20 +42,22 @@ export const SolidScorecard: React.FC<SolidScorecardProps> = ({
   sportColors,
   isFriendly = false,
   matchType = "SINGLES",
+  previewScale,
 }) => {
   return (
-    <View style={styles.scorecardContainer}>
+    <View style={[styles.scorecardContainer, previewScale !== undefined && { aspectRatio: undefined, width: "100%", height: "100%" }]}>
       {/* Sport Background Image */}
       <View style={styles.backgroundImage}>
         {getSportBackground(match.sport)}
       </View>
 
       {/* Content Overlay */}
-      <View style={styles.contentContainer}>
+      <View style={[styles.contentContainer, previewScale !== undefined && { padding: 4 }]}>
         <ScoreCard
           match={match}
           sportColors={sportColors}
           isFriendly={isFriendly}
+          previewScale={previewScale}
         />
       </View>
     </View>

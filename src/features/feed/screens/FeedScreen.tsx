@@ -32,6 +32,7 @@ import {
   ShareOptionsSheet,
   SportFilterSheet,
   type ScorecardCaptureRef,
+  type ShareStyle,
 } from "../components";
 import { useFeedPosts, usePostActions, useSharePost } from "../hooks";
 import { feedTheme } from "../theme";
@@ -432,6 +433,35 @@ export default function FeedScreen({ sport = "default" }: FeedScreenProps) {
     setSharePostId(null);
   }, []);
 
+  // Get current share post and its match data
+  const currentSharePost = useMemo(() => {
+    if (!sharePostId) return null;
+    return posts.find((post) => post.id === sharePostId);
+  }, [sharePostId, posts]);
+
+  const sharePostMatch = useMemo(() => {
+    if (!currentSharePost) return undefined;
+    // Convert FeedMatch to MatchResult format
+    return {
+      id: currentSharePost.match.id,
+      matchType: currentSharePost.match.matchType,
+      matchDate: currentSharePost.match.matchDate,
+      sport: currentSharePost.match.sport,
+      team1Score: currentSharePost.match.team1Score,
+      team2Score: currentSharePost.match.team2Score,
+      outcome: currentSharePost.match.outcome,
+      setScores: currentSharePost.match.setScores,
+      gameScores: currentSharePost.match.gameScores,
+      team1Players: currentSharePost.match.team1Players,
+      team2Players: currentSharePost.match.team2Players,
+      isWalkover: currentSharePost.match.isWalkover,
+      location: currentSharePost.match.location,
+      leagueName: currentSharePost.match.leagueName,
+      seasonName: currentSharePost.match.seasonName,
+      divisionName: currentSharePost.match.divisionName,
+    };
+  }, [currentSharePost]);
+
   const renderPost = useCallback(
     ({ item }: { item: FeedPost }) => {
       const isOwnPost = currentUserId === item.authorId;
@@ -620,6 +650,8 @@ export default function FeedScreen({ sport = "default" }: FeedScreenProps) {
         isLoading={isCapturing || isSaving}
         shareError={shareError}
         onClearError={clearShareError}
+        match={sharePostMatch}
+        sportType={currentSharePost?.match.sport}
       />
 
       {/* Floating Action Button */}

@@ -1,11 +1,13 @@
 // src/features/feed/components/ShareOptionsSheet.tsx
 
+import { getSportColors, SportType } from "@/constants/SportsColor";
+import { MatchResult, SportColors } from "@/features/standings/types";
 import { Ionicons } from "@expo/vector-icons";
 import BottomSheet, {
   BottomSheetBackdrop,
   BottomSheetView,
 } from "@gorhom/bottom-sheet";
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -14,11 +16,19 @@ import {
   Text,
   TouchableOpacity,
   View,
+  Dimensions,
 } from "react-native";
 import type { ShareError } from "../hooks/useSharePost";
 import { feedTheme } from "../theme";
+import { DarkThemeScorecard } from "./DarkThemeScorecard";
+import { SolidScorecard } from "./SolidScorecard";
+import { TransparentScorecard } from "./TransparentScorecard";
 
 export type ShareStyle = "transparent" | "white" | "dark";
+
+const SCREEN_WIDTH = Dimensions.get("window").width;
+const PREVIEW_WIDTH = SCREEN_WIDTH * 0.6; // 50% of screen width
+const PREVIEW_HEIGHT = PREVIEW_WIDTH * (16 / 9); // Maintain 9:16 aspect ratio
 
 interface ShareOptionsSheetProps {
   bottomSheetRef: React.RefObject<BottomSheet | null>;
@@ -31,6 +41,8 @@ interface ShareOptionsSheetProps {
   defaultStyle?: ShareStyle;
   shareError?: ShareError | null;
   onClearError?: () => void;
+  match?: MatchResult;
+  sportType?: string;
 }
 
 export const ShareOptionsSheet: React.FC<ShareOptionsSheetProps> = ({
@@ -44,8 +56,21 @@ export const ShareOptionsSheet: React.FC<ShareOptionsSheetProps> = ({
   defaultStyle = "white",
   shareError,
   onClearError,
+  match,
+  sportType,
 }) => {
   const [selectedStyle, setSelectedStyle] = useState<ShareStyle>(defaultStyle);
+
+  // Get sport colors for preview
+  const sportColors: SportColors = useMemo(() => {
+    const sport = (sportType?.toUpperCase() || "TENNIS") as SportType;
+    return getSportColors(sport);
+  }, [sportType]);
+
+  const isPickleball = useMemo(
+    () => sportType?.toUpperCase() === "PICKLEBALL",
+    [sportType],
+  );
 
   const handleShareImage = useCallback(() => {
     onShareImage(selectedStyle);
@@ -93,15 +118,51 @@ export const ShareOptionsSheet: React.FC<ShareOptionsSheetProps> = ({
     [],
   );
 
+  // Render preview based on selected style
+  const renderPreview = useCallback(() => {
+    if (!match) return null;
+
+    return (
+      <View style={styles.previewContainer}>
+      
+        <View style={styles.previewCard}>
+            {selectedStyle === "transparent" ? (
+              <View style={styles.transparentPreviewWrapper}>
+                <TransparentScorecard match={match} previewScale={1} />
+              </View>
+            ) : selectedStyle === "dark" ? (
+              <DarkThemeScorecard
+                match={match}
+                sportColors={sportColors}
+                matchType={match.matchType}
+                previewScale={1}
+              />
+            ) : (
+              <SolidScorecard
+                match={match}
+                sportColors={sportColors}
+                matchType={match.matchType}
+                previewScale={1}
+              />
+            )}
+        </View>
+      </View>
+    );
+  }, [match, selectedStyle, sportColors]);
+
   return (
-    <BottomSheet
-      ref={bottomSheetRef}
-      index={-1}
-      snapPoints={["40%"]}
-      enablePanDownToClose
-      onClose={onClose}
-      backdropComponent={renderBackdrop}
-    >
+    <>
+      {/* Preview positioned above the bottom sheet */}
+      {match && renderPreview()}
+
+      <BottomSheet
+        ref={bottomSheetRef}
+        index={-1}
+        snapPoints={["40%"]}
+        enablePanDownToClose
+        onClose={onClose}
+        backdropComponent={renderBackdrop}
+      >
       <BottomSheetView style={styles.container}>
         {/* Error Banner */}
         {shareError && (
@@ -293,6 +354,7 @@ export const ShareOptionsSheet: React.FC<ShareOptionsSheetProps> = ({
         </TouchableOpacity> */}
       </BottomSheetView>
     </BottomSheet>
+    </>
   );
 };
 
@@ -402,5 +464,30 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: "600",
     color: "#FFFFFF",
+  },
+  previewContainer: {
+    position: "absolute",
+    bottom: "40%",
+    left: "50%",
+    transform: [{ translateX: -PREVIEW_WIDTH / 2 }],
+    alignItems: "center",
+    zIndex: 1000,
+  },
+  previewCard: {
+    width: PREVIEW_WIDTH,
+    height: PREVIEW_HEIGHT,
+    borderRadius: 20,
+    overflow: "hidden",
+    backgroundColor: "transparent",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  transparentPreviewWrapper: {
+    width: PREVIEW_WIDTH,
+    height: PREVIEW_HEIGHT,
+    backgroundColor: "#4A5568", 
   },
 });
