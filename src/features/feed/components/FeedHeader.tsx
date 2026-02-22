@@ -1,9 +1,14 @@
 // src/features/feed/components/FeedHeader.tsx
 
-import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import React, { useCallback, useRef } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, LayoutChangeEvent } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import Animated, { useSharedValue, useAnimatedStyle, withTiming } from 'react-native-reanimated';
 import { feedTheme } from '../theme';
+
+type TabKey = 'activity' | 'friends';
+const TAB_ORDER: TabKey[] = ['activity', 'friends'];
+const TAB_LABELS: Record<TabKey, string> = { activity: 'Activity', friends: 'Friends' };
 
 interface FeedHeaderProps {
   selectedSport?: string;
@@ -24,27 +29,67 @@ export const FeedHeader: React.FC<FeedHeaderProps> = ({
   activeTab,
   onTabChange,
 }) => {
+  const underlineX = useSharedValue(0);
+  const underlineWidth = useSharedValue(0);
+  const underlineOpacity = useSharedValue(0); // hidden until first layout fires
+  const tabLayouts = useRef<{ x: number; width: number }[]>([]);
+  const activeTabRef = useRef(activeTab);
+  activeTabRef.current = activeTab;
+  // Track whether the underline has been positioned at least once so that
+  // subsequent re-layout events (triggered by loading-state re-renders) don't
+  // snap the underline mid-animation and interrupt withTiming.
+  const isUnderlineInitialized = useRef(false);
+
+  const handleTabLayout = useCallback((index: number, e: LayoutChangeEvent) => {
+    const { x, width } = e.nativeEvent.layout;
+    tabLayouts.current[index] = { x, width };
+    // Only snap on the very first measurement — after that the layout cache is
+    // kept fresh for handleTabPress but the underline animation is left alone.
+    if (!isUnderlineInitialized.current) {
+      const activeIndex = TAB_ORDER.indexOf(activeTabRef.current);
+      if (index === activeIndex) {
+        underlineX.value = x;
+        underlineWidth.value = width;
+        underlineOpacity.value = withTiming(1, { duration: 150 });
+        isUnderlineInitialized.current = true;
+      }
+    }
+  }, [underlineX, underlineWidth, underlineOpacity]);
+
+  const handleTabPress = useCallback((tab: TabKey) => {
+    const index = TAB_ORDER.indexOf(tab);
+    const layout = tabLayouts.current[index];
+    if (layout) {
+      underlineX.value = withTiming(layout.x, { duration: 220 });
+      underlineWidth.value = withTiming(layout.width, { duration: 220 });
+    }
+    onTabChange(tab);
+  }, [onTabChange, underlineX, underlineWidth]);
+
+  const underlineStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: underlineX.value }],
+    width: underlineWidth.value,
+    opacity: underlineOpacity.value,
+  }));
+
   return (
     <View style={styles.container}>
       <View style={styles.tabsContainer}>
-        <TouchableOpacity
-          style={[styles.tab, activeTab === 'activity' && styles.tabActive]}
-          onPress={() => onTabChange('activity')}
-          activeOpacity={0.7}
-        >
-          <Text style={[styles.tabText, activeTab === 'activity' && styles.tabTextActive]}>
-            Activity
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.tab, activeTab === 'friends' && styles.tabActive]}
-          onPress={() => onTabChange('friends')}
-          activeOpacity={0.7}
-        >
-          <Text style={[styles.tabText, activeTab === 'friends' && styles.tabTextActive]}>
-            Friends
-          </Text>
-        </TouchableOpacity>
+        {TAB_ORDER.map((tab, index) => (
+          <TouchableOpacity
+            key={tab}
+            style={styles.tab}
+            onPress={() => handleTabPress(tab)}
+            onLayout={(e) => handleTabLayout(index, e)}
+            activeOpacity={0.7}
+          >
+            <Text style={[styles.tabText, activeTab === tab && styles.tabTextActive]}>
+              {TAB_LABELS[tab]}
+            </Text>
+          </TouchableOpacity>
+        ))}
+        {/* Sliding animated underline */}
+        <Animated.View style={[styles.tabUnderline, underlineStyle]} />
       </View>
 
       {/* Filters Row */}
@@ -70,10 +115,10 @@ export const FeedHeader: React.FC<FeedHeaderProps> = ({
             onPress={onUserFilterToggle}
             activeOpacity={0.7}
           >
-            <Ionicons 
-              name={userFilter === 'friends' ? 'people' : 'globe-outline'} 
-              size={16} 
-              color={userFilter === 'friends' ? feedTheme.colors.primary : feedTheme.colors.textSecondary} 
+            <Ionicons
+              name={userFilter === 'friends' ? 'people' : 'globe-outline'}
+              size={16}
+              color={userFilter === 'friends' ? feedTheme.colors.primary : feedTheme.colors.textSecondary}
               style={{ marginRight: 6 }}
             />
             <Text style={[styles.filterText, userFilter === 'friends' && styles.filterTextActive]}>
@@ -100,11 +145,6 @@ const styles = StyleSheet.create({
   tab: {
     paddingVertical: 8,
     paddingBottom: 12,
-    borderBottomWidth: 3,
-    borderBottomColor: 'transparent',
-  },
-  tabActive: {
-    borderBottomColor: feedTheme.colors.primary,
   },
   tabText: {
     fontSize: 20,
@@ -114,6 +154,14 @@ const styles = StyleSheet.create({
   tabTextActive: {
     color: feedTheme.colors.textPrimary,
     fontWeight: '700',
+  },
+  tabUnderline: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    height: 3,
+    backgroundColor: feedTheme.colors.primary,
+    borderRadius: 2,
   },
   filtersRow: {
     flexDirection: 'row',

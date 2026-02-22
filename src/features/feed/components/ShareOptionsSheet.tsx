@@ -7,7 +7,7 @@ import BottomSheet, {
   BottomSheetBackdrop,
   BottomSheetView,
 } from "@gorhom/bottom-sheet";
-import React, { useCallback, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -18,6 +18,12 @@ import {
   View,
   Dimensions,
 } from "react-native";
+import Animated, {
+  interpolate,
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
+} from "react-native-reanimated";
 import type { ShareError } from "../hooks/useSharePost";
 import { feedTheme } from "../theme";
 import { DarkThemeScorecard } from "./DarkThemeScorecard";
@@ -60,6 +66,24 @@ export const ShareOptionsSheet: React.FC<ShareOptionsSheetProps> = ({
   sportType,
 }) => {
   const [selectedStyle, setSelectedStyle] = useState<ShareStyle>(defaultStyle);
+  // Driven directly by the sheet's native animation — no JS re-render lag
+  const sheetAnimatedIndex = useSharedValue(-1);
+  // Skeleton: fades out once the scorecard has been laid out
+  const skeletonOpacity = useSharedValue(1);
+  const skeletonStyle = useAnimatedStyle(() => ({ opacity: skeletonOpacity.value }));
+
+  // Reset skeleton whenever match changes (new post opened)
+  const prevMatchRef = useRef<typeof match>(undefined);
+  useEffect(() => {
+    if (match !== prevMatchRef.current) {
+      prevMatchRef.current = match;
+      skeletonOpacity.value = 1;
+    }
+  }, [match, skeletonOpacity]);
+
+  const handlePreviewLayout = useCallback(() => {
+    skeletonOpacity.value = withTiming(0, { duration: 300 });
+  }, [skeletonOpacity]);
 
   // Get sport colors for preview
   const sportColors: SportColors = useMemo(() => {
@@ -118,42 +142,72 @@ export const ShareOptionsSheet: React.FC<ShareOptionsSheetProps> = ({
     [],
   );
 
-  // Render preview based on selected style
+  // Animated style: preview is visible only while the sheet is open (index >= 0).
+  // Opacity snaps to 0 instantly when the sheet starts closing so no shadow
+  // artefact lingers during the pan-down gesture.
+  const previewAnimatedStyle = useAnimatedStyle(() => {
+    const isOpen = sheetAnimatedIndex.value >= 0;
+    return {
+      opacity: isOpen
+        ? interpolate(sheetAnimatedIndex.value, [0, 1], [1, 1], "clamp")
+        : 0,
+      // Slide up as the sheet opens; snap back instantly on close.
+      transform: [
+        {
+          translateY: isOpen
+            ? 0
+            : 24,
+        },
+        { translateX: -PREVIEW_WIDTH / 2 },
+      ],
+    };
+  });
+
+  // Render preview — always mounted when match exists so there is no render delay
   const renderPreview = useCallback(() => {
     if (!match) return null;
 
     return (
-      <View style={styles.previewContainer}>
-      
-        <View style={styles.previewCard}>
-            {selectedStyle === "transparent" ? (
-              <View style={styles.transparentPreviewWrapper}>
-                <TransparentScorecard match={match} previewScale={1} />
-              </View>
-            ) : selectedStyle === "dark" ? (
-              <DarkThemeScorecard
-                match={match}
-                sportColors={sportColors}
-                matchType={match.matchType}
-                previewScale={1}
-              />
-            ) : (
-              <SolidScorecard
-                match={match}
-                sportColors={sportColors}
-                matchType={match.matchType}
-                previewScale={1}
-              />
-            )}
+      <Animated.View style={[styles.previewContainer, previewAnimatedStyle]}>
+        <View style={styles.previewCard} onLayout={handlePreviewLayout}>
+          {selectedStyle === "transparent" ? (
+            <View style={styles.transparentPreviewWrapper}>
+              <TransparentScorecard match={match} previewScale={1} />
+            </View>
+          ) : selectedStyle === "dark" ? (
+            <DarkThemeScorecard
+              match={match}
+              sportColors={sportColors}
+              matchType={match.matchType}
+              previewScale={1}
+            />
+          ) : (
+            <SolidScorecard
+              match={match}
+              sportColors={sportColors}
+              matchType={match.matchType}
+              previewScale={1}
+            />
+          )}
+          {/* Skeleton overlay — fades out once content is laid out */}
+          <Animated.View
+            style={[styles.skeletonOverlay, skeletonStyle]}
+            pointerEvents="none"
+          >
+            <View style={styles.skeletonShimmer} />
+            <View style={[styles.skeletonLine, { width: "60%", marginTop: 12 }]} />
+            <View style={[styles.skeletonLine, { width: "40%", marginTop: 8 }]} />
+            <View style={[styles.skeletonLine, { width: "50%", marginTop: 8 }]} />
+          </Animated.View>
         </View>
-      </View>
+      </Animated.View>
     );
-  }, [match, selectedStyle, sportColors]);
+  }, [match, selectedStyle, sportColors, previewAnimatedStyle, handlePreviewLayout, skeletonStyle]);
 
   return (
     <>
-      {/* Preview positioned above the bottom sheet */}
-      {match && renderPreview()}
+      {/* Preview — always mounted when match exists; opacity driven by sheet animation */}
+      {renderPreview()}
 
       <BottomSheet
         ref={bottomSheetRef}
@@ -161,6 +215,7 @@ export const ShareOptionsSheet: React.FC<ShareOptionsSheetProps> = ({
         snapPoints={["40%"]}
         enablePanDownToClose
         onClose={onClose}
+        animatedIndex={sheetAnimatedIndex}
         backdropComponent={renderBackdrop}
       >
       <BottomSheetView style={styles.container}>
@@ -469,9 +524,9 @@ const styles = StyleSheet.create({
     position: "absolute",
     bottom: "40%",
     left: "50%",
-    transform: [{ translateX: -PREVIEW_WIDTH / 2 }],
     alignItems: "center",
     zIndex: 1000,
+    // translateX is in the animated style to avoid conflict with Animated.View
   },
   previewCard: {
     width: PREVIEW_WIDTH,
@@ -479,11 +534,31 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     overflow: "hidden",
     backgroundColor: "transparent",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 8,
+  },
+  skeletonOverlay: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: "#1a1a2e",
+    borderRadius: 20,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 0,
+  },
+  skeletonShimmer: {
+    width: "70%",
+    height: 32,
+    backgroundColor: "rgba(255,255,255,0.08)",
+    borderRadius: 8,
+  },
+  skeletonLine: {
+    height: 10,
+    backgroundColor: "rgba(255,255,255,0.08)",
+    borderRadius: 6,
+    marginHorizontal: 16,
+    alignSelf: "center",
   },
   transparentPreviewWrapper: {
     width: PREVIEW_WIDTH,
