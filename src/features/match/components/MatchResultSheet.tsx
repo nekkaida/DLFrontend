@@ -25,7 +25,6 @@ import {
   MatchComment,
 } from './MatchResultSheet.types';
 import { formatRelativeTime } from './MatchResultSheet.utils';
-import { MatchComment } from '@/app/match/components/types';
 
 export const MatchResultSheet: React.FC<MatchResultSheetProps> = ({
   matchId,

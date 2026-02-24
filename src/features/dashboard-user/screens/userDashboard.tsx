@@ -21,11 +21,13 @@ import {
 } from "@/src/features/leagues";
 import { useNotifications } from "@/src/hooks/useNotifications";
 import NotificationBell from "@/src/shared/components/NotificationBell";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import { default as React, useCallback, useEffect } from "react";
 import {
+  ActivityIndicator,
   Animated,
   BackHandler,
   Dimensions,
@@ -88,6 +90,7 @@ export default function DashboardScreen() {
   const [selectedSport, setSelectedSport] = React.useState<
     "pickleball" | "tennis" | "padel"
   >("pickleball");
+  const [sportLoaded, setSportLoaded] = React.useState(false);
   const [locationFilterOpen, setLocationFilterOpen] = React.useState(false);
   const [searchTerm, setSearchTerm] = React.useState("");
   const scrollY = React.useRef(new Animated.Value(0)).current;
@@ -137,13 +140,26 @@ export default function DashboardScreen() {
     }
   }, [routeSport]);
 
-  // Set default selected sport - default to pickleball if not set via route param
+  // Load persisted sport on mount (only when no route param overrides it)
   React.useEffect(() => {
-    // If no route sport is provided, default to pickleball
-    if (!routeSport) {
-      setSelectedSport("pickleball");
+    if (routeSport) {
+      // route param already handled by the effect above; just mark loaded
+      setSportLoaded(true);
+      return;
     }
-  }, [routeSport]);
+    AsyncStorage.getItem("selectedSport").then((saved) => {
+      if (saved && ["pickleball", "tennis", "padel"].includes(saved)) {
+        setSelectedSport(saved as "pickleball" | "tennis" | "padel");
+      }
+      setSportLoaded(true);
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Persist sport selection whenever the user changes it
+  React.useEffect(() => {
+    AsyncStorage.setItem("selectedSport", selectedSport);
+  }, [selectedSport]);
 
   React.useEffect(() => {
     if (
@@ -405,6 +421,15 @@ export default function DashboardScreen() {
       setRefreshing(false);
     }
   }, [session?.user?.id, refetch, refetchActiveLeagues]);
+
+  // Wait for persisted sport to load before rendering to avoid a flash
+  if (!sportLoaded) {
+    return (
+      <View style={[styles.container, { justifyContent: "center", alignItems: "center" }]}>
+        <ActivityIndicator size="large" color="#FEA04D" />
+      </View>
+    );
+  }
 
   // use this for swtiching between tabs
   if (currentView === "connect") {
