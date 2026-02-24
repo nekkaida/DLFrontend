@@ -46,6 +46,7 @@ export default function ProfileScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [profileData, setProfileData] = useState<any>(null);
   const [achievements, setAchievements] = useState<any[]>([]);
+  const [achievementCounts, setAchievementCounts] = useState<{ completed: number; total: number }>({ completed: 0, total: 0 });
   const [ratingHistory, setRatingHistory] = useState<GameData[]>([]);
   const [selectedGraphIndex, setSelectedGraphIndex] = useState<number | null>(null);
   const [leagueStatsData, setLeagueStatsData] = useState<{
@@ -159,42 +160,54 @@ export default function ProfileScreen() {
 
   // Fetch profile data
   const fetchProfileData = useCallback(async () => {
+    if (!session?.user?.id) {
+      console.log('No user session');
+      setIsLoading(false);
+      return;
+    }
+
+    const backendUrl = getBackendBaseURL();
+
+    // Fetch profile data
     try {
-      if (!session?.user?.id) {
-        console.log('No user session');
-        setIsLoading(false);
-        return;
-      }
+      const profileResponse = await authClient.$fetch(
+        `${backendUrl}/api/player/profile/me`,
+        { method: 'GET' }
+      );
 
-      const backendUrl = getBackendBaseURL();
-
-      // Fetch profile and achievements in parallel
-      const [profileResponse, achievementsResponse] = await Promise.all([
-        authClient.$fetch(`${backendUrl}/api/player/profile/me`, { method: 'GET' }),
-        authClient.$fetch(`${backendUrl}/api/player/profile/achievements`, { method: 'GET' })
-      ]);
-
-      // Comment out API responses after testing to keep terminal clean
-      // API response structure: response.data.data contains the actual profile
       if (profileResponse && (profileResponse as any).data?.data) {
-        // console.log('Setting profile data (nested):', (profileResponse as any).data.data);
         setProfileData((profileResponse as any).data.data);
       } else if (profileResponse && (profileResponse as any).data) {
-        // console.log('Setting profile data (direct):', (profileResponse as any).data);
         setProfileData((profileResponse as any).data);
-      }
-
-      if (achievementsResponse && (achievementsResponse as any).data?.achievements) {
-        setAchievements((achievementsResponse as any).data.achievements);
       }
     } catch (error) {
       console.error('Error fetching profile:', error);
       toast.error('Error', {
         description: 'Failed to load profile data',
       });
-    } finally {
-      setIsLoading(false);
     }
+
+    // Fetch achievements independently
+    try {
+      const achievementsResponse = await authClient.$fetch(
+        `${backendUrl}/api/player/profile/achievements`,
+        { method: 'GET' }
+      );
+
+      const raw = achievementsResponse as any;
+      const achData = raw?.data?.data ?? raw?.data ?? raw;
+      if (achData?.achievements) {
+        setAchievements(achData.achievements);
+        setAchievementCounts({
+          completed: achData.completedCount ?? 0,
+          total: achData.totalCount ?? 0,
+        });
+      }
+    } catch (error) {
+      console.error('Error fetching achievements:', error);
+    }
+
+    setIsLoading(false);
   }, [session]);
 
   useEffect(() => {
@@ -506,6 +519,12 @@ export default function ProfileScreen() {
           >
             <ProfileAchievementsCard
               achievements={userData.achievements || []}
+              completedCount={achievementCounts.completed}
+              totalCount={achievementCounts.total}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                router.navigate('/achievements' as any);
+              }}
             />
           </Animated.View>
 
@@ -592,6 +611,7 @@ export default function ProfileScreen() {
           onCancel={handleCropCancel}
         />
       )}
+
     </View>
   );
 }
