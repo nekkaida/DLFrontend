@@ -32,6 +32,7 @@ import {
   ShareOptionsSheet,
   SportFilterSheet,
   type ScorecardCaptureRef,
+  type ShareStyle,
 } from "../components";
 import { useFeedPosts, usePostActions, useSharePost } from "../hooks";
 import { feedTheme } from "../theme";
@@ -98,6 +99,14 @@ export default function FeedScreen({ sport = "default" }: FeedScreenProps) {
   const [activeTab, setActiveTab] = useState<"activity" | "friends">(
     "activity",
   );
+  const [friendRequestsPanelVisible, setFriendRequestsPanelVisible] =
+    useState(false);
+  const [pendingFriendRequests, setPendingFriendRequests] = useState(0);
+  // Lazy-mount: only render FriendsList after the first visit so the
+  // initial load doesn't pay its cost, but keep it mounted after that
+  // so tab switches have zero mounting cost — just a display toggle.
+  const hasFriendsEverShown = useRef(false);
+  if (activeTab === "friends") hasFriendsEverShown.current = true;
 
   // Cleanup on unmount
   useEffect(() => {
@@ -432,6 +441,35 @@ export default function FeedScreen({ sport = "default" }: FeedScreenProps) {
     setSharePostId(null);
   }, []);
 
+  // Get current share post and its match data
+  const currentSharePost = useMemo(() => {
+    if (!sharePostId) return null;
+    return posts.find((post) => post.id === sharePostId);
+  }, [sharePostId, posts]);
+
+  const sharePostMatch = useMemo(() => {
+    if (!currentSharePost) return undefined;
+    // Convert FeedMatch to MatchResult format
+    return {
+      id: currentSharePost.match.id,
+      matchType: currentSharePost.match.matchType,
+      matchDate: currentSharePost.match.matchDate,
+      sport: currentSharePost.match.sport,
+      team1Score: currentSharePost.match.team1Score,
+      team2Score: currentSharePost.match.team2Score,
+      outcome: currentSharePost.match.outcome,
+      setScores: currentSharePost.match.setScores,
+      gameScores: currentSharePost.match.gameScores,
+      team1Players: currentSharePost.match.team1Players,
+      team2Players: currentSharePost.match.team2Players,
+      isWalkover: currentSharePost.match.isWalkover,
+      location: currentSharePost.match.location,
+      leagueName: currentSharePost.match.leagueName,
+      seasonName: currentSharePost.match.seasonName,
+      divisionName: currentSharePost.match.divisionName,
+    };
+  }, [currentSharePost]);
+
   const renderPost = useCallback(
     ({ item }: { item: FeedPost }) => {
       const isOwnPost = currentUserId === item.authorId;
@@ -500,70 +538,91 @@ export default function FeedScreen({ sport = "default" }: FeedScreenProps) {
         onUserFilterToggle={handleUserFilterToggle}
         activeTab={activeTab}
         onTabChange={handleTabChange}
+        onAddFriendPress={() => setFriendRequestsPanelVisible(true)}
+        pendingFriendRequests={pendingFriendRequests}
       />
 
-      {/* Conditionally render based on active tab */}
-      {activeTab === "friends" ? (
-        <FriendsList sport={sport as "pickleball" | "tennis" | "padel"} />
-      ) : (
-        // Activity/Feed View
-        <>
-          {isLoading && posts.length === 0 ? (
-            <View style={styles.loadingContainer}>
-              <ActivityIndicator
-                size="large"
-                color={feedTheme.colors.primary}
-              />
-            </View>
-          ) : error && posts.length === 0 ? (
-            <View style={styles.errorContainer}>
-              <Text style={styles.errorTitle}>Something went wrong</Text>
-              <Text style={styles.errorSubtitle}>
-                We couldn't load the feed. Please try again.
-              </Text>
-              <TouchableOpacity
-                style={[
-                  styles.retryButton,
-                  isLoading && styles.retryButtonDisabled,
-                ]}
-                onPress={fetchPosts}
-                activeOpacity={0.7}
-                disabled={isLoading}
-              >
-                {isLoading ? (
-                  <ActivityIndicator size="small" color="#FFFFFF" />
-                ) : (
-                  <Text style={styles.retryButtonText}>Retry</Text>
-                )}
-              </TouchableOpacity>
-            </View>
-          ) : (
-            <FlatList
-              data={posts}
-              renderItem={renderPost}
-              keyExtractor={(item) => item.id}
-              contentContainerStyle={styles.listContent}
-              showsVerticalScrollIndicator={false}
-              refreshControl={
-                <RefreshControl
-                  refreshing={isLoading && posts.length > 0}
-                  onRefresh={fetchPosts}
-                  tintColor={feedTheme.colors.primary}
-                />
-              }
-              onEndReached={handleLoadMore}
-              onEndReachedThreshold={0.5}
-              ListFooterComponent={renderFooter}
-              ListEmptyComponent={renderEmpty}
-              // Performance optimizations
-              removeClippedSubviews={true}
-              maxToRenderPerBatch={5}
-              windowSize={10}
-              initialNumToRender={5}
+      {/* Tab panes — both always mounted after first visit, display toggles instantly */}
+
+      {/* Activity Tab */}
+      <View style={{ display: activeTab === "activity" ? "flex" : "none", flex: 1 }}>
+        {isLoading && posts.length === 0 ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator
+              size="large"
+              color={feedTheme.colors.primary}
             />
-          )}
-        </>
+          </View>
+        ) : error && posts.length === 0 ? (
+          <View style={styles.errorContainer}>
+            <Text style={styles.errorTitle}>Something went wrong</Text>
+            <Text style={styles.errorSubtitle}>
+              We couldn't load the feed. Please try again.
+            </Text>
+            <TouchableOpacity
+              style={[
+                styles.retryButton,
+                isLoading && styles.retryButtonDisabled,
+              ]}
+              onPress={fetchPosts}
+              activeOpacity={0.7}
+              disabled={isLoading}
+            >
+              {isLoading ? (
+                <ActivityIndicator size="small" color="#FFFFFF" />
+              ) : (
+                <Text style={styles.retryButtonText}>Retry</Text>
+              )}
+            </TouchableOpacity>
+          </View>
+        ) : (
+          <FlatList
+            data={posts}
+            renderItem={renderPost}
+            keyExtractor={(item) => item.id}
+            contentContainerStyle={styles.listContent}
+            showsVerticalScrollIndicator={false}
+            refreshControl={
+              <RefreshControl
+                refreshing={isLoading && posts.length > 0}
+                onRefresh={fetchPosts}
+                tintColor={feedTheme.colors.primary}
+              />
+            }
+            onEndReached={handleLoadMore}
+            onEndReachedThreshold={0.5}
+            ListFooterComponent={renderFooter}
+            ListEmptyComponent={renderEmpty}
+            // Performance optimizations
+            removeClippedSubviews={true}
+            maxToRenderPerBatch={5}
+            windowSize={10}
+            initialNumToRender={5}
+          />
+        )}
+      </View>
+
+      {/* Friends Tab — lazy: only mounts after first visit, then stays mounted */}
+      {hasFriendsEverShown.current && (
+        <View style={{ display: activeTab === "friends" ? "flex" : "none", flex: 1 }}>
+          <FriendsList
+            sport={sport as "pickleball" | "tennis" | "padel"}
+            panelVisible={friendRequestsPanelVisible}
+            onPanelOpen={() => setFriendRequestsPanelVisible(true)}
+            onPanelClose={() => setFriendRequestsPanelVisible(false)}
+            onPendingCountChange={setPendingFriendRequests}
+          />
+        </View>
       )}
+
+      {/* Floating Action Button - rendered before sheets so it stays behind them */}
+      <TouchableOpacity
+        style={[styles.fab, { backgroundColor: feedTheme.colors.primary }]}
+        onPress={handleCreatePostPress}
+        activeOpacity={0.8}
+      >
+        <Ionicons name="add" size={28} color="#FFFFFF" />
+      </TouchableOpacity>
 
       {/* Comments Bottom Sheet */}
       <CommentsSheet
@@ -620,16 +679,10 @@ export default function FeedScreen({ sport = "default" }: FeedScreenProps) {
         isLoading={isCapturing || isSaving}
         shareError={shareError}
         onClearError={clearShareError}
+        match={sharePostMatch}
+        sportType={currentSharePost?.match.sport}
       />
 
-      {/* Floating Action Button */}
-      <TouchableOpacity
-        style={[styles.fab, { backgroundColor: feedTheme.colors.primary }]}
-        onPress={handleCreatePostPress}
-        activeOpacity={0.8}
-      >
-        <Ionicons name="add" size={28} color="#FFFFFF" />
-      </TouchableOpacity>
     </View>
   );
 }
@@ -716,10 +769,5 @@ const styles = StyleSheet.create({
     borderRadius: 28,
     alignItems: "center",
     justifyContent: "center",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 8,
   },
 });

@@ -142,13 +142,6 @@ export default function MyGamesScreen({
         return;
       }
 
-      console.log(`[MyGamesScreen] Starting fetchMyMatches`, {
-        userId: session.user.id,
-        sessionExists: !!session,
-        userExists: !!session.user,
-        isManualRefresh,
-      });
-
       // Only show skeleton on very first initialization, not on tab switches
       if (!hasInitializedRef.current) {
         // First load ever - check if we have cached data

@@ -1,4 +1,4 @@
-export type ViewMode = 'all' | 'friends' | 'invitations';
+export type ViewMode = 'players' | 'friends';
 
 export interface Friend {
   friendshipId: string;

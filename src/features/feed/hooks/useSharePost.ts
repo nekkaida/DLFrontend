@@ -30,11 +30,11 @@ const openSettings = async (): Promise<void> => {
   }
 };
 
-export type ShareStyle = "transparent" | "white";
+export type ShareStyle = "transparent" | "white" | "dark";
 
 interface CaptureOptions {
   style?: ShareStyle;
-  format?: string;
+  format?: "png" | "jpg";
   quality?: number;
   pixelRatio?: number;
   width?: number;

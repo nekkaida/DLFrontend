@@ -7,20 +7,27 @@ import { Image, StyleSheet, Text, View } from "react-native";
 
 interface TransparentScorecardProps {
   match: MatchResult;
+  previewScale?: number; // Scale factor for text/content in preview mode
 }
 
 export const TransparentScorecard: React.FC<TransparentScorecardProps> = ({
   match,
+  previewScale,
 }) => {
+  // Scale helper - 30% of original size for preview (rendered directly at preview card size)
+  const scale = (size: number) => (previewScale !== undefined ? Math.round(size * 0.3) : size);
+  const isPreview = previewScale !== undefined;
+  
   // Helper function to render player photo
   const renderPlayerPhoto = (player: any, size: number = 120) => {
+    const scaledSize = scale(size);
     if (player.image) {
       return (
         <Image
           source={{ uri: player.image }}
           style={[
             styles.playerPhoto,
-            { width: size, height: size, borderRadius: size / 2 },
+            { width: scaledSize, height: scaledSize, borderRadius: scaledSize / 2 },
           ]}
         />
       );
@@ -29,10 +36,10 @@ export const TransparentScorecard: React.FC<TransparentScorecardProps> = ({
       <View
         style={[
           styles.playerPhotoDefault,
-          { width: size, height: size, borderRadius: size / 2 },
+          { width: scaledSize, height: scaledSize, borderRadius: scaledSize / 2 },
         ]}
       >
-        <Text style={[styles.playerPhotoText, { fontSize: size * 0.4 }]}>
+        <Text style={[styles.playerPhotoText, { fontSize: scaledSize * 0.4 }]}>
           {player.name?.charAt(0).toUpperCase() || "P"}
         </Text>
       </View>
@@ -58,7 +65,7 @@ export const TransparentScorecard: React.FC<TransparentScorecardProps> = ({
   return (
     <View style={styles.scorecardContainer}>
       {/* Location/League Name */}
-      <Text style={styles.locationText}>
+      <Text style={[styles.locationText, { fontSize: scale(56) }]}>
         {match.location || match.leagueName || "Friendly Match"}
       </Text>
 
@@ -78,7 +85,7 @@ export const TransparentScorecard: React.FC<TransparentScorecardProps> = ({
               </View>
             )}
           </View>
-          <Text style={styles.teamName} numberOfLines={2}>
+          <Text style={[styles.teamName, { fontSize: scale(48) }]} numberOfLines={2}>
             {isSingles
               ? formatPlayerName(match.team1Players[0].name)
               : formatPlayerName(match.team1Players[0].name, true)}
@@ -87,9 +94,9 @@ export const TransparentScorecard: React.FC<TransparentScorecardProps> = ({
 
         {/* Score Display */}
         <View style={styles.scoreDisplay}>
-          <Text style={styles.scoreText}>{match.team1Score || 0}</Text>
-          <Text style={styles.scoreDivider}>-</Text>
-          <Text style={styles.scoreText}>{match.team2Score || 0}</Text>
+          <Text style={[styles.scoreText, { fontSize: scale(140) }]}>{match.team1Score || 0}</Text>
+          <Text style={[styles.scoreDivider, { fontSize: scale(120) }]}>-</Text>
+          <Text style={[styles.scoreText, { fontSize: scale(140) }]}>{match.team2Score || 0}</Text>
         </View>
 
         {/* Team 2 */}
@@ -106,7 +113,7 @@ export const TransparentScorecard: React.FC<TransparentScorecardProps> = ({
               </View>
             )}
           </View>
-          <Text style={styles.teamName} numberOfLines={2}>
+          <Text style={[styles.teamName, { fontSize: scale(48) }]} numberOfLines={2}>
             {isSingles
               ? formatPlayerName(match.team2Players[0].name)
               : formatPlayerName(match.team2Players[0].name, true)}
@@ -115,7 +122,7 @@ export const TransparentScorecard: React.FC<TransparentScorecardProps> = ({
       </View>
 
       {/* Date */}
-      <Text style={styles.dateText}>
+      <Text style={[styles.dateText, { fontSize: scale(40) }]}>
         {match.matchDate
           ? format(new Date(match.matchDate), "d MMMM yyyy")
           : ""}
@@ -131,7 +138,7 @@ export const TransparentScorecard: React.FC<TransparentScorecardProps> = ({
             </View>
             {scores.map((_, idx) => (
               <View key={idx} style={styles.tableHeaderCell}>
-                <Text style={styles.tableHeaderText}>
+              <Text style={[styles.tableHeaderText, { fontSize: scale(38) }]}>
                   {idx + 1}
                   {idx === 0 ? "st" : idx === 1 ? "nd" : "rd"}
                 </Text>
@@ -142,7 +149,7 @@ export const TransparentScorecard: React.FC<TransparentScorecardProps> = ({
           {/* Team 1 Row */}
           <View style={styles.tableRow}>
             <View style={styles.tableNameCell}>
-              <Text style={styles.tableNameText} numberOfLines={1}>
+              <Text style={[styles.tableNameText, { fontSize: scale(42) }]} numberOfLines={1}>
                 {isSingles
                   ? formatPlayerName(match.team1Players[0].name)
                   : formatPlayerName(match.team1Players[0].name, true)}
@@ -150,7 +157,7 @@ export const TransparentScorecard: React.FC<TransparentScorecardProps> = ({
             </View>
             {scores.map((score, idx) => (
               <View key={idx} style={styles.tableScoreCell}>
-                <Text style={styles.tableScoreText}>
+                <Text style={[styles.tableScoreText, { fontSize: scale(50) }]}>
                   {"team1Games" in score
                     ? score.team1Games
                     : "team1Points" in score
@@ -164,7 +171,7 @@ export const TransparentScorecard: React.FC<TransparentScorecardProps> = ({
           {/* Team 2 Row */}
           <View style={styles.tableRow}>
             <View style={styles.tableNameCell}>
-              <Text style={styles.tableNameText} numberOfLines={1}>
+              <Text style={[styles.tableNameText, { fontSize: scale(42) }]} numberOfLines={1}>
                 {isSingles
                   ? formatPlayerName(match.team2Players[0].name)
                   : formatPlayerName(match.team2Players[0].name, true)}
@@ -172,7 +179,7 @@ export const TransparentScorecard: React.FC<TransparentScorecardProps> = ({
             </View>
             {scores.map((score, idx) => (
               <View key={idx} style={styles.tableScoreCell}>
-                <Text style={styles.tableScoreText}>
+                <Text style={[styles.tableScoreText, { fontSize: scale(50) }]}>
                   {"team2Games" in score
                     ? score.team2Games
                     : "team2Points" in score
