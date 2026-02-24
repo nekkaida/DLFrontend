@@ -111,6 +111,7 @@ export interface DivisionCardData {
 
 export interface SportColors {
   background: string;
+  header: string;
   buttonColor: string;
   badgeColor: string;
   label?: string;

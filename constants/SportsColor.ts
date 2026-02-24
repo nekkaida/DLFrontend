@@ -21,7 +21,7 @@ export const SPORT_COLORS: Record<SportType, SportColors> = {
     messageColor: '#DCC6FD',
   },
   TENNIS: {
-    background: '#65B741',
+    background: '#A2E047',
     badgeColor: '#22C55E',
     header:'#A2E047',
     label: 'TENNIS',
