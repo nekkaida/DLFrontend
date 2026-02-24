@@ -6,12 +6,31 @@ import CommunityScreen from '@/features/community/screens/CommunityScreen';
 
 interface FriendsListProps {
   sport?: 'pickleball' | 'tennis' | 'padel';
+  mode?: 'friend' | 'invite';
+  panelVisible?: boolean;
+  onPanelOpen?: () => void;
+  onPanelClose?: () => void;
+  onPendingCountChange?: (count: number) => void;
 }
 
-export const FriendsList: React.FC<FriendsListProps> = ({ sport = 'pickleball' }) => {
+export const FriendsList: React.FC<FriendsListProps> = ({
+  sport = 'pickleball',
+  mode = 'friend',
+  panelVisible,
+  onPanelOpen,
+  onPanelClose,
+  onPendingCountChange,
+}) => {
   return (
     <View style={styles.container}>
-      <CommunityScreen sport={sport} />
+      <CommunityScreen
+        sport={sport}
+        mode={mode}
+        panelVisible={panelVisible}
+        onPanelOpen={onPanelOpen}
+        onPanelClose={onPanelClose}
+        onPendingCountChange={onPendingCountChange}
+      />
     </View>
   );
 };
@@ -19,6 +38,6 @@ export const FriendsList: React.FC<FriendsListProps> = ({ sport = 'pickleball' }
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F6FAFC',
+    backgroundColor: '#FDFDFD',
   },
 });
