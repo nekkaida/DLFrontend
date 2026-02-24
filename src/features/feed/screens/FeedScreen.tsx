@@ -99,6 +99,9 @@ export default function FeedScreen({ sport = "default" }: FeedScreenProps) {
   const [activeTab, setActiveTab] = useState<"activity" | "friends">(
     "activity",
   );
+  const [friendRequestsPanelVisible, setFriendRequestsPanelVisible] =
+    useState(false);
+  const [pendingFriendRequests, setPendingFriendRequests] = useState(0);
   // Lazy-mount: only render FriendsList after the first visit so the
   // initial load doesn't pay its cost, but keep it mounted after that
   // so tab switches have zero mounting cost — just a display toggle.
@@ -535,6 +538,8 @@ export default function FeedScreen({ sport = "default" }: FeedScreenProps) {
         onUserFilterToggle={handleUserFilterToggle}
         activeTab={activeTab}
         onTabChange={handleTabChange}
+        onAddFriendPress={() => setFriendRequestsPanelVisible(true)}
+        pendingFriendRequests={pendingFriendRequests}
       />
 
       {/* Tab panes — both always mounted after first visit, display toggles instantly */}
@@ -600,7 +605,13 @@ export default function FeedScreen({ sport = "default" }: FeedScreenProps) {
       {/* Friends Tab — lazy: only mounts after first visit, then stays mounted */}
       {hasFriendsEverShown.current && (
         <View style={{ display: activeTab === "friends" ? "flex" : "none", flex: 1 }}>
-          <FriendsList sport={sport as "pickleball" | "tennis" | "padel"} />
+          <FriendsList
+            sport={sport as "pickleball" | "tennis" | "padel"}
+            panelVisible={friendRequestsPanelVisible}
+            onPanelOpen={() => setFriendRequestsPanelVisible(true)}
+            onPanelClose={() => setFriendRequestsPanelVisible(false)}
+            onPendingCountChange={setPendingFriendRequests}
+          />
         </View>
       )}
 

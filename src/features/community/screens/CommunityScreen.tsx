@@ -1,14 +1,20 @@
-import React, { useEffect, useState, useCallback, useRef } from 'react';
+import React, { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import { ScrollView, View, StyleSheet, Animated } from 'react-native';
 import { useSession } from '@/lib/auth-client';
 import * as Haptics from 'expo-haptics';
 import { toast } from 'sonner-native';
-import { router } from 'expo-router';
-import { SearchBar, TabSwitcher, PlayerInfoModal, FriendRequestModal } from '../components';
-import { AllPlayersView, FriendsView, InvitationsView } from '../views';
+import {
+  SearchBar,
+  TabSwitcher,
+  PlayerInfoModal,
+  FriendRequestModal,
+  FriendRequestsPanel,
+} from '../components';
+import { AllPlayersView, FriendsView } from '../views';
 import { useProfile, usePlayers, useFriends, useSeasonInvitations } from '../hooks';
 import { Player } from '../types';
 import type { ViewMode } from '../components/TabSwitcher';
+import type { PlayerListMode } from '../components/PlayerListItem';
 
 // Safe haptics wrapper for production
 const triggerHaptic = async (style: Haptics.ImpactFeedbackStyle = Haptics.ImpactFeedbackStyle.Light) => {
@@ -22,9 +28,16 @@ const triggerHaptic = async (style: Haptics.ImpactFeedbackStyle = Haptics.Impact
 interface CommunityScreenProps {
   onTabPress?: (tabIndex: number) => void;
   sport?: 'pickleball' | 'tennis' | 'padel';
+  /** 'friend' = standard Add-Friend flow (default), 'invite' = partnership/match invite */
+  mode?: PlayerListMode;
+  /** External control for the Friend Requests panel (driven from FeedHeader icon) */
+  panelVisible?: boolean;
+  onPanelClose?: () => void;
+  onPanelOpen?: () => void;
+  onPendingCountChange?: (count: number) => void;
 }
 
-export default function CommunityScreen({ sport = 'pickleball' }: CommunityScreenProps) {
+export default function CommunityScreen({ sport = 'pickleball', mode = 'friend', panelVisible, onPanelClose, onPanelOpen, onPendingCountChange }: CommunityScreenProps) {
   const { data: session } = useSession();
 
   // Hooks
@@ -50,12 +63,26 @@ export default function CommunityScreen({ sport = 'pickleball' }: CommunityScree
   } = useSeasonInvitations();
 
   // Local state
-  const [viewMode, setViewMode] = useState<ViewMode>('all');
+  const [viewMode, setViewMode] = useState<ViewMode>('players');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedPlayer, setSelectedPlayer] = useState<Player | null>(null);
   const [modalVisible, setModalVisible] = useState(false);
   const [friendRequestModalVisible, setFriendRequestModalVisible] = useState(false);
   const [friendRequestRecipient, setFriendRequestRecipient] = useState<{ id: string; name: string } | null>(null);
+  const [directActionLoading, setDirectActionLoading] = useState<string | null>(null);
+
+  // Panel is controlled externally (via FeedHeader icon) when panelVisible prop is provided,
+  const isControlledPanel = panelVisible !== undefined;
+  const [internalPanelVisible, setInternalPanelVisible] = useState(false);
+  const isPanelVisible = isControlledPanel ? panelVisible : internalPanelVisible;
+  const openPanel = () => {
+    if (isControlledPanel) onPanelOpen?.();
+    else setInternalPanelVisible(true);
+  };
+  const closePanel = () => {
+    if (isControlledPanel) onPanelClose?.();
+    else setInternalPanelVisible(false);
+  };
 
   // Entry animation values
   const headerEntryOpacity = useRef(new Animated.Value(0)).current;
@@ -134,6 +161,39 @@ export default function CommunityScreen({ sport = 'pickleball' }: CommunityScree
   const isFriend = useCallback((playerId: string) => {
     return friends.some(f => f.friend.id === playerId);
   }, [friends]);
+
+  // Check if the current user already sent a pending request to this player
+  const isPendingRequestSent = useCallback((playerId: string) => {
+    return friendRequests.sent.some(
+      r => r.recipientId === playerId && r.status === 'PENDING'
+    );
+  }, [friendRequests.sent]);
+
+  // Pending received count (for badge on icon)
+  const pendingReceivedCount = useMemo(
+    () => friendRequests.received.filter(r => r.status === 'PENDING').length,
+    [friendRequests.received]
+  );
+
+  // Notify parent of pending count so FeedHeader badge stays in sync
+  useEffect(() => {
+    onPendingCountChange?.(pendingReceivedCount);
+  }, [pendingReceivedCount, onPendingCountChange]);
+
+  // Handle "Add Friend" tapped directly on player row (no PlayerInfoModal step)
+  const handleAddFriendDirect = useCallback((player: Player) => {
+    triggerHaptic();
+    if (isFriend(player.id)) {
+      toast.success('Already friends!');
+      return;
+    }
+    if (isPendingRequestSent(player.id)) {
+      toast.info('Friend request already sent.');
+      return;
+    }
+    setFriendRequestRecipient({ id: player.id, name: player.name });
+    setFriendRequestModalVisible(true);
+  }, [isFriend, isPendingRequestSent]);
 
   // Fetch data on mount
   useEffect(() => {
@@ -242,40 +302,39 @@ export default function CommunityScreen({ sport = 'pickleball' }: CommunityScree
     await acceptSeasonInvitation(invitationId, (partnershipData) => {
       // Refresh friends and invitations after accepting
       fetchFriends();
-
-      // ✅ No navigation needed - success toast already shown in useSeasonInvitations.ts
-      // The team captain will see the "Register Team" button appear automatically
-      // via Socket.IO real-time updates on the DoublesTeamPairingScreen
     });
   }, [acceptSeasonInvitation, fetchFriends]);
 
   return (
     <View style={styles.container}>
-      {/* Search Bar - Compact */}
+      {/* Tab Switcher + Search Bar (tabs first, then search) */}
       <Animated.View
         style={{
           opacity: headerEntryOpacity,
           transform: [{ translateY: headerEntryTranslateY }],
         }}
       >
+        {/* Tab Switcher (Friends / Players) — above search */}
+        <View style={styles.tabSection}>
+          <TabSwitcher
+            activeTab={viewMode}
+            onTabChange={setViewMode}
+            friendsCount={friends.length}
+            pendingRequestsCount={pendingReceivedCount}
+            onRequestsPress={openPanel}
+          />
+        </View>
+
+        {/* Search Bar */}
         <View style={styles.searchSection}>
           <SearchBar
             value={searchQuery}
             onChangeText={setSearchQuery}
           />
         </View>
-
-        {/* Tab Switcher */}
-        <View style={styles.tabSection}>
-          <TabSwitcher
-            activeTab={viewMode}
-            onTabChange={setViewMode}
-            friendsCount={friends.length}
-          />
-        </View>
       </Animated.View>
 
-      {/* Content Views */}
+      {/* Content */}
       <Animated.View
         style={{
           flex: 1,
@@ -284,43 +343,34 @@ export default function CommunityScreen({ sport = 'pickleball' }: CommunityScree
         }}
       >
         <ScrollView
-        style={styles.scrollContainer}
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-      >
-        {viewMode === 'all' && (
-          <AllPlayersView
-            players={filteredPlayers}
-            isLoading={isLoading}
-            searchQuery={searchQuery}
-            onPlayerPress={handlePlayerPress}
-          />
-        )}
+          style={styles.scrollContainer}
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+        >
+          {viewMode === 'players' && (
+            <AllPlayersView
+              players={filteredPlayers}
+              isLoading={isLoading}
+              searchQuery={searchQuery}
+              mode={mode}
+              actionLoading={directActionLoading}
+              isFriendCheck={isFriend}
+              isPendingCheck={isPendingRequestSent}
+              onPlayerPress={handlePlayerPress}
+              onAddFriend={handleAddFriendDirect}
+            />
+          )}
 
-        {viewMode === 'friends' && (
-          <FriendsView
-            friends={friends}
-            partnerships={[]}
-          />
-        )}
-
-        {viewMode === 'invitations' && (
-          <InvitationsView
-            friendRequests={friendRequests}
-            seasonInvitations={seasonInvitations}
-            friendActionLoading={friendActionLoading}
-            invitationActionLoading={invitationActionLoading}
-            onAcceptFriendRequest={acceptFriendRequest}
-            onRejectFriendRequest={rejectFriendRequest}
-            onAcceptInvitation={handleAcceptSeasonInvitation}
-            onDenyInvitation={denySeasonInvitation}
-            onCancelInvitation={cancelSeasonInvitation}
-          />
-        )}
+          {viewMode === 'friends' && (
+            <FriendsView
+              friends={friends}
+              partnerships={[]}
+            />
+          )}
         </ScrollView>
       </Animated.View>
 
-      {/* Player Info Modal */}
+      {/* Player Info Modal (tap on player row) */}
       <PlayerInfoModal
         visible={modalVisible}
         player={selectedPlayer}
@@ -329,7 +379,7 @@ export default function CommunityScreen({ sport = 'pickleball' }: CommunityScree
         onSendFriendRequest={handleSendFriendRequest}
       />
 
-      {/* Friend Request Modal */}
+      {/* Friend Request Confirmation Modal */}
       <FriendRequestModal
         visible={friendRequestModalVisible}
         recipientName={friendRequestRecipient?.name || ''}
@@ -339,6 +389,17 @@ export default function CommunityScreen({ sport = 'pickleball' }: CommunityScree
         }}
         onSend={handleSendFriendRequestConfirm}
       />
+
+      {/* Friend Requests Panel (received + sent) */}
+      <FriendRequestsPanel
+        visible={isPanelVisible}
+        friendRequests={friendRequests}
+        actionLoading={friendActionLoading}
+        onClose={closePanel}
+        onAccept={acceptFriendRequest}
+        onReject={rejectFriendRequest}
+        onCancel={rejectFriendRequest}
+      />
     </View>
   );
 }
@@ -347,7 +408,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     paddingTop: 12,
-    backgroundColor: '#F6FAFC',
+    backgroundColor: '#FDFDFD',
   },
   searchSection: {
     paddingHorizontal: 16,

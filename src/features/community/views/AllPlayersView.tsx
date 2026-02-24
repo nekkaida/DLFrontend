@@ -1,20 +1,31 @@
 import React from 'react';
 import { StyleSheet, View } from 'react-native';
 import { EmptyState, PlayerListItem } from '../components';
+import type { PlayerListMode } from '../components/PlayerListItem';
 import { Player } from '../types';
 
 interface AllPlayersViewProps {
   players: Player[];
   isLoading: boolean;
   searchQuery: string;
-  onPlayerPress: (player: Player) => void;
+  mode?: PlayerListMode;
+  actionLoading?: string | null;
+  isFriendCheck: (playerId: string) => boolean;
+  isPendingCheck: (playerId: string) => boolean;
+  onPlayerPress?: (player: Player) => void;
+  onAddFriend: (player: Player) => void;
 }
 
 export const AllPlayersView: React.FC<AllPlayersViewProps> = ({
   players,
   isLoading,
   searchQuery,
+  mode = 'friend',
+  actionLoading,
+  isFriendCheck,
+  isPendingCheck,
   onPlayerPress,
+  onAddFriend,
 }) => {
   if (isLoading) {
     return (
@@ -40,7 +51,15 @@ export const AllPlayersView: React.FC<AllPlayersViewProps> = ({
     <View style={styles.container}>
       {players.map((player, index) => (
         <React.Fragment key={player.id}>
-          <PlayerListItem player={player} onPress={onPlayerPress} />
+          <PlayerListItem
+            player={player}
+            isFriend={isFriendCheck(player.id)}
+            isPendingRequest={isPendingCheck(player.id)}
+            mode={mode}
+            actionLoading={actionLoading === player.id}
+            onPress={onPlayerPress}
+            onAddFriend={onAddFriend}
+          />
           {index < players.length - 1 && <View style={styles.divider} />}
         </React.Fragment>
       ))}
@@ -54,7 +73,7 @@ const styles = StyleSheet.create({
   },
   divider: {
     height: 1,
-    backgroundColor: '#E2E2E2',
-    marginLeft: 60,
+    backgroundColor: '#F0F0F0',
+    marginLeft: 63,
   },
 });

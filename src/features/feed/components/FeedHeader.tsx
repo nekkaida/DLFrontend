@@ -18,6 +18,8 @@ interface FeedHeaderProps {
   onUserFilterToggle?: () => void;
   activeTab: 'activity' | 'friends';
   onTabChange: (tab: 'activity' | 'friends') => void;
+  onAddFriendPress?: () => void;
+  pendingFriendRequests?: number;
 }
 
 export const FeedHeader: React.FC<FeedHeaderProps> = ({
@@ -28,6 +30,8 @@ export const FeedHeader: React.FC<FeedHeaderProps> = ({
   onUserFilterToggle,
   activeTab,
   onTabChange,
+  onAddFriendPress,
+  pendingFriendRequests = 0,
 }) => {
   const underlineX = useSharedValue(0);
   const underlineWidth = useSharedValue(0);
@@ -90,10 +94,28 @@ export const FeedHeader: React.FC<FeedHeaderProps> = ({
         ))}
         {/* Sliding animated underline */}
         <Animated.View style={[styles.tabUnderline, underlineStyle]} />
+
+        {/* Add Friend button — visible only on Friends tab */}
+        {activeTab === 'friends' && onAddFriendPress && (
+          <TouchableOpacity
+            style={styles.addFriendButton}
+            onPress={onAddFriendPress}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="person-add-outline" size={20} color="#555555" />
+            {pendingFriendRequests > 0 && (
+              <View style={styles.badge}>
+                <Text style={styles.badgeText}>
+                  {pendingFriendRequests > 9 ? '9+' : String(pendingFriendRequests)}
+                </Text>
+              </View>
+            )}
+          </TouchableOpacity>
+        )}
       </View>
 
-      {/* Filters Row */}
-      <View style={styles.filtersRow}>
+      {/* Filters Row — hidden on Friends tab */}
+      {activeTab !== 'friends' && <View style={styles.filtersRow}>
         {/* Sport Filter */}
         {onFilterPress && (
           <TouchableOpacity
@@ -126,7 +148,7 @@ export const FeedHeader: React.FC<FeedHeaderProps> = ({
             </Text>
           </TouchableOpacity>
         )}
-      </View>
+      </View>}
     </View>
   );
 };
@@ -141,6 +163,33 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 24,
+  },
+  addFriendButton: {
+    marginLeft: 'auto',
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: '#EFEFEF',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  badge: {
+    position: 'absolute',
+    top: 4,
+    right: 4,
+    minWidth: 15,
+    height: 15,
+    borderRadius: 7.5,
+    backgroundColor: feedTheme.colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 2,
+  },
+  badgeText: {
+    color: '#FFFFFF',
+    fontSize: 8,
+    fontWeight: '700',
+    lineHeight: 11,
   },
   tab: {
     paddingVertical: 8,
