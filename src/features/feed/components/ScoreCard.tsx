@@ -38,7 +38,7 @@ const getSportIcon = (
 };
 
 const PHOTO_SIZE = 80;
-const NAME_COLUMN_WIDTH = 160;
+const NAME_COLUMN_WIDTH = 350;
 
 // ─── Preview fixed sizes ──────────────────────────────────────────────────────
 // All values here are the actual pixel sizes used when rendering the preview card.
@@ -47,10 +47,10 @@ const PREVIEW = {
   // Dimensions
   iconSize: 16,
   photoSize: 22,
-  nameColWidth: 44,
+  nameColWidth: 100,
   boxHeight: 13,
   doublesPhotoOverlap: -8,
-  // Spacing overrides
+  setColumnWidth: 18,
   headerPadding: 5,
   mainSectionPaddingV: 3,
   mainSectionPaddingH: 5,
@@ -58,9 +58,13 @@ const PREVIEW = {
   scoresSectionPaddingV: 4,
   scoresSectionPaddingH: 6,
   scoreHeaderPaddingV: 2,
-  scoreHeaderPaddingH: 5,
+  scoreHeaderPaddingH: 8,
   scoreHeaderBorderRadius: 5,
-  scoresColumnsPaddingH: 3,
+  scoreHeaderMarginLeft: 18,
+  scoreHeaderMaxWidth: 200,
+  scoresColumnsPaddingH: 8,
+  scoresColumnsMarginLeft: 18,
+  scoresGroupGap: 12,
   doublesNamesMarginLeft: 3,
   titleContainerMarginLeft: 3,
   sportIconMarginRight: 2,
@@ -75,15 +79,15 @@ const PREVIEW = {
   cardVenueName: 8,
   scoreText: 26,
   scoreDivider: 26,
-  teamName: 7,
-  winnerName: 7,
+  teamName: 8,
+  winnerName: 8,
   loserName: 6,
   doublesPlayerName: 5,
   cardMatchDate: 6,
   setHeaderText: 6,
   nameColumnText: 7,
   setScoreText: 8,
-  winningScoreText: 10,
+  winningScoreText: 8,
 };
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -157,11 +161,11 @@ const ScoreCard: React.FC<ScoreCardProps> = ({
     (match as any).division?.name || (match as any).divisionName || "";
 
   return (
-    <View style={[styles.cardContainer, containerStyle, isPreview && { maxWidth: 240, maxHeight: 180, borderRadius: 8 }]}>
+    <View style={[styles.cardContainer, containerStyle, isPreview && { maxWidth: 240, maxHeight: 160, borderRadius: 8 }]}>
       {/* League/Match Info Header */}
       <LinearGradient
         colors={[
-          `rgba(${parseInt(sportColors.background.slice(1, 3), 16)}, ${parseInt(sportColors.background.slice(3, 5), 16)}, ${parseInt(sportColors.background.slice(5, 7), 16)}, 0.08)`,
+          `rgba(${parseInt(sportColors.background.slice(1, 3), 16)}, ${parseInt(sportColors.header.slice(3, 5), 16)}, ${parseInt(sportColors.background.slice(5, 7), 16)}, 0.08)`,
           "#FFFFFF",
         ]}
         start={{ x: 0, y: 0 }}
@@ -348,29 +352,38 @@ const ScoreCard: React.FC<ScoreCardProps> = ({
                     styles.scoreHeaderRow,
                     { backgroundColor: sportColors.background },
                     scoreHeaderRowStyle,
-                    isPreview && { paddingVertical: PREVIEW.scoreHeaderPaddingV, paddingHorizontal: PREVIEW.scoreHeaderPaddingH, borderRadius: PREVIEW.scoreHeaderBorderRadius, marginBottom: 4 },
+                    isPreview && { 
+                      paddingVertical: PREVIEW.scoreHeaderPaddingV, 
+                      paddingHorizontal: PREVIEW.scoreHeaderPaddingH, 
+                      borderRadius: PREVIEW.scoreHeaderBorderRadius, 
+                      marginBottom: 4,
+                      marginLeft: PREVIEW.scoreHeaderMarginLeft,
+                      maxWidth: PREVIEW.scoreHeaderMaxWidth,
+                    },
                   ]}
                 >
-                  <View style={[styles.nameColumnHeaderBox, isPreview && { width: PREVIEW.nameColWidth }]}>
+                  <View style={[styles.nameColumnHeaderBox, isPreview && { width: PREVIEW.nameColWidth, paddingLeft: 2 }]}>
                     <Text style={[styles.setHeaderText, isPreview && { fontSize: PREVIEW.setHeaderText }]}>Sets</Text>
                   </View>
-                  {displayScores.map((_, idx) => (
-                    <View
-                      key={`header-${idx}`}
-                      style={styles.setColumnHeaderBox}
-                    >
-                      <Text style={[styles.setHeaderText, isPreview && { fontSize: PREVIEW.setHeaderText }]}>
-                        {["1st", "2nd", "3rd", "4th", "5th"][idx] ||
-                          `${idx + 1}th`}
-                      </Text>
-                    </View>
-                  ))}
+                  <View style={[styles.scoresHeaderGroup, isPreview && { gap: PREVIEW.scoresGroupGap }]}>
+                    {displayScores.map((_, idx) => (
+                      <View
+                        key={`header-${idx}`}
+                        style={[styles.setColumnHeaderBox, isPreview && { minWidth: PREVIEW.setColumnWidth }]}
+                      >
+                        <Text style={[styles.setHeaderText, isPreview && { fontSize: PREVIEW.setHeaderText }]}>
+                          {["1st", "2nd", "3rd", "4th", "5th"][idx] ||
+                            `${idx + 1}th`}
+                        </Text>
+                      </View>
+                    ))}
+                  </View>
                 </View>
 
                 {/* Spaced out scores section */}
-                <View style={[styles.scoresColumns, isPreview && { paddingHorizontal: PREVIEW.scoresColumnsPaddingH }]}>
+                <View style={[styles.scoresColumns, isPreview && { paddingHorizontal: PREVIEW.scoresColumnsPaddingH, marginLeft: PREVIEW.scoresColumnsMarginLeft }]}>
                   {/* Names Column */}
-                  <View style={[styles.nameColumn, isPreview && { width: PREVIEW.nameColWidth }]}>
+                  <View style={[styles.nameColumn, isPreview && { width: PREVIEW.nameColWidth, paddingLeft: 2 }]}>
                     <Text style={[styles.nameColumnText, isPreview && { fontSize: PREVIEW.nameColumnText, height: PREVIEW.boxHeight, lineHeight: PREVIEW.boxHeight }]} numberOfLines={1}>
                       {isSingles
                         ? formatPlayerName(match.team1Players[0].name, true)
@@ -383,52 +396,54 @@ const ScoreCard: React.FC<ScoreCardProps> = ({
                     </Text>
                   </View>
 
-                  {/* Scores Map */}
-                  {displayScores.map((score, idx) => {
-                    const isPlaceholder = !!(score as any).__placeholder;
-                    const team1Score = isPlaceholder
-                      ? "-"
-                      : ((score as any).team1Points ??
-                        (score as any).team1Games ??
-                        0);
-                    const team2Score = isPlaceholder
-                      ? "-"
-                      : ((score as any).team2Points ??
-                        (score as any).team2Games ??
-                        0);
-                    return (
-                      <View key={idx} style={styles.setColumn}>
-                        <View style={[styles.setScoreBox, isPreview && { height: PREVIEW.boxHeight }]}>
-                          <Text
-                            style={[
-                              styles.setScoreText,
-                              !isPlaceholder &&
-                                (team1Score as number) >
-                                  (team2Score as number) &&
-                                styles.winningScoreText,
-                              isPreview && { fontSize: !isPlaceholder && (team1Score as number) > (team2Score as number) ? PREVIEW.winningScoreText : PREVIEW.setScoreText },
-                            ]}
-                          >
-                            {team1Score}
-                          </Text>
+                  {/* Scores Group */}
+                  <View style={[styles.scoresGroup, isPreview && { gap: PREVIEW.scoresGroupGap }]}>
+                    {displayScores.map((score, idx) => {
+                      const isPlaceholder = !!(score as any).__placeholder;
+                      const team1Score = isPlaceholder
+                        ? "-"
+                        : ((score as any).team1Points ??
+                          (score as any).team1Games ??
+                          0);
+                      const team2Score = isPlaceholder
+                        ? "-"
+                        : ((score as any).team2Points ??
+                          (score as any).team2Games ??
+                          0);
+                      return (
+                        <View key={idx} style={[styles.setColumn, isPreview && { minWidth: PREVIEW.setColumnWidth }]}>
+                          <View style={[styles.setScoreBox, isPreview && { height: PREVIEW.boxHeight }]}>
+                            <Text
+                              style={[
+                                styles.setScoreText,
+                                !isPlaceholder &&
+                                  (team1Score as number) >
+                                    (team2Score as number) &&
+                                  styles.winningScoreText,
+                                isPreview && { fontSize: !isPlaceholder && (team1Score as number) > (team2Score as number) ? PREVIEW.winningScoreText : PREVIEW.setScoreText },
+                              ]}
+                            >
+                              {team1Score}
+                            </Text>
+                          </View>
+                          <View style={[styles.setScoreBox, isPreview && { height: PREVIEW.boxHeight }]}>
+                            <Text
+                              style={[
+                                styles.setScoreText,
+                                !isPlaceholder &&
+                                  (team2Score as number) >
+                                    (team1Score as number) &&
+                                  styles.winningScoreText,
+                                isPreview && { fontSize: !isPlaceholder && (team2Score as number) > (team1Score as number) ? PREVIEW.winningScoreText : PREVIEW.setScoreText },
+                              ]}
+                            >
+                              {team2Score}
+                            </Text>
+                          </View>
                         </View>
-                        <View style={[styles.setScoreBox, isPreview && { height: PREVIEW.boxHeight }]}>
-                          <Text
-                            style={[
-                              styles.setScoreText,
-                              !isPlaceholder &&
-                                (team2Score as number) >
-                                  (team1Score as number) &&
-                                styles.winningScoreText,
-                              isPreview && { fontSize: !isPlaceholder && (team2Score as number) > (team1Score as number) ? PREVIEW.winningScoreText : PREVIEW.setScoreText },
-                            ]}
-                          >
-                            {team2Score}
-                          </Text>
-                        </View>
-                      </View>
-                    );
-                  })}
+                      );
+                    })}
+                  </View>
                 </View>
               </>
             );
@@ -474,11 +489,11 @@ const styles = StyleSheet.create({
     width: "100%",
     maxWidth: 850,
     height: "100%",
-    maxHeight: 600,
+    maxHeight: 620,
     backgroundColor: "#FFFFFF",
-    borderRadius: 32,
-    borderWidth: 1,
-    borderColor: "#a1a2a5",
+    borderRadius: 48,
+    borderWidth: 0,
+    borderColor: "transparent",
     overflow: "hidden",
     // NEW: This replaces ios shadow props and android elevation
     boxShadow: "0px 12px 24px rgba(0, 0, 0, 0.12)",
@@ -488,7 +503,8 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     paddingHorizontal: 12,
     backgroundColor: "#FFFFFF",
-    minWidth: 120, 
+    minWidth: 160, 
+    maxHeight: 60,
     justifyContent: "center",
     alignItems: "center",
     borderRadius: 40,
@@ -497,7 +513,6 @@ const styles = StyleSheet.create({
   matchTypeText: {
     fontSize: 24,
     fontWeight: "700",
-    textTransform: "uppercase",
   },
   mainScoreSection: {
     flexDirection: "row",
@@ -527,7 +542,7 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   teamName: {
-    fontSize: 26,
+    fontSize: 32,
     fontWeight: "600",
     marginTop: 8,
     textAlign: "center",
@@ -564,24 +579,33 @@ const styles = StyleSheet.create({
   },
   scoreHeaderRow: {
     flexDirection: "row",
-    borderRadius: 18,
+    borderRadius: 22,
+    maxWidth: 754,
     paddingVertical: 8,
-    paddingHorizontal: 20,
+    paddingHorizontal: 40,
     marginBottom: 16,
+    marginLeft: 40,
     alignItems: "center",
   },
   nameColumnHeaderBox: {
     width: NAME_COLUMN_WIDTH,
     paddingLeft: 8,
   },
+  scoresHeaderGroup: {
+    flexDirection: "row",
+    flex: 0,
+    justifyContent: "flex-start",
+    gap: 50,
+  },
   setColumnHeaderBox: {
-    flex: 1,
+    minWidth: 80,
     alignItems: "center",
   },
   scoresColumns: {
     flexDirection: "row",
     alignItems: "flex-start",
-    paddingHorizontal: 16,
+    paddingHorizontal: 40,
+    marginLeft: 40,
   },
   nameColumn: {
     width: NAME_COLUMN_WIDTH,
@@ -589,15 +613,21 @@ const styles = StyleSheet.create({
     paddingLeft: 8,
   },
   nameColumnText: {
-    fontSize: 26,
+    fontSize: 30,
     fontWeight: "700",
     color: "#374151",
     height: 48,
     textAlignVertical: "center",
     lineHeight: 48,
   },
+  scoresGroup: {
+    flexDirection: "row",
+    flex: 0,
+    justifyContent: "flex-start",
+    gap: 50,
+  },
   setColumn: {
-    flex: 1,
+    minWidth: 80,
     alignItems: "center",
   },
   setScoreBox: {
@@ -606,10 +636,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   setHeaderText: {
-    fontSize: 22,
+    fontSize: 28,
     fontWeight: "800",
-    color: "#FFFFFF",
-    textTransform: "uppercase",
+    color: "#1D1D1F",
   },
   winningScoreText: {
     color: "#FEA04D",

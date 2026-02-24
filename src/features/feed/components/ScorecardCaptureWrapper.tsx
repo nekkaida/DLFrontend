@@ -92,8 +92,6 @@ export const ScorecardCaptureWrapper = forwardRef<
           containerStyle={{
             width: DISPLAY_BASE_WIDTH,
             height: DISPLAY_BASE_HEIGHT,
-            borderWidth: 0,
-            borderColor: "transparent",
             boxShadow: "none",
             transform: [{ scale: displayScale }],
           }}

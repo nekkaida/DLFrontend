@@ -89,7 +89,7 @@ export const FriendlyScreen: React.FC<FriendlyScreenProps> = ({ sport }) => {
         },
       );
 
-      if (!response.ok) return true; // If summary fails, assume new content
+      if (!response.ok) return true;
 
       const newSummary = await response.json();
       const cacheKey = `${FRIENDLY_SUMMARY_CACHE_KEY}_${sportType}`;
@@ -360,14 +360,13 @@ export const FriendlyScreen: React.FC<FriendlyScreenProps> = ({ sport }) => {
     filterBottomSheetRef.current?.present();
   };
 
-  // Calculate active filter count for badge
-  const activeFilterCount = useMemo(() => {
-    let count = 0;
-    if (filters.status !== "all") count++;
-    if (filters.gameType !== null) count++;
-    if (filters.skillLevels.length > 0) count++;
-    if (selectedDate !== null) count++;
-    return count;
+  const hasActiveFilters = useMemo(() => {
+    return (
+      filters.status !== "all" ||
+      filters.gameType !== null ||
+      filters.skillLevels.length > 0 ||
+      selectedDate !== null
+    );
   }, [filters, selectedDate]);
 
   const renderEmptyState = () => (
@@ -375,7 +374,7 @@ export const FriendlyScreen: React.FC<FriendlyScreenProps> = ({ sport }) => {
       <Ionicons name="calendar-outline" size={64} color="#9CA3AF" />
       <Text style={styles.emptyTitle}>No friendly matches found</Text>
       <Text style={styles.emptyDescription}>
-        {activeFilterCount > 0
+        {hasActiveFilters
           ? "Try adjusting your filters"
           : "Be the first to create a friendly match!"}
       </Text>
@@ -425,46 +424,6 @@ export const FriendlyScreen: React.FC<FriendlyScreenProps> = ({ sport }) => {
           ]}
           style={styles.headerGradient}
         >
-          {/* <View style={[styles.headerGradient, {paddingHorizontal: 16}]}> 
-            <View style={styles.headerTopRow}>
-              <View style={styles.headerLeftColumn}>
-                <Text style={styles.headerTitle}>Friendly Matches</Text>
-              </View>
-              <View style={styles.headerRightColumn}>
-                <TouchableOpacity
-                  style={[
-                    styles.headerFilterButton,
-                    activeFilterCount > 0 && { backgroundColor: sportColors.background }
-                  ]}
-                  onPress={handleFilterButtonPress}
-                  accessibilityLabel={`Filter matches, ${activeFilterCount} filters active`}
-                >
-                  <Ionicons
-                    name="options-outline"
-                    size={20}
-                    color={activeFilterCount > 0 ? '#FFFFFF' : '#6B7280'}
-                  />
-                  {activeFilterCount > 0 && (
-                    <Text style={styles.filterButtonText}>
-                      {activeFilterCount}
-                    </Text>
-                  )}
-                </TouchableOpacity>
-
-                <View style={styles.headerDateSection}>
-                  <Text style={styles.dateLabel}>Select Date</Text>
-                  <View style={styles.headerDateScrollWrapper}>
-                    <HorizontalDateScroll
-                      selectedDate={selectedDate}
-                      onDateSelect={setSelectedDate}
-                      sportColor={sportColors.background}
-                    />
-                  </View>
-                </View>
-              </View>
-            </View>
-          </View> */}
-
           <View style={[styles.headerGradient, { paddingHorizontal: 16 }]}>
             {/* Header Title */}
             <Text style={styles.headerTitle}>Friendly Matches</Text>
@@ -474,8 +433,8 @@ export const FriendlyScreen: React.FC<FriendlyScreenProps> = ({ sport }) => {
               <TouchableOpacity
                 style={[
                   styles.filterButtonContainer,
-                  activeFilterCount > 0 && {
-                    backgroundColor: sportColors.background,
+                  hasActiveFilters && {
+                    backgroundColor: "transparent",
                     borderColor: sportColors.background,
                   },
                 ]}
@@ -484,15 +443,8 @@ export const FriendlyScreen: React.FC<FriendlyScreenProps> = ({ sport }) => {
                 <Ionicons
                   name="options-outline"
                   size={22}
-                  color={activeFilterCount > 0 ? "#FFFFFF" : "#6B7280"}
+                  color={hasActiveFilters ? "#FFFFFF" : "#6B7280"}
                 />
-                {activeFilterCount > 0 && (
-                  <View style={styles.filterBadge}>
-                    <Text style={styles.filterBadgeText}>
-                      {activeFilterCount}
-                    </Text>
-                  </View>
-                )}
               </TouchableOpacity>
 
               <View style={styles.verticalDivider} />
@@ -583,7 +535,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   headerGradient: {
-    paddingTop: 50,
+    paddingTop: 25,
     paddingBottom: 25,
   },
   headerTitle: {
@@ -604,29 +556,12 @@ const styles = StyleSheet.create({
     width: 50,
     height: 50,
     borderRadius: 12,
+    backgroundColor:"transparent",
     justifyContent: "center",
     alignItems: "center",
     borderWidth: 1,
     borderColor: "#181818",
     position: "relative",
-  },
-  filterBadge: {
-    position: "absolute",
-    top: -5,
-    right: -5,
-    backgroundColor: "#FEA04D",
-    borderRadius: 10,
-    width: 20,
-    height: 20,
-    justifyContent: "center",
-    alignItems: "center",
-    borderWidth: 2,
-    borderColor: "#2e2e2e",
-  },
-  filterBadgeText: {
-    color: "#FFFFFF",
-    fontSize: 10,
-    fontWeight: "bold",
   },
   verticalDivider: {
     width: 1,
@@ -703,7 +638,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 10,
     borderRadius: 22,
-    backgroundColor: "#F3F4F6",
+    // backgroundColor: "#F3F4F6",
     gap: 8,
   },
   filterButtonText: {
@@ -747,7 +682,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     backgroundColor: "#FFFFFF",
     borderWidth: 1,
-    borderColor: "#E5E7EB",
+    // borderColor: "#E5E7EB",
     gap: 4,
   },
   filterButtonTextActive: {
@@ -815,6 +750,7 @@ const styles = StyleSheet.create({
     borderRadius: 28,
     alignItems: "center",
     justifyContent: "center",
+    zIndex: 10,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
