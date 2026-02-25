@@ -239,7 +239,9 @@ export default function MyGamesScreen({
         endpoints.match.getPendingInvitations,
       );
       console.log(`[MyGamesScreen] Invitations response:`, response.data);
-      setInvitations(Array.isArray(response.data) ? response.data : []);
+      // Unwrap sendSuccess envelope: { success: true, data: T }
+      const payload = response.data?.data ?? response.data;
+      setInvitations(Array.isArray(payload) ? payload : []);
     } catch (error: any) {
       console.error(
         "Error fetching invitations:",
@@ -293,7 +295,7 @@ export default function MyGamesScreen({
   ]);
 
   // Listen for refresh signal from match-details (after submit/confirm/join/cancel)
-  const { shouldRefresh, clearRefresh } = useMyGamesStore();
+  const { shouldRefresh, clearRefresh, setPendingInviteCount } = useMyGamesStore();
 
   useEffect(() => {
     if (shouldRefresh) {
@@ -484,6 +486,11 @@ export default function MyGamesScreen({
     const seasonInvites = seasonInvitations?.received?.filter(i => i.status === 'PENDING')?.length ?? 0;
     return matchInvites + seasonInvites;
   }, [filteredInvitations, seasonInvitations]);
+
+  // Keep the shared store in sync so the NavBar badge in userDashboard stays accurate
+  useEffect(() => {
+    setPendingInviteCount(totalPendingInvites);
+  }, [totalPendingInvites, setPendingInviteCount]);
 
   // Get filter button color based on selected sport filter
   const getFilterButtonColor = (): string => {

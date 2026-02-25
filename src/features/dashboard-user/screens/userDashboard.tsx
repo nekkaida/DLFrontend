@@ -10,7 +10,6 @@ import { DeuceLogo } from "@/src";
 import { ChatScreen } from "@/src/features/chat/ChatScreen";
 import { useChatSocketEvents } from "@/src/features/chat/hooks/useChatSocketEvents";
 import { useUnreadCount } from "@/src/features/chat/hooks/useUnreadCount";
-import { useSeasonInvitations } from "@/src/features/community/hooks/useSeasonInvitations";
 import { FeedScreen } from "@/src/features/feed";
 import { FriendlyScreen } from "@/src/features/friendly/screens";
 import {
@@ -45,6 +44,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import MyGamesScreen from "./MyGamesScreen";
 import { FilterTab } from "./my-games";
+import { useMyGamesStore } from "../stores/MyGamesStore";
 
 const SPORT_CONFIG = {
   pickleball: {
@@ -124,11 +124,8 @@ export default function DashboardScreen() {
   // Chat unread count hook
   const chatUnreadCount = useUnreadCount();
 
-  // Pending invites count for My Games NavBar badge
-  const { seasonInvitations } = useSeasonInvitations();
-  const myGamesBadgeCount = seasonInvitations?.received?.filter(
-    (i: any) => i.status === 'PENDING'
-  )?.length ?? 0;
+  // Pending invites count for My Games NavBar badge — written by MyGamesScreen, read here
+  const { pendingInviteCount: myGamesBadgeCount } = useMyGamesStore();
 
   // Register socket event listeners at dashboard level for real-time updates
   // This ensures unread counts update even when not on the chat tab
