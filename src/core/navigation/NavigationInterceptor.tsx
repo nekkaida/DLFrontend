@@ -126,11 +126,10 @@ export const NavigationInterceptor: React.FC<NavigationInterceptorProps> = ({ ch
     try {
       console.log('NavigationInterceptor: Fetching onboarding status from API');
 
-      // Use axiosInstance to get onboarding status with authentication handled automatically
       // Add cache-busting to ensure we get fresh data
       const onboardingResponse = await axiosInstance.get(`/api/onboarding/status/${userId}?t=${Date.now()}`);
 
-      console.log('NavigationInterceptor: Onboarding response status:', onboardingResponse.status);
+      // console.log('NavigationInterceptor: Onboarding response status:', onboardingResponse.status);
 
       // Success response (2xx) - process the data
       // Backend returns {data: {...}, success: true}, so unwrap the data property
@@ -142,14 +141,14 @@ export const NavigationInterceptor: React.FC<NavigationInterceptorProps> = ({ ch
         // (either completed it or chose to skip it), so consider assessment as "completed"
         const finalStatus = {
           completedOnboarding: true,
-          hasCompletedAssessment: true, // Always true if onboarding is completed
+          hasCompletedAssessment: true,
           onboardingStep: onboardingData.onboardingStep || 'PROFILE_PICTURE',
           selectedSports: onboardingData.selectedSports || [],
           completedSports: onboardingData.completedSports || [],
           timestamp: Date.now()
         };
-        console.log('NavigationInterceptor: Final status (onboarding completed, assessment considered complete):', finalStatus);
-        console.log('NavigationInterceptor: Setting onboarding status to:', finalStatus);
+        // console.log('NavigationInterceptor: Final status (onboarding completed, assessment considered complete):', finalStatus);
+        // console.log('NavigationInterceptor: Setting onboarding status to:', finalStatus);
         setOnboardingStatus(finalStatus);
       } else {
         // If onboarding is not completed, wait a bit and retry once more
@@ -195,8 +194,8 @@ export const NavigationInterceptor: React.FC<NavigationInterceptorProps> = ({ ch
           completedSports: onboardingData.completedSports || [],
           timestamp: Date.now()
         };
-        console.log('NavigationInterceptor: Final status (onboarding not completed after retry):', finalStatus);
-        console.log('NavigationInterceptor: Setting onboarding status to:', finalStatus);
+        // console.log('NavigationInterceptor: Final status (onboarding not completed after retry):', finalStatus);
+        // console.log('NavigationInterceptor: Setting onboarding status to:', finalStatus);
         setOnboardingStatus(finalStatus);
       }
     } catch (error: any) {
@@ -421,11 +420,11 @@ export const NavigationInterceptor: React.FC<NavigationInterceptorProps> = ({ ch
           onboardingStatus.selectedSports,
           onboardingStatus.completedSports
         );
-        console.warn('Access to protected route blocked - onboarding incomplete:', currentRoute);
-        console.warn('NavigationInterceptor: Current onboarding step:', onboardingStatus.onboardingStep);
-        console.warn('NavigationInterceptor: Selected sports:', onboardingStatus.selectedSports);
-        console.warn('NavigationInterceptor: Completed sports:', onboardingStatus.completedSports);
-        console.warn('NavigationInterceptor: Redirecting to:', nextRoute);
+        // console.warn('Access to protected route blocked - onboarding incomplete:', currentRoute);
+        // console.warn('NavigationInterceptor: Current onboarding step:', onboardingStatus.onboardingStep);
+        // console.warn('NavigationInterceptor: Selected sports:', onboardingStatus.selectedSports);
+        // console.warn('NavigationInterceptor: Completed sports:', onboardingStatus.completedSports);
+        // console.warn('NavigationInterceptor: Redirecting to:', nextRoute);
         setTimeout(() => router.replace(nextRoute), 100);
         return;
       }
@@ -485,7 +484,7 @@ export const NavigationInterceptor: React.FC<NavigationInterceptorProps> = ({ ch
       );
 
       if (shouldRefreshStatus && session?.user?.id) {
-        console.log('Refreshing onboarding status due to onboarding completion');
+        // console.log('Refreshing onboarding status due to onboarding completion');
         refreshOnboardingStatus();
       }
     }
@@ -546,8 +545,6 @@ export const NavigationInterceptor: React.FC<NavigationInterceptorProps> = ({ ch
         return true;
       }
 
-      // No navigation history - handle gracefully instead of exiting app
-      // This can happen when app is restored from background with lost state
       // For authenticated users on non-exit pages, navigate to dashboard
       if (session?.user && !isNoBackPage(currentRoute)) {
         console.log('NavigationInterceptor: No navigation history, redirecting to dashboard');

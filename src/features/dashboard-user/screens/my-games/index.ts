@@ -4,6 +4,7 @@ export * from './styles';
 export * from './statusResolver';
 export * from './MatchCard';
 export * from './InvitationCard';
+export * from './SeasonInvitationCard';
 export * from './FilterModal';
 export * from './FilterBottomSheet';
 export * from './ParticipantsRow';

@@ -122,6 +122,38 @@ export interface MatchInvitation {
   };
 }
 
+export interface SeasonInvitation {
+  id: string;
+  senderId: string;
+  recipientId: string;
+  seasonId: string;
+  message?: string;
+  status: 'PENDING' | 'ACCEPTED' | 'DENIED' | 'CANCELLED' | 'EXPIRED';
+  createdAt: string;
+  respondedAt?: string;
+  expiresAt: string;
+  sender: {
+    id: string;
+    name: string;
+    username?: string;
+    image?: string;
+  };
+  recipient: {
+    id: string;
+    name: string;
+    username?: string;
+    image?: string;
+  };
+  season: {
+    id: string;
+    name: string;
+    league?: {
+      name: string;
+      sportType: string;
+    };
+  };
+}
+
 export interface MyGamesScreenProps {
   sport?: "pickleball" | "tennis" | "padel";
   initialTab?: FilterTab;

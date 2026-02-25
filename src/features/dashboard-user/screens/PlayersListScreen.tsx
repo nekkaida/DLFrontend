@@ -140,7 +140,7 @@ export default function PlayersListScreen({
       try {
         const response = await axiosInstance.get(endpoints.player.getAll);
         // API returns { success, statusCode, data, message } - extract the data array
-        const responseData = response.data;
+        const responseData = response.data?.data ?? response.data;
         if (responseData && Array.isArray(responseData.data)) {
           allPlayersWithRatings = responseData.data;
         } else if (Array.isArray(responseData)) {

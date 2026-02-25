@@ -20,12 +20,14 @@ import {
   Animated,
   FlatList,
   RefreshControl,
+  ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from "react-native";
 import { useMyGamesStore } from "../stores/MyGamesStore";
+import { useSeasonInvitations } from "@/src/features/community/hooks/useSeasonInvitations";
 
 // Cache key for match summary
 const MATCH_SUMMARY_CACHE_KEY = "my_matches_summary";
@@ -43,6 +45,7 @@ import {
   MatchCard,
   MatchInvitation,
   MyGamesScreenProps,
+  SeasonInvitationCard,
   styles,
 } from "./my-games";
 
@@ -53,6 +56,13 @@ export default function MyGamesScreen({
   const { data: session } = useSession();
   const [matches, setMatches] = useState<Match[]>([]);
   const [invitations, setInvitations] = useState<MatchInvitation[]>([]);
+  const {
+    seasonInvitations,
+    actionLoading: seasonInviteActionLoading,
+    fetchSeasonInvitations,
+    acceptSeasonInvitation,
+    denySeasonInvitation,
+  } = useSeasonInvitations();
 
   // Convert to uppercase for getSportColors (expects 'PICKLEBALL', 'TENNIS', 'PADEL')
   const sportType = sport.toUpperCase() as SportType;
@@ -229,7 +239,9 @@ export default function MyGamesScreen({
         endpoints.match.getPendingInvitations,
       );
       console.log(`[MyGamesScreen] Invitations response:`, response.data);
-      setInvitations(Array.isArray(response.data) ? response.data : []);
+      // Unwrap sendSuccess envelope: { success: true, data: T }
+      const payload = response.data?.data ?? response.data;
+      setInvitations(Array.isArray(payload) ? payload : []);
     } catch (error: any) {
       console.error(
         "Error fetching invitations:",
@@ -244,7 +256,8 @@ export default function MyGamesScreen({
   useEffect(() => {
     fetchMyMatches();
     fetchPendingInvitations();
-  }, [fetchMyMatches, fetchPendingInvitations]);
+    fetchSeasonInvitations();
+  }, [fetchMyMatches, fetchPendingInvitations, fetchSeasonInvitations]);
 
   // Entry animation effect - trigger when loading is done, regardless of data
   useEffect(() => {
@@ -282,20 +295,22 @@ export default function MyGamesScreen({
   ]);
 
   // Listen for refresh signal from match-details (after submit/confirm/join/cancel)
-  const { shouldRefresh, clearRefresh } = useMyGamesStore();
+  const { shouldRefresh, clearRefresh, setPendingInviteCount } = useMyGamesStore();
 
   useEffect(() => {
     if (shouldRefresh) {
       fetchMyMatches(true); // Manual refresh style (no skeleton)
       fetchPendingInvitations();
+      fetchSeasonInvitations();
       clearRefresh();
     }
-  }, [shouldRefresh, clearRefresh, fetchMyMatches, fetchPendingInvitations]);
+  }, [shouldRefresh, clearRefresh, fetchMyMatches, fetchPendingInvitations, fetchSeasonInvitations]);
 
   const onRefresh = () => {
     setRefreshing(true);
     fetchMyMatches(true);
     fetchPendingInvitations();
+    fetchSeasonInvitations();
   };
 
   // Extract unique values for filters
@@ -465,6 +480,18 @@ export default function MyGamesScreen({
 
   const hasActiveFilters = Object.values(filters).some(Boolean);
 
+  // Total pending invites count for the badge on the Invites chip
+  const totalPendingInvites = useMemo(() => {
+    const matchInvites = filteredInvitations?.length ?? 0;
+    const seasonInvites = seasonInvitations?.received?.filter(i => i.status === 'PENDING')?.length ?? 0;
+    return matchInvites + seasonInvites;
+  }, [filteredInvitations, seasonInvitations]);
+
+  // Keep the shared store in sync so the NavBar badge in userDashboard stays accurate
+  useEffect(() => {
+    setPendingInviteCount(totalPendingInvites);
+  }, [totalPendingInvites, setPendingInviteCount]);
+
   // Get filter button color based on selected sport filter
   const getFilterButtonColor = (): string => {
     if (!hasActiveFilters) return "#A04DFE";
@@ -620,6 +647,7 @@ export default function MyGamesScreen({
               isActive={activeTab === "INVITES"}
               activeColor="#A04DFE"
               onPress={() => setActiveTab("INVITES")}
+              badge={totalPendingInvites}
             />
           </View>
         </View>
@@ -680,22 +708,8 @@ export default function MyGamesScreen({
             {showSkeleton ? (
               <MatchCardSkeleton count={4} />
             ) : activeTab === "INVITES" ? (
-              <FlatList
-                data={filteredInvitations || []}
-                keyExtractor={(item) => item?.id || Math.random().toString()}
-                renderItem={({ item }) => {
-                  if (!item) return null;
-                  return (
-                    <InvitationCard
-                      invitation={item}
-                      defaultSport={sport}
-                      onAccept={handleAcceptInvitation}
-                      onDecline={handleDeclineInvitation}
-                    />
-                  );
-                }}
-                contentContainerStyle={styles.listContent}
-                ListEmptyComponent={renderEmptyInvitationsState}
+              <ScrollView
+                contentContainerStyle={[styles.listContent, { paddingTop: 16 }]}
                 refreshControl={
                   <RefreshControl
                     refreshing={refreshing}
@@ -703,7 +717,64 @@ export default function MyGamesScreen({
                     tintColor={sportColors.background}
                   />
                 }
-              />
+                showsVerticalScrollIndicator={false}
+              >
+                {/* ── Match Invitations ── */}
+                {(filteredInvitations?.length ?? 0) > 0 && (
+                  <>
+                    <View style={inviteStyles.sectionHeader}>
+                      <Ionicons name="mail" size={14} color="#6B7280" />
+                      <Text style={inviteStyles.sectionTitle}>Match Invites</Text>
+                      <View style={inviteStyles.countBadge}>
+                        <Text style={inviteStyles.countText}>{filteredInvitations.length}</Text>
+                      </View>
+                    </View>
+                    {filteredInvitations.map((item) => (
+                      <InvitationCard
+                        key={item.id}
+                        invitation={item}
+                        defaultSport={sport}
+                        onAccept={handleAcceptInvitation}
+                        onDecline={handleDeclineInvitation}
+                      />
+                    ))}
+                  </>
+                )}
+
+                {/* ── Partnership Invitations ── */}
+                {(seasonInvitations?.received?.filter(i => i.status === 'PENDING')?.length ?? 0) > 0 && (
+                  <>
+                    <View style={[inviteStyles.sectionHeader, (filteredInvitations?.length ?? 0) > 0 && { marginTop: 8 }]}>
+                      <Ionicons name="people" size={14} color="#6B7280" />
+                      <Text style={inviteStyles.sectionTitle}>Partnership Invites</Text>
+                      <View style={[inviteStyles.countBadge, { backgroundColor: '#EDE9FE' }]}>
+                        <Text style={[inviteStyles.countText, { color: '#A04DFE' }]}>
+                          {seasonInvitations.received.filter(i => i.status === 'PENDING').length}
+                        </Text>
+                      </View>
+                    </View>
+                    {seasonInvitations.received
+                      .filter(i => i.status === 'PENDING')
+                      .map((item) => (
+                        <SeasonInvitationCard
+                          key={item.id}
+                          invitation={item as any}
+                          currentUserId={session?.user?.id ?? ''}
+                          actionLoading={seasonInviteActionLoading}
+                          onAccept={acceptSeasonInvitation}
+                          onDeny={denySeasonInvitation}
+                        />
+                      ))
+                    }
+                  </>
+                )}
+
+                {/* Empty state when no invites at all */}
+                {(filteredInvitations?.length ?? 0) === 0 &&
+                  (seasonInvitations?.received?.filter(i => i.status === 'PENDING')?.length ?? 0) === 0 &&
+                  renderEmptyInvitationsState()
+                }
+              </ScrollView>
             ) : (
               <FlatList
                 data={filteredMatches || []}
@@ -810,5 +881,34 @@ const localStyles = StyleSheet.create({
   activeTabText: {
     fontWeight: "600",
     color: "#1A1C1E",
+  },
+});
+
+const inviteStyles = StyleSheet.create({
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 16,
+    marginBottom: 10,
+  },
+  sectionTitle: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#6B7280',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    flex: 1,
+  },
+  countBadge: {
+    backgroundColor: '#F3F4F6',
+    borderRadius: 10,
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+  },
+  countText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#374151',
   },
 });

@@ -78,6 +78,8 @@ export default function JoinMatchScreen() {
   } | null>(null);
   
   // Match data for result submission logic
+  const [pendingInvitationId, setPendingInvitationId] = useState<string | null>(null);
+
   const [matchData, setMatchData] = useState<{
     createdById: string | null;
     resultSubmittedById: string | null;
@@ -328,9 +330,6 @@ export default function JoinMatchScreen() {
     bottomSheetModalRef.current?.snapToIndex(1); 
   }, []);
 
-  // Debug log only once - remove later
-  // console.log('🔍 MATCH DETAILS DEBUG:', { matchId, matchStatus });
-
   const sportColors = getSportColors(sportType?.toUpperCase() as SportType);
   const themeColor = sportColors.background;
   const isPickleball = sportType?.toUpperCase() === 'PICKLEBALL';
@@ -430,7 +429,15 @@ export default function JoinMatchScreen() {
         
         if (response.ok) {
           const data = await response.json();
-          const match = data.match || data;
+          const unwrapped = data?.data ?? data;
+          const match = unwrapped.match || unwrapped;
+          // Find this user's pending invitation ID (for direct accept)
+          if (match.invitations && session?.user?.id) {
+            const myInvite = match.invitations.find(
+              (inv: any) => inv.inviteeId === session.user.id && inv.status === 'PENDING'
+            );
+            setPendingInvitationId(myInvite?.id ?? null);
+          }
           setMatchData({
             createdById: match.createdById || null,
             resultSubmittedById: match.resultSubmittedById || null,
@@ -750,13 +757,17 @@ export default function JoinMatchScreen() {
         
         // Handle different response structures
         const partnership = data.partnership || data.data || data;
-        
+      
         if (partnership && (partnership.captainId || partnership.captain)) {
           const currentUserId = session?.user?.id;
           const captainId = partnership.captainId || partnership.captain?.id;
           const partnerId = partnership.partnerId || partnership.partner?.id;
           const isUserCaptain = captainId === currentUserId;
           const isUserPartner = partnerId === currentUserId;
+
+          if (__DEV__) console.log('[JOIN_DEBUG] Partnership roles computed', {
+            captainId, partnerId, currentUserId, isUserCaptain, isUserPartner,
+          });
 
           // Save partnership data for result submission logic
           setPartnershipData({
@@ -767,6 +778,7 @@ export default function JoinMatchScreen() {
           // Any partner can join - invitation will be sent to the other
           if (isUserCaptain || isUserPartner) {
             const otherUser = isUserCaptain ? partnership.partner : partnership.captain;
+            if (__DEV__) console.log('[JOIN_DEBUG] Setting hasPartner=true', { otherUser });
             setPartnerInfo({
               hasPartner: true,
               partnerName: otherUser?.name || 'Partner',
@@ -774,13 +786,13 @@ export default function JoinMatchScreen() {
               partnerId: otherUser?.id,
             });
           } else {
-            if (__DEV__) console.log('User is neither captain nor partner');
+            if (__DEV__) console.log('[JOIN_DEBUG] User is neither captain nor partner → hasPartner=false');
             setPartnerInfo({
               hasPartner: false,
             });
           }
         } else {
-          if (__DEV__) console.log('No valid partnership data found in response');
+          if (__DEV__) console.log('[JOIN_DEBUG] No valid partnership in response → hasPartner=false');
           setPartnerInfo({
             hasPartner: false,
           });
@@ -1071,7 +1083,8 @@ export default function JoinMatchScreen() {
         throw new Error(errorData.error || 'Failed to join match');
       }
 
-      const result = await response.json();
+      const resultRaw = await response.json();
+      const result = resultRaw?.data ?? resultRaw;
 
       // Update the chat message to reflect joined status
       // This ensures MatchMessageBubble shows "Joined" when navigating back
@@ -1129,6 +1142,27 @@ export default function JoinMatchScreen() {
   // Handler to navigate to My Games Invites tab
   const handleGoToInvites = () => {
     router.push('/user-dashboard?view=myGames&tab=INVITES');
+  };
+
+  // Accept the pending invitation directly from match-details
+  const handleAcceptInvite = async () => {
+    if (!pendingInvitationId) {
+      // Fallback: navigate to Invites tab if we don't have the ID
+      handleGoToInvites();
+      return;
+    }
+    setLoading(true);
+    try {
+      await axiosInstance.post(endpoints.match.respondToInvitation(pendingInvitationId), { accept: true });
+      toast.success('Invitation accepted!');
+      useMyGamesStore.getState().triggerRefresh();
+      router.back();
+    } catch (error: any) {
+      if (__DEV__) console.error('Error accepting invitation:', error);
+      toast.error(error?.response?.data?.error || 'Failed to accept invitation');
+    } finally {
+      setLoading(false);
+    }
   };
 
   // Handler for submitting match result
@@ -2155,10 +2189,11 @@ export default function JoinMatchScreen() {
                 return (
                   <TouchableOpacity
                     style={[styles.joinButton, { backgroundColor: sportColors.background }]}
-                    onPress={handleGoToInvites}
+                    onPress={handleAcceptInvite}
                     activeOpacity={0.7}
+                    disabled={loading}
                   >
-                    <Text style={styles.joinButtonText}>Accept Invite</Text>
+                    <Text style={styles.joinButtonText}>{loading ? 'Accepting...' : 'Accept Invite'}</Text>
                   </TouchableOpacity>
                 );
               }

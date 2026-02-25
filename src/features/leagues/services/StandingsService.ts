@@ -111,24 +111,29 @@ export class StandingsService {
     try {
       const backendUrl = getBackendBaseURL();
       
-      // First fetch all divisions for this season
-      const divisionsResponse = await fetch(`${backendUrl}/api/division/season/${seasonId}`, {
+      // GET /api/division/season/:seasonId requires verifyAuth — use authClient to send session cookie
+      const divisionsResponse = await authClient.$fetch(`${backendUrl}/api/division/season/${seasonId}`, {
         method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-        },
       });
 
-      const divisionsData = await divisionsResponse.json();
-      // Comment out API responses after testing to keep terminal clean
-      // console.log('🔍 Divisions API response:', JSON.stringify(divisionsData, null, 2));
+      // authClient.$fetch wraps the response; unwrap all likely shapes
+      const wrapper = divisionsResponse as any;
+      const divisionsData = wrapper?.data ?? wrapper;
       
-      if (!divisionsData || !divisionsData.success || !divisionsData.data) {
+      let divisions: Division[] = [];
+      if (divisionsData?.success && divisionsData?.data) {
+        divisions = divisionsData.data;
+      } else if (Array.isArray(divisionsData?.data)) {
+        divisions = divisionsData.data;
+      } else if (Array.isArray(divisionsData)) {
+        divisions = divisionsData;
+      }
+
+      if (!divisions.length) {
         console.log('❌ No divisions found for season:', seasonId);
         return [];
       }
 
-      const divisions: Division[] = divisionsData.data;
       console.log('✅ Found', divisions.length, 'divisions for season', seasonId);
       
       // Fetch standings for each division

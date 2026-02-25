@@ -62,18 +62,18 @@ export class LeagueService {
       const response = await axiosInstance.get('/api/league');
 
       if (response && response.data) {
-        const apiResponse = response.data as any;
+        const candidates = [
+          response.data?.data?.leagues,
+          response.data?.data?.data,
+          response.data?.data,
+          response.data,
+        ];
 
-        // Handle success response with leagues data
-        if (apiResponse.success && apiResponse.data && apiResponse.data.leagues) {
-          console.log('✅ LeagueService: Leagues data fetched:', apiResponse.data.leagues.length);
-          return apiResponse.data.leagues;
-        }
-        
-        // Handle direct leagues array response
-        if (Array.isArray(apiResponse)) {
-          console.log('✅ LeagueService: Direct leagues array found:', apiResponse.length);
-          return apiResponse;
+        for (const c of candidates) {
+          if (Array.isArray(c) && c.length >= 0) {
+            console.log('✅ LeagueService: Leagues data fetched:', c.length);
+            return c;
+          }
         }
       }
       
@@ -110,19 +110,20 @@ export class LeagueService {
       console.log('LeagueService: League seasons API response:', response.data);
 
       if (response && response.data) {
-        const apiResponse = response.data as any;
-        
-        // Handle success response with seasons data
-        if (apiResponse.success && apiResponse.data && apiResponse.data.data) {
-          const seasons = apiResponse.data.data as any[];
-          console.log('✅ LeagueService: Successfully fetched league seasons:', seasons.length);
-          return seasons;
-        }
-        
-        // Handle direct seasons array response
-        if (Array.isArray(apiResponse)) {
-          console.log('✅ LeagueService: Direct seasons array found:', apiResponse.length);
-          return apiResponse;
+        // Try every plausible nesting the backend might return
+        const candidates = [
+          response.data?.data?.seasons,
+          response.data?.data?.data,
+          response.data?.data,
+          response.data?.seasons,
+          response.data,
+        ];
+
+        for (const c of candidates) {
+          if (Array.isArray(c) && c.length >= 0) {
+            console.log('✅ LeagueService: Seasons data found:', c.length);
+            return c;
+          }
         }
       }
       
@@ -144,19 +145,19 @@ export class LeagueService {
       console.log('LeagueService: League by ID API response:', response.data);
 
       if (response && response.data) {
-        const apiResponse = response.data as any;
-        
-        // Handle success response with league data
-        if (apiResponse.success && apiResponse.data && apiResponse.data.league) {
-          const league = apiResponse.data.league as League;
-          console.log('✅ LeagueService: Successfully fetched league:', league.name);
-          return league;
-        }
-        
-        // Handle direct league object response
-        if (apiResponse.id && apiResponse.name) {
-          console.log('✅ LeagueService: Direct league object found:', apiResponse.name);
-          return apiResponse as League;
+        // Try every plausible nesting the backend might return
+        const candidates = [
+          response.data?.data?.league,
+          response.data?.data?.data,
+          response.data?.data,
+          response.data,
+        ];
+
+        for (const c of candidates) {
+          if (c && typeof c === 'object' && !Array.isArray(c) && c.id && c.name) {
+            console.log('✅ LeagueService: League data found:', c.name);
+            return c as League;
+          }
         }
       }
       
