@@ -9,11 +9,13 @@ import {
   View,
 } from 'react-native';
 import { MatchResult, SportColors } from '../types';
-import { MatchResultCard } from './MatchResultCard';
+// import { MatchResultCard } from './MatchResultCard';
+import ScoreCard from '@/src/features/feed/components/ScoreCard';
 import { ScrollProgressBar } from './ScrollProgressBar';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
-const CARD_WIDTH = SCREEN_WIDTH * 0.88;
+const CARD_WIDTH = SCREEN_WIDTH * 0.78;
+const CARD_HEIGHT = 160;
 const CARD_GAP = 12;
 
 interface ResultsSectionProps {
@@ -27,7 +29,7 @@ interface ResultsSectionProps {
 }
 
 export const ResultsSection: React.FC<ResultsSectionProps> = ({
-  results,
+  results: resultsProp,
   isLoading,
   sportColors,
   isPickleball,
@@ -35,6 +37,7 @@ export const ResultsSection: React.FC<ResultsSectionProps> = ({
   onToggleComments,
   onScrollUpdate,
 }) => {
+  const results: MatchResult[] = Array.isArray(resultsProp) ? resultsProp : [];
   const [scrollProgress, setScrollProgress] = useState(0);
   const [scrollViewWidth, setScrollViewWidth] = useState(0);
   const [contentWidth, setContentWidth] = useState(0);
@@ -90,18 +93,37 @@ export const ResultsSection: React.FC<ResultsSectionProps> = ({
         scrollEventThrottle={16}
       >
         {results.map((match, index) => (
-          <MatchResultCard
+          <View
             key={match.id}
-            match={match}
-            index={index}
-            totalResults={results.length}
-            sportColors={sportColors}
-            isPickleball={isPickleball}
-            cardWidth={CARD_WIDTH}
-            cardGap={CARD_GAP}
-            expandedComments={expandedComments}
-            onToggleComments={onToggleComments}
-          />
+            style={{
+              width: CARD_WIDTH,
+              height: CARD_HEIGHT,
+              marginRight: index < results.length - 1 ? CARD_GAP : 0,
+              // justifyContent: "center",
+              overflow: 'hidden',
+              borderRadius: 16,
+            }}
+          >
+            <ScoreCard
+              match={match as any}
+              sportColors={sportColors}
+              previewScale={1}
+              containerStyle={{ width: '100%', height: '100%', borderRadius: 16, maxWidth: 300, maxHeight: 160 }}
+              
+            />
+          </View>
+          // <MatchResultCard
+          //   key={match.id}
+          //   match={match}
+          //   index={index}
+          //   totalResults={results.length}
+          //   sportColors={sportColors}
+          //   isPickleball={isPickleball}
+          //   cardWidth={CARD_WIDTH}
+          //   cardGap={CARD_GAP}
+          //   expandedComments={expandedComments}
+          //   onToggleComments={onToggleComments}
+          // />
         ))}
       </ScrollView>
 
