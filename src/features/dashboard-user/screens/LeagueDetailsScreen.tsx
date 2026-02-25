@@ -16,11 +16,10 @@ import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import React from 'react';
-import { ActivityIndicator, Dimensions, Image, RefreshControl, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Dimensions, Image, RefreshControl, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import Animated, {
   Extrapolation,
   interpolate,
-  useAnimatedScrollHandler,
   useAnimatedStyle,
   useSharedValue,
   withSpring
@@ -159,26 +158,6 @@ export default function LeagueDetailsScreen({
   const COLLAPSE_START_THRESHOLD = 40; // Start collapsing after scrolling 50px
   const COLLAPSE_END_THRESHOLD = COLLAPSE_START_THRESHOLD + HEADER_SCROLL_DISTANCE; // End of collapse range
   
-  // Scroll handler using reanimated for native thread performance
-  const onScroll = useAnimatedScrollHandler({
-    onScroll: (event) => {
-      const { contentOffset, contentSize, layoutMeasurement } = event;
-      const scrollYValue = contentOffset.y;
-
-      const availableScrollSpace = contentSize.height - layoutMeasurement.height;
-      const shouldAllowCollapse = availableScrollSpace >= COLLAPSE_END_THRESHOLD;
-
-      let clampedValue = scrollYValue;
-      if (!shouldAllowCollapse) {
-        clampedValue = Math.min(scrollYValue, Math.max(0, COLLAPSE_START_THRESHOLD - 10));
-      } else {
-        clampedValue = Math.min(scrollYValue, availableScrollSpace);
-      }
-
-      scrollY.value = clampedValue;
-    },
-  });
-
   // Set selected sport based on route param
   React.useEffect(() => {
     setSelectedSport(sport);
@@ -521,10 +500,7 @@ export default function LeagueDetailsScreen({
 
   // Get filtered seasons for selected category (no longer filtered by gender - all users see all seasons)
   const getFilteredSeasons = () => {
-    console.log('🔍 getFilteredSeasons: Starting filter process');
-    console.log('   Total seasons:', seasons.length);
-    console.log('   Selected category ID:', selectedCategoryId);
-    
+
     let filtered = seasons;
 
     // Only filter out seasons with no categories
@@ -539,8 +515,6 @@ export default function LeagueDetailsScreen({
       return hasCategories;
     });
     
-    console.log('   After category check:', filtered.length);
-
     // Filter by selected category if one is selected
     if (selectedCategoryId) {
       filtered = filtered.filter(season => {
@@ -548,15 +522,11 @@ export default function LeagueDetailsScreen({
         const seasonCategoryIds = normalizedCategories.map(c => c?.id).filter(Boolean);
         const matches = seasonCategoryIds.includes(selectedCategoryId);
         
-        console.log(`   Season ${season.name} categories:`, seasonCategoryIds, 'matches selected:', matches);
+        // console.log(`   Season ${season.name} categories:`, seasonCategoryIds, 'matches selected:', matches);
         
         return matches;
       });
-    }
-
-    console.log('🔍 Final filtered seasons:', filtered.length);
-    console.log('   Filtered seasons:', filtered.map(s => ({ id: s.id, name: s.name })));
-    
+    }    
     return filtered;
   };
 
@@ -1231,12 +1201,10 @@ export default function LeagueDetailsScreen({
               </LinearGradient>
             </Animated.View>
 
-            <Animated.ScrollView
+            <ScrollView
               style={styles.scrollContainer}
               contentContainerStyle={styles.scrollContent}
-              showsVerticalScrollIndicator={false}
-              scrollEventThrottle={16}
-              onScroll={onScroll}
+              showsVerticalScrollIndicator={true}
               refreshControl={
                 <RefreshControl
                   refreshing={isRefreshing}
@@ -1342,7 +1310,7 @@ export default function LeagueDetailsScreen({
                 </>
               )}
             </Animated.View>
-            </Animated.ScrollView>
+            </ScrollView>
           </>
         )}
         </View>

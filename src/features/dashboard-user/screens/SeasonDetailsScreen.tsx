@@ -13,11 +13,10 @@ import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import React from 'react';
-import { ActivityIndicator, Dimensions, Image, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Dimensions, Image, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import Animated, {
   Extrapolation,
   interpolate,
-  useAnimatedScrollHandler,
   useAnimatedStyle,
   useSharedValue,
   withSpring,
@@ -84,26 +83,6 @@ export default function SeasonDetailsScreen({
   const COLLAPSE_START_THRESHOLD = 40; // Start collapsing after scrolling 40px
   const COLLAPSE_END_THRESHOLD = COLLAPSE_START_THRESHOLD + HEADER_SCROLL_DISTANCE; // End of collapse range
   
-  // Scroll handler using reanimated for native thread performance
-  const onScroll = useAnimatedScrollHandler({
-    onScroll: (event) => {
-      const { contentOffset, contentSize, layoutMeasurement } = event;
-      const scrollYValue = contentOffset.y;
-
-      const availableScrollSpace = contentSize.height - layoutMeasurement.height;
-      const shouldAllowCollapse = availableScrollSpace >= COLLAPSE_END_THRESHOLD;
-
-      let clampedValue = scrollYValue;
-      if (!shouldAllowCollapse) {
-        clampedValue = Math.min(scrollYValue, Math.max(0, COLLAPSE_START_THRESHOLD - 10));
-      } else {
-        clampedValue = Math.min(scrollYValue, availableScrollSpace);
-      }
-
-      scrollY.value = clampedValue;
-    },
-  });
-
   React.useEffect(() => {
     fetchSeasonData();
   }, [seasonId]);
@@ -915,12 +894,10 @@ export default function SeasonDetailsScreen({
               </LinearGradient>
             </Animated.View>
 
-            <Animated.ScrollView
+            <ScrollView
               style={styles.scrollContainer}
               contentContainerStyle={styles.scrollContent}
-              showsVerticalScrollIndicator={false}
-              scrollEventThrottle={16}
-              onScroll={onScroll}
+              showsVerticalScrollIndicator={true}
             >
               <View style={styles.scrollTopSpacer} />
               
@@ -1044,7 +1021,7 @@ export default function SeasonDetailsScreen({
                   </View>
                 </View>
               </Animated.View>
-            </Animated.ScrollView>
+            </ScrollView>
           </>
         )}
         </View>
@@ -1055,7 +1032,7 @@ export default function SeasonDetailsScreen({
         <Animated.View
           style={[
             styles.stickyButtonContainer,
-            { paddingBottom: insets.bottom },
+            { paddingBottom: insets.bottom + 20 },
             buttonEntryAnimatedStyle,
           ]}
         >
@@ -1224,7 +1201,7 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     paddingHorizontal: 20,
     borderRadius: 0,
-    width: Dimensions.get('window').width,
+    width: width,
     marginHorizontal: -20,
     marginBottom: 20,
     alignItems: 'center',
