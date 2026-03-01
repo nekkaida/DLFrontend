@@ -44,6 +44,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import MyGamesScreen from "./MyGamesScreen";
 import { FilterTab } from "./my-games";
+import { useMyGamesStore } from "../stores/MyGamesStore";
 
 const SPORT_CONFIG = {
   pickleball: {
@@ -122,6 +123,9 @@ export default function DashboardScreen() {
 
   // Chat unread count hook
   const chatUnreadCount = useUnreadCount();
+
+  // Pending invites count for My Games NavBar badge — written by MyGamesScreen, read here
+  const { pendingInviteCount: myGamesBadgeCount } = useMyGamesStore();
 
   // Register socket event listeners at dashboard level for real-time updates
   // This ensures unread counts update even when not on the chat tab
@@ -233,64 +237,6 @@ export default function DashboardScreen() {
       },
     });
   };
-
-  // console.log(`DashboardScreen: Current activeTab is ${activeTab}`);
-
-  // Debug logging for safe area insets in parent component
-  // useEffect(() => {
-  //   console.log("=== Dashboard Safe Area Debug Info ===");
-  //   console.log(`Platform: ${Platform.OS}`);
-  //   console.log(`Screen dimensions:`, {
-  //     width: width,
-  //     height: height,
-  //   });
-  //   console.log(`Safe area insets:`, {
-  //     top: insets.top,
-  //     bottom: insets.bottom,
-  //     left: insets.left,
-  //     right: insets.right,
-  //   });
-  //   console.log(
-  //     `Available content height: ${height - insets.top - insets.bottom}px`
-  //   );
-  //   console.log(
-  //     `NavBar will be positioned at bottom: ${height - insets.bottom}px`
-  //   );
-  //   console.log(
-  //     `Content should end at: ${
-  //       height - insets.bottom - 83
-  //     }px (NavBar height: 83px)`
-  //   );
-  //   console.log("====================================");
-  // }, [insets, width, height]);
-
-  // Debug logging for screen dimension changes
-  // useEffect(() => {
-  //   const subscription = Dimensions.addEventListener("change", ({ window }) => {
-  //     console.log("=== Screen Dimension Change Debug ===");
-  //     console.log(`New screen dimensions:`, {
-  //       width: window.width,
-  //       height: window.height,
-  //     });
-  //     console.log(`Safe area insets (unchanged):`, {
-  //       top: insets.top,
-  //       bottom: insets.bottom,
-  //       left: insets.left,
-  //       right: insets.right,
-  //     });
-  //     console.log(
-  //       `New available content height: ${
-  //         window.height - insets.top - insets.bottom
-  //       }px`
-  //     );
-  //     console.log(
-  //       `New NavBar position: bottom ${window.height - insets.bottom}px`
-  //     );
-  //     console.log("====================================");
-  //   });
-
-  //   return () => subscription?.remove();
-  // }, [insets]);
 
   // Basic session protection only - let login.tsx handle onboarding flow
   useEffect(() => {
@@ -497,7 +443,7 @@ export default function DashboardScreen() {
           activeTab={activeTab}
           onTabPress={handleTabPress}
           sport={selectedSport}
-          badgeCounts={{ chat: chatUnreadCount }}
+          badgeCounts={{ chat: chatUnreadCount, myGames: myGamesBadgeCount }}
         />
       </View>
     );
@@ -562,7 +508,7 @@ export default function DashboardScreen() {
           activeTab={activeTab}
           onTabPress={handleTabPress}
           sport={selectedSport}
-          badgeCounts={{ chat: chatUnreadCount }}
+          badgeCounts={{ chat: chatUnreadCount, myGames: myGamesBadgeCount }}
         />
       </View>
     );
@@ -641,7 +587,7 @@ export default function DashboardScreen() {
           activeTab={activeTab}
           onTabPress={handleTabPress}
           sport={selectedSport}
-          badgeCounts={{ chat: chatUnreadCount }}
+          badgeCounts={{ chat: chatUnreadCount, myGames: myGamesBadgeCount }}
         />
       </View>
     );
@@ -935,7 +881,7 @@ export default function DashboardScreen() {
         activeTab={activeTab}
         onTabPress={handleTabPress}
         sport={selectedSport}
-        badgeCounts={{ chat: chatUnreadCount }}
+        badgeCounts={{ chat: chatUnreadCount, myGames: myGamesBadgeCount }}
       />
     </View>
   );

@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { Pressable, StyleSheet, ViewStyle, TextStyle } from 'react-native';
+import { Pressable, StyleSheet, View, Text as RNText, ViewStyle, TextStyle } from 'react-native';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -13,6 +13,7 @@ interface AnimatedFilterChipProps {
   isActive: boolean;
   activeColor: string;
   onPress: () => void;
+  badge?: number;
   style?: ViewStyle;
   textStyle?: TextStyle;
 }
@@ -35,6 +36,7 @@ export function AnimatedFilterChip({
   isActive,
   activeColor,
   onPress,
+  badge,
   style,
   textStyle,
 }: AnimatedFilterChipProps) {
@@ -80,16 +82,28 @@ export function AnimatedFilterChip({
 
   return (
     <Pressable onPress={handlePress}>
-      <Animated.View style={[styles.chip, animatedChipStyle, style]}>
-        <Animated.Text style={[styles.chipText, animatedTextStyle, textStyle]}>
-          {label}
-        </Animated.Text>
-      </Animated.View>
+      <View style={styles.chipWrapper}>
+        <Animated.View style={[styles.chip, animatedChipStyle, style]}>
+          <Animated.Text style={[styles.chipText, animatedTextStyle, textStyle]}>
+            {label}
+          </Animated.Text>
+        </Animated.View>
+        {badge != null && badge > 0 && (
+          <View style={styles.badge}>
+            <RNText style={styles.badgeText}>
+              {badge > 99 ? '99+' : badge}
+            </RNText>
+          </View>
+        )}
+      </View>
     </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
+  chipWrapper: {
+    position: 'relative',
+  },
   chip: {
     paddingVertical: 5,
     paddingHorizontal: 12,
@@ -100,6 +114,26 @@ const styles = StyleSheet.create({
   chipText: {
     fontSize: 13,
     fontWeight: '600',
+  },
+  badge: {
+    position: 'absolute',
+    top: -5,
+    right: -5,
+    minWidth: 17,
+    height: 17,
+    borderRadius: 9,
+    backgroundColor: '#EF4444',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 3,
+    borderWidth: 1.5,
+    borderColor: '#FFFFFF',
+  },
+  badgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    lineHeight: 12,
   },
 });
 

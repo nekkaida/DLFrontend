@@ -490,8 +490,9 @@ export const ChatThreadScreen: React.FC<ChatThreadScreenProps> = ({ threadId, da
         throw new Error(errorData.error || 'Failed to create match');
       }
 
-      const matchResult = await matchResponse.json();
-      chatLogger.debug('Match created successfully:', { matchId: matchResult.id });
+      const response = await matchResponse.json();
+      const matchResult = response?.data ?? response;
+      // console.log('Match created successfully:', { matchId: matchResult.id });
 
       // Filter participants to only include ACCEPTED (not PENDING invitations)
       const acceptedParticipants = (matchResult.participants as MatchParticipant[] || []).filter(

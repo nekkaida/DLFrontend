@@ -42,6 +42,7 @@ export const MatchMessageBubble: React.FC<MatchMessageBubbleProps> = ({
   const currentUserId = session?.user?.id;
   const { updateMessage, messages } = useChatStore();
   
+
   // Get the latest message from store to ensure we have the most up-to-date data
   const currentThreadId = message.threadId;
   const latestMessage = messages[currentThreadId]?.find(m => m.id === message.id) || message;
@@ -104,7 +105,7 @@ export const MatchMessageBubble: React.FC<MatchMessageBubbleProps> = ({
 
   // Early return after all hooks
   if (!matchData) {
-    chatLogger.debug('No matchData found for match message:', message.id);
+   console.log('No matchData found for match message:', message.id);
     return null;
   }
 
@@ -222,7 +223,8 @@ export const MatchMessageBubble: React.FC<MatchMessageBubbleProps> = ({
 
   // Handle decline request
   const handleDeclineRequest = async () => {
-    if (!matchData.matchId || !currentUserId) {
+    const effectiveMatchId = matchData.matchId || (matchData as any).id;
+    if (!effectiveMatchId || !currentUserId) {
       toast.error('Unable to decline request');
       return;
     }
@@ -235,7 +237,7 @@ export const MatchMessageBubble: React.FC<MatchMessageBubbleProps> = ({
     setIsDeclining(true);
     try {
       const backendUrl = getBackendBaseURL();
-      const response = await fetch(`${backendUrl}/api/friendly/${matchData.matchId}/decline`, {
+      const response = await fetch(`${backendUrl}/api/friendly/${effectiveMatchId}/decline`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -299,8 +301,9 @@ export const MatchMessageBubble: React.FC<MatchMessageBubbleProps> = ({
   // Check if user has already played against the match creator in this division
   useEffect(() => {
     const checkAlreadyPlayed = async () => {
+      const effectiveMatchId = matchData.matchId || (matchData as any).id;
       // Skip if user is the match poster, already in match, or no matchId
-      if (!currentUserId || !matchData.matchId || isMatchPoster || isUserInMatch) {
+      if (!currentUserId || !effectiveMatchId || isMatchPoster || isUserInMatch) {
         return;
       }
 
@@ -308,7 +311,7 @@ export const MatchMessageBubble: React.FC<MatchMessageBubbleProps> = ({
         const backendUrl = getBackendBaseURL();
         
         // First fetch match details to get divisionId and creatorId
-        const matchResponse = await fetch(`${backendUrl}/api/match/${matchData.matchId}`, {
+        const matchResponse = await fetch(`${backendUrl}/api/match/${effectiveMatchId}`, {
           headers: {
             'x-user-id': currentUserId,
           },
@@ -337,7 +340,8 @@ export const MatchMessageBubble: React.FC<MatchMessageBubbleProps> = ({
         if (!historyResponse.ok) return;
 
         const historyResult = await historyResponse.json();
-        const matches = historyResult.matches || historyResult.data || historyResult || [];
+        const rawMatches = historyResult.matches ?? historyResult.data ?? [];
+        const matches = Array.isArray(rawMatches) ? rawMatches : [];
 
         // Check if any completed match has both current user and creator on opposite teams
         interface MatchHistory {
@@ -373,8 +377,15 @@ export const MatchMessageBubble: React.FC<MatchMessageBubbleProps> = ({
   // Fetch partner info when join modal is about to open for doubles matches
   // Navigate to join match page
   const handleOpenJoinMatch = async () => {
-    if (!matchData.matchId || !currentUserId) {
+    // Resolve match ID - backend may send it as 'id' or 'matchId'
+    const effectiveMatchId = matchData.matchId || (matchData as any).id;
+
+    if (!effectiveMatchId || !currentUserId) {
       toast.error('Unable to join match');
+      console.warn('[JOIN_DEBUG] Early exit: missing effectiveMatchId or currentUserId', {
+        effectiveMatchId,
+        currentUserId,
+      });
       return;
     }
 
@@ -383,7 +394,7 @@ export const MatchMessageBubble: React.FC<MatchMessageBubbleProps> = ({
       setIsFetchingPartner(true);
       try {
         const backendUrl = getBackendBaseURL();
-        const response = await fetch(`${backendUrl}/api/friendly/${matchData.matchId}/join`, {
+        const response = await fetch(`${backendUrl}/api/friendly/${effectiveMatchId}/join`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -434,9 +445,9 @@ export const MatchMessageBubble: React.FC<MatchMessageBubbleProps> = ({
         (p.userId === currentUserId) &&
         p.invitationStatus === 'PENDING'
     );
-
     // Redirect doubles league match invitees to My Games > Invites tab
     if (isDoublesMatch && isLeagueMatch && userHasPendingInvite) {
+      console.log('[JOIN_DEBUG] Redirecting to My Games Invites tab (user has PENDING invite)');  
       router.push({
         pathname: '/user-dashboard',
         params: {
@@ -454,7 +465,11 @@ export const MatchMessageBubble: React.FC<MatchMessageBubbleProps> = ({
       const backendUrl = getBackendBaseURL();
 
       // Fetch match details to get divisionId and seasonId
-      const matchResponse = await fetch(`${backendUrl}/api/match/${matchData.matchId}`, {
+      console.log('[JOIN_DEBUG] Falling through to match-details navigation. Fetching match info', {
+        effectiveMatchId,
+        reason: isDoublesMatch ? 'doubles but no pending invite or not league' : 'singles match',
+      });
+      const matchResponse = await fetch(`${backendUrl}/api/match/${effectiveMatchId}`, {
         headers: {
           'x-user-id': currentUserId,
         },
@@ -468,14 +483,30 @@ export const MatchMessageBubble: React.FC<MatchMessageBubbleProps> = ({
         const match = matchResult.data || matchResult;
         divisionId = match.divisionId || match.division?.id || '';
         seasonId = match.division?.seasonId || match.division?.season?.id || '';
+        console.log('[JOIN_DEBUG] Match API response', {
+          httpStatus: matchResponse.status,
+          divisionId,
+          seasonId,
+          matchType: match.matchType,
+          matchStatus: match.status,
+          participantsInApiResponse: match.participants?.length,
+        });
+      } else {
+        console.warn('[JOIN_DEBUG] Match API fetch failed', { status: matchResponse.status });
       }
       
       // Navigate to join match page with all the match data
       // Pass messageId and threadId so match-details can update the chat store after joining
+      console.log('[JOIN_DEBUG] Navigating to match-details', {
+        effectiveMatchId,
+        matchType: matchData.matchType || (matchData.numberOfPlayers === '4' ? 'DOUBLES' : 'SINGLES'),
+        divisionId,
+        seasonId,
+      });
       router.push({
         pathname: '/match/match-details',
         params: {
-          matchId: matchData.matchId,
+          matchId: effectiveMatchId,
           matchType: matchData.matchType || (matchData.numberOfPlayers === '4' ? 'DOUBLES' : 'SINGLES'),
           date: formatDisplayDate(matchData.date),
           time: `${formattedStartTime} – ${formattedEndTime}`,
@@ -510,12 +541,15 @@ export const MatchMessageBubble: React.FC<MatchMessageBubbleProps> = ({
   const handleOpenInfoModal = useCallback(async () => {
     setShowInfoModal(true);
 
+    // Resolve match ID - backend may send it as 'id' or 'matchId'
+    const effectiveMatchId = matchData.matchId || (matchData as any).id;
+
     // Fetch full match details if we have a matchId and haven't fetched yet
-    if (matchData.matchId && !enrichedMatchData && currentUserId) {
+    if (effectiveMatchId && !enrichedMatchData && currentUserId) {
       setIsFetchingMatchDetails(true);
       try {
         const backendUrl = getBackendBaseURL();
-        const response = await fetch(`${backendUrl}/api/match/${matchData.matchId}`, {
+        const response = await fetch(`${backendUrl}/api/match/${effectiveMatchId}`, {
           headers: {
             'x-user-id': currentUserId,
           },
