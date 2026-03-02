@@ -136,26 +136,18 @@ export class QuestionnaireAPI {
     };
 
     try {
-      // Get authentication headers like the axios interceptor does
+      // Use getCookie() to read auth cookie from SecureStore (local-only, no backend call).
+      // IMPORTANT: Do NOT use getSession() — it calls the backend and
+      // sets the session atom to null on any failure, logging the user out.
       const cookies = authClient.getCookie();
       if (cookies) {
-        headers['Cookie'] = cookies;
-        console.log('🔐 QuestionnaireAPI: ✅ Cookie header added');
-      }
-
-      // Also get session for user ID (for backwards compatibility with some endpoints)
-      const session = await authClient.getSession();
-      const userId = session?.data?.user?.id;
-      if (userId) {
-        headers['x-user-id'] = userId;
-        console.log('🔐 QuestionnaireAPI: ✅ x-user-id header added:', userId);
+        headers['Cookie'] = cookies.replace(/^;\s*/, '');
       }
 
       if (!cookies && __DEV__) {
-        console.warn('🔐 QuestionnaireAPI: ⚠️ No session cookie found - request will be unauthenticated');
+        console.warn('QuestionnaireAPI: No session cookie found - request will be unauthenticated');
       }
 
-      console.log('🔐 QuestionnaireAPI: 📤 Final headers:', headers);
       return headers;
     } catch (error) {
       console.error('🔐 QuestionnaireAPI: Error getting auth headers:', error);
