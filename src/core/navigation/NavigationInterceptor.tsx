@@ -209,6 +209,8 @@ export const NavigationInterceptor: React.FC<NavigationInterceptorProps> = ({ ch
         // Sign them out and clear onboarding data, but KEEP hasEverLoggedIn
         // so they go to login screen instead of landing page
         console.log('User not found in backend (404) - account may have been deleted, signing out');
+        // Prevent re-entry — block checkOnboardingStatus while session teardown runs
+        isCleaningUpSession.current = true;
         try {
           // Clear onboarding data but NOT auth storage (hasEverLoggedIn persists)
           await Promise.all([
@@ -228,41 +230,26 @@ export const NavigationInterceptor: React.FC<NavigationInterceptorProps> = ({ ch
       }
 
       if (status === 401) {
-        // Allow one retry before nuking session — handles transient 401s
-        // (backend restart, cache miss, temporary DB blip)
+        // Treat 401 as transient — retry once, then preserve current state.
+        // IMPORTANT: Do NOT call signOut() here. A 401 from the onboarding-status
+        // endpoint does not mean the session is invalid — it could be a backend
+        // restart, cache miss, or temporary DB blip. Destroying the local session
+        // on a transient 401 causes the random-logout bug.
         if (consecutive401Count.current === 0) {
           consecutive401Count.current++;
-          console.warn('NavigationInterceptor: Got 401, retrying once before clearing session');
+          console.warn('NavigationInterceptor: Got 401, retrying once');
           setIsCheckingOnboarding(false);
-          // Schedule a retry after a short delay
           setTimeout(() => {
             checkOnboardingStatus(userId, true);
           }, 1500);
           return;
         }
 
-        // Second consecutive 401 — session is genuinely expired
+        // Second consecutive 401 — log and preserve current state.
+        // The user's local session cookie may still be valid; let the next
+        // natural request (page navigation, explicit refresh) re-validate.
         consecutive401Count.current = 0;
-
-        // Prevent re-entry if already cleaning up
-        if (isCleaningUpSession.current) return;
-        isCleaningUpSession.current = true;
-
-        console.warn('Session expired (consecutive 401s) - clearing local session');
-
-        // signOut() clears real SecureStore keys (deuceleague_cookie, deuceleague_session_data)
-        // via the expo client's init hook. No manual key deletion needed.
-        try {
-          await Promise.race([
-            signOut(),
-            new Promise(resolve => setTimeout(resolve, 2000)),
-          ]);
-        } catch {
-          // Backend call may fail (expected for expired session)
-        }
-
-        // Reset state - session becoming null triggers redirect to login
-        setOnboardingStatus(null);
+        console.warn('NavigationInterceptor: Consecutive 401s — preserving local session');
         return;
       }
 
