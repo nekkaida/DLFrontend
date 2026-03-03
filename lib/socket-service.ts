@@ -24,27 +24,21 @@ export class SocketService {
 
     try {
       const backendUrl = getBackendBaseURL();
-      
-      // Get the session token from Better Auth
-      const session = await authClient.getSession();
-      
-      if (!session?.data) {
-        console.log('SocketService: No session token available, skipping socket connection');
+
+      // Use getCookie() to get auth cookie from SecureStore (local-only, no backend call).
+      // IMPORTANT: Do NOT use getSession() here — it calls the backend and
+      // sets the session atom to null on any failure, logging the user out.
+      const cookies = authClient.getCookie();
+
+      if (!cookies) {
+        console.log('SocketService: No session cookie available, skipping socket connection');
         return;
       }
 
-      const userId = session.data.user?.id;
-
-      // Get cookies using better-auth's getCookie() method
-      const cookies = authClient.getCookie();
-
-      console.log('SocketService: User ID:', userId);
-
-      // Pass session info for Better Auth to validate
+      // Pass cookie for Better Auth to validate on the server side
       this._socket = io(backendUrl, {
         extraHeaders: {
-          'x-user-id': userId || '',
-          'Cookie': cookies || '',  // Use Cookie header as per better-auth Expo docs
+          'Cookie': cookies.replace(/^;\s*/, ''),
         },
         transports: ['websocket'],
         timeout: 10000,
@@ -204,9 +198,7 @@ export class SocketService {
       });
 
       // Join user to their personal room for notifications
-      if (session.data.user?.id) {
-        this._socket.emit('join_user_room', { userId: session.data.user.id });
-      }
+      // The server extracts userId from the authenticated cookie on connection
 
     } catch (error) {
       console.error('SocketService: Failed to connect:', error);

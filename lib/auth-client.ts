@@ -33,6 +33,13 @@ export const authClient = createAuthClient({
       storage: SecureStore,
     }),
   ],
+  sessionOptions: {
+    // Disable automatic session refetch when the app comes to foreground.
+    // better-auth's default (true) triggers a /get-session backend call on every
+    // AppState change; if that call fails for any reason (network, 401, 500),
+    // the session atom is set to null → user gets logged out.
+    refetchOnWindowFocus: false,
+  },
 });
 
 export const { signIn, signOut, useSession } = authClient;

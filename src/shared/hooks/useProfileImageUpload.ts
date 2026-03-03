@@ -127,26 +127,26 @@ export function useProfileImageUpload(options: UseProfileImageUploadOptions = {}
       // In RN, FormData.append accepts { uri, type, name } objects
       formData.append('image', file as any);
 
-      // Get session token for authentication
-      const sessionData = await authClient.getSession();
-      const token = sessionData?.data?.session?.token;
-      const currentUserId = userId || sessionData?.data?.user?.id;
+      // Use getCookie() for auth — reads from local SecureStore only.
+      // IMPORTANT: Do NOT use getSession() — it calls the backend and
+      // sets the session atom to null on any failure, logging the user out.
+      const cookies = authClient.getCookie();
 
-      if (!token && !currentUserId) {
+      if (!cookies && !userId) {
         throw new Error('No authentication token available. Please sign in again.');
       }
 
       // Use fetch directly for FormData (authClient.$fetch may not handle multipart correctly)
       const headers: Record<string, string> = {};
 
-      // Add authorization token if available
-      if (token) {
-        headers['Authorization'] = `Bearer ${token}`;
+      // Add cookie header for better-auth session authentication
+      if (cookies) {
+        headers['Cookie'] = cookies.replace(/^;\s*/, '');
       }
 
       // Add user ID header for mobile compatibility
-      if (currentUserId) {
-        headers['x-user-id'] = currentUserId;
+      if (userId) {
+        headers['x-user-id'] = userId;
       }
 
       console.log('[useProfileImageUpload] Sending upload request...');

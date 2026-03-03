@@ -3,7 +3,6 @@ import { useRouter, useSegments, Href } from 'expo-router';
 import { BackHandler } from 'react-native';
 import { useSession, signOut } from '@/lib/auth-client';
 import axiosInstance from '@/lib/endpoints';
-import * as SecureStore from 'expo-secure-store';
 import { AuthStorage, OnboardingStorage } from '@/src/core/storage';
 import { getIsLogoutInProgress } from '@core/navigation/navigationUtils';
 
@@ -105,6 +104,7 @@ export const NavigationInterceptor: React.FC<NavigationInterceptorProps> = ({ ch
   const navigationStack = useRef<string[]>([]);
   const isNavigating = useRef(false);
   const isCleaningUpSession = useRef(false); // Guards against 401 retry loops during session cleanup
+  const consecutive401Count = useRef(0); // Tracks consecutive 401s to allow one retry before nuking session
   const [onboardingStatus, setOnboardingStatus] = useState<{
     completedOnboarding: boolean;
     hasCompletedAssessment: boolean;
@@ -131,7 +131,8 @@ export const NavigationInterceptor: React.FC<NavigationInterceptorProps> = ({ ch
 
       // console.log('NavigationInterceptor: Onboarding response status:', onboardingResponse.status);
 
-      // Success response (2xx) - process the data
+      // Success response (2xx) - reset consecutive 401 counter
+      consecutive401Count.current = 0;
       // Backend returns {data: {...}, success: true}, so unwrap the data property
       const onboardingData = onboardingResponse.data?.data || onboardingResponse.data;
       console.log('NavigationInterceptor: Onboarding data received:', onboardingData);
@@ -208,6 +209,8 @@ export const NavigationInterceptor: React.FC<NavigationInterceptorProps> = ({ ch
         // Sign them out and clear onboarding data, but KEEP hasEverLoggedIn
         // so they go to login screen instead of landing page
         console.log('User not found in backend (404) - account may have been deleted, signing out');
+        // Prevent re-entry — block checkOnboardingStatus while session teardown runs
+        isCleaningUpSession.current = true;
         try {
           // Clear onboarding data but NOT auth storage (hasEverLoggedIn persists)
           await Promise.all([
@@ -227,47 +230,50 @@ export const NavigationInterceptor: React.FC<NavigationInterceptorProps> = ({ ch
       }
 
       if (status === 401) {
-        // Prevent re-entry if already cleaning up
-        if (isCleaningUpSession.current) return;
-        isCleaningUpSession.current = true;
-
-        console.warn('Session expired or invalid (401) - clearing local session');
-
-        // 1. Clear persistent session from SecureStore (local-only, no backend call)
-        const keysToDelete = [
-          'deuceleague.sessionToken',
-          'deuceleague.session',
-          'deuceleague.user',
-          'deuceleague.accessToken',
-          'deuceleague.refreshToken',
-        ];
-        await Promise.all(
-          keysToDelete.map(key => SecureStore.deleteItemAsync(key).catch(() => {}))
-        );
-
-        // 2. Try signOut to clear in-memory state (ignore backend failure)
-        try {
-          await Promise.race([
-            signOut(),
-            new Promise(resolve => setTimeout(resolve, 2000)),
-          ]);
-        } catch {
-          // Backend call may fail (expected for expired session)
+        // Treat 401 as transient — retry once, then preserve current state.
+        // IMPORTANT: Do NOT call signOut() here. A 401 from the onboarding-status
+        // endpoint does not mean the session is invalid — it could be a backend
+        // restart, cache miss, or temporary DB blip. Destroying the local session
+        // on a transient 401 causes the random-logout bug.
+        if (consecutive401Count.current === 0) {
+          consecutive401Count.current++;
+          console.warn('NavigationInterceptor: Got 401, retrying once');
+          setIsCheckingOnboarding(false);
+          setTimeout(() => {
+            checkOnboardingStatus(userId, true);
+          }, 1500);
+          return;
         }
 
-        // 3. Reset state - session becoming null triggers redirect to login
-        setOnboardingStatus(null);
+        // Second consecutive 401 — log and preserve current state.
+        // The user's local session cookie may still be valid; let the next
+        // natural request (page navigation, explicit refresh) re-validate.
+        consecutive401Count.current = 0;
+        console.warn('NavigationInterceptor: Consecutive 401s — preserving local session');
+        return;
+      }
+
+      if (status === 429) {
+        // Rate limited — backend is fine, we just need to wait.
+        // Don't set backendError (it blocks auto-refresh) — just keep current status.
+        console.warn('NavigationInterceptor: Rate limited (429), keeping current status');
         return;
       }
 
       // Network error or backend unavailable (5xx, timeout, etc.)
-      // Don't redirect to onboarding, keep user where they are
+      // CRITICAL: preserve known-good status to prevent kicking users off protected routes.
+      // Only add backendError flag — don't overwrite completedOnboarding/hasCompletedAssessment.
       console.warn('Backend unavailable or network error, not redirecting');
-      setOnboardingStatus({
-        completedOnboarding: false,
-        hasCompletedAssessment: false,
-        timestamp: Date.now(),
-        backendError: true
+      setOnboardingStatus(prev => {
+        if (prev && prev.completedOnboarding) {
+          return { ...prev, backendError: true, timestamp: Date.now() };
+        }
+        return {
+          completedOnboarding: false,
+          hasCompletedAssessment: false,
+          timestamp: Date.now(),
+          backendError: true,
+        };
       });
     } finally {
       setIsCheckingOnboarding(false);

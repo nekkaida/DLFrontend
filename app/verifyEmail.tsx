@@ -148,34 +148,13 @@ export default function VerifyEmailScreen() {
         // Stop animation before navigation
         blinkAnimationRef.current?.stop();
 
-        // Wait for session to be established in SecureStore, then navigate
-        // This is needed because autoSignInAfterVerification creates a session,
-        // but the React state may not update immediately (race condition in production builds)
-        if (__DEV__) console.log('Waiting for session to be established...');
-
-        // Poll for session with timeout
-        let attempts = 0;
-        const maxAttempts = 10;
-        const checkSession = async (): Promise<boolean> => {
-          const sessionCheck = await authClient.getSession();
-          if (__DEV__) console.log(`Session check attempt ${attempts + 1}:`, sessionCheck.data ? 'Session found' : 'No session');
-          return !!sessionCheck.data?.user;
-        };
-
-        while (attempts < maxAttempts) {
-          await new Promise(resolve => setTimeout(resolve, 500));
-          const hasSession = await checkSession();
-          if (hasSession) {
-            if (__DEV__) console.log('Session established, marking as logged in and navigating to onboarding');
-            await AuthStorage.markLoggedIn();
-            router.replace('/onboarding/personal-info');
-            return;
-          }
-          attempts++;
-        }
-
-        // Fallback: Navigate anyway after timeout - NavigationInterceptor will handle if needed
-        if (__DEV__) console.log('Session check timed out, marking as logged in and navigating to onboarding anyway');
+        // Navigate immediately after successful verification.
+        // The Expo client plugin stores the session cookie in SecureStore
+        // automatically — no need to poll getSession().
+        // IMPORTANT: Do NOT use getSession() here — it calls the backend
+        // and sets the session atom to null on any failure, which would
+        // log the user out during a transient network hiccup.
+        if (__DEV__) console.log('Email verified, marking as logged in and navigating to onboarding');
         await AuthStorage.markLoggedIn();
         router.replace('/onboarding/personal-info');
       }
