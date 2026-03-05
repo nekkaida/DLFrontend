@@ -483,19 +483,6 @@ export const styles = StyleSheet.create({
   buttonGroup: {
     gap: verticalScale(12),
   },
-  testButton: {
-    paddingVertical: verticalScale(12),
-    borderRadius: moderateScale(12),
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: moderateScale(2),
-    borderColor: '#8B5CF6',
-  },
-  testButtonText: {
-    fontSize: moderateScale(14),
-    fontWeight: '600',
-    color: '#FFFFFF',
-  },
   joinButton: {
     paddingVertical: verticalScale(16),
     borderRadius: moderateScale(16),
