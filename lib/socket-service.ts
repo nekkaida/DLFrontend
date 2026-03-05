@@ -197,6 +197,11 @@ export class SocketService {
         this.emit('achievement_unlocked', data);
       });
 
+      this._socket.on('achievement_revoked', (data) => {
+        console.log('SocketService: Achievement revoked:', data);
+        this.emit('achievement_revoked', data);
+      });
+
       // Join user to their personal room for notifications
       // The server extracts userId from the authenticated cookie on connection
 
