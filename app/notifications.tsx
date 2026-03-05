@@ -236,7 +236,11 @@ export default function NotificationsScreen() {
       if (metadata.matchId) {
         router.replace({
           pathname: '/match/match-details',
-          params: { matchId: metadata.matchId }
+          params: {
+            matchId: metadata.matchId,
+            ...(metadata.isFriendly !== undefined && { isFriendly: metadata.isFriendly }),
+            ...(metadata.matchType && { matchType: metadata.matchType }),
+          }
         } as any);
         return;
       }
