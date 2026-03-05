@@ -1,5 +1,5 @@
-import { getBackendBaseURL } from '@/config/network';
 import { authClient } from '@/lib/auth-client';
+import { authenticatedFetch } from '@/lib/authenticated-fetch';
 import { manipulateAsync, SaveFormat } from 'expo-image-manipulator';
 import * as ImagePicker from 'expo-image-picker';
 import { useCallback, useState } from 'react';
@@ -93,8 +93,6 @@ export function useProfileImageUpload(options: UseProfileImageUploadOptions = {}
     try {
       setIsUploadingImage(true);
 
-      const backendUrl = getBackendBaseURL();
-      console.log('[useProfileImageUpload] Backend URL:', backendUrl);
       const formData = new FormData();
 
       // Get file extension from URI
@@ -127,33 +125,10 @@ export function useProfileImageUpload(options: UseProfileImageUploadOptions = {}
       // In RN, FormData.append accepts { uri, type, name } objects
       formData.append('image', file as any);
 
-      // Use getCookie() for auth — reads from local SecureStore only.
-      // IMPORTANT: Do NOT use getSession() — it calls the backend and
-      // sets the session atom to null on any failure, logging the user out.
-      const cookies = authClient.getCookie();
-
-      if (!cookies && !userId) {
-        throw new Error('No authentication token available. Please sign in again.');
-      }
-
-      // Use fetch directly for FormData (authClient.$fetch may not handle multipart correctly)
-      const headers: Record<string, string> = {};
-
-      // Add cookie header for better-auth session authentication
-      if (cookies) {
-        headers['Cookie'] = cookies.replace(/^;\s*/, '');
-      }
-
-      // Add user ID header for mobile compatibility
-      if (userId) {
-        headers['x-user-id'] = userId;
-      }
-
       console.log('[useProfileImageUpload] Sending upload request...');
-      const response = await fetch(`${backendUrl}/api/player/profile/upload-image`, {
+      const response = await authenticatedFetch('/api/player/profile/upload-image', {
         method: 'POST',
         body: formData,
-        headers,
       });
 
       console.log('[useProfileImageUpload] Response status:', response.status, response.statusText);
