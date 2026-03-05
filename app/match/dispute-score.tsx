@@ -1,6 +1,6 @@
-import { getBackendBaseURL } from '@/config/network';
 import { scale, verticalScale, moderateScale } from '@/core/utils/responsive';
 import { useSession } from '@/lib/auth-client';
+import { authenticatedFetch } from '@/lib/authenticated-fetch';
 import axiosInstance, { endpoints } from '@/lib/endpoints';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
@@ -108,7 +108,6 @@ export default function DisputeScorePage() {
     if (screenshots.length === 0) return [];
 
     const uploadedUrls: string[] = [];
-    const backendUrl = getBackendBaseURL();
 
     for (const screenshot of screenshots) {
       try {
@@ -120,13 +119,10 @@ export default function DisputeScorePage() {
         } as any);
         formData.append('folder', 'disputes');
 
-        const response = await fetch(`${backendUrl}/api/upload/image`, {
+        const response = await authenticatedFetch('/api/upload/image', {
           method: 'POST',
           body: formData,
-          headers: {
-            'Content-Type': 'multipart/form-data',
-            'x-user-id': session?.user?.id || '',
-          },
+          headers: { 'Content-Type': 'multipart/form-data' },
         });
 
         if (response.ok) {
