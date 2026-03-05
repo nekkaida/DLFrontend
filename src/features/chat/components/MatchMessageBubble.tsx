@@ -3,7 +3,7 @@
 // TODO: Refactor to move all hooks before any conditional returns.
 import { getSportColors, type SportType } from '@/constants/SportsColor';
 import { useSession } from '@/lib/auth-client';
-import { getBackendBaseURL } from '@/src/config/network';
+import { authenticatedFetch } from '@/lib/authenticated-fetch';
 import { chatLogger } from '@/utils/logger';
 import { Ionicons } from '@expo/vector-icons';
 import { format } from 'date-fns';
@@ -236,13 +236,9 @@ export const MatchMessageBubble: React.FC<MatchMessageBubbleProps> = ({
 
     setIsDeclining(true);
     try {
-      const backendUrl = getBackendBaseURL();
-      const response = await fetch(`${backendUrl}/api/friendly/${effectiveMatchId}/decline`, {
+      const response = await authenticatedFetch(`/api/friendly/${effectiveMatchId}/decline`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-user-id': currentUserId,
-        },
+        headers: { 'Content-Type': 'application/json' },
       });
 
       if (!response.ok) {
@@ -308,14 +304,8 @@ export const MatchMessageBubble: React.FC<MatchMessageBubbleProps> = ({
       }
 
       try {
-        const backendUrl = getBackendBaseURL();
-        
         // First fetch match details to get divisionId and creatorId
-        const matchResponse = await fetch(`${backendUrl}/api/match/${effectiveMatchId}`, {
-          headers: {
-            'x-user-id': currentUserId,
-          },
-        });
+        const matchResponse = await authenticatedFetch(`/api/match/${effectiveMatchId}`);
 
         if (!matchResponse.ok) return;
 
@@ -328,13 +318,8 @@ export const MatchMessageBubble: React.FC<MatchMessageBubbleProps> = ({
 
         // Check if user has played against creator in this division
         // We check completed matches where both users participated on opposite teams
-        const historyResponse = await fetch(
-          `${backendUrl}/api/match?divisionId=${divisionId}&userId=${currentUserId}&status=COMPLETED`,
-          {
-            headers: {
-              'x-user-id': currentUserId,
-            },
-          }
+        const historyResponse = await authenticatedFetch(
+          `/api/match?divisionId=${divisionId}&userId=${currentUserId}&status=COMPLETED`
         );
 
         if (!historyResponse.ok) return;
@@ -393,13 +378,9 @@ export const MatchMessageBubble: React.FC<MatchMessageBubbleProps> = ({
     if (isFriendlyRequest) {
       setIsFetchingPartner(true);
       try {
-        const backendUrl = getBackendBaseURL();
-        const response = await fetch(`${backendUrl}/api/friendly/${effectiveMatchId}/join`, {
+          const response = await authenticatedFetch(`/api/friendly/${effectiveMatchId}/join`, {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'x-user-id': currentUserId,
-          },
+          headers: { 'Content-Type': 'application/json' },
         });
 
         if (!response.ok) {
@@ -462,18 +443,12 @@ export const MatchMessageBubble: React.FC<MatchMessageBubbleProps> = ({
     setIsFetchingPartner(true);
 
     try {
-      const backendUrl = getBackendBaseURL();
-
       // Fetch match details to get divisionId and seasonId
       console.log('[JOIN_DEBUG] Falling through to match-details navigation. Fetching match info', {
         effectiveMatchId,
         reason: isDoublesMatch ? 'doubles but no pending invite or not league' : 'singles match',
       });
-      const matchResponse = await fetch(`${backendUrl}/api/match/${effectiveMatchId}`, {
-        headers: {
-          'x-user-id': currentUserId,
-        },
-      });
+      const matchResponse = await authenticatedFetch(`/api/match/${effectiveMatchId}`);
       
       let divisionId = '';
       let seasonId = '';
@@ -508,6 +483,7 @@ export const MatchMessageBubble: React.FC<MatchMessageBubbleProps> = ({
         params: {
           matchId: effectiveMatchId,
           matchType: matchData.matchType || (matchData.numberOfPlayers === '4' ? 'DOUBLES' : 'SINGLES'),
+          isFriendly: isFriendly ? 'true' : 'false',
           date: formatDisplayDate(matchData.date),
           time: `${formattedStartTime} – ${formattedEndTime}`,
           location: matchData.location || 'TBD',
@@ -548,12 +524,7 @@ export const MatchMessageBubble: React.FC<MatchMessageBubbleProps> = ({
     if (effectiveMatchId && !enrichedMatchData && currentUserId) {
       setIsFetchingMatchDetails(true);
       try {
-        const backendUrl = getBackendBaseURL();
-        const response = await fetch(`${backendUrl}/api/match/${effectiveMatchId}`, {
-          headers: {
-            'x-user-id': currentUserId,
-          },
-        });
+        const response = await authenticatedFetch(`/api/match/${effectiveMatchId}`);
 
         if (response.ok) {
           const result = await response.json();
