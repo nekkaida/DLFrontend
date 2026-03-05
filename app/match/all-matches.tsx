@@ -323,6 +323,7 @@ export default function AllMatchesScreen() {
           seasonId: match.division?.season?.id || '',
           participants: JSON.stringify(match.participants || []),
           status: match.status,
+          isFriendly: 'false',
         },
       });
 
