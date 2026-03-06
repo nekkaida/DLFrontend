@@ -74,7 +74,7 @@ export class TennisQuestionnaire {
       help_text: "Consider your average playing frequency over the past few months",
     },
     competitive_level: {
-      question: "What is the highest level of tennis you usually compete in??",
+      question: "What is the highest level of tennis you usually compete in?",
       answers: {
         "Recreational/social play with friends": -0.5,
         "Friendly matches (informal, but with some competitiveness)": -0.1,
