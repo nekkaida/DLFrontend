@@ -9,7 +9,7 @@ export const AuthColors = {
   primaryLight: '#FFB678',
   secondary: '#444444',
   white: '#FFFFFF',
-  black: '#000000',
+  black: '#1D1D1F',
   gray: {
     50: '#F4F4F4',
     100: '#EDF1F3',
@@ -29,7 +29,7 @@ export const AuthColors = {
     red: '#EA4335',
   },
   border: 'rgba(108, 114, 120, 0.3)', // Grey border for default state
-  borderActive: '#FEA04D', // Orange border for active/focused state
+  borderActive: '#FEA04D',
   shadow: 'rgba(228, 229, 231, 0.24)',
 };
 
