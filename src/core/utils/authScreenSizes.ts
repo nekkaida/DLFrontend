@@ -53,7 +53,7 @@ const computeSizes = (screenHeight: number): ScreenSizes => {
   const isLargeScreen  = screenHeight >= 820;
 
   const rs = {
-    hPadding:            scale(isSmallScreen ? 24 : 30),
+    hPadding:            scale(isSmallScreen ? 18 : 24),
     topMargin:           isSmallScreen ? verticalScale(12)  : isMediumScreen ? verticalScale(30)  : verticalScale(50),
     sectionGap:          isSmallScreen ? verticalScale(8)   : isMediumScreen ? verticalScale(12)  : verticalScale(18),
     inputGap:            isSmallScreen ? verticalScale(6)   : verticalScale(10),
@@ -69,7 +69,7 @@ const computeSizes = (screenHeight: number): ScreenSizes => {
     checkboxSize:        isSmallScreen ? scale(16)          : scale(20),
     signUpRowMarginTop:  isSmallScreen ? verticalScale(2)   : verticalScale(8),
     btnSize:             isSmallScreen ? scale(46)          : scale(52),
-    signUpFontSize:      isSmallScreen ? moderateScale(18)  : moderateScale(22),
+    signUpFontSize:      isSmallScreen ? moderateScale(16)  : moderateScale(18),
     socialGap:           isSmallScreen ? scale(4)           : scale(6),
     labelFontSize:       isSmallScreen ? moderateScale(10)  : moderateScale(11),
     loginFontSize:       isSmallScreen ? moderateScale(12)  : moderateScale(14),

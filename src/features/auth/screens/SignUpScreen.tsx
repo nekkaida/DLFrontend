@@ -387,7 +387,7 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({
               </Svg>
             </View>
 
-            {/* Header Title on Orange Background */}
+            {/* Header Title */}
             <View style={{
             }}>
               <Text style={{
@@ -603,13 +603,12 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({
               justifyContent: 'space-between',
               alignItems: 'center',
               width: '100%',
-              marginTop: rs.signUpRowMarginTop,
+              // marginTop: rs.signUpRowMarginTop,
             }}>
               <Text style={{
                 fontFamily: 'Inter',
                 fontWeight: '600',
                 fontSize: rs.signUpFontSize,
-                lineHeight: moderateScale(28),
                 letterSpacing: -0.01,
                 color: '#000000',
               }}>
@@ -687,7 +686,7 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({
               justifyContent: 'center',
               alignItems: 'center',
               gap: scale(4),
-              paddingBottom: verticalScale(12),
+              paddingBottom: verticalScale(14),
             }}>
               <Text style={{
                 fontFamily: 'Inter',
