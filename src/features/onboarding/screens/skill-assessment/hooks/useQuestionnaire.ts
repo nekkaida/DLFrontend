@@ -144,7 +144,7 @@ function questionnaireReducer(
       return {
         ...state,
         questions: previousPage.questions || [],
-        responses: previousPage.responses || {},
+        responses: { ...state.responses, ...(previousPage.responses || {}) },
         currentPageAnswers: previousPage.pageAnswers || {},
         currentQuestionIndex: previousPage.currentQuestionIndex ?? 0,
         questionHistory: updatedHistory,
