@@ -1,4 +1,4 @@
-import { getBackendBaseURL } from '@/config/network';
+import { authenticatedFetch } from '@/lib/authenticated-fetch';
 import { getSportColors } from '@/constants/SportsColor';
 import {
   scale,
@@ -322,7 +322,6 @@ export const ChatThreadScreen: React.FC<ChatThreadScreenProps> = ({ threadId, da
     }
 
     try {
-      const backendUrl = getBackendBaseURL();
       const isDoubles = matchData.numberOfPlayers === 4;
 
       // Fetch division to check gameType and seasonId
@@ -334,12 +333,8 @@ export const ChatThreadScreen: React.FC<ChatThreadScreenProps> = ({ threadId, da
         chatLogger.debug('Fetching division data for match creation...');
 
         try {
-          const divisionResponse = await fetch(
-            `${backendUrl}/api/division/${currentThread.metadata.divisionId}`,
-            {
-              method: 'GET',
-              headers: { 'x-user-id': user.id }
-            }
+          const divisionResponse = await authenticatedFetch(
+            `/api/division/${currentThread.metadata.divisionId}`
           );
 
           if (!divisionResponse.ok) {
@@ -368,12 +363,8 @@ export const ChatThreadScreen: React.FC<ChatThreadScreenProps> = ({ threadId, da
         chatLogger.debug('Division is DOUBLES type, fetching partnership...');
 
         try {
-          const partnershipResponse = await fetch(
-            `${backendUrl}/api/pairing/partnership/active/${seasonId}`,
-            {
-              method: 'GET',
-              headers: { 'x-user-id': user.id }
-            }
+          const partnershipResponse = await authenticatedFetch(
+            `/api/pairing/partnership/active/${seasonId}`
           );
 
           if (!partnershipResponse.ok) {
@@ -472,12 +463,9 @@ export const ChatThreadScreen: React.FC<ChatThreadScreenProps> = ({ threadId, da
         chatLogger.debug('Added partnerId to payload:', partnerId);
       }
 
-      const matchResponse = await fetch(`${backendUrl}/api/match/create`, {
+      const matchResponse = await authenticatedFetch('/api/match/create', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-user-id': user.id,
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(matchPayload),
       });
 
@@ -514,6 +502,7 @@ export const ChatThreadScreen: React.FC<ChatThreadScreenProps> = ({ threadId, da
         matchData: {
           matchId: matchResult.id,
           matchType: matchResult.matchType || divisionGameType || (String(matchData.numberOfPlayers) === '4' ? 'DOUBLES' : 'SINGLES'),
+          isFriendly: false,
           date: matchData.date,
           time: matchData.time,
           duration: matchData.duration || 2,
@@ -530,12 +519,9 @@ export const ChatThreadScreen: React.FC<ChatThreadScreenProps> = ({ threadId, da
         },
       };
 
-      const messageResponse = await fetch(`${backendUrl}/api/chat/threads/${currentThread.id}/messages`, {
+      const messageResponse = await authenticatedFetch(`/api/chat/threads/${currentThread.id}/messages`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-user-id': user.id,
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(messagePayload),
       });
 

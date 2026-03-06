@@ -2,7 +2,7 @@ import { getSportColors, SportType } from "@/constants/SportsColor";
 import { useSession } from "@/lib/auth-client";
 import axiosInstance, { endpoints } from "@/lib/endpoints";
 import { MatchCardSkeleton } from "@/src/components/MatchCardSkeleton";
-import { getBackendBaseURL } from "@/src/config/network";
+import { authenticatedFetch } from "@/lib/authenticated-fetch";
 import { AnimatedFilterChip } from "@/src/shared/components/ui/AnimatedFilterChip";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -104,10 +104,7 @@ export default function MyGamesScreen({
     if (!session?.user?.id) return false;
 
     try {
-      const backendUrl = getBackendBaseURL();
-      const response = await fetch(`${backendUrl}/api/match/my/summary`, {
-        headers: { "x-user-id": session.user.id },
-      });
+      const response = await authenticatedFetch('/api/match/my/summary');
 
       if (!response.ok) return true; // If summary fails, assume new content
 
@@ -179,12 +176,7 @@ export default function MyGamesScreen({
       // Manual refresh - never show skeleton
 
       try {
-        const backendUrl = getBackendBaseURL();
-        const response = await fetch(`${backendUrl}/api/match/my`, {
-          headers: {
-            "x-user-id": session.user.id,
-          },
-        });
+        const response = await authenticatedFetch('/api/match/my');
 
         // console.log(`[MyGamesScreen] API Response status: ${response.status}`);
 

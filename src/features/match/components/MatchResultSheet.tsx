@@ -1,5 +1,5 @@
-import { getBackendBaseURL } from '@/config/network';
 import { useSession } from '@/lib/auth-client';
+import { authenticatedFetch } from '@/lib/authenticated-fetch';
 import { Ionicons } from '@expo/vector-icons';
 import { BottomSheetScrollView, BottomSheetTextInput } from '@gorhom/bottom-sheet';
 import React, { useEffect, useRef, useState } from 'react';
@@ -165,12 +165,7 @@ export const MatchResultSheet: React.FC<MatchResultSheetProps> = ({
     const fetchMatchDetails = async () => {
       if (mode === 'view' || mode === 'review' || mode === 'disputed' || mode === 'submit') {
         try {
-          const backendUrl = getBackendBaseURL();
-          const response = await fetch(`${backendUrl}/api/match/${matchId}`, {
-            headers: {
-              'x-user-id': session?.user?.id || '',
-            },
-          });
+          const response = await authenticatedFetch(`/api/match/${matchId}`);
 
           if (response.ok) {
             const data = await response.json();
@@ -284,14 +279,8 @@ export const MatchResultSheet: React.FC<MatchResultSheetProps> = ({
       }
 
       try {
-        const backendUrl = getBackendBaseURL();
-        const response = await fetch(
-          `${backendUrl}/api/pairing/partnership/active/${seasonId}`,
-          {
-            headers: {
-              'x-user-id': session.user.id,
-            },
-          }
+        const response = await authenticatedFetch(
+          `/api/pairing/partnership/active/${seasonId}`
         );
 
         if (response.ok) {

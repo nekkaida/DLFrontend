@@ -23,8 +23,8 @@ import { toast } from "sonner-native";
 import { router } from "expo-router";
 import { useFocusEffect } from "@react-navigation/native";
 import { useSession } from "@/lib/auth-client";
+import { authenticatedFetch } from "@/lib/authenticated-fetch";
 import axiosInstance, { endpoints } from "@/lib/endpoints";
-import { getBackendBaseURL } from "@/src/config/network";
 import { getSportColors, SportType } from "@/constants/SportsColor";
 import {
   FriendlyMatchCard,
@@ -81,12 +81,8 @@ export const FriendlyScreen: React.FC<FriendlyScreenProps> = ({ sport }) => {
     if (!session?.user?.id) return false;
 
     try {
-      const backendUrl = getBackendBaseURL();
-      const response = await fetch(
-        `${backendUrl}/api/friendly/summary?sport=${sportType}`,
-        {
-          headers: { "x-user-id": session.user.id },
-        },
+      const response = await authenticatedFetch(
+        `/api/friendly/summary?sport=${sportType}`
       );
 
       if (!response.ok) return true;
