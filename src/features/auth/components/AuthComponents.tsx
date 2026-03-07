@@ -204,22 +204,7 @@ export const InputField: React.FC<InputFieldProps> = ({
         return <ActivityIndicator size="small" color={AuthColors.primary} />;
       // Style 1
       case "available":
-        return <Ionicons name="checkmark-circle" size={16} color="#FEA04D" />;
-      // Style 2
-      // case 'available':
-      // return (
-      //   <View style={{ justifyContent: 'center', alignItems: 'center' }}>
-      //     {/* The Orange Background Circle */}
-      //     <Ionicons name="ellipse" size={16} color="#FEA04D" />
-      //     {/* The Black Tick Overlayed */}
-      //     <Ionicons
-      //       name="checkmark"
-      //       size={12}
-      //       color="black"
-      //       style={{ position: 'absolute' }}
-      //     />
-      //   </View>
-      // );
+        return <Ionicons name="checkmark-circle" size={16} color="#10B981" />;
 
       case "taken":
         return <Ionicons name="close-circle" size={16} color="#EF4444" />;
@@ -229,7 +214,7 @@ export const InputField: React.FC<InputFieldProps> = ({
   };
 
   const getBorderColor = () => {
-    if (validationStatus === "available") return "#FEA04D";
+    if (validationStatus === "available") return "#10B981";
     if (validationStatus === "taken") return "#EF4444";
     if (isFocused || value) return AuthColors.primary;
     return AuthColors.gray[200];
