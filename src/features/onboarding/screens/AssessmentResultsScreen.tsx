@@ -298,6 +298,18 @@ const AssessmentResultsScreen = () => {
       <SafeAreaView style={styles.container}>
         <View style={styles.errorContainer}>
           <Text style={styles.errorText}>No assessment results found</Text>
+          <TouchableOpacity
+            style={styles.errorRetryButton}
+            onPress={() => router.replace(`/onboarding/skill-assessment?sport=${sport}&sportIndex=${sportIndex}`)}
+          >
+            <Text style={styles.errorRetryButtonText}>Retake Assessment</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.errorSkipButton}
+            onPress={handleContinue}
+          >
+            <Text style={styles.errorSkipButtonText}>Skip and Continue</Text>
+          </TouchableOpacity>
         </View>
       </SafeAreaView>
     );
@@ -428,11 +440,11 @@ const AssessmentResultsScreen = () => {
           </LinearGradient>
         </View>
 
-            {/* Confidence (for tennis and padel) */}
-            {results.confidence && (
+            {/* Confidence level */}
+            {ratingData?.confidence && (
               <View style={styles.confidenceContainer}>
                 <Text style={styles.confidenceLabel}>Confidence</Text>
-                <Text style={styles.confidenceValue}>{formatConfidence(results.confidence)}</Text>
+                <Text style={styles.confidenceValue}>{formatConfidence(ratingData.confidence)}</Text>
               </View>
             )}
 
@@ -788,6 +800,38 @@ const styles = StyleSheet.create({
     color: '#FF6B6B',
     fontFamily: 'Roboto',
     textAlign: 'center',
+    marginBottom: 24,
+  },
+  errorRetryButton: {
+    height: 48,
+    backgroundColor: '#FE9F4D',
+    borderRadius: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+    width: '100%',
+    marginBottom: 12,
+  },
+  errorRetryButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '600',
+    fontFamily: 'Roboto',
+  },
+  errorSkipButton: {
+    height: 48,
+    backgroundColor: 'transparent',
+    borderWidth: 1,
+    borderColor: '#6C7278',
+    borderRadius: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+    width: '100%',
+  },
+  errorSkipButtonText: {
+    color: '#6C7278',
+    fontSize: 16,
+    fontWeight: '500',
+    fontFamily: 'Roboto',
   },
 });
 

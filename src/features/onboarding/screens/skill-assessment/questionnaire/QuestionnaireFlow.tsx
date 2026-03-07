@@ -194,16 +194,25 @@ export const QuestionnaireFlow: React.FC<QuestionnaireFlowProps> = ({
     }
   }, [visibleQuestions, carouselDisplayIndex, currentPageAnswers, responses, onNext]);
 
+  // Navigation guard to prevent double-fire (BUG 10 fix)
+  const isNavigating = useRef(false);
+
   // Programmatic navigation to next
   // Use carouselDisplayIndex for accurate last-question detection
   const handleNext = useCallback(() => {
+    if (isNavigating.current) return;
+
     // Check if this is the last visible question
     if (carouselDisplayIndex >= visibleQuestions.length - 1) {
       // Last visible question - let parent handle completion
+      isNavigating.current = true;
       onNext();
+      // Reset after completion handler finishes
+      setTimeout(() => { isNavigating.current = false; }, 1000);
       return;
     }
 
+    isNavigating.current = true;
     isProgrammaticNav.current = true;
     directionAnimVal.value = 1; // Swipe right direction
     carouselRef.current?.next();
@@ -211,6 +220,7 @@ export const QuestionnaireFlow: React.FC<QuestionnaireFlowProps> = ({
     // Trigger parent's onNext after animation
     setTimeout(() => {
       onNextRef.current();
+      isNavigating.current = false;
     }, 300);
   }, [carouselDisplayIndex, visibleQuestions.length, onNext, directionAnimVal]);
 

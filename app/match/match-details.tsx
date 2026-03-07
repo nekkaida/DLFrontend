@@ -1,4 +1,4 @@
-import { getBackendBaseURL } from '@/config/network';
+import { authenticatedFetch } from '@/lib/authenticated-fetch';
 import { styles } from './match-details.styles';
 import {
   ParticipantWithDetails,
@@ -414,17 +414,12 @@ export default function JoinMatchScreen() {
       if (!matchId || !session?.user?.id) return;
       
       try {
-        const backendUrl = getBackendBaseURL();
-        // Use different endpoint for friendly matches
-        const endpoint = isFriendly 
-          ? `${backendUrl}/api/friendly/${matchId}`
-          : `${backendUrl}/api/match/${matchId}`;
-        
-        const response = await fetch(endpoint, {
-          headers: {
-            'x-user-id': session.user.id,
-          },
-          cache: 'no-cache', // Ensure fresh data
+        const fetchPath = isFriendly
+          ? `/api/friendly/${matchId}`
+          : `/api/match/${matchId}`;
+
+        const response = await authenticatedFetch(fetchPath, {
+          cache: 'no-cache',
         });
         
         if (response.ok) {
@@ -695,16 +690,10 @@ export default function JoinMatchScreen() {
 
   const fetchParticipantDetails = async () => {
     try {
-      const backendUrl = getBackendBaseURL();
-      
       // Fetch details for each participant
       const detailsPromises = participants.map(async (p: any) => {
         try {
-          const response = await fetch(`${backendUrl}/api/player/${p.userId}`, {
-            headers: {
-              'x-user-id': session?.user?.id || '',
-            },
-          });
+          const response = await authenticatedFetch(`/api/player/${p.userId}`);
           
           if (response.ok) {
             const data = await response.json();
@@ -739,14 +728,8 @@ export default function JoinMatchScreen() {
 
   const fetchPartnershipInfo = async () => {
     try {
-      const backendUrl = getBackendBaseURL();
-      const response = await fetch(
-        `${backendUrl}/api/pairing/partnership/active/${seasonId}`,
-        {
-          headers: {
-            'x-user-id': session?.user?.id || '',
-          },
-        }
+      const response = await authenticatedFetch(
+        `/api/pairing/partnership/active/${seasonId}`
       );
 
       if (__DEV__) console.log('Partnership response status:', response.status);
@@ -807,11 +790,14 @@ export default function JoinMatchScreen() {
     }
   };
 
-  const pairSlots = matchType === 'DOUBLES' ? 2 - Math.ceil(participants.length / 2) : 0;
+  // Only count ACCEPTED participants for slot/fullness calculations
+  // PENDING participants hold an invitation but haven't confirmed — the slot is still technically open
+  const acceptedParticipants = participants.filter((p: any) => p.invitationStatus === 'ACCEPTED');
+  const pairSlots = matchType === 'DOUBLES' ? 2 - Math.ceil(acceptedParticipants.length / 2) : 0;
 
-  // Check if all slots are filled
+  // Check if all slots are filled (ACCEPTED only — matches backend BUG 5 guard)
   const requiredParticipants = matchType === 'DOUBLES' ? 4 : 2;
-  const allSlotsFilled = participants.length >= requiredParticipants;
+  const allSlotsFilled = acceptedParticipants.length >= requiredParticipants;
 
   // Check if ALL participants have accepted their invitations
   const allParticipantsAccepted = participants.length > 0 && participants.every((p: any) => p.invitationStatus === 'ACCEPTED');
@@ -1052,7 +1038,6 @@ export default function JoinMatchScreen() {
 
     setLoading(true);
     try {
-      const backendUrl = getBackendBaseURL();
       const payload: any = { asPartner: false };
 
       if (matchType === 'DOUBLES' && partnerInfo.partnerId) {
@@ -1060,21 +1045,23 @@ export default function JoinMatchScreen() {
       }
 
       // Use different endpoint for friendly matches (no division/league/season checks)
-      const endpoint = isFriendly 
-        ? `${backendUrl}/api/friendly/${matchId}/join`
-        : `${backendUrl}/api/match/${matchId}/join`;
+      const joinPath = isFriendly
+        ? `/api/friendly/${matchId}/join`
+        : `/api/match/${matchId}/join`;
 
-      const response = await fetch(endpoint, {
+      const response = await authenticatedFetch(joinPath, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-user-id': session.user.id,
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
+        let errorData: any = {};
+        try {
+          errorData = await response.json();
+        } catch {
+          // Server returned non-JSON response (e.g. HTML error page)
+        }
         if (errorData.error?.includes('already a participant')) {
           toast.info('You are already in this match');
           router.back();
@@ -1256,16 +1243,12 @@ export default function JoinMatchScreen() {
           // Re-fetch match data directly using the same logic
           const fetchLatestMatchData = async () => {
             try {
-              const backendUrl = getBackendBaseURL();
-              const endpoint = isFriendly 
-                ? `${backendUrl}/api/friendly/${matchId}`
-                : `${backendUrl}/api/match/${matchId}`;
-              
-              const response = await fetch(endpoint, {
-                headers: {
-                  'x-user-id': session.user.id,
-                },
-                cache: 'no-cache', // Ensure fresh data
+              const refreshPath = isFriendly
+                ? `/api/friendly/${matchId}`
+                : `/api/match/${matchId}`;
+
+              const response = await authenticatedFetch(refreshPath, {
+                cache: 'no-cache',
               });
               
               if (response.ok) {
@@ -2323,22 +2306,7 @@ export default function JoinMatchScreen() {
         ) : (
           // Join Match Button (shown to non-participants)
           <View style={styles.buttonGroup}>
-            {/* ⚠️ TEST BUTTON - BYPASSES TIME VALIDATION - REMOVE BEFORE PRODUCTION ⚠️ */}
-            <TouchableOpacity
-              style={[styles.testButton, { backgroundColor: "#8B5CF6", borderColor: "#7C3AED" }]}
-              onPress={handleJoinMatch}
-              disabled={loading || !canJoin || allSlotsFilled}
-            >
-              {loading ? (
-                <ActivityIndicator color="#FFFFFF" size="small" />
-              ) : (
-                <Text style={styles.joinButtonText}>
-                  🧪 Join (No Time Check)
-                </Text>
-              )}
-            </TouchableOpacity>
-
-            {/* Production Join Button - With Time Validation */}
+            {/* Join Match Button */}
             <TouchableOpacity
               style={[
                 styles.joinButton,

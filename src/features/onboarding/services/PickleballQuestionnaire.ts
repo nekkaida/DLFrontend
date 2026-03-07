@@ -260,99 +260,6 @@ export class PickleballQuestionnaire {
     return false;
   }
 
-  getConditionalQuestions(responses: QuestionnaireResponse): Question[] {
-    if (!responses.has_dupr) {
-      return [
-        {
-          key: 'has_dupr',
-          question: this.questions.has_dupr.question,
-          type: 'single_choice',
-          options: Object.keys(this.questions.has_dupr.answers),
-          help_text: 'DUPR is the official rating system used in competitive pickleball',
-        },
-      ];
-    }
-
-    if (responses.has_dupr === 'No' || responses.has_dupr === 'Not sure what DUPR is') {
-      return this.getRemainingQuestionnaireQuestions(responses);
-    }
-
-    if (responses.has_dupr === 'Yes') {
-      // DUPR rating questions
-      if (!('dupr_singles' in responses)) {
-        return [
-          {
-            key: 'dupr_singles',
-            question: 'What is your DUPR Singles rating? (Leave blank if you don\'t play singles)',
-            type: 'number',
-            min_value: 2.0,
-            max_value: 8.0,
-            step: 0.01,
-            optional: true,
-            help_text: 'Your singles DUPR rating (e.g., 3.75). Skip if you don\'t have one.',
-          },
-        ];
-      }
-
-      if (!('dupr_doubles' in responses)) {
-        return [
-          {
-            key: 'dupr_doubles',
-            question: 'What is your DUPR Doubles rating? (Leave blank if you don\'t play doubles)',
-            type: 'number',
-            min_value: 2.0,
-            max_value: 8.0,
-            step: 0.01,
-            optional: true,
-            help_text: 'Your doubles DUPR rating (e.g., 4.12). Skip if you don\'t have one.',
-          },
-        ];
-      }
-
-      // DUPR singles reliability question
-      if (responses.dupr_singles && 
-          responses.dupr_singles.toString().trim() !== '' && 
-          !('dupr_singles_reliability' in responses)) {
-        return [
-          {
-            key: 'dupr_singles_reliability',
-            question: 'What is your DUPR Singles reliability percentage?',
-            type: 'number',
-            min_value: 0,
-            max_value: 100,
-            step: 1,
-            optional: true,
-            help_text: 'The reliability percentage shown next to your DUPR singles rating (0-100%). Skip if you\'re not sure.',
-          },
-        ];
-      }
-
-      // DUPR doubles reliability question
-      if (responses.dupr_doubles && 
-          responses.dupr_doubles.toString().trim() !== '' && 
-          !('dupr_doubles_reliability' in responses)) {
-        return [
-          {
-            key: 'dupr_doubles_reliability',
-            question: 'What is your DUPR Doubles reliability percentage?',
-            type: 'number',
-            min_value: 0,
-            max_value: 100,
-            step: 1,
-            optional: true,
-            help_text: 'The reliability percentage shown next to your DUPR doubles rating (0-100%). Skip if you\'re not sure.',
-          },
-        ];
-      }
-
-      if (this.shouldSkipQuestionnaire(responses)) {
-        return [];
-      }
-    }
-
-    return this.getRemainingQuestionnaireQuestions(responses);
-  }
-
   /**
    * Returns ALL questions with showIf conditions for declarative filtering.
    * The UI evaluates showIf conditions in real-time based on responses.
@@ -481,51 +388,6 @@ export class PickleballQuestionnaire {
     ];
   }
 
-  private getRemainingQuestionnaireQuestions(responses: QuestionnaireResponse): Question[] {
-    const remainingQuestions: Question[] = [];
-    const questionnaireKeys = [
-      'experience',
-      'sports_background', 
-      'frequency',
-      'competitive_level',
-      'skills',
-      'self_rating',
-      'tournament',
-    ];
-
-    for (const key of questionnaireKeys) {
-      if (!(key in responses)) {
-        const questionData = this.questions[key as keyof typeof this.questions] as any;
-        if (key === 'skills' && questionData.sub_questions) {
-          remainingQuestions.push({
-            key,
-            question: questionData.question,
-            type: 'skill_matrix' as const,
-            sub_questions: Object.fromEntries(
-              Object.entries(questionData.sub_questions).map(([skillKey, skillData]: [string, any]) => [
-                skillKey,
-                {
-                  question: skillData.question,
-                  options: Object.keys(skillData.answers),
-                },
-              ])
-            ),
-          });
-        } else if (questionData && 'answers' in questionData) {
-          remainingQuestions.push({
-            key,
-            question: questionData.question,
-            type: 'single_choice' as const,
-            options: Object.keys(questionData.answers),
-            help_text: questionData.help_text,
-          });
-        }
-      }
-    }
-
-    return remainingQuestions;
-  }
-
   calculateInitialRating(responses: QuestionnaireResponse): RatingResult {
     try {
       if (!responses || Object.keys(responses).length === 0) {
@@ -539,10 +401,14 @@ export class PickleballQuestionnaire {
       }
 
       if (this.shouldSkipQuestionnaire(responses)) {
-        const duprSingles = responses.dupr_singles ? parseFloat(responses.dupr_singles.toString()) : null;
-        const duprDoubles = responses.dupr_doubles ? parseFloat(responses.dupr_doubles.toString()) : null;
-        const singlesReliability = responses.dupr_singles_reliability ? parseInt(responses.dupr_singles_reliability.toString()) : null;
-        const doublesReliability = responses.dupr_doubles_reliability ? parseInt(responses.dupr_doubles_reliability.toString()) : null;
+        const parsedSingles = responses.dupr_singles != null ? parseFloat(responses.dupr_singles.toString()) : NaN;
+        const duprSingles = isNaN(parsedSingles) ? null : parsedSingles;
+        const parsedDoubles = responses.dupr_doubles != null ? parseFloat(responses.dupr_doubles.toString()) : NaN;
+        const duprDoubles = isNaN(parsedDoubles) ? null : parsedDoubles;
+        const parsedSinglesRel = responses.dupr_singles_reliability != null ? parseInt(responses.dupr_singles_reliability.toString()) : NaN;
+        const singlesReliability = isNaN(parsedSinglesRel) ? null : parsedSinglesRel;
+        const parsedDoublesRel = responses.dupr_doubles_reliability != null ? parseInt(responses.dupr_doubles_reliability.toString()) : NaN;
+        const doublesReliability = isNaN(parsedDoublesRel) ? null : parsedDoublesRel;
         
         const result = this.convertDuprToDmr(duprSingles, duprDoubles, singlesReliability, doublesReliability);
         if (result) {
@@ -658,12 +524,16 @@ export class PickleballQuestionnaire {
   }
 
   private validateDuprInput(duprValue: any, ratingType: string = 'singles'): [number | null, string | null] {
-    if (!duprValue || duprValue.toString().trim() === '') {
+    if (duprValue === null || duprValue === undefined || duprValue.toString().trim() === '') {
       return [null, null];
     }
 
     try {
       const duprFloat = parseFloat(duprValue.toString().trim());
+
+      if (isNaN(duprFloat)) {
+        return [null, `Please enter a valid number for DUPR ${ratingType} (e.g., 3.75)`];
+      }
 
       if (duprFloat < 2.0) {
         return [null, `DUPR ${ratingType} ratings start at 2.0. Did you mean 2.${duprFloat.toString().split('.')[1] || '0'}?`];
@@ -678,12 +548,16 @@ export class PickleballQuestionnaire {
   }
 
   private validateReliabilityInput(reliabilityValue: any): [number | null, string | null] {
-    if (!reliabilityValue || reliabilityValue.toString().trim() === '') {
+    if (reliabilityValue === null || reliabilityValue === undefined || reliabilityValue.toString().trim() === '') {
       return [null, null];
     }
 
     try {
       const reliabilityInt = parseInt(parseFloat(reliabilityValue.toString().trim()).toString());
+
+      if (isNaN(reliabilityInt)) {
+        return [null, 'Please enter a whole number between 0 and 100'];
+      }
 
       if (reliabilityInt < 0) {
         return [null, 'Reliability score cannot be negative'];
@@ -709,7 +583,7 @@ export class PickleballQuestionnaire {
       notes: [] as string[],
     };
 
-    if (duprSingles && duprDoubles) {
+    if (duprSingles !== null && duprDoubles !== null) {
       const singlesHigher = duprSingles > duprDoubles;
       const difference = Math.abs(duprSingles - duprDoubles);
 
@@ -718,12 +592,12 @@ export class PickleballQuestionnaire {
         patternAnalysis.notes.push('Singles higher than doubles - common pattern');
         patternAnalysis.notes.push('Doubles likely more accurate due to higher play volume');
 
-        if (doublesReliability && doublesReliability > 50) {
+        if (doublesReliability !== null && doublesReliability > 50) {
           patternAnalysis.confidence_adjustment = 1.2;
           patternAnalysis.notes.push('High doubles reliability confirms pattern');
         }
 
-        if (singlesReliability && singlesReliability < 40) {
+        if (singlesReliability !== null && singlesReliability < 40) {
           patternAnalysis.confidence_adjustment = 1.3;
           patternAnalysis.notes.push('Low singles reliability supports doubles as more accurate');
         }
@@ -756,9 +630,9 @@ export class PickleballQuestionnaire {
         }
       }
 
-      if (reliabilityScore && reliabilityScore > 70) {
+      if (reliabilityScore !== null && reliabilityScore > 70) {
         offset *= 1.2;
-      } else if (reliabilityScore && reliabilityScore < 30) {
+      } else if (reliabilityScore !== null && reliabilityScore < 30) {
         offset *= 0.7;
       }
 
@@ -780,9 +654,9 @@ export class PickleballQuestionnaire {
         }
       }
 
-      if (reliabilityScore && reliabilityScore < 40) {
+      if (reliabilityScore !== null && reliabilityScore < 40) {
         offset *= 1.3;
-      } else if (reliabilityScore && reliabilityScore > 80) {
+      } else if (reliabilityScore !== null && reliabilityScore > 80) {
         offset *= 0.8;
       }
 
@@ -858,26 +732,26 @@ export class PickleballQuestionnaire {
       return Math.round(dmrRating);
     };
 
-    // Validate inputs
-    if (duprSingles) {
+    // Validate inputs (use explicit null checks — 0 is a valid value)
+    if (duprSingles !== null) {
       const [validatedSingles, error] = this.validateDuprInput(duprSingles, 'singles');
       if (error) throw new Error(`Invalid DUPR Singles: ${error}`);
       duprSingles = validatedSingles;
     }
 
-    if (duprDoubles) {
+    if (duprDoubles !== null) {
       const [validatedDoubles, error] = this.validateDuprInput(duprDoubles, 'doubles');
       if (error) throw new Error(`Invalid DUPR Doubles: ${error}`);
       duprDoubles = validatedDoubles;
     }
 
-    if (singlesReliability) {
+    if (singlesReliability !== null) {
       const [validatedSinglesRel, error] = this.validateReliabilityInput(singlesReliability);
       if (error) throw new Error(`Invalid Singles Reliability: ${error}`);
       singlesReliability = validatedSinglesRel;
     }
 
-    if (doublesReliability) {
+    if (doublesReliability !== null) {
       const [validatedDoublesRel, error] = this.validateReliabilityInput(doublesReliability);
       if (error) throw new Error(`Invalid Doubles Reliability: ${error}`);
       doublesReliability = validatedDoublesRel;
@@ -963,44 +837,6 @@ export class PickleballQuestionnaire {
         more_reliable_format: patternAnalysis.more_reliable_format,
         confidence_adjustment: patternAnalysis.confidence_adjustment,
       },
-    };
-  }
-
-  private convertDuprToRating(duprSingles: number | null, duprDoubles: number | null): RatingResult {
-    const duprToRatingConversion = (dupr: number): number => {
-      const clampedDupr = Math.max(2.0, Math.min(8.0, dupr));
-      
-      if (clampedDupr <= 3.0) {
-        return 1000 + (clampedDupr - 2.0) * 900;
-      } else if (clampedDupr <= 4.0) {
-        return 1900 + (clampedDupr - 3.0) * 1000;
-      } else if (clampedDupr <= 5.0) {
-        return 2900 + (clampedDupr - 4.0) * 1000;
-      } else if (clampedDupr <= 6.0) {
-        return 3900 + (clampedDupr - 5.0) * 800;
-      } else {
-        return 4700 + (clampedDupr - 6.0) * 650;
-      }
-    };
-
-    let singlesRating = duprSingles ? Math.round(duprToRatingConversion(duprSingles)) : null;
-    let doublesRating = duprDoubles ? Math.round(duprToRatingConversion(duprDoubles)) : null;
-
-    // Estimate missing ratings
-    if (singlesRating && !doublesRating) {
-      const estimatedDuprDoubles = Math.max(2.0, duprSingles! - 0.15);
-      doublesRating = Math.round(duprToRatingConversion(estimatedDuprDoubles));
-    } else if (doublesRating && !singlesRating) {
-      const estimatedDuprSingles = Math.min(8.0, duprDoubles! + 0.15);
-      singlesRating = Math.round(duprToRatingConversion(estimatedDuprSingles));
-    }
-
-    return {
-      singles_rating: singlesRating || this.BASE_RATING,
-      doubles_rating: doublesRating || this.BASE_RATING,
-      confidence: 'high',
-      rating_deviation: 110,
-      source: 'dupr_conversion',
     };
   }
 

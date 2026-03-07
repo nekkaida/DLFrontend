@@ -79,16 +79,10 @@ export const QuestionnaireIntroduction: React.FC<QuestionnaireIntroductionProps>
               <Text style={styles.introPoint}>About your play style & experience</Text>
             </View>
 
-            {sport !== 'tennis' && (
+            {sport === 'pickleball' && (
               <View style={styles.introPointContainer}>
-                <View style={[
-                  styles.arrowCircle,
-                  sport === 'padel' && styles.padelArrowCircle
-                ]}>
-                  <Text style={[
-                    styles.arrowText,
-                    sport === 'padel' && styles.padelArrowText
-                  ]}>→</Text>
+                <View style={styles.arrowCircle}>
+                  <Text style={styles.arrowText}>→</Text>
                 </View>
                 <Text style={styles.introPoint}>
                   Already have a DUPR rating? We&apos;ll sync it

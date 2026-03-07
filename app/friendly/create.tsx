@@ -1,7 +1,7 @@
 import { CreateFriendlyMatchScreen, FriendlyMatchFormData } from '@/features/friendly/screens/CreateFriendlyMatchScreen';
 import { useLocalSearchParams, router } from 'expo-router';
 import React from 'react';
-import { getBackendBaseURL } from '@/src/config/network';
+import { authenticatedFetch } from '@/lib/authenticated-fetch';
 import axiosInstance from '@/lib/endpoints';
 import { endpoints } from '@/lib/endpoints';
 import { toast } from 'sonner-native';
@@ -85,7 +85,6 @@ export default function CreateFriendlyMatchPage() {
 
       // If this is a request sent from chat, create a message in the thread
       if (isRequest && threadId && recipientId) {
-        const backendUrl = getBackendBaseURL();
         const senderName = user.name || user.username || 'User';
         const messageContent = `${senderName} sent you a friendly match request`;
         
@@ -122,12 +121,9 @@ export default function CreateFriendlyMatchPage() {
           },
         };
 
-        await fetch(`${backendUrl}/api/chat/threads/${threadId}/messages`, {
+        await authenticatedFetch(`/api/chat/threads/${threadId}/messages`, {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'x-user-id': user.id,
-          },
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(messagePayload),
         });
       }

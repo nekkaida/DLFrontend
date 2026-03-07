@@ -75,11 +75,12 @@ export const MatchDetailModal: React.FC<MatchDetailModalProps> = ({
 
   const isMatchFull = useMemo(() => {
     if (!match?.participants) return false;
-    const activeCount = match.participants.filter(
-      p => !p.invitationStatus || p.invitationStatus === 'ACCEPTED' || p.invitationStatus === 'PENDING'
+    // Only count ACCEPTED participants — PENDING invitations don't fill the slot
+    const acceptedCount = match.participants.filter(
+      p => p.invitationStatus === 'ACCEPTED'
     ).length;
     const maxSlots = match.matchType === 'DOUBLES' ? 4 : 2;
-    return activeCount >= maxSlots;
+    return acceptedCount >= maxSlots;
   }, [match]);
 
   if (!match) return null;
@@ -130,7 +131,7 @@ export const MatchDetailModal: React.FC<MatchDetailModalProps> = ({
             <Text style={styles.sectionTitle}>Players</Text>
             <View style={styles.playersContainer}>
               {match.participants
-                .filter(p => !p.invitationStatus || p.invitationStatus === 'ACCEPTED' || p.invitationStatus === 'PENDING')
+                .filter(p => p.invitationStatus === 'ACCEPTED')
                 .map((participant) => (
                   <View key={participant.user.id} style={styles.playerItem}>
                     {participant.user.image ? (
@@ -149,11 +150,11 @@ export const MatchDetailModal: React.FC<MatchDetailModalProps> = ({
                 ))}
               {/* Show empty slots */}
               {(() => {
-                const activeCount = match.participants.filter(
-                  p => !p.invitationStatus || p.invitationStatus === 'ACCEPTED' || p.invitationStatus === 'PENDING'
+                const acceptedCount = match.participants.filter(
+                  p => p.invitationStatus === 'ACCEPTED'
                 ).length;
                 const maxSlots = match.matchType === 'DOUBLES' ? 4 : 2;
-                const emptySlots = maxSlots - activeCount;
+                const emptySlots = maxSlots - acceptedCount;
                 return Array.from({ length: emptySlots }).map((_, idx) => (
                   <View key={`empty-${idx}`} style={styles.playerItem}>
                     <View style={styles.emptyPlayerSlot}>

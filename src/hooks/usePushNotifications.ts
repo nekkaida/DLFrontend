@@ -63,9 +63,12 @@ export function usePushNotifications(): UsePushNotificationsReturn {
       // Navigate based on notification metadata (priority order)
       // Priority 1: Match notifications → go to match-details
       if (data?.matchId) {
+        const matchParams: Record<string, string> = { matchId: data.matchId };
+        if (data.isFriendly !== undefined) matchParams.isFriendly = String(data.isFriendly);
+        if (data.matchType) matchParams.matchType = String(data.matchType);
         router.navigate({
           pathname: '/match/match-details',
-          params: { matchId: data.matchId }
+          params: matchParams,
         } as any);
         return;
       }

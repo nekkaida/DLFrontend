@@ -13,6 +13,7 @@ import { useQuestionProgress } from './skill-assessment/hooks/useQuestionProgres
 import { expandSkillMatrixQuestions } from './skill-assessment/utils/skillMatrixExpander';
 import { getFirstName } from './skill-assessment/utils/questionnaireHelpers';
 import { filterVisibleQuestions } from './skill-assessment/utils/showIfEvaluator';
+import { validateNumberInput } from './skill-assessment/utils/validateNumberInput';
 import { PickleballQuestionnaire, QuestionnaireResponse } from '../services/PickleballQuestionnaire';
 import { TennisQuestionnaire, TennisQuestionnaireResponse } from '../services/TennisQuestionnaire';
 import { PadelQuestionnaire, PadelQuestionnaireResponse } from '../services/PadelQuestionnaire';
@@ -225,7 +226,10 @@ const SkillAssessmentScreen = () => {
       try {
         await saveToBackend('pickleball', finalResponses);
       } catch (backendError) {
-        console.warn('Failed to save to backend, but proceeding with local data:', backendError);
+        console.warn('Failed to save to backend:', backendError);
+        toast.warning('Rating saved locally', {
+          description: "We'll sync your rating when connection improves.",
+        });
       }
 
       setIsSubmittingAssessment(false);
@@ -261,7 +265,10 @@ const SkillAssessmentScreen = () => {
       try {
         await saveToBackend('tennis', finalResponses);
       } catch (backendError) {
-        console.warn('Failed to save to backend, but proceeding with local data:', backendError);
+        console.warn('Failed to save to backend:', backendError);
+        toast.warning('Rating saved locally', {
+          description: "We'll sync your rating when connection improves.",
+        });
       }
 
       setIsSubmittingAssessment(false);
@@ -297,7 +304,10 @@ const SkillAssessmentScreen = () => {
       try {
         await saveToBackend('padel', finalResponses);
       } catch (backendError) {
-        console.warn('Failed to save to backend, but proceeding with local data:', backendError);
+        console.warn('Failed to save to backend:', backendError);
+        toast.warning('Rating saved locally', {
+          description: "We'll sync your rating when connection improves.",
+        });
       }
 
       setIsSubmittingAssessment(false);
@@ -358,28 +368,49 @@ const SkillAssessmentScreen = () => {
       const existingMatrix = (newResponses[originalKey] as Record<string, unknown>) || {};
       newResponses[originalKey] = {
         ...existingMatrix,
-        [skillKey]: state.currentPageAnswers[currentQuestion.key]
+        [skillKey]: finalPageAnswers[currentQuestion.key]
       };
     }
 
-    // Normalize number inputs
-    const normalizedPageAnswers = Object.entries(finalPageAnswers).reduce(
-      (acc, [key, value]) => {
-        let normalizedValue = value;
-        if (typeof value === 'string' && value.trim() !== '') {
-          const isNumberQuestion = state.questions.some(
-            (q: any) => q.key === key && q.type === 'number'
-          );
-          if (isNumberQuestion) {
-            const parsed = parseFloat(value.replace(',', '.'));
-            if (!isNaN(parsed)) normalizedValue = parsed;
+    // Validate number inputs BEFORE normalizing (early return on failure)
+    for (const [key, value] of Object.entries(finalPageAnswers)) {
+      if (typeof value === 'string' && value.trim() !== '') {
+        const numberQuestion = state.questions.find(
+          (q: any) => q.key === key && q.type === 'number'
+        ) as any;
+        if (numberQuestion) {
+          const parsed = parseFloat(value.replace(',', '.'));
+          if (!isNaN(parsed)) {
+            const validation = validateNumberInput(parsed, {
+              min_value: numberQuestion.min_value,
+              max_value: numberQuestion.max_value,
+            });
+            if (!validation.valid) {
+              toast.error(validation.error || 'Invalid value');
+              return; // Stop advancement — don't proceed past invalid input
+            }
           }
         }
-        acc[key] = normalizedValue;
-        return acc;
-      },
-      {} as Record<string, any>
-    );
+      }
+    }
+
+    // Normalize number inputs (validation already passed above)
+    const normalizedPageAnswers: Record<string, any> = {};
+    for (const [key, value] of Object.entries(finalPageAnswers)) {
+      if (typeof value === 'string' && value.trim() !== '') {
+        const numberQuestion = state.questions.find(
+          (q: any) => q.key === key && q.type === 'number'
+        ) as any;
+        if (numberQuestion) {
+          const parsed = parseFloat(value.replace(',', '.'));
+          if (!isNaN(parsed)) {
+            normalizedPageAnswers[key] = parsed;
+            continue;
+          }
+        }
+      }
+      normalizedPageAnswers[key] = value;
+    }
 
     // Merge normalized answers into responses
     newResponses = { ...newResponses, ...normalizedPageAnswers };
@@ -388,10 +419,6 @@ const SkillAssessmentScreen = () => {
     const questionnaire = getCurrentQuestionnaire();
     if (!questionnaire) return;
 
-    // Check if questionnaire should complete (DUPR skip check for sport with DUPR)
-    const shouldSkip = sport === 'pickleball' &&
-      (questionnaire as PickleballQuestionnaire).shouldSkipQuestionnaire?.(newResponses);
-
     // Calculate visible questions with new responses
     const visibleQuestions = filterVisibleQuestions(state.questions, newResponses);
     const currentVisibleIndex = visibleQuestions.findIndex(
@@ -399,8 +426,9 @@ const SkillAssessmentScreen = () => {
     );
     const isLastVisibleQuestion = currentVisibleIndex >= visibleQuestions.length - 1;
 
-    // Check completion: DUPR skip OR all visible questions answered
-    if (shouldSkip || isLastVisibleQuestion) {
+    // Check completion: all visible questions answered
+    // (showIf conditions handle DUPR→questionnaire branching declaratively)
+    if (isLastVisibleQuestion) {
       console.log('Questionnaire complete, calculating rating...');
       if (state.currentQuestionnaireType === 'pickleball') {
         await completePickleballAssessment(newResponses as QuestionnaireResponse);
@@ -412,11 +440,20 @@ const SkillAssessmentScreen = () => {
       return;
     }
 
+    // Save current state to history before advancing (BUG 12 fix)
+    actions.pushHistory(
+      [...state.questions],
+      snapshot(newResponses),
+      state.currentQuestionIndex,
+      snapshot(finalPageAnswers)
+    );
+
     // Move to next visible question (QuestionnaireFlow handles carousel animation)
     const nextVisibleQuestion = visibleQuestions[currentVisibleIndex + 1];
     if (nextVisibleQuestion) {
       const nextIndexInAll = state.questions.findIndex(q => q.key === nextVisibleQuestion.key);
       actions.setQuestionIndex(nextIndexInAll);
+      actions.incrementPageIndex();
       actions.clearPageAnswers();
     }
   }, [isComprehensive, state, actions, getCurrentQuestionnaire, sport, completePickleballAssessment, completeTennisAssessment, completePadelAssessment]);
@@ -492,6 +529,9 @@ const SkillAssessmentScreen = () => {
         await saveToBackend(sport as string, { skill_level: value });
       } catch (backendError) {
         console.warn('Failed to save skill level to backend:', backendError);
+        toast.warning('Rating saved locally', {
+          description: "We'll sync your rating when connection improves.",
+        });
       }
 
       setIsSubmittingAssessment(false);

@@ -57,7 +57,7 @@ const NumberInput: React.FC<NumberInputProps> = ({
   };
 
   const canSubmit = value.trim().length > 0;
-  const canSkip = allowSkip && !canSubmit;
+  const canSkip = allowSkip;
 
   return (
     <View style={[styles.container, containerStyle]}>
@@ -82,21 +82,21 @@ const NumberInput: React.FC<NumberInputProps> = ({
       {error && <Text style={styles.errorText}>{error}</Text>}
 
       <View style={styles.buttonContainer}>
-        {canSubmit ? (
+        {canSubmit && (
           <TouchableOpacity style={styles.submitButton} onPress={onSubmit}>
             <Text style={styles.submitButtonText}>Submit</Text>
           </TouchableOpacity>
-        ) : canSkip ? (
+        )}
+        {canSkip && (
           <TouchableOpacity
-            style={styles.skipButton}
+            style={[styles.skipButton, canSubmit && styles.skipButtonWithMargin]}
             onPress={() => {
-              // Only call onSkipAndProceed - it handles both setting skip value and navigation
               onSkipAndProceed?.();
             }}
           >
             <Text style={styles.skipButtonText}>Skip</Text>
           </TouchableOpacity>
-        ) : null}
+        )}
       </View>
     </View>
   );
@@ -177,6 +177,9 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  skipButtonWithMargin: {
+    marginTop: 8,
   },
   skipButtonText: {
     color: '#6C7278',
