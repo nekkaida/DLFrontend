@@ -12,11 +12,9 @@ import { QuestionProgressBar } from './QuestionProgressBar';
 import { NavigationButtons } from '../components/NavigationButtons';
 import { styles } from './QuestionnaireFlow.styles';
 import { filterVisibleQuestions } from '../utils/showIfEvaluator';
+import type { SportType } from '../../../types';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
-
-// Sport type definition to avoid triggering security filters
-type SportType = 'pickleball' | 'tennis' | 'padel';
 
 interface QuestionnaireFlowProps {
   sport: SportType;
