@@ -500,7 +500,7 @@ export class PickleballQuestionnaire {
       let singlesRating = Math.round(this.BASE_RATING + ratingAdjustment);
       let doublesRating = Math.round(singlesRating + (ratingAdjustment < 0 ? 50 : 0));
 
-      const clampRating = (rating: number) => Math.max(1000, Math.min(8000, rating));
+      const clampRating = (rating: number) => Math.max(800, Math.min(8000, rating));
       singlesRating = clampRating(singlesRating);
       doublesRating = clampRating(doublesRating);
 
