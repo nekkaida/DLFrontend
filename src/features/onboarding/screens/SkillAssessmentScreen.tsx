@@ -13,6 +13,7 @@ import { useQuestionProgress } from './skill-assessment/hooks/useQuestionProgres
 import { expandSkillMatrixQuestions } from './skill-assessment/utils/skillMatrixExpander';
 import { getFirstName } from './skill-assessment/utils/questionnaireHelpers';
 import { filterVisibleQuestions } from './skill-assessment/utils/showIfEvaluator';
+import { shouldCompleteQuestionnaire } from './skill-assessment/utils/completionCheck';
 import { validateNumberInput } from './skill-assessment/utils/validateNumberInput';
 import { PickleballQuestionnaire, QuestionnaireResponse } from '../services/PickleballQuestionnaire';
 import { TennisQuestionnaire, TennisQuestionnaireResponse } from '../services/TennisQuestionnaire';
@@ -424,7 +425,7 @@ const SkillAssessmentScreen = () => {
     const currentVisibleIndex = visibleQuestions.findIndex(
       q => q.key === currentQuestion?.key
     );
-    const isLastVisibleQuestion = currentVisibleIndex >= visibleQuestions.length - 1;
+    const isLastVisibleQuestion = shouldCompleteQuestionnaire(currentVisibleIndex, visibleQuestions.length);
 
     // Check completion: all visible questions answered
     // (showIf conditions handle DUPR→questionnaire branching declaratively)
