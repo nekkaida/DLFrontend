@@ -23,6 +23,7 @@ import * as Location from 'expo-location';
 import { questionnaireAPI, LocationSearchResult } from '../services/api';
 import { useSession } from '@/lib/auth-client';
 import { toast } from 'sonner-native';
+import { parseLocationString, saveLocationWithFeedback } from './locationUtils';
 
 const LocationIcon = ({ color = "#6C7278" }: { color?: string }) => (
   <Svg width="18" height="18" viewBox="0 0 18 18" fill="none">
@@ -472,34 +473,7 @@ const LocationScreen = () => {
     }
   };
 
-  // Helper function to parse location string into components
-  const parseLocationString = (locationString: string) => {
-    // Handle common location formats: "City, State Country" or "City, State" or "City"
-    const parts = locationString.split(',').map(part => part.trim());
-    
-    if (parts.length >= 3) {
-      // Format: "City, State, Country"
-      return {
-        city: parts[0],
-        state: parts[1],
-        country: parts.slice(2).join(', ')
-      };
-    } else if (parts.length === 2) {
-      // Format: "City, State" (country unknown - do not assume)
-      return {
-        city: parts[0],
-        state: parts[1],
-        country: ''
-      };
-    } else {
-      // Format: "City" only
-      return {
-        city: parts[0],
-        state: 'Unknown',
-        country: 'Unknown'
-      };
-    }
-  };
+  // parseLocationString is now imported from ./locationUtils
 
   // Function to save location to backend
   const saveLocationToBackend = async (locationString: string, coordinates?: { latitude: number; longitude: number }) => {
@@ -631,16 +605,17 @@ const LocationScreen = () => {
     });
 
     // If structured components are provided, persist immediately
-    if (locationResult.components && session?.user?.id) {
-      questionnaireAPI
-        .saveUserLocation(session.user.id, {
-          state: locationResult.components.state || '',
-          city: locationResult.components.city || '',
+    const components = locationResult.components;
+    if (components && session?.user?.id) {
+      const userId = session.user.id;
+      saveLocationWithFeedback(() =>
+        questionnaireAPI.saveUserLocation(userId, {
+          state: components.state || '',
+          city: components.city || '',
           latitude: locationResult.geometry.location.lat,
           longitude: locationResult.geometry.location.lng,
         })
-        .then(() => console.log('Location saved to backend successfully'))
-        .catch((e) => console.error('Failed to save location to backend:', e));
+      );
     }
   };
 
