@@ -25,6 +25,7 @@
       },
       "edgeToEdgeEnabled": false,
       "package": "com.deuceleague.app",
+      "googleServicesFile": "./google-services.json",
       "permissions": [
         "ACCESS_COARSE_LOCATION",
         "ACCESS_FINE_LOCATION",
