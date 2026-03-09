@@ -369,7 +369,7 @@ export const PrimaryButton: React.FC<PrimaryButtonProps> = ({ title, onPress, st
 
 // Social Login Button
 interface SocialButtonProps {
-  type: 'facebook' | 'google' | 'apple';
+  type: 'google' | 'apple';
   onPress: () => void;
   disabled?: boolean;
 }
@@ -381,19 +381,11 @@ export const SocialButton: React.FC<SocialButtonProps> = ({ type, onPress, disab
   const lastPressRef = useRef<number>(0);
 
   const getButtonStyle = () => {
-    switch (type) {
-      case 'facebook':
-        return AuthStyles.facebookButton;
-      case 'google':
-      case 'apple':
-        return AuthStyles.googleButton;
-    }
+    return AuthStyles.googleButton;
   };
 
   const getIcon = () => {
     switch (type) {
-      case 'facebook':
-        return <FacebookIcon />;
       case 'google':
         return <GoogleIcon />;
       case 'apple':
@@ -403,8 +395,6 @@ export const SocialButton: React.FC<SocialButtonProps> = ({ type, onPress, disab
 
   const getAccessibilityLabel = () => {
     switch (type) {
-      case 'facebook':
-        return 'Sign in with Facebook';
       case 'google':
         return 'Sign in with Google';
       case 'apple':

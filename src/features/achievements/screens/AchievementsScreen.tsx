@@ -14,8 +14,8 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { router } from 'expo-router';
 import { theme } from '@core/theme/theme';
-import { authClient, useSession } from '@/lib/auth-client';
-import { getBackendBaseURL } from '@/config/network';
+import { useSession } from '@/lib/auth-client';
+import axiosInstance from '@/lib/endpoints';
 import { toast } from 'sonner-native';
 import { AchievementCard } from '../components/AchievementCard';
 import { AchievementUnlockSheet } from '../components/AchievementUnlockSheet';
@@ -87,14 +87,9 @@ export default function AchievementsScreen() {
         return;
       }
 
-      const backendUrl = getBackendBaseURL();
-      const response = await authClient.$fetch(
-        `${backendUrl}/api/player/profile/achievements`,
-        { method: 'GET' }
-      );
+      const response = await axiosInstance.get('/api/player/profile/achievements');
 
-      const raw = response as any;
-      const payload = raw?.data?.data ?? raw?.data ?? raw;
+      const payload = response?.data?.data ?? response?.data;
       if (payload?.achievements) {
         setAchievements(payload.achievements || []);
         setCompletedCount(payload.completedCount || 0);

@@ -7,21 +7,25 @@ interface NavigationButtonsProps {
   onBack: () => void;
   onNext: () => void;
   nextEnabled: boolean;
+  showBack?: boolean;
 }
 
 export const NavigationButtons: React.FC<NavigationButtonsProps> = ({
   onBack,
   onNext,
   nextEnabled,
+  showBack = true,
 }) => {
   return (
     <>
-      <TouchableOpacity
-        style={styles.skipButton}
-        onPress={onBack}
-      >
-        <Text style={styles.skipButtonText}>Back</Text>
-      </TouchableOpacity>
+      {showBack && (
+        <TouchableOpacity
+          style={styles.skipButton}
+          onPress={onBack}
+        >
+          <Text style={styles.skipButtonText}>Back</Text>
+        </TouchableOpacity>
+      )}
 
       <TouchableOpacity
         style={[

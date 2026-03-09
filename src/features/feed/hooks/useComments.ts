@@ -1,8 +1,7 @@
 // src/features/feed/hooks/useComments.ts
 
 import { useState, useCallback } from 'react';
-import { authClient } from '@/lib/auth-client';
-import { getBackendBaseURL } from '@/config/network';
+import axiosInstance from '@/lib/endpoints';
 import { PostComment } from '../types';
 import { toast } from 'sonner-native';
 
@@ -15,19 +14,15 @@ export const useComments = (postId: string) => {
     try {
       setIsLoading(true);
 
-      const backendUrl = getBackendBaseURL();
-      const response = await authClient.$fetch(
-        `${backendUrl}/api/feed/posts/${postId}/comments?limit=${limit}&offset=${offset}`,
-        { method: 'GET' }
+      const response = await axiosInstance.get(
+        `/api/feed/posts/${postId}/comments?limit=${limit}&offset=${offset}`
       );
 
-      const responseData = (response as any).data || response;
-
-      if (responseData?.data) {
+      if (response.data?.data) {
         if (offset === 0) {
-          setComments(responseData.data);
+          setComments(response.data.data);
         } else {
-          setComments(prev => [...prev, ...responseData.data]);
+          setComments(prev => [...prev, ...response.data.data]);
         }
       }
     } catch (err) {
@@ -41,19 +36,13 @@ export const useComments = (postId: string) => {
     try {
       setIsSubmitting(true);
 
-      const backendUrl = getBackendBaseURL();
-      const response = await authClient.$fetch(
-        `${backendUrl}/api/feed/posts/${postId}/comments`,
-        {
-          method: 'POST',
-          body: { text },
-        }
+      const response = await axiosInstance.post(
+        `/api/feed/posts/${postId}/comments`,
+        { text }
       );
 
-      const responseData = (response as any).data || response;
-
-      if (responseData?.data) {
-        const newComment: PostComment = responseData.data;
+      if (response.data?.data) {
+        const newComment: PostComment = response.data.data;
         setComments(prev => [newComment, ...prev]);
         return newComment;
       }
@@ -69,11 +58,7 @@ export const useComments = (postId: string) => {
 
   const deleteComment = useCallback(async (commentId: string): Promise<boolean> => {
     try {
-      const backendUrl = getBackendBaseURL();
-      await authClient.$fetch(
-        `${backendUrl}/api/feed/comments/${commentId}`,
-        { method: 'DELETE' }
-      );
+      await axiosInstance.delete(`/api/feed/comments/${commentId}`);
 
       setComments(prev => prev.filter(c => c.id !== commentId));
       toast.success('Comment deleted');

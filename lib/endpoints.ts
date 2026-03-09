@@ -23,10 +23,31 @@ axiosInstance.interceptors.request.use(
       // causing the logout loop bug where any backend hiccup logs out the user.
       const cookies = authClient.getCookie();
 
+      if (__DEV__) {
+        console.log(`📤 axiosInstance [${config.url}]: Raw cookie length:`, cookies?.length || 0);
+        console.log(`📤 axiosInstance [${config.url}]: Has session_data:`, cookies?.includes('session_data') || false);
+      }
+
       if (cookies) {
         // Send as Cookie header - this is what better-auth expects for Expo apps
         // Strip leading "; " that Expo client may prepend (breaks cookie parsing)
-        config.headers['Cookie'] = cookies.replace(/^;\s*/, '');
+        const rawCookies = cookies.replace(/^;\s*/, '');
+
+        // Cookie values from SecureStore may be URL-encoded (containing %2F, %2B, %3D etc.)
+        // Better Auth expects raw Base64 values, so we need to decode each cookie value
+        const decodedCookies = rawCookies.split('; ').map(cookie => {
+          const eqIndex = cookie.indexOf('=');
+          if (eqIndex === -1) return cookie;
+          const name = cookie.substring(0, eqIndex);
+          const value = cookie.substring(eqIndex + 1);
+          try {
+            return `${name}=${decodeURIComponent(value)}`;
+          } catch {
+            return cookie; // If decoding fails, use original
+          }
+        }).join('; ');
+
+        config.headers['Cookie'] = decodedCookies;
 
         // Extract user ID from session cookie if needed for backwards compatibility
         // The backend verifyAuth middleware will validate the session and extract user info
@@ -193,6 +214,8 @@ export const endpoints = {
     verifyResetOtp: "/api/auth-custom/verify-reset-otp",
     checkEmail: "/api/auth-custom/check-email",
     checkUsername: "/api/auth-custom/check-username",
+    googleNative: "/api/auth-custom/google/native",
+    appleNative: "/api/auth-custom/apple/native",
   },
 
   user: {

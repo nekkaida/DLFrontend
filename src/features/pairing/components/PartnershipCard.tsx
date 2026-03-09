@@ -13,8 +13,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import Animated, { FadeIn } from 'react-native-reanimated';
-import { authClient } from '@/lib/auth-client';
-import { getBackendBaseURL } from '@/config/network';
+import axiosInstance from '@/lib/endpoints';
 import { toast } from 'sonner-native';
 import { PartnerChangeRequestModal } from './PartnerChangeRequestModal';
 
@@ -141,15 +140,11 @@ export const PartnershipCard: React.FC<PartnershipCardProps> = ({
           style: 'destructive',
           onPress: async () => {
             try {
-              const backendUrl = getBackendBaseURL();
-              const response = await authClient.$fetch(
-                `${backendUrl}/api/pairing/partnership/${partnership.id}/dissolve`,
-                {
-                  method: 'POST',
-                }
+              const response = await axiosInstance.post(
+                `/api/pairing/partnership/${partnership.id}/dissolve`
               );
 
-              const responseData = (response as any).data || response;
+              const responseData = response.data || response;
               if (responseData && responseData.success) {
                 Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
                 toast.success('Partnership Dissolved', {

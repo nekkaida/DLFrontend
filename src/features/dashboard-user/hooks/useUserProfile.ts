@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { questionnaireAPI } from '@/src/features/onboarding/services/api';
-import { getBackendBaseURL } from '@/src/config/network';
-import { authClient } from '@/lib/auth-client';
+import axiosInstance from '@/lib/endpoints';
 
 /**
  * Custom hook to manage user profile data and gender
@@ -25,7 +24,13 @@ export const useUserProfile = (userId: string | undefined) => {
     }
 
     try {
-      const { user } = await questionnaireAPI.getUserProfile(userId);
+      const response = await questionnaireAPI.getUserProfile(userId);
+      const user = response?.user;
+      if (!user) {
+        console.warn('No user data returned from getUserProfile');
+        setUserGender(lastKnownGender.current ?? null);
+        return;
+      }
       const gender = user.gender?.toUpperCase() || null;
       lastKnownGender.current = gender;
       setUserGender(gender);
@@ -44,12 +49,9 @@ export const useUserProfile = (userId: string | undefined) => {
     }
 
     try {
-      const backendUrl = getBackendBaseURL();
-      const authResponse = await authClient.$fetch(`${backendUrl}/api/player/profile/me`, {
-        method: 'GET',
-      });
-      if (authResponse && (authResponse as any).data && (authResponse as any).data.data) {
-        const data = (authResponse as any).data.data;
+      const response = await axiosInstance.get('/api/player/profile/me');
+      if (response.data?.data) {
+        const data = response.data.data;
         setProfileData(data);
 
         // Also update gender from profile data if available

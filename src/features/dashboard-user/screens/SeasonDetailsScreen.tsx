@@ -1,11 +1,13 @@
 import BackButtonIcon from '@/assets/icons/back-button.svg';
 import LeagueInfoIcon from '@/assets/icons/league-info.svg';
 import { ManageTeamButton } from '@/features/pairing/components';
-import { authClient, useSession } from '@/lib/auth-client';
+import { useSession } from '@/lib/auth-client';
+import axiosInstance from '@/lib/endpoints';
 import { SportSwitcher } from '@/shared/components/ui/SportSwitcher';
-import { getBackendBaseURL } from '@/src/config/network';
 import { CategoryService } from '@/src/features/dashboard-user/services/CategoryService';
 import { Season, SeasonService } from '@/src/features/dashboard-user/services/SeasonService';
+import { WaitlistService, WaitlistStatus } from '@/src/features/dashboard-user/services/WaitlistService';
+import { WaitlistBottomSheet, LeaveWaitlistDialog, WaitlistPositionBadge } from '@/src/features/waitlist/components';
 import { LeagueService } from '@/src/features/leagues/services/LeagueService';
 import { useUserPartnerships } from '@/src/features/pairing/hooks/useUserPartnerships';
 import { FiuuPaymentService } from '@/src/features/payments/services/FiuuPaymentService';
@@ -13,7 +15,7 @@ import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import React from 'react';
-import { ActivityIndicator, Dimensions, Image, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, Dimensions, Image, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import Animated, {
   Extrapolation,
   interpolate,
@@ -54,6 +56,10 @@ export default function SeasonDetailsScreen({
   const [selectedSport, setSelectedSport] = React.useState<'pickleball' | 'tennis' | 'padel'>('pickleball');
   const [showPaymentOptions, setShowPaymentOptions] = React.useState(false);
   const [isProcessingPayment, setIsProcessingPayment] = React.useState(false);
+  const [waitlistStatus, setWaitlistStatus] = React.useState<WaitlistStatus | null>(null);
+  const [isJoiningWaitlist, setIsJoiningWaitlist] = React.useState(false);
+  const [showWaitlistBottomSheet, setShowWaitlistBottomSheet] = React.useState(false);
+  const [showLeaveWaitlistDialog, setShowLeaveWaitlistDialog] = React.useState(false);
   const insets = useSafeAreaInsets();
   const STATUS_BAR_HEIGHT = insets.top;
 
@@ -91,12 +97,9 @@ export default function SeasonDetailsScreen({
     const fetchProfileData = async () => {
       if (!session?.user?.id) return;
       try {
-        const backendUrl = getBackendBaseURL();
-        const authResponse = await authClient.$fetch(`${backendUrl}/api/player/profile/me`, {
-          method: 'GET',
-        });
-        if (authResponse && (authResponse as any).data && (authResponse as any).data.data) {
-          setProfileData((authResponse as any).data.data);
+        const response = await axiosInstance.get('/api/player/profile/me');
+        if (response?.data?.data) {
+          setProfileData(response.data.data);
         }
       } catch (error) {
         console.error('Error fetching profile data:', error);
@@ -163,12 +166,12 @@ export default function SeasonDetailsScreen({
       setIsLoading(true);
       setError(null);
 
-      const allSeasons = await SeasonService.fetchAllSeasons();
-      const foundSeason = allSeasons.find(s => s.id === seasonId);
+      // Use direct fetch by ID to include past/finished seasons
+      const foundSeason = await SeasonService.fetchSeasonById(seasonId);
 
       if (foundSeason) {
         setSeason(foundSeason);
-        
+
         // Fetch league data if leagueId is available
         if (leagueId) {
           try {
@@ -177,6 +180,20 @@ export default function SeasonDetailsScreen({
           } catch (err) {
             console.error('Error fetching league data:', err);
           }
+        }
+
+        // Fetch waitlist status for UPCOMING seasons
+        if (foundSeason.status === 'UPCOMING') {
+          try {
+            console.log('[Waitlist] Season is UPCOMING, fetching waitlist status...');
+            const status = await WaitlistService.getStatus(seasonId);
+            console.log('[Waitlist] Initial status fetched:', status);
+            setWaitlistStatus(status);
+          } catch (err) {
+            console.error('[Waitlist] Error fetching waitlist status:', err);
+          }
+        } else {
+          console.log('[Waitlist] Season status is', foundSeason.status, '- skipping waitlist fetch');
         }
       } else {
         setError('Season not found');
@@ -305,9 +322,19 @@ export default function SeasonDetailsScreen({
         console.warn('Registration failed');
         toast.error('Registration failed. Please try again.');
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error registering:', err);
-      toast.error('An error occurred while registering.');
+
+      // Extract error message from axios error response
+      const errorMessage = err?.response?.data?.message || err?.message || 'An error occurred while registering.';
+
+      // Handle specific error cases with user-friendly messages
+      if (errorMessage.toLowerCase().includes('already registered')) {
+        toast.info('You are already registered for this season!');
+        fetchSeasonData(); // Refresh to show current status
+      } else {
+        toast.error(errorMessage);
+      }
     }
   };
 
@@ -350,9 +377,91 @@ export default function SeasonDetailsScreen({
   };
 
   const handleJoinWaitlistPress = () => {
+    console.log('[Waitlist] handleJoinWaitlistPress called', {
+      seasonId: season?.id,
+      userId,
+      isWaitlisted: waitlistStatus?.isWaitlisted,
+      position: waitlistStatus?.position
+    });
+
+    if (!season || !userId) {
+      console.log('[Waitlist] Early return - missing season or userId');
+      return;
+    }
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    console.log('Join Waitlist button pressed');
-    toast.info('Waitlist feature coming soon!');
+
+    // If already on waitlist, show leave confirmation dialog
+    if (waitlistStatus?.isWaitlisted) {
+      console.log('[Waitlist] User is on waitlist, showing leave dialog');
+      setShowLeaveWaitlistDialog(true);
+      return;
+    }
+
+    // Show join waitlist bottom sheet
+    console.log('[Waitlist] Showing join waitlist bottom sheet');
+    setShowWaitlistBottomSheet(true);
+  };
+
+  const handleConfirmJoinWaitlist = async () => {
+    console.log('[Waitlist] handleConfirmJoinWaitlist called', { seasonId: season?.id });
+
+    if (!season) {
+      console.log('[Waitlist] Early return - no season');
+      return;
+    }
+
+    try {
+      setIsJoiningWaitlist(true);
+      console.log('[Waitlist] Calling WaitlistService.joinWaitlist...');
+      const result = await WaitlistService.joinWaitlist(season.id);
+      console.log('[Waitlist] Join result:', result);
+
+      if (result.success) {
+        toast.success(`You're #${result.position} on the waitlist!`);
+        // Refresh waitlist status
+        console.log('[Waitlist] Refreshing waitlist status...');
+        const status = await WaitlistService.getStatus(season.id);
+        console.log('[Waitlist] Updated status:', status);
+        setWaitlistStatus(status);
+        setShowWaitlistBottomSheet(false);
+      }
+    } catch (err: any) {
+      console.error('[Waitlist] Error joining waitlist:', err);
+      toast.error(err.message || 'Failed to join waitlist');
+    } finally {
+      setIsJoiningWaitlist(false);
+    }
+  };
+
+  const handleLeaveWaitlist = async () => {
+    console.log('[Waitlist] handleLeaveWaitlist called', { seasonId: season?.id });
+
+    if (!season) {
+      console.log('[Waitlist] Early return - no season');
+      return;
+    }
+
+    try {
+      setIsJoiningWaitlist(true);
+      console.log('[Waitlist] Calling WaitlistService.leaveWaitlist...');
+      const result = await WaitlistService.leaveWaitlist(season.id);
+      console.log('[Waitlist] Leave result:', result);
+
+      if (result.success) {
+        toast.success('You have left the waitlist');
+        // Refresh to get latest status
+        console.log('[Waitlist] Refreshing waitlist status...');
+        const status = await WaitlistService.getStatus(season.id);
+        console.log('[Waitlist] Updated status:', status);
+        setWaitlistStatus(status);
+        setShowLeaveWaitlistDialog(false);
+      }
+    } catch (err: any) {
+      console.error('[Waitlist] Error leaving waitlist:', err);
+      toast.error(err.message || 'Failed to leave waitlist');
+    } finally {
+      setIsJoiningWaitlist(false);
+    }
   };
 
   const formatSeasonDate = (date: string | Date | undefined): string => {
@@ -578,6 +687,14 @@ export default function SeasonDetailsScreen({
     }
 
     if (season.status === 'UPCOMING') {
+      console.log('[Waitlist] getButtonConfig for UPCOMING season:', {
+        canJoin,
+        isWaitlisted: waitlistStatus?.isWaitlisted,
+        position: waitlistStatus?.position,
+        totalWaitlisted: waitlistStatus?.totalWaitlisted,
+        isJoiningWaitlist
+      });
+
       // Check gender restriction for waitlist too
       if (!canJoin) {
         return {
@@ -587,11 +704,35 @@ export default function SeasonDetailsScreen({
           disabled: false
         };
       }
+
+      // Already on waitlist - show leave option
+      if (waitlistStatus?.isWaitlisted) {
+        console.log('[Waitlist] User is on waitlist, showing Leave button');
+        return {
+          text: `Leave Waitlist (#${waitlistStatus.position})`,
+          color: '#6B7280',
+          onPress: handleJoinWaitlistPress,
+          disabled: isJoiningWaitlist
+        };
+      }
+
+      // Check if waitlist is full
+      if (waitlistStatus && WaitlistService.isWaitlistFull(waitlistStatus)) {
+        console.log('[Waitlist] Waitlist is full');
+        return {
+          text: 'Waitlist Full',
+          color: '#B2B2B2',
+          onPress: () => toast.info('The waitlist is currently full'),
+          disabled: true
+        };
+      }
+
+      console.log('[Waitlist] Showing Join Waitlist button');
       return {
-        text: 'Join Waitlist',
+        text: isJoiningWaitlist ? 'Joining...' : 'Join Waitlist',
         color: '#000000',
         onPress: handleJoinWaitlistPress,
-        disabled: false
+        disabled: isJoiningWaitlist
       };
     }
 
@@ -754,6 +895,19 @@ export default function SeasonDetailsScreen({
           </View>
         ) : error ? (
           <View style={styles.errorContainer}>
+            <TouchableOpacity
+              style={styles.errorBackButton}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                if (router.canGoBack()) {
+                  router.back();
+                } else {
+                  router.replace('/user-dashboard');
+                }
+              }}
+            >
+              <BackButtonIcon width={24} height={24} />
+            </TouchableOpacity>
             <Text style={styles.errorText}>{error}</Text>
             <TouchableOpacity style={styles.retryButton} onPress={fetchSeasonData}>
               <Text style={styles.retryButtonText}>Retry</Text>
@@ -1070,6 +1224,28 @@ export default function SeasonDetailsScreen({
         isProcessingPayment={isProcessingPayment}
         sport={sport}
       />
+
+      {/* Waitlist Bottom Sheet */}
+      <WaitlistBottomSheet
+        visible={showWaitlistBottomSheet}
+        onClose={() => setShowWaitlistBottomSheet(false)}
+        onJoin={handleConfirmJoinWaitlist}
+        seasonName={season?.name || ''}
+        currentWaitlistCount={waitlistStatus?.totalWaitlisted || 0}
+        sport={selectedSport}
+        isLoading={isJoiningWaitlist}
+      />
+
+      {/* Leave Waitlist Dialog */}
+      <LeaveWaitlistDialog
+        visible={showLeaveWaitlistDialog}
+        onClose={() => setShowLeaveWaitlistDialog(false)}
+        onConfirm={handleLeaveWaitlist}
+        position={waitlistStatus?.position || 0}
+        seasonName={season?.name || ''}
+        sport={selectedSport}
+        isLoading={isJoiningWaitlist}
+      />
     </View>
   );
 }
@@ -1111,6 +1287,17 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     padding: 24,
+  },
+  errorBackButton: {
+    position: 'absolute',
+    top: 16,
+    left: 16,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#F3F4F6',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   errorText: {
     fontSize: 16,

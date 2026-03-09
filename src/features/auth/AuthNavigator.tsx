@@ -66,7 +66,7 @@ export const AuthNavigator: React.FC = () => {
     // Add your forgot password logic here
   };
 
-  const handleSocialAuth = async (provider: 'facebook' | 'google' | 'apple', isLogin: boolean) => {
+  const handleSocialAuth = async (provider: 'google' | 'apple', isLogin: boolean) => {
     if (__DEV__) console.log(`${isLogin ? 'Login' : 'Sign up'} with ${provider}`);
     // Add your social authentication logic here
     // Example: await authClient.signInWithProvider(provider);

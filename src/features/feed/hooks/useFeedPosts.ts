@@ -1,8 +1,8 @@
 // src/features/feed/hooks/useFeedPosts.ts
 
 import { useState, useCallback, useRef } from 'react';
-import { useSession, authClient } from '@/lib/auth-client';
-import { getBackendBaseURL } from '@/config/network';
+import { useSession } from '@/lib/auth-client';
+import axiosInstance from '@/lib/endpoints';
 import { FeedPost, FeedResponse } from '../types';
 
 interface UseFeedPostsOptions {
@@ -30,7 +30,6 @@ export const useFeedPosts = (options: UseFeedPostsOptions = {}) => {
       }
       setError(null);
 
-      const backendUrl = getBackendBaseURL();
       const params = new URLSearchParams();
 
       if (options.sport && options.sport !== 'default') params.append('sport', options.sport);
@@ -38,13 +37,12 @@ export const useFeedPosts = (options: UseFeedPostsOptions = {}) => {
       if (options.filter) params.append('filter', options.filter);
       if (!refresh && cursorRef.current) params.append('cursor', cursorRef.current);
 
-      const url = `${backendUrl}/api/feed/posts${params.toString() ? `?${params}` : ''}`;
+      const url = `/api/feed/posts${params.toString() ? `?${params}` : ''}`;
 
-      const response = await authClient.$fetch(url, { method: 'GET' });
-      const responseData = (response as any).data || response;
+      const response = await axiosInstance.get(url);
 
-      if (responseData?.data) {
-        const feedData: FeedResponse = responseData.data;
+      if (response.data?.data) {
+        const feedData: FeedResponse = response.data.data;
 
         if (refresh) {
           setPosts(feedData.posts);

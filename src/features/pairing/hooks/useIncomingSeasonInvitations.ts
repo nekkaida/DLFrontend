@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { authClient } from '@/lib/auth-client';
-import { getBackendBaseURL } from '@/config/network';
+import axiosInstance from '@/lib/endpoints';
 
 interface PlayerInfo {
   id: string;
@@ -62,12 +61,9 @@ export const useIncomingSeasonInvitations = (
       setLoading(true);
       setError(null);
 
-      const backendUrl = getBackendBaseURL();
-      const response = await authClient.$fetch(`${backendUrl}/api/pairing/season/invitations`, {
-        method: 'GET',
-      });
+      const response = await axiosInstance.get('/api/pairing/season/invitations');
 
-      const data = (response as any)?.data?.data || (response as any)?.data;
+      const data = response.data?.data || response.data;
       console.log('[useIncomingSeasonInvitations] All season invitations:', data);
 
       // Filter to only PENDING invitations received for this specific season

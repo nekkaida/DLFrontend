@@ -36,7 +36,7 @@ const COLORS = {
 interface LandingScreenProps {
   onGetStarted: () => void;
   onLogin: () => void;
-  onSocialLogin?: (provider: 'facebook' | 'google' | 'apple') => void;
+  onSocialLogin?: (provider: 'google' | 'apple') => void;
 }
 
 // Debounce delay in milliseconds
@@ -62,7 +62,7 @@ export const LandingScreen: React.FC<LandingScreenProps> = ({
     callback();
   }, []);
 
-  const handleSocialPress = useCallback((provider: 'facebook' | 'google' | 'apple') => {
+  const handleSocialPress = useCallback((provider: 'google' | 'apple') => {
     handleDebouncedPress(() => onSocialLogin?.(provider));
   }, [handleDebouncedPress, onSocialLogin]);
 
@@ -117,7 +117,6 @@ export const LandingScreen: React.FC<LandingScreenProps> = ({
             </Pressable>
 
             <View style={styles.socialContainer}>
-              <SocialButton type="facebook" onPress={() => handleSocialPress('facebook')} />
               <SocialButton type="apple" onPress={() => handleSocialPress('apple')} />
               <SocialButton type="google" onPress={() => handleSocialPress('google')} />
             </View>

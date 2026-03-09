@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { authClient } from '@/lib/auth-client';
-import { getBackendBaseURL } from '@/config/network';
+import axiosInstance from '@/lib/endpoints';
 
 interface PlayerInfo {
   id: string;
@@ -62,12 +61,9 @@ export const useIncomingPairRequests = (
       setLoading(true);
       setError(null);
 
-      const backendUrl = getBackendBaseURL();
-      const response = await authClient.$fetch(`${backendUrl}/api/pairing/requests`, {
-        method: 'GET',
-      });
+      const response = await axiosInstance.get('/api/pairing/requests');
 
-      const data = (response as any)?.data?.data || (response as any)?.data;
+      const data = response.data?.data || response.data;
       console.log('[useIncomingPairRequests] All pair requests:', data);
 
       // Filter to only PENDING requests for this specific season
