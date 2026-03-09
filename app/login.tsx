@@ -167,6 +167,11 @@ export default function LoginRoute() {
           );
           await AuthStorage.markLoggedIn();
 
+          // Force better-auth to refresh its internal session state
+          // This ensures useSession() sees the new session immediately
+          await authClient.getSession();
+          console.log("✅ Session state refreshed");
+
           try {
             await axiosInstance.put(endpoints.user.trackLogin);
           } catch (trackErr) {
@@ -212,6 +217,11 @@ export default function LoginRoute() {
           response.data.data.session
         );
         await AuthStorage.markLoggedIn();
+
+        // Force better-auth to refresh its internal session state
+        // This ensures useSession() sees the new session immediately
+        await authClient.getSession();
+        console.log("✅ Session state refreshed");
 
         // Track login
         try {

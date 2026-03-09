@@ -158,6 +158,10 @@ export default function RegisterRoute() {
           );
           await AuthStorage.markLoggedIn();
 
+          // Force better-auth to refresh its internal session state
+          await authClient.getSession();
+          console.log('✅ Session state refreshed');
+
           try {
             await axiosInstance.put(endpoints.user.trackLogin);
           } catch (trackErr) {
@@ -203,6 +207,10 @@ export default function RegisterRoute() {
           response.data.data.session
         );
         await AuthStorage.markLoggedIn();
+
+        // Force better-auth to refresh its internal session state
+        await authClient.getSession();
+        console.log('✅ Session state refreshed');
 
         try {
           await axiosInstance.put(endpoints.user.trackLogin);
