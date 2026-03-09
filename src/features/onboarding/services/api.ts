@@ -1,8 +1,5 @@
 // API service for questionnaires
-import { getBackendBaseURL } from '../../../config/network';
-import { authClient } from '@/lib/auth-client';
-
-const BASE_URL = getBackendBaseURL();
+import axiosInstance from '@/lib/endpoints';
 
 export interface QuestionOption {
   label: string;
@@ -130,42 +127,24 @@ export interface ReverseGeocodeResponse {
 }
 
 export class QuestionnaireAPI {
-  private readonly getAuthHeaders = async () => {
-    const headers: Record<string, string> = {
-      'Content-Type': 'application/json',
-    };
-
-    try {
-      // Use getCookie() to read auth cookie from SecureStore (local-only, no backend call).
-      // IMPORTANT: Do NOT use getSession() — it calls the backend and
-      // sets the session atom to null on any failure, logging the user out.
-      const cookies = authClient.getCookie();
-      if (cookies) {
-        headers['Cookie'] = cookies.replace(/^;\s*/, '');
-      }
-
-      if (!cookies && __DEV__) {
-        console.warn('QuestionnaireAPI: No session cookie found - request will be unauthenticated');
-      }
-
-      return headers;
-    } catch (error) {
-      console.error('🔐 QuestionnaireAPI: Error getting auth headers:', error);
-      return headers; // Return basic headers if auth fails
-    }
-  };
-
   async getQuestionnaire(sport: string): Promise<QuestionnaireData> {
     try {
-      const response = await fetch(`${BASE_URL}/api/onboarding/${sport}/questions`);
-      
-      if (!response.ok) {
-        throw new Error(`Failed to fetch questionnaire: ${response.statusText}`);
+      if (__DEV__) {
+        console.log('📤 getQuestionnaire: Fetching questionnaire for sport:', sport);
       }
-      
-      const data = await response.json();
-      return data;
-    } catch (error) {
+
+      const response = await axiosInstance.get(`/api/onboarding/${sport}/questions`);
+
+      if (__DEV__) {
+        console.log('📥 getQuestionnaire: Response status:', response.status);
+      }
+
+      return response.data;
+    } catch (error: any) {
+      const errorMessage = error.response?.data?.error || error.response?.data?.message || error.message;
+      if (__DEV__) {
+        console.error('❌ getQuestionnaire: Failed with:', errorMessage);
+      }
       console.error('Error fetching questionnaire:', error);
       throw error;
     }
@@ -177,24 +156,25 @@ export class QuestionnaireAPI {
         throw new Error('User ID is required');
       }
 
-      const headers = await this.getAuthHeaders();
-      
-      const response = await fetch(`${BASE_URL}/api/onboarding/${sport}/submit`, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({
-          userId: userId,
-          answers
-        })
-      });
-      
-      if (!response.ok) {
-        throw new Error(`Failed to submit questionnaire: ${response.statusText}`);
+      if (__DEV__) {
+        console.log('📤 submitQuestionnaire: Submitting for user:', userId, 'sport:', sport);
       }
-      
-      const data = await response.json();
-      return data;
-    } catch (error) {
+
+      const response = await axiosInstance.post(`/api/onboarding/${sport}/submit`, {
+        userId: userId,
+        answers
+      });
+
+      if (__DEV__) {
+        console.log('📥 submitQuestionnaire: Response status:', response.status);
+      }
+
+      return response.data;
+    } catch (error: any) {
+      const errorMessage = error.response?.data?.error || error.response?.data?.message || error.message;
+      if (__DEV__) {
+        console.error('❌ submitQuestionnaire: Failed with:', errorMessage);
+      }
       console.error('Error submitting questionnaire:', error);
       throw error;
     }
@@ -206,19 +186,22 @@ export class QuestionnaireAPI {
         throw new Error('User ID is required');
       }
 
-      const headers = await this.getAuthHeaders();
-      
-      const response = await fetch(`${BASE_URL}/api/onboarding/responses/${userId}`, {
-        headers
-      });
-      
-      if (!response.ok) {
-        throw new Error(`Failed to fetch responses: ${response.statusText}`);
+      if (__DEV__) {
+        console.log('📤 getUserResponses: Fetching responses for user:', userId);
       }
-      
-      const data = await response.json();
-      return data;
-    } catch (error) {
+
+      const response = await axiosInstance.get(`/api/onboarding/responses/${userId}`);
+
+      if (__DEV__) {
+        console.log('📥 getUserResponses: Response status:', response.status);
+      }
+
+      return response.data;
+    } catch (error: any) {
+      const errorMessage = error.response?.data?.error || error.response?.data?.message || error.message;
+      if (__DEV__) {
+        console.error('❌ getUserResponses: Failed with:', errorMessage);
+      }
       console.error('Error fetching user responses:', error);
       throw error;
     }
@@ -230,23 +213,26 @@ export class QuestionnaireAPI {
         throw new Error('User ID is required');
       }
 
-      const headers = await this.getAuthHeaders();
-      
-      const response = await fetch(`${BASE_URL}/api/onboarding/responses/${userId}/${sport}`, {
-        headers
-      });
-      
-      if (response.status === 404) {
-        return null; // No response found for this sport
+      if (__DEV__) {
+        console.log('📤 getSportResponse: Fetching for user:', userId, 'sport:', sport);
       }
-      
-      if (!response.ok) {
-        throw new Error(`Failed to fetch sport response: ${response.statusText}`);
+
+      const response = await axiosInstance.get(`/api/onboarding/responses/${userId}/${sport}`);
+
+      if (__DEV__) {
+        console.log('📥 getSportResponse: Response status:', response.status);
       }
-      
-      const data = await response.json();
-      return data;
-    } catch (error) {
+
+      return response.data;
+    } catch (error: any) {
+      // Handle 404 as null (no response found for this sport)
+      if (error.response?.status === 404) {
+        return null;
+      }
+      const errorMessage = error.response?.data?.error || error.response?.data?.message || error.message;
+      if (__DEV__) {
+        console.error('❌ getSportResponse: Failed with:', errorMessage);
+      }
       console.error('Error fetching sport response:', error);
       throw error;
     }
@@ -258,22 +244,23 @@ export class QuestionnaireAPI {
         throw new Error('User ID is required');
       }
 
-      const headers = await this.getAuthHeaders();
-      
-      const response = await fetch(`${BASE_URL}/api/onboarding/profile/${userId}`, {
-        method: 'PUT',
-        headers,
-        body: JSON.stringify(profileData)
-      });
-      
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || `Failed to update profile: ${response.statusText}`);
+      if (__DEV__) {
+        console.log('📤 updateUserProfile: Updating profile for user:', userId);
       }
-      
-      const data = await response.json();
-      return data;
-    } catch (error) {
+
+      // Use axiosInstance which has proper auth handling via interceptors
+      const response = await axiosInstance.put(`/api/onboarding/profile/${userId}`, profileData);
+
+      if (__DEV__) {
+        console.log('📥 updateUserProfile: Response status:', response.status);
+      }
+
+      return response.data;
+    } catch (error: any) {
+      const errorMessage = error.response?.data?.error || error.response?.data?.message || error.message;
+      if (__DEV__) {
+        console.error('❌ updateUserProfile: Failed with:', errorMessage);
+      }
       console.error('Error updating user profile:', error);
       throw error;
     }
@@ -285,22 +272,25 @@ export class QuestionnaireAPI {
         throw new Error('User ID is required');
       }
 
-      const headers = await this.getAuthHeaders();
-      
-      const response = await fetch(`${BASE_URL}/api/onboarding/profile/${userId}`, {
-        headers
-      });
-      
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || `Failed to fetch profile: ${response.statusText}`);
+      if (__DEV__) {
+        console.log('📤 getUserProfile: Fetching profile for user:', userId);
       }
-      
-      const data = await response.json();
-      return data;
-    } catch (error) {
+
+      // Use axiosInstance which has proper auth handling via interceptors
+      const response = await axiosInstance.get(`/api/onboarding/profile/${userId}`);
+
+      if (__DEV__) {
+        console.log('📥 getUserProfile: Response status:', response.status);
+      }
+
+      return response.data;
+    } catch (error: any) {
+      const errorMessage = error.response?.data?.error || error.response?.data?.message || error.message;
+      if (__DEV__) {
+        console.error('❌ getUserProfile: Failed with:', errorMessage);
+      }
       console.error('Error fetching user profile:', error);
-      throw error;
+      throw new Error(`Failed to fetch profile: ${errorMessage}`);
     }
   }
 
@@ -310,24 +300,24 @@ export class QuestionnaireAPI {
         throw new Error('User ID is required');
       }
 
-      const headers = await this.getAuthHeaders();
-      
-      const response = await fetch(`${BASE_URL}/api/onboarding/location/${userId}`, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify(locationData)
-      });
-      
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || `Failed to save location: ${response.statusText}`);
+      if (__DEV__) {
+        console.log('📤 saveUserLocation: Saving location for user:', userId);
       }
-      
-      const data = await response.json();
-      return data;
-    } catch (error) {
+
+      const response = await axiosInstance.post(`/api/onboarding/location/${userId}`, locationData);
+
+      if (__DEV__) {
+        console.log('📥 saveUserLocation: Response status:', response.status);
+      }
+
+      return response.data;
+    } catch (error: any) {
+      const errorMessage = error.response?.data?.error || error.response?.data?.message || error.message;
+      if (__DEV__) {
+        console.error('❌ saveUserLocation: Failed with:', errorMessage);
+      }
       console.error('Error saving user location:', error);
-      throw error;
+      throw new Error(errorMessage || 'Failed to save location');
     }
   }
 
@@ -337,73 +327,51 @@ export class QuestionnaireAPI {
         throw new Error('Query must be at least 2 characters long');
       }
 
-      const headers = await this.getAuthHeaders();
-      const url = `${BASE_URL}/api/onboarding/locations/search?q=${encodeURIComponent(query.trim())}&limit=${limit}`;
-
-      console.log('🔍 Location search URL:', url);
-      console.log('🌐 Base URL:', BASE_URL);
-      
-      const response = await fetch(url, {
-        headers
-      });
-      
-      console.log('📡 Location search response status:', response.status);
-      
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        console.error('❌ Location search error response:', errorData);
-        throw new Error(errorData.error || `Failed to search locations: ${response.statusText}`);
+      if (__DEV__) {
+        console.log('🔍 searchLocations: Searching for:', query);
       }
-      
-      const data = await response.json();
-      console.log('✅ Location search success:', data);
-      return data;
-    } catch (error) {
-      console.error('❌ Error searching locations:', error);
-      console.error('❌ Error details:', {
-        message: error instanceof Error ? error.message : 'Unknown error',
-        stack: error instanceof Error ? error.stack : undefined,
-        query,
-        limit,
-        baseURL: BASE_URL
+
+      const response = await axiosInstance.get(`/api/onboarding/locations/search`, {
+        params: { q: query.trim(), limit }
       });
-      throw error;
+
+      if (__DEV__) {
+        console.log('📥 searchLocations: Response status:', response.status);
+      }
+
+      return response.data;
+    } catch (error: any) {
+      const errorMessage = error.response?.data?.error || error.response?.data?.message || error.message;
+      if (__DEV__) {
+        console.error('❌ searchLocations: Failed with:', errorMessage);
+      }
+      console.error('Error searching locations:', error);
+      throw new Error(errorMessage || 'Failed to search locations');
     }
   }
 
   async reverseGeocode(latitude: number, longitude: number): Promise<ReverseGeocodeResponse> {
     try {
-      const headers = await this.getAuthHeaders();
-      const url = `${BASE_URL}/api/locations/reverse-geocode?lat=${latitude}&lng=${longitude}`;
-      
-      console.log('🌐 Reverse geocoding URL:', url);
-      console.log('🌐 Base URL:', BASE_URL);
-      
-      const response = await fetch(url, {
-        headers
-      });
-      
-      console.log('📡 Reverse geocoding response status:', response.status);
-      
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        console.error('❌ Reverse geocoding error response:', errorData);
-        throw new Error(errorData.error || `Failed to reverse geocode: ${response.statusText}`);
+      if (__DEV__) {
+        console.log('🌐 reverseGeocode: Reverse geocoding:', latitude, longitude);
       }
-      
-      const data = await response.json();
-      console.log('✅ Reverse geocoding success:', data);
-      return data;
-    } catch (error) {
-      console.error('❌ Error reverse geocoding:', error);
-      console.error('❌ Error details:', {
-        message: error instanceof Error ? error.message : 'Unknown error',
-        stack: error instanceof Error ? error.stack : undefined,
-        latitude,
-        longitude,
-        baseURL: BASE_URL
+
+      const response = await axiosInstance.get(`/api/locations/reverse-geocode`, {
+        params: { lat: latitude, lng: longitude }
       });
-      throw error;
+
+      if (__DEV__) {
+        console.log('📥 reverseGeocode: Response status:', response.status);
+      }
+
+      return response.data;
+    } catch (error: any) {
+      const errorMessage = error.response?.data?.error || error.response?.data?.message || error.message;
+      if (__DEV__) {
+        console.error('❌ reverseGeocode: Failed with:', errorMessage);
+      }
+      console.error('Error reverse geocoding:', error);
+      throw new Error(errorMessage || 'Failed to reverse geocode');
     }
   }
 
@@ -413,23 +381,24 @@ export class QuestionnaireAPI {
         throw new Error('User ID is required');
       }
 
-      const headers = await this.getAuthHeaders();
-
-      const response = await fetch(`${BASE_URL}/api/onboarding/complete/${userId}`, {
-        method: 'POST',
-        headers
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || `Failed to complete onboarding: ${response.statusText}`);
+      if (__DEV__) {
+        console.log('📤 completeOnboarding: Completing onboarding for user:', userId);
       }
 
-      const data = await response.json();
-      return data;
-    } catch (error) {
+      const response = await axiosInstance.post(`/api/onboarding/complete/${userId}`);
+
+      if (__DEV__) {
+        console.log('📥 completeOnboarding: Response status:', response.status);
+      }
+
+      return response.data;
+    } catch (error: any) {
+      const errorMessage = error.response?.data?.error || error.response?.data?.message || error.message;
+      if (__DEV__) {
+        console.error('❌ completeOnboarding: Failed with:', errorMessage);
+      }
       console.error('Error completing onboarding:', error);
-      throw error;
+      throw new Error(errorMessage || 'Failed to complete onboarding');
     }
   }
 
@@ -452,24 +421,24 @@ export class QuestionnaireAPI {
         throw new Error(`Invalid step: ${step}. Must be one of: ${validSteps.join(', ')}`);
       }
 
-      const headers = await this.getAuthHeaders();
-
-      const response = await fetch(`${BASE_URL}/api/onboarding/step/${userId}`, {
-        method: 'PUT',
-        headers,
-        body: JSON.stringify({ step })
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || `Failed to update onboarding step: ${response.statusText}`);
+      if (__DEV__) {
+        console.log('📤 updateOnboardingStep: Updating step for user:', userId, 'step:', step);
       }
 
-      const data = await response.json();
-      return data;
-    } catch (error) {
+      const response = await axiosInstance.put(`/api/onboarding/step/${userId}`, { step });
+
+      if (__DEV__) {
+        console.log('📥 updateOnboardingStep: Response status:', response.status);
+      }
+
+      return response.data;
+    } catch (error: any) {
+      const errorMessage = error.response?.data?.error || error.response?.data?.message || error.message;
+      if (__DEV__) {
+        console.error('❌ updateOnboardingStep: Failed with:', errorMessage);
+      }
       console.error('Error updating onboarding step:', error);
-      throw error;
+      throw new Error(errorMessage || 'Failed to update onboarding step');
     }
   }
 
@@ -479,22 +448,24 @@ export class QuestionnaireAPI {
         throw new Error('User ID is required');
       }
 
-      const headers = await this.getAuthHeaders();
-      
-      const response = await fetch(`${BASE_URL}/api/onboarding/assessment-status/${userId}`, {
-        headers
-      });
-      
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || `Failed to get assessment status: ${response.statusText}`);
+      if (__DEV__) {
+        console.log('📤 getAssessmentStatus: Fetching for user:', userId);
       }
-      
-      const data = await response.json();
-      return data;
-    } catch (error) {
+
+      const response = await axiosInstance.get(`/api/onboarding/assessment-status/${userId}`);
+
+      if (__DEV__) {
+        console.log('📥 getAssessmentStatus: Response status:', response.status);
+      }
+
+      return response.data;
+    } catch (error: any) {
+      const errorMessage = error.response?.data?.error || error.response?.data?.message || error.message;
+      if (__DEV__) {
+        console.error('❌ getAssessmentStatus: Failed with:', errorMessage);
+      }
       console.error('Error getting assessment status:', error);
-      throw error;
+      throw new Error(errorMessage || 'Failed to get assessment status');
     }
   }
 
@@ -508,24 +479,24 @@ export class QuestionnaireAPI {
         throw new Error('Sports array is required and must not be empty');
       }
 
-      const headers = await this.getAuthHeaders();
-
-      const response = await fetch(`${BASE_URL}/api/onboarding/sports/${userId}`, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({ sports })
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || `Failed to save sports: ${response.statusText}`);
+      if (__DEV__) {
+        console.log('📤 saveSports: Saving sports for user:', userId, 'sports:', sports);
       }
 
-      const data = await response.json();
-      return data;
-    } catch (error) {
+      const response = await axiosInstance.post(`/api/onboarding/sports/${userId}`, { sports });
+
+      if (__DEV__) {
+        console.log('📥 saveSports: Response status:', response.status);
+      }
+
+      return response.data;
+    } catch (error: any) {
+      const errorMessage = error.response?.data?.error || error.response?.data?.message || error.message;
+      if (__DEV__) {
+        console.error('❌ saveSports: Failed with:', errorMessage);
+      }
       console.error('Error saving sports:', error);
-      throw error;
+      throw new Error(errorMessage || 'Failed to save sports');
     }
   }
 
@@ -543,30 +514,30 @@ export class QuestionnaireAPI {
         throw new Error('User ID is required to save skill levels');
       }
 
-      const headers = await this.getAuthHeaders();
-
       // Map frontend sport keys to backend field names
       const payload: Record<string, string | undefined> = {};
       if (skillLevels.tennis) payload.tennisSkillLevel = skillLevels.tennis;
       if (skillLevels.pickleball) payload.pickleballSkillLevel = skillLevels.pickleball;
       if (skillLevels.padel) payload.padelSkillLevel = skillLevels.padel;
 
-      const response = await fetch(`${BASE_URL}/api/onboarding/skill-levels/${userId}`, {
-        method: 'PUT',
-        headers,
-        body: JSON.stringify(payload)
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || `Failed to save skill levels: ${response.statusText}`);
+      if (__DEV__) {
+        console.log('📤 saveSkillLevels: Saving skill levels for user:', userId, 'payload:', payload);
       }
 
-      const data = await response.json();
-      return data;
-    } catch (error) {
+      const response = await axiosInstance.put(`/api/onboarding/skill-levels/${userId}`, payload);
+
+      if (__DEV__) {
+        console.log('📥 saveSkillLevels: Response status:', response.status);
+      }
+
+      return response.data;
+    } catch (error: any) {
+      const errorMessage = error.response?.data?.error || error.response?.data?.message || error.message;
+      if (__DEV__) {
+        console.error('❌ saveSkillLevels: Failed with:', errorMessage);
+      }
       console.error('Error saving skill levels:', error);
-      throw error;
+      throw new Error(errorMessage || 'Failed to save skill levels');
     }
   }
 }

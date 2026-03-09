@@ -17,7 +17,7 @@ export const ScrollProgressBar: React.FC<ScrollProgressBarProps> = ({
   // Don't render if content fits in view
   if (contentWidth <= viewWidth) return null;
 
-  const thumbWidthPercent = (viewWidth / contentWidth) * 100;
+  const thumbWidthPercent = Math.max((viewWidth / contentWidth) * 100, 20);
   const maxLeftPercent = 100 - thumbWidthPercent;
   const leftPercent = progress * maxLeftPercent;
 
@@ -41,13 +41,13 @@ export const ScrollProgressBar: React.FC<ScrollProgressBarProps> = ({
 
 const styles = StyleSheet.create({
   progressContainer: {
-    paddingHorizontal: 12,
-    paddingTop: 12,
-    paddingBottom: 8,
+    paddingHorizontal: 20,
+    paddingTop: 14,
+    paddingBottom: 4,
   },
   progressTrack: {
     height: 4,
-    backgroundColor: '#E5E7EB',
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
     borderRadius: 2,
     position: 'relative',
     overflow: 'hidden',
@@ -57,6 +57,7 @@ const styles = StyleSheet.create({
     borderRadius: 2,
     position: 'absolute',
     top: 0,
+    opacity: 0.8,
   },
 });
 

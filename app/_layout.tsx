@@ -1,5 +1,5 @@
 import { useColorScheme } from '@/hooks/useColorScheme';
-import { useSession } from '@/lib/auth-client';
+import { authClient, useSession } from '@/lib/auth-client';
 import { socketService } from '@/lib/socket-service';
 import { useChatStore } from '@/src/features/chat/stores/ChatStore';
 import { NavigationInterceptor } from '@core/navigation/NavigationInterceptor';
@@ -16,6 +16,10 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import 'react-native-reanimated';
 import { Toaster } from 'sonner-native';
 import { usePushNotifications } from '@/src/hooks/usePushNotifications';
+import { configureGoogleSignIn } from '@/lib/google-signin';
+
+// Configure Google Sign-In at app startup
+configureGoogleSignIn();
 
 // Clean up any stale OAuth sessions from previous app launches
 // This MUST be called before any OAuth flow to prevent invalid state errors
@@ -33,11 +37,28 @@ export default function RootLayout() {
 
   // Initialize socket connection and load threads when user is authenticated
   useEffect(() => {
+    let cancelled = false;
+
     const initSocket = async () => {
       if (session?.user?.id) {
         console.log('🔌 RootLayout: User authenticated, initializing socket connection...');
+
+        // Small delay to ensure session cookie is fully synced to SecureStore
+        // This prevents race conditions during initial auth flow (e.g., after email verification)
+        await new Promise(resolve => setTimeout(resolve, 300));
+
+        if (cancelled) return;
+
+        // Verify the session cookie is available before attempting socket connection
+        const cookies = authClient.getCookie();
+        if (!cookies) {
+          console.log('⚠️ RootLayout: Session cookie not yet available, deferring socket connection');
+          return;
+        }
+
         try {
           await socketService.connect();
+          if (cancelled) return;
           console.log('✅ RootLayout: Socket connection initialized');
 
           // Load threads early so useChatSocketEvents can join rooms
@@ -46,6 +67,7 @@ export default function RootLayout() {
           await loadThreads(session.user.id);
           console.log('✅ RootLayout: Threads loaded for real-time updates');
         } catch (error) {
+          // Socket connection failures are non-fatal - app can work without real-time updates
           console.error('❌ RootLayout: Failed to initialize socket:', error);
         }
       } else {
@@ -57,6 +79,7 @@ export default function RootLayout() {
 
     // Cleanup on unmount
     return () => {
+      cancelled = true;
       if (session?.user?.id) {
         console.log('🔌 RootLayout: Disconnecting socket on unmount');
         socketService.disconnect();

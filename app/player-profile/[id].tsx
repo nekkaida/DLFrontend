@@ -1,5 +1,5 @@
-import { getBackendBaseURL } from "@/config/network";
-import { authClient, useSession } from "@/lib/auth-client";
+import { useSession } from "@/lib/auth-client";
+import axiosInstance from "@/lib/endpoints";
 import { ChatService } from "@/src/features/chat/services/ChatService";
 import { useChatStore } from "@/src/features/chat/stores/ChatStore";
 import {
@@ -102,22 +102,17 @@ export default function PlayerProfileScreen() {
 
         setIsLoading(true);
         setHasError(false);
-        const backendUrl = getBackendBaseURL();
 
-        const authResponse = await authClient.$fetch(
-          `${backendUrl}/api/player/profile/public/${id}`,
-          {
-            method: "GET",
-            signal,
-          },
+        const response = await axiosInstance.get(
+          `/api/player/profile/public/${id}`,
+          { signal },
         );
 
         // Check if aborted before updating state
         if (signal?.aborted) return;
 
-        if (authResponse && (authResponse as any).data) {
-          const playerData =
-            (authResponse as any).data.data || (authResponse as any).data;
+        if (response && response.data) {
+          const playerData = response.data.data || response.data;
           setProfileData(playerData);
 
           // Fetch achievements if available

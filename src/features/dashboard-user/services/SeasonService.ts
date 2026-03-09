@@ -169,7 +169,37 @@ static async fetchSeasonsByCategory(categoryId: string): Promise<Season[]> {
     }
   }
 
-  //Register Player to a season 
+  /**
+   * Fetch a single season by ID
+   */
+  static async fetchSeasonById(seasonId: string): Promise<Season | null> {
+    try {
+      const response = await axiosInstance.get(`/api/season/${seasonId}`);
+
+      if (response && response.data) {
+        const apiResponse = response.data as any;
+
+        // Handle success response
+        if (apiResponse.success && apiResponse.data) {
+          console.log('✅ SeasonService: Successfully fetched season by ID:', seasonId);
+          return apiResponse.data as Season;
+        }
+
+        // Handle direct data response
+        if (apiResponse.data) {
+          return apiResponse.data as Season;
+        }
+      }
+
+      console.warn('SeasonService: Season not found:', seasonId);
+      return null;
+    } catch (error) {
+      console.error('SeasonService: Error fetching season by ID:', error);
+      return null;
+    }
+  }
+
+  //Register Player to a season
 static async registerForSeason(seasonId: string, userId?: string, payLater: boolean = false): Promise<boolean> {
   try {
     console.log('SeasonService: Registering for season:', seasonId, 'payLater:', payLater);

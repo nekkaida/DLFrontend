@@ -42,7 +42,7 @@ export const SportFilterSheet: React.FC<SportFilterSheetProps> = ({
     <BottomSheet
       ref={bottomSheetRef}
       index={-1}
-      snapPoints={['35%']}
+      enableDynamicSizing
       enablePanDownToClose
       onClose={onClose}
       backdropComponent={renderBackdrop}
@@ -90,8 +90,9 @@ export const SportFilterSheet: React.FC<SportFilterSheetProps> = ({
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
     paddingHorizontal: feedTheme.spacing.screenPadding,
+    paddingBottom: 100,
+    paddingTop: 8,
   },
   title: {
     fontSize: 18,

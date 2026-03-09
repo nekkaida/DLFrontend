@@ -39,15 +39,9 @@ const CircularImageCropper: React.FC<CircularImageCropperProps> = ({
   return (
     <Modal visible={visible} transparent animationType="fade" statusBarTranslucent>
       <View style={styles.container}>
-        {/* Header */}
+        {/* Header - Title only */}
         <View style={styles.header}>
-          <TouchableOpacity onPress={onCancel} style={styles.cancelButton}>
-            <Text style={styles.cancelText}>Cancel</Text>
-          </TouchableOpacity>
           <Text style={styles.title}>Profile Picture Preview</Text>
-          <TouchableOpacity onPress={handleConfirm} style={styles.doneButton}>
-            <Text style={styles.doneText}>Use Photo</Text>
-          </TouchableOpacity>
         </View>
 
         {/* Preview Area */}
@@ -55,7 +49,7 @@ const CircularImageCropper: React.FC<CircularImageCropperProps> = ({
           <Text style={styles.instructionText}>
             This is how your profile picture will look
           </Text>
-          
+
           {/* Circular Preview */}
           <View style={styles.circularPreviewContainer}>
             <Image
@@ -69,6 +63,16 @@ const CircularImageCropper: React.FC<CircularImageCropperProps> = ({
             Tip: Make sure your face is centered in the photo
           </Text>
         </View>
+
+        {/* Bottom Buttons */}
+        <View style={styles.bottomButtons}>
+          <TouchableOpacity onPress={onCancel} style={styles.cancelButton}>
+            <Text style={styles.cancelText}>Cancel</Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={handleConfirm} style={styles.doneButton}>
+            <Text style={styles.doneText}>Use Photo</Text>
+          </TouchableOpacity>
+        </View>
       </View>
     </Modal>
   );
@@ -80,31 +84,13 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0, 0, 0, 0.95)',
   },
   header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 20,
     paddingTop: Platform.select({ ios: 60, android: 40 }),
     paddingBottom: 20,
-  },
-  cancelButton: {
-    padding: 8,
-  },
-  cancelText: {
-    color: '#FFFFFF',
-    fontSize: 16,
   },
   title: {
     color: '#FFFFFF',
     fontSize: 18,
-    fontWeight: '600',
-  },
-  doneButton: {
-    padding: 8,
-  },
-  doneText: {
-    color: '#FE9F4D',
-    fontSize: 16,
     fontWeight: '600',
   },
   previewArea: {
@@ -135,6 +121,36 @@ const styles = StyleSheet.create({
     fontSize: 14,
     textAlign: 'center',
     fontStyle: 'italic',
+  },
+  bottomButtons: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingHorizontal: 30,
+    paddingBottom: Platform.select({ ios: 40, android: 30 }),
+    paddingTop: 20,
+  },
+  cancelButton: {
+    paddingVertical: 14,
+    paddingHorizontal: 30,
+    borderRadius: 25,
+    borderWidth: 1,
+    borderColor: '#FFFFFF',
+  },
+  cancelText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '500',
+  },
+  doneButton: {
+    paddingVertical: 14,
+    paddingHorizontal: 30,
+    borderRadius: 25,
+    backgroundColor: '#FE9F4D',
+  },
+  doneText: {
+    color: '#000000',
+    fontSize: 16,
+    fontWeight: '600',
   },
 });
 

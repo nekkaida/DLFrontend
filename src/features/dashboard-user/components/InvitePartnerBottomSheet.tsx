@@ -20,8 +20,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import { authClient } from '@/lib/auth-client';
-import { getBackendBaseURL } from '@/src/config/network';
+import axiosInstance from '@/lib/endpoints';
 import { PlayerInviteListItem } from './PlayerInviteListItem';
 import { toast } from 'sonner-native';
 import EmptyPartnerIcon from '@/assets/icons/empty_partner.svg';
@@ -98,18 +97,15 @@ export const InvitePartnerBottomSheet: React.FC<InvitePartnerBottomSheetProps> =
       }
 
       setIsLoading(true);
-      const backendUrl = getBackendBaseURL();
       const url = query.trim()
-        ? `${backendUrl}/api/player/discover/${seasonId}?q=${encodeURIComponent(query)}`
-        : `${backendUrl}/api/player/discover/${seasonId}`;
+        ? `/api/player/discover/${seasonId}?q=${encodeURIComponent(query)}`
+        : `/api/player/discover/${seasonId}`;
       console.log('📡 Fetching players from:', url);
-      const response = await authClient.$fetch(url, {
-        method: 'GET',
-      });
+      const response = await axiosInstance.get(url);
       console.log('✅ API Response received:', response);
 
-      if (response && (response as any).data) {
-        const responseData = (response as any).data;
+      if (response && response.data) {
+        const responseData = response.data;
         console.log('📦 Response data structure:', responseData);
 
         let actualData = responseData;
@@ -147,9 +143,9 @@ export const InvitePartnerBottomSheet: React.FC<InvitePartnerBottomSheetProps> =
           //   description: 'Showing all eligible players since you have no friends to pair with',
           // });
         }
-      } else if (response && (response as any).error) {
+      } else if (response && response.data?.error) {
         // Handle error response
-        const errorData = (response as any).error;
+        const errorData = response.data.error;
         console.error('❌ API Error:', errorData);
         toast.error('Error', {
           description: errorData.message || 'Failed to load available players',

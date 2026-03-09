@@ -1,8 +1,7 @@
 // src/features/feed/hooks/useLikes.ts
 
 import { useState, useCallback } from 'react';
-import { authClient } from '@/lib/auth-client';
-import { getBackendBaseURL } from '@/config/network';
+import axiosInstance from '@/lib/endpoints';
 import { PostLiker, LikeToggleResponse } from '../types';
 import * as Haptics from 'expo-haptics';
 
@@ -17,16 +16,10 @@ export const useLikes = () => {
       setIsLiking(postId);
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
 
-      const backendUrl = getBackendBaseURL();
-      const response = await authClient.$fetch(
-        `${backendUrl}/api/feed/posts/${postId}/like`,
-        { method: 'POST' }
-      );
+      const response = await axiosInstance.post(`/api/feed/posts/${postId}/like`);
 
-      const responseData = (response as any).data || response;
-
-      if (responseData?.data) {
-        const result: LikeToggleResponse = responseData.data;
+      if (response.data?.data) {
+        const result: LikeToggleResponse = response.data.data;
         onSuccess?.(result);
         return result;
       }
@@ -40,14 +33,8 @@ export const useLikes = () => {
 
   const fetchLikers = useCallback(async (postId: string, limit = 50): Promise<PostLiker[]> => {
     try {
-      const backendUrl = getBackendBaseURL();
-      const response = await authClient.$fetch(
-        `${backendUrl}/api/feed/posts/${postId}/likers?limit=${limit}`,
-        { method: 'GET' }
-      );
-
-      const responseData = (response as any).data || response;
-      return responseData?.data || [];
+      const response = await axiosInstance.get(`/api/feed/posts/${postId}/likers?limit=${limit}`);
+      return response.data?.data || [];
     } catch (err) {
       console.error('Error fetching likers:', err);
       return [];

@@ -133,6 +133,7 @@ export interface TeamAvatarsProps {
   players: Array<{ name: string; image?: string | null }>;
   size?: number;
   overlap?: number;
+  borderColor?: string;
 }
 
 export interface ScrollProgressBarProps {
@@ -148,7 +149,10 @@ export interface StandingsRowProps {
   rank: number;
   isDoubles?: boolean;
   isHighlighted?: boolean;
+  isTop3?: boolean;
+  medalGradient?: readonly [string, string];
   onPress?: (playerId: string) => void;
+  accentColor?: string;
 }
 
 export interface StandingsTableProps {
@@ -158,6 +162,7 @@ export interface StandingsTableProps {
   currentUserId?: string;
   isUserDivision?: boolean;
   onPlayerPress?: (playerId: string) => void;
+  accentColor?: string;
 }
 
 export interface MatchResultCardProps {

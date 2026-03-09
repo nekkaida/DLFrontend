@@ -43,7 +43,7 @@ interface LoginScreenProps {
   onLogin: (email: string, password: string) => void | Promise<void>;
   onSignUp: () => void;
   onForgotPassword: () => void;
-  onSocialLogin?: (provider: "facebook" | "google" | "apple") => void | Promise<void>;
+  onSocialLogin?: (provider: "google" | "apple") => void | Promise<void>;
 }
 
 export const LoginScreen: React.FC<LoginScreenProps> = ({
@@ -169,7 +169,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
   };
 
   // Handle social login with proper async error handling
-  const handleSocialLogin = useCallback(async (provider: 'facebook' | 'google' | 'apple') => {
+  const handleSocialLogin = useCallback(async (provider: 'google' | 'apple') => {
     if (!onSocialLogin) {
       toast.error("Social login not available", {
         description: "This feature is coming soon.",
@@ -438,11 +438,6 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                 gap: scale(6),
               }}
             >
-              <SocialButton
-                type="facebook"
-                onPress={() => handleSocialLogin("facebook")}
-                disabled={isLoading || isSocialLoading}
-              />
               <SocialButton
                 type="apple"
                 onPress={() => handleSocialLogin("apple")}

@@ -17,8 +17,8 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { toast } from 'sonner-native';
-import { useSession, authClient } from '@/lib/auth-client';
-import { getBackendBaseURL } from '@/config/network';
+import { useSession } from '@/lib/auth-client';
+import axiosInstance from '@/lib/endpoints';
 import { PartnershipCard } from '../components/PartnershipCard';
 import { PartnershipStatusBanner } from '../components/PartnershipStatusBanner';
 import { IncompletePartnershipCard } from '../components/IncompletePartnershipCard';
@@ -149,16 +149,12 @@ export default function ManagePartnershipScreen({ seasonId }: ManagePartnershipS
 
     setIsInviting(true);
     try {
-      const backendUrl = getBackendBaseURL();
-      const response = await authClient.$fetch(
-        `${backendUrl}/api/pairing/partnership/${partnership.id}/invite-replacement`,
-        {
-          method: 'POST',
-          body: JSON.stringify({ recipientId: player.id }),
-        }
+      const response = await axiosInstance.post(
+        `/api/pairing/partnership/${partnership.id}/invite-replacement`,
+        { recipientId: player.id }
       );
 
-      const responseData = (response as any).data || response;
+      const responseData = response?.data || response;
       if (responseData && responseData.success) {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         toast.success('Invitation Sent', {
@@ -185,13 +181,11 @@ export default function ManagePartnershipScreen({ seasonId }: ManagePartnershipS
   const handleAcceptRequest = useCallback(async (requestId: string) => {
     setProcessingRequestId(requestId);
     try {
-      const backendUrl = getBackendBaseURL();
-      const response = await authClient.$fetch(
-        `${backendUrl}/api/pairing/request/${requestId}/accept`,
-        { method: 'POST' }
+      const response = await axiosInstance.post(
+        `/api/pairing/request/${requestId}/accept`
       );
 
-      const responseData = (response as any).data || response;
+      const responseData = response?.data || response;
       if (responseData && responseData.success) {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         toast.success('Partner Added!', {
@@ -227,13 +221,11 @@ export default function ManagePartnershipScreen({ seasonId }: ManagePartnershipS
           onPress: async () => {
             setProcessingRequestId(requestId);
             try {
-              const backendUrl = getBackendBaseURL();
-              const response = await authClient.$fetch(
-                `${backendUrl}/api/pairing/request/${requestId}/deny`,
-                { method: 'POST' }
+              const response = await axiosInstance.post(
+                `/api/pairing/request/${requestId}/deny`
               );
 
-              const responseData = (response as any).data || response;
+              const responseData = response?.data || response;
               if (responseData && responseData.success) {
                 toast.success('Request declined');
                 refreshRequests();
@@ -260,13 +252,11 @@ export default function ManagePartnershipScreen({ seasonId }: ManagePartnershipS
   const handleAcceptSeasonInvitation = useCallback(async (invitationId: string) => {
     setProcessingRequestId(invitationId);
     try {
-      const backendUrl = getBackendBaseURL();
-      const response = await authClient.$fetch(
-        `${backendUrl}/api/pairing/season/invitation/${invitationId}/accept`,
-        { method: 'POST' }
+      const response = await axiosInstance.post(
+        `/api/pairing/season/invitation/${invitationId}/accept`
       );
 
-      const responseData = (response as any).data || response;
+      const responseData = response?.data || response;
       if (responseData && responseData.success) {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         toast.success('Partner Added!', {
@@ -302,13 +292,11 @@ export default function ManagePartnershipScreen({ seasonId }: ManagePartnershipS
           onPress: async () => {
             setProcessingRequestId(invitationId);
             try {
-              const backendUrl = getBackendBaseURL();
-              const response = await authClient.$fetch(
-                `${backendUrl}/api/pairing/season/invitation/${invitationId}/deny`,
-                { method: 'POST' }
+              const response = await axiosInstance.post(
+                `/api/pairing/season/invitation/${invitationId}/deny`
               );
 
-              const responseData = (response as any).data || response;
+              const responseData = response?.data || response;
               if (responseData && responseData.success) {
                 toast.success('Request declined');
                 refreshSeasonInvitations();

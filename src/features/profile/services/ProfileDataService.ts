@@ -1,5 +1,4 @@
-import { authClient } from '@/lib/auth-client';
-import { getBackendBaseURL } from '@/config/network';
+import axiosInstance from '@/lib/endpoints';
 import { toast } from 'sonner-native';
 
 /**
@@ -21,19 +20,16 @@ export class ProfileDataService {
         return [];
       }
 
-      const backendUrl = getBackendBaseURL();
-      console.log('Fetching achievements from:', `${backendUrl}/api/player/profile/achievements`);
+      console.log('Fetching achievements from:', '/api/player/profile/achievements');
 
-      const response = await authClient.$fetch(`${backendUrl}/api/player/profile/achievements`, {
-        method: 'GET',
-      });
+      const response = await axiosInstance.get('/api/player/profile/achievements');
 
-      console.log('Achievements API response:', response);
+      console.log('Achievements API response:', response.data);
 
-      const data = response as { data?: { achievements?: any[] } };
-      if (data?.data?.achievements) {
-        console.log('Setting achievements data:', data.data.achievements);
-        return data.data.achievements;
+      const data = response.data as { achievements?: any[] };
+      if (data?.achievements) {
+        console.log('Setting achievements data:', data.achievements);
+        return data.achievements;
       } else {
         console.log('No achievements data found, setting empty array');
         return [];
@@ -60,22 +56,18 @@ export class ProfileDataService {
 
       console.log('Current session:', session);
 
-      const backendUrl = getBackendBaseURL();
-      console.log('Fetching profile data from:', `${backendUrl}/api/player/profile/me`);
+      console.log('Fetching profile data from:', '/api/player/profile/me');
 
-      // Use authClient.$fetch as primary method for better session handling
-      const authResponse = await authClient.$fetch(`${backendUrl}/api/player/profile/me`, {
-        method: 'GET',
-      });
+      const response = await axiosInstance.get('/api/player/profile/me');
 
-      console.log('Profile API response:', authResponse);
+      console.log('Profile API response:', response.data);
 
-      const data = authResponse as { data?: any };
-      if (data?.data) {
-        console.log('Setting profile data:', data.data);
-        return data.data;
+      const data = response.data;
+      if (data) {
+        console.log('Setting profile data:', data);
+        return data;
       } else {
-        console.error('No profile data received from authClient');
+        console.error('No profile data received');
         return null;
       }
     } catch (error) {
@@ -95,57 +87,33 @@ export class ProfileDataService {
     try {
       if (!session?.user?.id) return [];
 
-      const backendUrl = getBackendBaseURL();
-      console.log('Fetching match history from:', `${backendUrl}/api/player/profile/matches`);
+      console.log('Fetching match history from:', '/api/player/profile/matches');
 
-      // Use authClient's internal fetch method for proper session handling
-      const response = await authClient.$fetch(`${backendUrl}/api/player/profile/matches`, {
-        method: 'GET',
-      });
+      const response = await axiosInstance.get('/api/player/profile/matches');
 
-      console.log('Match history data received:', response);
+      console.log('Match history data received:', response.data);
 
-      const data = response as unknown as { data?: any[]; error?: { status?: number } };
-      if (data?.data) {
-        return data.data;
-      } else if (data?.error?.status === 404) {
-        console.log('No match history found for user (404) - this is normal for new users');
-        return [];
+      const data = response.data;
+      if (data) {
+        return Array.isArray(data) ? data : (data.data || []);
       } else {
         console.error('No match history data received');
         return [];
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error fetching match history:', error);
+
+      // Check for 404 status
+      if (error?.response?.status === 404) {
+        console.log('No match history found for user (404) - this is normal for new users');
+        return [];
+      }
+
       toast.error('Error', {
         description: 'Failed to load match history. Please try again.',
       });
-
-      // Fallback to regular fetch with proper headers if authClient.$fetch fails
-      try {
-        const backendUrl = getBackendBaseURL();
-        const response = await fetch(`${backendUrl}/api/player/profile/matches`, {
-          method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          credentials: 'include',
-        });
-
-        if (response.ok) {
-          const result = await response.json();
-          return result.data || [];
-        } else if (response.status === 404) {
-          console.log('No match history found (fallback 404) - normal for new users');
-          return [];
-        }
-      } catch (fallbackError) {
-        console.error('Fallback fetch also failed:', fallbackError);
-        return []; // Set empty array as final fallback
-      }
+      return [];
     }
-
-    return [];
   }
 
   /**

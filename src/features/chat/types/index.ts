@@ -65,6 +65,7 @@ export interface BackendUser {
   username?: string;
   email?: string;
   image?: string;
+  role?: string; // System role: USER, ADMIN, SUPERADMIN
 }
 
 // Backend message structure (from API responses)

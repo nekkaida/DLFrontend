@@ -1,9 +1,10 @@
+import { getBackendBaseURL } from '@/config/network';
 import { authClient } from '@/lib/auth-client';
-import { authenticatedFetch } from '@/lib/authenticated-fetch';
+import * as FileSystem from 'expo-file-system/legacy';
 import { manipulateAsync, SaveFormat } from 'expo-image-manipulator';
 import * as ImagePicker from 'expo-image-picker';
 import { useCallback, useState } from 'react';
-import { Alert, Image, Platform } from 'react-native';
+import { Alert, Image } from 'react-native';
 import { toast } from 'sonner-native';
 
 interface UseProfileImageUploadOptions {
@@ -93,8 +94,6 @@ export function useProfileImageUpload(options: UseProfileImageUploadOptions = {}
     try {
       setIsUploadingImage(true);
 
-      const formData = new FormData();
-
       // Get file extension from URI
       const fileExtension = imageUri.split('.').pop()?.toLowerCase() || 'jpg';
       const mimeTypes: { [key: string]: string } = {
@@ -106,47 +105,60 @@ export function useProfileImageUpload(options: UseProfileImageUploadOptions = {}
       };
       const mimeType = mimeTypes[fileExtension] || 'image/jpeg';
 
-      // Create file object for upload with correct extension
-      // React Native FormData expects: { uri, type, name }
-      // iOS requires file:// prefix removal, Android doesn't
-      const normalizedUri = Platform.OS === 'ios' && imageUri.startsWith('file://')
-        ? imageUri.replace('file://', '')
-        : imageUri;
+      console.log('[useProfileImageUpload] Uploading file:', { uri: imageUri, mimeType });
 
-      const file = {
-        uri: normalizedUri,
-        type: mimeType,
-        name: `profile-${Date.now()}.${fileExtension}`,
-      };
-
-      console.log('[useProfileImageUpload] File object:', file);
-
-      // TypeScript doesn't know about React Native's FormData format
-      // In RN, FormData.append accepts { uri, type, name } objects
-      formData.append('image', file as any);
-
-      console.log('[useProfileImageUpload] Sending upload request...');
-      const response = await authenticatedFetch('/api/player/profile/upload-image', {
-        method: 'POST',
-        body: formData,
-      });
-
-      console.log('[useProfileImageUpload] Response status:', response.status, response.statusText);
-
-      if (!response.ok) {
-        let errorMessage = `Upload failed with status ${response.status}`;
-        try {
-          const errorText = await response.text();
-          const errorJson = errorText ? JSON.parse(errorText) : null;
-          errorMessage = errorJson?.message || errorJson?.error || errorText || errorMessage;
-        } catch {
-          // If response is not JSON, use status text
-          errorMessage = `Upload failed: ${response.status} ${response.statusText}`;
-        }
-        throw new Error(errorMessage);
+      // Get decoded cookies for authentication
+      const cookies = authClient.getCookie();
+      let decodedCookies = '';
+      if (cookies) {
+        const rawCookies = cookies.replace(/^;\s*/, '');
+        decodedCookies = rawCookies.split('; ').map(cookie => {
+          const eqIndex = cookie.indexOf('=');
+          if (eqIndex === -1) return cookie;
+          const name = cookie.substring(0, eqIndex);
+          const value = cookie.substring(eqIndex + 1);
+          try {
+            return `${name}=${decodeURIComponent(value)}`;
+          } catch {
+            return cookie;
+          }
+        }).join('; ');
       }
 
-      const result = await response.json();
+      console.log('[useProfileImageUpload] Cookie length:', decodedCookies.length);
+
+      // Use expo-file-system uploadAsync which has native-level support
+      // This bypasses all JavaScript networking limitations with cookies
+      const backendUrl = getBackendBaseURL();
+      const uploadResult = await FileSystem.uploadAsync(
+        `${backendUrl}/api/player/profile/upload-image`,
+        imageUri,
+        {
+          httpMethod: 'POST',
+          uploadType: FileSystem.FileSystemUploadType.MULTIPART,
+          fieldName: 'image',
+          mimeType,
+          headers: {
+            'Cookie': decodedCookies,
+          },
+        }
+      );
+
+      console.log('[useProfileImageUpload] Upload response status:', uploadResult.status);
+      console.log('[useProfileImageUpload] Upload response body:', uploadResult.body);
+
+      if (uploadResult.status < 200 || uploadResult.status >= 300) {
+        try {
+          const errorData = JSON.parse(uploadResult.body);
+          throw new Error(errorData.error || errorData.message || `Upload failed with status ${uploadResult.status}`);
+        } catch (e: any) {
+          if (e.message?.includes('Upload failed')) throw e;
+          throw new Error(`Upload failed with status ${uploadResult.status}`);
+        }
+      }
+
+      const result = JSON.parse(uploadResult.body);
+      console.log('[useProfileImageUpload] Upload result:', result);
 
       // Backend returns: { success: true, data: { user: {...}, imageUrl: "url" }, message: "..." }
       let imageUrl: string | null = null;
@@ -169,17 +181,17 @@ export function useProfileImageUpload(options: UseProfileImageUploadOptions = {}
 
       onUploadSuccess?.(imageUrl);
       return imageUrl;
-    } catch (error) {
-      console.error('[useProfileImageUpload] Upload error:', error);
+    } catch (error: any) {
+      const errorMessage = error.message || 'Upload failed';
+      console.error('[useProfileImageUpload] Upload error:', errorMessage);
       console.error('[useProfileImageUpload] Error details:', {
-        message: error instanceof Error ? error.message : String(error),
-        stack: error instanceof Error ? error.stack : undefined,
+        message: errorMessage,
         imageUri,
         retryCount,
       });
 
       // Retry logic for network errors
-      if (retryCount < MAX_RETRIES && error instanceof Error && error.message.includes('Network request failed')) {
+      if (retryCount < MAX_RETRIES && error.message?.includes('Network')) {
         console.log('[useProfileImageUpload] Retrying due to network error...');
         // Wait a bit before retrying (exponential backoff)
         await new Promise(resolve => setTimeout(resolve, 1000 * (retryCount + 1)));
@@ -188,10 +200,10 @@ export function useProfileImageUpload(options: UseProfileImageUploadOptions = {}
       }
 
       toast.error('Error', {
-        description: 'Failed to upload profile picture. Please try again.',
+        description: errorMessage || 'Failed to upload profile picture. Please try again.',
       });
 
-      onUploadError?.(error instanceof Error ? error : new Error('Upload failed'));
+      onUploadError?.(new Error(errorMessage || 'Upload failed'));
       return null;
     } finally {
       setIsUploadingImage(false);

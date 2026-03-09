@@ -20,6 +20,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { router } from 'expo-router';
+import axiosInstance from '@/lib/endpoints';
 
 // Type definitions
 type IoniconName = React.ComponentProps<typeof Ionicons>['name'];
@@ -207,29 +208,20 @@ const PrivacySecuritySettings: React.FC = () => {
 
     try {
       // Make actual API call to change password
-      const { getBackendBaseURL } = await import('@/src/config/network');
-      const { authClient } = await import('@/lib/auth-client');
-
-      const backendUrl = getBackendBaseURL();
-      const response = await authClient.$fetch(`${backendUrl}/api/player/profile/password`, {
-        method: 'PUT',
-        body: JSON.stringify({
-          currentPassword: passwordForm.currentPassword,
-          newPassword: passwordForm.newPassword,
-        }),
-        headers: {
-          'Content-Type': 'application/json',
-        },
+      const response = await axiosInstance.put('/api/player/profile/password', {
+        currentPassword: passwordForm.currentPassword,
+        newPassword: passwordForm.newPassword,
+      }, {
         signal: abortControllerRef.current.signal,
       });
 
       // Check if component is still mounted before updating state
       if (!isMountedRef.current) return;
 
-      // Safe type casting with proper null checks
-      const typedResponse = response as PasswordChangeResponse | null | undefined;
+      // axiosInstance normalizes response to { success: true, data: ... }
+      const typedResponse = response?.data;
 
-      if (typedResponse?.data?.success === true) {
+      if (typedResponse?.success === true) {
         // Success feedback with haptic
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         Alert.alert(
@@ -249,7 +241,6 @@ const PrivacySecuritySettings: React.FC = () => {
         );
       } else {
         const errorMessage =
-          typedResponse?.data?.message ??
           typedResponse?.message ??
           'Failed to change password';
         throw new Error(errorMessage);

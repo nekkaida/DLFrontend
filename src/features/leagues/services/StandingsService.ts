@@ -1,5 +1,4 @@
-import { authClient } from '@/lib/auth-client';
-import { getBackendBaseURL } from '@/src/config/network';
+import axiosInstance from '@/lib/endpoints';
 
 export interface StandingEntry {
   id: string;
@@ -67,34 +66,21 @@ export class StandingsService {
    */
   static async getDivisionStandings(divisionId: string): Promise<StandingEntry[]> {
     try {
-      const backendUrl = getBackendBaseURL();
-      console.log('🔍 Fetching standings for division:', divisionId);
-      console.log('🔍 Backend URL:', `${backendUrl}/api/standings/division/${divisionId}`);
-      
-      const response = await fetch(`${backendUrl}/api/standings/division/${divisionId}`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
+      console.log('Fetching standings for division:', divisionId);
+      console.log('API URL:', `/api/standings/division/${divisionId}`);
 
-      const data = await response.json();
-      // Comment out API responses after testing to keep terminal clean
-      // console.log('🔍 Standings API response:', JSON.stringify(data, null, 2)); 
+      const response = await axiosInstance.get(`/api/standings/division/${divisionId}`);
 
+      const data = response.data;
 
       if (data && data.success && data.data) {
-        console.log('✅ Found', data.data.length, 'standings for division', divisionId);
+        console.log('Found', data.data.length, 'standings for division', divisionId);
         return data.data;
       }
 
-      // Try with auth client as fallback
-      const authResponse = await authClient.$fetch(`${backendUrl}/api/standings/division/${divisionId}`, {
-        method: 'GET',
-      });
-
-      if (authResponse && (authResponse as any).data) {
-        return (authResponse as any).data.data || (authResponse as any).data;
+      if (Array.isArray(data)) {
+        console.log('Found', data.length, 'standings for division', divisionId);
+        return data;
       }
 
       return [];
@@ -109,17 +95,10 @@ export class StandingsService {
    */
   static async getSeasonDivisionsWithStandings(seasonId: string, userId?: string): Promise<DivisionWithStandings[]> {
     try {
-      const backendUrl = getBackendBaseURL();
-      
-      // GET /api/division/season/:seasonId requires verifyAuth — use authClient to send session cookie
-      const divisionsResponse = await authClient.$fetch(`${backendUrl}/api/division/season/${seasonId}`, {
-        method: 'GET',
-      });
+      const response = await axiosInstance.get(`/api/division/season/${seasonId}`);
 
-      // authClient.$fetch wraps the response; unwrap all likely shapes
-      const wrapper = divisionsResponse as any;
-      const divisionsData = wrapper?.data ?? wrapper;
-      
+      const divisionsData = response.data;
+
       let divisions: Division[] = [];
       if (divisionsData?.success && divisionsData?.data) {
         divisions = divisionsData.data;
@@ -130,11 +109,11 @@ export class StandingsService {
       }
 
       if (!divisions.length) {
-        console.log('❌ No divisions found for season:', seasonId);
+        console.log('No divisions found for season:', seasonId);
         return [];
       }
 
-      console.log('✅ Found', divisions.length, 'divisions for season', seasonId);
+      console.log('Found', divisions.length, 'divisions for season', seasonId);
       
       // Fetch standings for each division
       const divisionsWithStandings: DivisionWithStandings[] = await Promise.all(
@@ -167,22 +146,10 @@ export class StandingsService {
    */
   static async getUserStandings(userId: string): Promise<DivisionWithStandings[]> {
     try {
-      const backendUrl = getBackendBaseURL();
+      const response = await axiosInstance.get(`/api/division/users/${userId}`);
 
-      // Fetch user's division assignments
-      const assignmentsResponse = await authClient.$fetch(`${backendUrl}/api/division/users/${userId}`, {
-        method: 'GET',
-      });
+      const assignmentsData = response.data;
 
-      // authClient.$fetch wraps response in { data: { success, data } }
-      const responseWrapper = assignmentsResponse as any;
-      const assignmentsData = responseWrapper?.data || responseWrapper;
-
-      // Comment out API responses after testing to keep terminal clean
-      // console.log('📊 StandingsService: Raw response:', JSON.stringify(responseWrapper, null, 2).substring(0, 500));
-      // console.log('📊 StandingsService: Assignments data:', JSON.stringify(assignmentsData, null, 2).substring(0, 500));
-
-      // Handle nested data structure from authClient
       let assignments: any[] = [];
       if (assignmentsData?.success && assignmentsData?.data) {
         assignments = assignmentsData.data;
@@ -193,7 +160,7 @@ export class StandingsService {
       }
 
       if (assignments.length === 0) {
-        console.log('📊 StandingsService: No division assignments found for user:', userId);
+        console.log('StandingsService: No division assignments found for user:', userId);
         return [];
       }
 
@@ -229,21 +196,19 @@ export class StandingsService {
    */
   static async getPlayerStanding(userId: string, divisionId: string): Promise<StandingEntry | null> {
     try {
-      const backendUrl = getBackendBaseURL();
-      const response = await fetch(`${backendUrl}/api/standings/${userId}/division/${divisionId}`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
+      const response = await axiosInstance.get(`/api/standings/${userId}/division/${divisionId}`);
 
-      const data = await response.json();
+      const data = response.data;
 
       if (data && data.success && data.data) {
         return data.data;
       }
 
-      return null;
+      if (data && !data.success) {
+        return null;
+      }
+
+      return data || null;
     } catch (error) {
       console.error('Error fetching player standing:', error);
       return null;

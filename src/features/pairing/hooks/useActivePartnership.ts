@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { authClient } from '@/lib/auth-client';
-import { getBackendBaseURL } from '@/config/network';
+import axiosInstance from '@/lib/endpoints';
 
 interface Partnership {
   id: string;
@@ -79,16 +78,13 @@ export const useActivePartnership = (
       setLoading(true);
       setError(null);
 
-      const backendUrl = getBackendBaseURL();
-      const url = `${backendUrl}/api/pairing/partnership/active/${seasonId}`;
+      const url = `/api/pairing/partnership/active/${seasonId}`;
       console.log('[useActivePartnership] API URL:', url);
 
-      const response = await authClient.$fetch(url, {
-        method: 'GET',
-      });
+      const response = await axiosInstance.get(url);
 
-      console.log('[useActivePartnership] API response:', response);
-      const data = (response as any)?.data?.data;
+      console.log('[useActivePartnership] API response:', response.data);
+      const data = response.data?.data;
       console.log('[useActivePartnership] Extracted data:', data);
       console.log('[useActivePartnership] Data status:', data?.status);
 

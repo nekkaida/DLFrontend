@@ -167,16 +167,58 @@ export const QuestionnaireFlow: React.FC<QuestionnaireFlowProps> = ({
 
   // Handle carousel snap to new index
   const handleSnapToItem = useCallback((index: number) => {
+    const previousIndex = carouselDisplayIndex;
     // Always track the carousel's actual displayed index
     setCarouselDisplayIndex(index);
 
-    // Only trigger onNext if user swiped forward (not programmatic or back)
-    if (!isProgrammaticNav.current && index > currentVisibleIndex) {
-      console.log(`User swiped to visible index ${index}, triggering onNext`);
-      onNextRef.current();
+    // Skip if programmatic navigation
+    if (isProgrammaticNav.current) {
+      isProgrammaticNav.current = false;
+      return;
     }
-    isProgrammaticNav.current = false;
-  }, [currentVisibleIndex]);
+
+    // User swiped forward (left swipe)
+    if (index > previousIndex) {
+      // Check if current question has an answer before allowing forward
+      const question = visibleQuestions?.[previousIndex];
+      if (question) {
+        const value = currentPageAnswers[question.key] ?? responses[question.key];
+        const hasValidAnswer = value !== undefined && value !== null && value !== '';
+
+        let canProceed = false;
+        if (question.type === 'number') {
+          if (hasValidAnswer) {
+            const numValue = typeof value === 'number' ? value : parseFloat(String(value).replace(',', '.'));
+            if (!isNaN(numValue)) {
+              // Check min/max bounds
+              const minOk = question.min_value === undefined || numValue >= question.min_value;
+              const maxOk = question.max_value === undefined || numValue <= question.max_value;
+              canProceed = minOk && maxOk;
+            }
+          } else {
+            canProceed = question.optional === true;
+          }
+        } else {
+          canProceed = hasValidAnswer;
+        }
+
+        if (canProceed) {
+          console.log(`User swiped forward to visible index ${index}, triggering onNext`);
+          onNextRef.current();
+        } else {
+          // Snap back if no answer
+          console.log('No answer selected, snapping back');
+          carouselRef.current?.scrollTo({ index: previousIndex, animated: true });
+          setCarouselDisplayIndex(previousIndex);
+        }
+      }
+    }
+    // User swiped backward (right swipe)
+    else if (index < previousIndex) {
+      console.log(`User swiped back to visible index ${index}, triggering onBack`);
+      onBack();
+    }
+  }, [carouselDisplayIndex, onBack, visibleQuestions, currentPageAnswers, responses]);
 
   // Handle last card swipe completion (called from worklet via runOnJS)
   const handleLastCardSwipe = useCallback(() => {
@@ -184,9 +226,25 @@ export const QuestionnaireFlow: React.FC<QuestionnaireFlowProps> = ({
     const question = visibleQuestions?.[carouselDisplayIndex];
     if (!question) return;
 
-    const hasAnswer = currentPageAnswers[question.key] !== undefined ||
-                     responses[question.key] !== undefined;
-    const canProceed = question.type === 'number' ? (hasAnswer || question.optional) : hasAnswer;
+    const value = currentPageAnswers[question.key] ?? responses[question.key];
+    const hasValidAnswer = value !== undefined && value !== null && value !== '';
+
+    let canProceed = false;
+    if (question.type === 'number') {
+      if (hasValidAnswer) {
+        const numValue = typeof value === 'number' ? value : parseFloat(String(value).replace(',', '.'));
+        if (!isNaN(numValue)) {
+          // Check min/max bounds
+          const minOk = question.min_value === undefined || numValue >= question.min_value;
+          const maxOk = question.max_value === undefined || numValue <= question.max_value;
+          canProceed = minOk && maxOk;
+        }
+      } else {
+        canProceed = question.optional === true;
+      }
+    } else {
+      canProceed = hasValidAnswer;
+    }
 
     if (canProceed) {
       console.log('Last card swipe detected, triggering completion');
@@ -241,13 +299,27 @@ export const QuestionnaireFlow: React.FC<QuestionnaireFlowProps> = ({
     const question = visibleQuestions?.[carouselDisplayIndex];
     if (!question) return false;
 
-    const hasAnswer = currentPageAnswers[question.key] !== undefined ||
-                     responses[question.key] !== undefined;
+    // Get the value from currentPageAnswers or responses
+    const value = currentPageAnswers[question.key] ?? responses[question.key];
+
+    // Check if we have a non-empty answer
+    const hasValidAnswer = value !== undefined && value !== null && value !== '';
 
     if (question.type === 'number') {
-      return hasAnswer || question.optional;
+      // For number inputs, validate it's a valid number within min/max range
+      if (hasValidAnswer) {
+        const numValue = typeof value === 'number' ? value : parseFloat(String(value).replace(',', '.'));
+        if (isNaN(numValue)) return false;
+
+        // Check min/max bounds
+        if (question.min_value !== undefined && numValue < question.min_value) return false;
+        if (question.max_value !== undefined && numValue > question.max_value) return false;
+
+        return true;
+      }
+      return question.optional === true;
     }
-    return hasAnswer;
+    return hasValidAnswer;
   }, [visibleQuestions, carouselDisplayIndex, currentPageAnswers, responses]);
 
   // Render individual question card
@@ -273,6 +345,7 @@ export const QuestionnaireFlow: React.FC<QuestionnaireFlowProps> = ({
                 onBack={onBack}
                 onNext={handleNext}
                 nextEnabled={isNextEnabled()}
+                showBack={carouselDisplayIndex > 0}
               />
             ) : null
           }
@@ -305,8 +378,8 @@ export const QuestionnaireFlow: React.FC<QuestionnaireFlowProps> = ({
         </Text>
       </View>
 
-      {/* Progress Bar */}
-      <QuestionProgressBar current={progress.current} total={progress.total} />
+      {/* Progress Bar - use carouselDisplayIndex for accurate display */}
+      <QuestionProgressBar current={carouselDisplayIndex + 1} total={visibleQuestions.length || progress.total} />
 
       {/* Question Cards Carousel - Uses visibleQuestions for stable animation */}
       <View style={styles.questionnaireContainer}>
@@ -339,14 +412,12 @@ export const QuestionnaireFlow: React.FC<QuestionnaireFlowProps> = ({
                 }
               });
             }}
-            // Only allow swiping forward (left swipe = next), not backward
-            fixedDirection="negative"
             customAnimation={animationStyle}
             onSnapToItem={handleSnapToItem}
             // Performance: only render nearby cards
             windowSize={3}
-            // Disable swipe when no answer selected
-            enabled={isNextEnabled()}
+            // Always enabled to allow backward swiping
+            enabled={true}
             // Scroll animation config
             scrollAnimationDuration={300}
           />

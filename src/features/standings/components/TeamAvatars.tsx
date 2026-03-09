@@ -7,13 +7,15 @@ interface TeamAvatarsProps {
   size?: number;
   overlap?: number;
   style?: ViewStyle;
+  borderColor?: string;
 }
 
 export const TeamAvatars: React.FC<TeamAvatarsProps> = ({
   players,
   size = 32,
-  overlap = 7,
+  overlap = 8,
   style,
+  borderColor = 'rgba(22, 26, 35, 1)', // Dark background color for seamless overlap
 }) => {
   if (players.length === 0) return null;
 
@@ -26,6 +28,7 @@ export const TeamAvatars: React.FC<TeamAvatarsProps> = ({
           name={players[0].name}
           size={size}
           showBorder
+          borderColor={borderColor}
         />
       </View>
     );
@@ -38,13 +41,17 @@ export const TeamAvatars: React.FC<TeamAvatarsProps> = ({
         {players.map((player, index) => (
           <View
             key={`player-${index}`}
-            style={index > 0 ? { marginLeft: -overlap } : undefined}
+            style={[
+              styles.avatarWrapper,
+              index > 0 ? { marginLeft: -overlap, zIndex: players.length - index } : { zIndex: players.length },
+            ]}
           >
             <PlayerAvatar
               image={player.image}
               name={player.name}
               size={size}
               showBorder
+              borderColor={borderColor}
             />
           </View>
         ))}
@@ -60,6 +67,14 @@ const styles = StyleSheet.create({
   avatarsRow: {
     flexDirection: 'row',
     alignItems: 'center',
+  },
+  avatarWrapper: {
+    // Shadow for depth
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 3,
+    elevation: 3,
   },
 });
 

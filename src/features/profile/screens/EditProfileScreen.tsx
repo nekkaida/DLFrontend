@@ -1,5 +1,5 @@
-import { getBackendBaseURL } from '@/config/network';
-import { authClient, useSession } from '@/lib/auth-client';
+import { useSession } from '@/lib/auth-client';
+import axiosInstance from '@/lib/endpoints';
 import { theme } from '@core/theme/theme';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
@@ -158,16 +158,14 @@ export default function EditProfileScreen() {
       }
 
       try {
-        const backendUrl = getBackendBaseURL();
-        const response = await authClient.$fetch(`${backendUrl}/api/player/profile/me`, {
-          method: 'GET',
+        const response = await axiosInstance.get('/api/player/profile/me', {
           signal,
-        }) as ProfileApiResponse;
+        });
 
         // Check if request was aborted
         if (signal.aborted) return;
 
-        if (response && response.data && response.data.data) {
+        if (response?.data?.data) {
           const profileData = response.data.data;
           const loadedData: FormData = {
             fullName: profileData.name || '',
@@ -379,27 +377,21 @@ export default function EditProfileScreen() {
     saveAbortRef.current = new AbortController();
 
     try {
-      const backendUrl = getBackendBaseURL();
-      const response = await authClient.$fetch(`${backendUrl}/api/player/profile/me`, {
-        method: 'PUT',
-        body: JSON.stringify({
-          name: formData.fullName.trim(),
-          username: formData.username.trim(),
-          email: formData.email.trim(),
-          location: formData.location.trim(),
-          image: formData.profilePicture || null,
-          phoneNumber: formData.phoneNumber.trim() || null,
-          bio: formData.bio.trim(),
-          dateOfBirth: formData.dateOfBirth || null,
-        }),
-        headers: {
-          'Content-Type': 'application/json',
-        },
+      const response = await axiosInstance.put('/api/player/profile/me', {
+        name: formData.fullName.trim(),
+        username: formData.username.trim(),
+        email: formData.email.trim(),
+        location: formData.location.trim(),
+        image: formData.profilePicture || null,
+        phoneNumber: formData.phoneNumber.trim() || null,
+        bio: formData.bio.trim(),
+        dateOfBirth: formData.dateOfBirth || null,
+      }, {
         signal: saveAbortRef.current.signal,
-      }) as { data?: ProfileUpdateResponse } | ProfileUpdateResponse;
+      });
 
-      // authClient.$fetch wraps the response: { data: { success, data, message } }
-      const apiResponse = (response?.data || response) as ProfileUpdateResponse | undefined;
+      // axiosInstance normalizes the response
+      const apiResponse = response?.data as ProfileUpdateResponse | undefined;
 
       if (apiResponse && 'success' in apiResponse && apiResponse.success && apiResponse.data) {
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);

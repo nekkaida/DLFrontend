@@ -16,7 +16,9 @@ export async function authenticatedFetch(
   const backendUrl = getBackendBaseURL();
 
   // Build headers from existing options
-  const headers: Record<string, string> = {};
+  const headers: Record<string, string> = {
+    'X-Client-Type': 'mobile', // Add mobile identifier
+  };
 
   // Preserve existing headers
   if (options.headers) {
@@ -36,8 +38,32 @@ export async function authenticatedFetch(
   // Add session cookie
   try {
     const cookies = authClient.getCookie();
+
+    if (__DEV__) {
+      console.log(`📤 authenticatedFetch [${path}]: Raw cookie length:`, cookies?.length || 0);
+      console.log(`📤 authenticatedFetch [${path}]: Has session_data:`, cookies?.includes('session_data') || false);
+    }
+
     if (cookies) {
-      headers['Cookie'] = cookies.replace(/^;\s*/, '');
+      // Cookie values from SecureStore may be URL-encoded (containing %2F, %2B, %3D etc.)
+      // Better Auth expects raw Base64 values, so we need to decode each cookie value
+      const rawCookies = cookies.replace(/^;\s*/, '');
+      const decodedCookies = rawCookies.split('; ').map(cookie => {
+        const eqIndex = cookie.indexOf('=');
+        if (eqIndex === -1) return cookie;
+        const name = cookie.substring(0, eqIndex);
+        const value = cookie.substring(eqIndex + 1);
+        try {
+          return `${name}=${decodeURIComponent(value)}`;
+        } catch {
+          return cookie; // If decoding fails, use original
+        }
+      }).join('; ');
+      headers['Cookie'] = decodedCookies;
+
+      if (__DEV__) {
+        console.log(`📤 authenticatedFetch [${path}]: Cookie header set (${decodedCookies.substring(0, 80)}...)`);
+      }
     }
 
     if (!cookies && __DEV__) {
@@ -49,8 +75,13 @@ export async function authenticatedFetch(
     }
   }
 
+  if (__DEV__) {
+    console.log(`📤 authenticatedFetch [${path}]: Final headers:`, JSON.stringify(headers, null, 2));
+  }
+
   return fetch(`${backendUrl}${path}`, {
     ...options,
     headers,
+    credentials: 'include',
   });
 }
