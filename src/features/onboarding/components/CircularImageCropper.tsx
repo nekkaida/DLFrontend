@@ -10,8 +10,12 @@ import {
   Platform,
 } from 'react-native';
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const PREVIEW_SIZE = Math.min(SCREEN_WIDTH * 0.7, 300);
+
+// Responsive helpers
+const sw = (pct: number) => SCREEN_WIDTH * (pct / 100);
+const sh = (pct: number) => SCREEN_HEIGHT * (pct / 100);
 
 interface CircularImageCropperProps {
   visible: boolean;
@@ -85,8 +89,10 @@ const styles = StyleSheet.create({
   },
   header: {
     alignItems: 'center',
-    paddingTop: Platform.select({ ios: 60, android: 40 }),
-    paddingBottom: 20,
+    paddingHorizontal: sw(5),
+    paddingTop: Platform.select({ ios: sh(3), android: sh(2) }),
+    paddingBottom: sh(1.5),
+    marginTop: sh(6),
   },
   title: {
     color: '#FFFFFF',

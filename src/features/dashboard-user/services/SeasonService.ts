@@ -264,19 +264,18 @@ static async registerForSeason(seasonId: string, userId?: string, payLater: bool
     const active: Season[] = [];
     const upcoming: Season[] = [];
     const finished: Season[] = [];
+    const now = new Date();
 
     seasons.forEach(season => {
-      switch (season.status) {
-        case 'ACTIVE':
-          active.push(season);
-          break;
-        case 'UPCOMING':
-          upcoming.push(season);
-          break;
-        case 'FINISHED':
-        case 'CANCELLED':
-          finished.push(season);
-          break;
+      // Treat any season whose endDate has passed as finished, regardless of stored status
+      const endDatePassed = season.endDate ? new Date(season.endDate) < now : false;
+
+      if (season.status === 'FINISHED' || season.status === 'CANCELLED' || endDatePassed) {
+        finished.push(season);
+      } else if (season.status === 'ACTIVE') {
+        active.push(season);
+      } else if (season.status === 'UPCOMING') {
+        upcoming.push(season);
       }
     });
 

@@ -7,8 +7,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   ActivityIndicator,
-  Dimensions,
-  AppState,
+  Linking,
 } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -28,6 +27,8 @@ import {
   verticalScale,
   moderateScale,
 } from '@/core/utils/responsive';
+import { useScreenSizes } from '@/core/utils/authScreenSizes';
+import { DeuceLogo } from '../../onboarding';
 
 // Safe haptics wrapper - handles unsupported devices gracefully
 const triggerHaptic = async (style: Haptics.ImpactFeedbackStyle = Haptics.ImpactFeedbackStyle.Light) => {
@@ -115,39 +116,16 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({
   const [usernameStatus, setUsernameStatus] = useState<'idle' | 'checking' | 'available' | 'taken'>('idle');
   const [usernameError, setUsernameError] = useState('');
 
-  // Modal states
-  const [showPrivacyPolicy, setShowPrivacyPolicy] = useState(false);
-  const [showTermsOfService, setShowTermsOfService] = useState(false);
+  // Policy agreement states
+  const [agreedToTerms, setAgreedToTerms] = useState(false);
+  const [agreedToPrivacy, setAgreedToPrivacy] = useState(false);
 
   // Debounce timers
   const emailDebounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const usernameDebounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Responsive dimensions with listeners
-  const [dimensions, setDimensions] = useState(() => {
-    const { width, height } = Dimensions.get('window');
-    return { width, height };
-  });
-
-  useEffect(() => {
-    const subscription = Dimensions.addEventListener('change', ({ window }) => {
-      setDimensions({ width: window.width, height: window.height });
-    });
-
-    const appStateSubscription = AppState.addEventListener('change', (nextAppState) => {
-      if (nextAppState === 'active') {
-        const { width, height } = Dimensions.get('window');
-        setDimensions({ width, height });
-      }
-    });
-
-    return () => {
-      subscription?.remove();
-      appStateSubscription?.remove();
-    };
-  }, []);
-
-  const { width: screenWidth, height: screenHeight } = dimensions;
+  // Responsive size tokens — breakpoints live in src/core/utils/authScreenSizes.ts
+  const { rs } = useScreenSizes();
 
   // Debounced press handler to prevent double-clicks
   const handleDebouncedPress = useCallback((callback: () => void) => {
@@ -340,6 +318,19 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({
       return;
     }
 
+    // Require both policy agreements
+    if (!agreedToTerms || !agreedToPrivacy) {
+      triggerHaptic(Haptics.ImpactFeedbackStyle.Medium);
+      toast.error('Agreement Required', {
+        description: !agreedToTerms && !agreedToPrivacy
+          ? 'Please agree to the Terms of Service and Privacy Policy to register.'
+          : !agreedToTerms
+            ? 'Please agree to the Terms of Service to register.'
+            : 'Please consent to the Privacy Policy to register.',
+      });
+      return;
+    }
+
     if (isLoading) return;
 
     try {
@@ -369,311 +360,233 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
-        <View style={[AuthStyles.screenContainer, { paddingHorizontal: scale(34) }]}>
+        <View style={[AuthStyles.screenContainer, { paddingHorizontal: rs.hPadding }]}>
 
-          {/* Decorative Package Icon */}
-          <View style={{
+        <View style={{
             position: 'absolute',
             width: scale(67),
             height: verticalScale(71),
             right: scale(34),
             top: verticalScale(80),
           }}>
-            <Svg width={scale(67)} height={verticalScale(71)} viewBox="0 0 67 71" fill="none">
-              <Defs>
-                <ClipPath id="clip0_1273_1964">
-                  <Rect width="67" height="71" fill="white"/>
-                </ClipPath>
-              </Defs>
-              <G clipPath="url(#clip0_1273_1964)">
-                <Path d="M66.9952 35.2153C66.9769 35.9135 66.9083 36.6208 66.7848 37.3281C64.9275 48.0714 50.9017 59.5725 19.7851 70.9404C18.9983 71.2252 18.2846 70.5086 18.4676 69.6911C23.399 47.3457 22.7586 14.6934 18.1382 1.29534C17.8729 0.537481 18.646 -0.19282 19.4145 0.0506138C47.9694 9.11738 67.3521 21.482 66.9952 35.2153Z" fill="#44A7DE"/>
-                <Path d="M20.6226 35.2153V37.3282H21.1303V35.2153H20.6226Z" stroke="#ED2124" strokeMiterlimit="10"/>
-                <Path d="M22.3879 8.15321C21.6972 7.8271 20.9973 7.50558 20.2836 7.18866C14.5973 4.6303 8.22489 2.24649 1.31263 0.0509927C0.548666 -0.192441 -0.1787 0.519488 0.0363074 1.29572C6.46823 24.6929 7.2139 47.4425 0.365681 69.6914C0.118651 70.4906 0.900912 71.2255 1.68317 70.9408C8.74182 68.3595 14.9267 65.7735 20.2836 63.1876C21.0018 62.8477 21.7017 62.4987 22.3879 62.1542C39.2088 53.7029 47.3059 45.3067 48.6875 37.3285C48.811 36.6212 48.8796 35.9138 48.8979 35.2157C49.1587 25.2211 38.9664 15.9523 22.3879 8.15321ZM22.3879 46.8408C21.9808 47.0108 21.5599 47.1761 21.1299 47.3461V37.3285H20.6221V35.2157H21.1299V24.8812C21.5599 25.0879 21.9762 25.2946 22.3879 25.5013C28.7878 28.7119 33.0377 31.9454 34.0349 35.2157C34.25 35.9184 34.3186 36.6212 34.2179 37.3285C33.7879 40.461 30.1694 43.6348 22.3879 46.8408Z" fill="#195E9A"/>
-                <Path d="M34.0349 35.2148C34.2499 35.9176 34.3185 36.6203 34.2179 37.3277H20.6221V35.2148H34.0349Z" fill="white"/>
-                <Path d="M66.9952 35.2148C66.9769 35.913 66.9082 36.6203 66.7847 37.3277H48.6875C48.811 36.6203 48.8796 35.913 48.8979 35.2148H66.9952Z" fill="white"/>
-                <Path d="M22.388 8.15254V62.1535C21.7018 62.498 21.0019 62.8471 20.2837 63.187V7.18799C20.9973 7.50491 21.6973 7.82643 22.388 8.15254Z" fill="white"/>
-              </G>
-            </Svg>
+            <DeuceLogo width={scale(67)} height={verticalScale(71)}/> 
           </View>
 
           {/* Content Section */}
           <View style={{
             flex: 1,
             marginTop: verticalScale(120),
-            gap: verticalScale(20)
+            gap: rs.sectionGap,
           }}>
-
+      
             {/* Header Title */}
-            <Text style={{
-              fontFamily: 'Inter',
-              fontWeight: '700',
-              fontSize: moderateScale(30),
-              lineHeight: moderateScale(38),
-              color: '#000000'
+            <View style={{
             }}>
-              <Text style={{ color: 'black' }}>Hello.{'\n'}</Text>
-              <Text style={{ color: AuthColors.primary }}>Join our leagues.</Text>
-            </Text>
+              <Text style={{
+                fontFamily: 'Inter',
+                fontWeight: '700',
+                fontSize: rs.headerFontSize,
+                lineHeight: rs.headerLineHeight,
+              }}>
+                <Text style={{ color: 'black '}}>Hello!{'\n'}</Text>
+                <Text style={{ color: AuthColors.primary}}>Join our leagues.</Text>
+              </Text>
+            </View>
 
             {/* Input Section */}
-            <View style={{ gap: verticalScale(16) }}>
-            {/* Email Input */}
-            <InputField
-              label="Email"
-              placeholder="yourname@gmail.com"
-              value={email}
-              onChangeText={handleEmailChange}
-              icon="mail"
-              keyboardType="email-address"
-              validationStatus={emailStatus}
-              validationError={emailError}
-            />
-
-            {/* Username Input */}
-            <InputField
-              label="Username"
-              placeholder="Choose a username"
-              value={username}
-              onChangeText={handleUsernameChange}
-              icon="user"
-              validationStatus={usernameStatus}
-              validationError={usernameError}
-            />
-
-            {/* Password Input */}
-            <View>
+            <View style={{ gap: rs.inputGap }}>
+              {/* Email Input */}
               <InputField
-                label="Password"
-                placeholder="Create a password"
-                value={password}
-                onChangeText={handlePasswordChange}
-                icon="lock"
-                secureTextEntry={!showPassword}
-                showEyeIcon
-                onEyePress={() => setShowPassword(!showPassword)}
+                label="Email"
+                placeholder="yourname@gmail.com"
+                value={email}
+                onChangeText={handleEmailChange}
+                icon="mail"
+                keyboardType="email-address"
+                validationStatus={emailStatus}
+                validationError={emailError}
               />
 
-              {/* Password Validation Feedback */}
-              {password.length > 0 && (
-                <View style={{ marginTop: verticalScale(8), gap: verticalScale(4) }}>
-                  {/* Error Message */}
-                  {passwordError && (
-                    <Text style={{
-                      fontFamily: 'Inter',
-                      fontSize: moderateScale(12),
-                      lineHeight: moderateScale(16),
-                      color: '#EF4444',
-                      fontWeight: '500',
-                    }}>
-                      {passwordError}
-                    </Text>
-                  )}
+              {/* Username Input */}
+              <InputField
+                label="Username"
+                placeholder="Choose a username"
+                value={username}
+                onChangeText={handleUsernameChange}
+                icon="user"
+                validationStatus={usernameStatus}
+                validationError={usernameError}
+              />
 
-                  {/* Password Strength Indicator */}
-                  {passwordStrength && (
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: scale(6) }}>
-                      <View style={{
-                        flexDirection: 'row',
-                        gap: scale(4),
-                        flex: 1,
+              {/* Password Input */}
+              <View>
+                <InputField
+                  label="Password"
+                  placeholder="Create a password"
+                  value={password}
+                  onChangeText={handlePasswordChange}
+                  icon="lock"
+                  secureTextEntry={!showPassword}
+                  showEyeIcon
+                  onEyePress={() => setShowPassword(!showPassword)}
+                />
+
+                {/* Password Validation Feedback */}
+                {password.length > 0 && (
+                  <View style={{ marginTop: verticalScale(6), gap: verticalScale(3) }}>
+                    {passwordError && (
+                      <Text style={{
+                        fontFamily: 'Inter',
+                        fontSize: moderateScale(11),
+                        lineHeight: moderateScale(15),
+                        color: '#EF4444',
+                        fontWeight: '500',
                       }}>
-                        <View style={{
-                          flex: 1,
-                          height: verticalScale(4),
-                          borderRadius: moderateScale(2),
-                          backgroundColor: passwordStrength === 'weak' ? '#EF4444' :
-                                         passwordStrength === 'medium' ? '#F59E0B' : '#10B981',
-                        }} />
-                        <View style={{
-                          flex: 1,
-                          height: verticalScale(4),
-                          borderRadius: moderateScale(2),
-                          backgroundColor: passwordStrength === 'medium' || passwordStrength === 'strong' ?
-                                         (passwordStrength === 'medium' ? '#F59E0B' : '#10B981') : '#E5E7EB',
-                        }} />
-                        <View style={{
-                          flex: 1,
-                          height: verticalScale(4),
-                          borderRadius: moderateScale(2),
-                          backgroundColor: passwordStrength === 'strong' ? '#10B981' : '#E5E7EB',
-                        }} />
+                        {passwordError}
+                      </Text>
+                    )}
+
+                    {passwordStrength && (
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: scale(6) }}>
+                        <View style={{ flexDirection: 'row', gap: scale(4), flex: 1 }}>
+                          <View style={{
+                            flex: 1,
+                            height: verticalScale(3),
+                            borderRadius: moderateScale(2),
+                            backgroundColor: passwordStrength === 'weak' ? '#EF4444' :
+                                             passwordStrength === 'medium' ? '#F59E0B' : '#10B981',
+                          }} />
+                          <View style={{
+                            flex: 1,
+                            height: verticalScale(3),
+                            borderRadius: moderateScale(2),
+                            backgroundColor: passwordStrength === 'medium' || passwordStrength === 'strong' ?
+                                             (passwordStrength === 'medium' ? '#F59E0B' : '#10B981') : '#E5E7EB',
+                          }} />
+                          <View style={{
+                            flex: 1,
+                            height: verticalScale(3),
+                            borderRadius: moderateScale(2),
+                            backgroundColor: passwordStrength === 'strong' ? '#10B981' : '#E5E7EB',
+                          }} />
+                        </View>
+                        <Text style={{
+                          fontFamily: 'Inter',
+                          fontSize: moderateScale(11),
+                          lineHeight: moderateScale(15),
+                          fontWeight: '600',
+                          color: passwordStrength === 'weak' ? '#EF4444' :
+                                 passwordStrength === 'medium' ? '#F59E0B' : '#10B981',
+                        }}>
+                          {passwordStrength === 'weak' ? 'Weak' :
+                           passwordStrength === 'medium' ? 'Medium' : 'Strong'}
+                        </Text>
                       </View>
-                      <Text style={{
-                        fontFamily: 'Inter',
-                        fontSize: moderateScale(12),
-                        lineHeight: moderateScale(16),
-                        fontWeight: '600',
-                        color: passwordStrength === 'weak' ? '#EF4444' :
-                               passwordStrength === 'medium' ? '#F59E0B' : '#10B981',
-                      }}>
-                        {passwordStrength === 'weak' ? 'Weak' :
-                         passwordStrength === 'medium' ? 'Medium' : 'Strong'}
-                      </Text>
-                    </View>
-                  )}
+                    )}
+                  </View>
+                )}
+              </View>
+            </View>
 
-                  {/* Password Requirements */}
-                  {!passwordError && password.length > 0 && password.length < 8 && (
-                    <View style={{ gap: verticalScale(2), marginTop: verticalScale(4) }}>
-                      <Text style={{
-                        fontFamily: 'Inter',
-                        fontSize: moderateScale(11),
-                        lineHeight: moderateScale(14),
-                        color: '#6C7278',
-                      }}>
-                        Password must contain:
-                      </Text>
-                      <Text style={{
-                        fontFamily: 'Inter',
-                        fontSize: moderateScale(11),
-                        lineHeight: moderateScale(14),
-                        color: '#6C7278',
-                      }}>
-                        - At least 8 characters
-                      </Text>
-                      <Text style={{
-                        fontFamily: 'Inter',
-                        fontSize: moderateScale(11),
-                        lineHeight: moderateScale(14),
-                        color: '#6C7278',
-                      }}>
-                        - Uppercase and lowercase letters
-                      </Text>
-                      <Text style={{
-                        fontFamily: 'Inter',
-                        fontSize: moderateScale(11),
-                        lineHeight: moderateScale(14),
-                        color: '#6C7278',
-                      }}>
-                        - At least one number
-                      </Text>
-                      <Text style={{
-                        fontFamily: 'Inter',
-                        fontSize: moderateScale(11),
-                        lineHeight: moderateScale(14),
-                        color: '#6C7278',
-                      }}>
-                        - Special character for strong password (optional)
-                      </Text>
-                    </View>
+            {/* Policy Agreement Section */}
+            <View style={{ gap: rs.policyGap }}>
+              <Text style={{
+                fontFamily: 'Inter',
+                fontWeight: '500',
+                fontSize: rs.policyFontSize,
+                lineHeight: rs.policyLineHeight,
+                color: '#6C7278',
+              }}>
+                Please review and agree to the following to create your account:
+              </Text>
+
+              {/* Terms of Service Row */}
+              <TouchableOpacity
+                onPress={() => setAgreedToTerms(!agreedToTerms)}
+                style={{ flexDirection: 'row', alignItems: 'flex-start', gap: scale(8) }}
+                accessibilityRole="checkbox"
+                accessibilityState={{ checked: agreedToTerms }}
+                accessibilityLabel="Agree to Terms of Service"
+              >
+                <View style={{
+                  width: rs.checkboxSize,
+                  height: rs.checkboxSize,
+                  borderRadius: moderateScale(4),
+                  borderWidth: 2,
+                  borderColor: agreedToTerms ? AuthColors.primary : '#C5C5C5',
+                  backgroundColor: agreedToTerms ? AuthColors.primary : 'transparent',
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                  marginTop: verticalScale(1),
+                  flexShrink: 0,
+                }}>
+                  {agreedToTerms && (
+                    <Svg width={scale(10)} height={scale(10)} viewBox="0 0 12 12" fill="none">
+                      <Path d="M2 6L5 9L10 3" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                    </Svg>
                   )}
                 </View>
-              )}
-            </View>
-            </View>
+                <Text style={{
+                  fontFamily: 'Inter',
+                  fontWeight: '400',
+                  fontSize: rs.policyFontSize,
+                  lineHeight: rs.policyLineHeight,
+                  color: '#404040',
+                  flex: 1,
+                }}>
+                  {'I have read and agree to the '}
+                  <Text
+                    onPress={() => Linking.openURL('https://deuceleague.com/terms-of-service')}
+                    style={{ color: '#4DABFE', fontWeight: '600', textDecorationLine: 'underline' }}
+                  >
+                    Terms of Service
+                  </Text>
+                </Text>
+              </TouchableOpacity>
 
-            {/* Terms and Conditions */}
-            <View style={{
-              flexDirection: 'row',
-              alignItems: 'center',
-              padding: 0,
-              flexWrap: 'wrap'
-            }}>
-              <Text style={{
-                fontFamily: 'Inter',
-                fontStyle: 'normal',
-                fontWeight: '500',
-                fontSize: moderateScale(12),
-                lineHeight: moderateScale(16),
-                letterSpacing: -0.01,
-                color: '#6C7278',
-              }}>
-                By clicking the{' '}
-              </Text>
-              <Text style={{
-                fontFamily: 'Inter',
-                fontStyle: 'normal',
-                fontWeight: '600',
-                fontSize: moderateScale(12),
-                lineHeight: moderateScale(16),
-                letterSpacing: -0.01,
-                color: AuthColors.primary,
-              }}>
-                Register
-              </Text>
-              <Text style={{
-                fontFamily: 'Inter',
-                fontStyle: 'normal',
-                fontWeight: '500',
-                fontSize: moderateScale(12),
-                lineHeight: moderateScale(16),
-                letterSpacing: -0.01,
-                color: '#6C7278',
-              }}>
-                {' '}button, you agree to our{' '}
-              </Text>
+              {/* Privacy Policy Row */}
               <TouchableOpacity
-                onPress={() => handleDebouncedPress(() => setShowPrivacyPolicy(true))}
-                style={{
-                  paddingTop: verticalScale(0.5),
-                  paddingBottom: verticalScale(0.5),
-                  paddingHorizontal: scale(1),
-                  borderBottomWidth: 1,
-                  borderBottomColor: '#4DABFE',
-                }}
-                accessibilityLabel="Privacy policy"
-                accessibilityRole="button"
-                accessibilityHint="Opens the privacy policy"
+                onPress={() => setAgreedToPrivacy(!agreedToPrivacy)}
+                style={{ flexDirection: 'row', alignItems: 'flex-start', gap: scale(8) }}
+                accessibilityRole="checkbox"
+                accessibilityState={{ checked: agreedToPrivacy }}
+                accessibilityLabel="Agree to Privacy Policy"
               >
+                <View style={{
+                  width: rs.checkboxSize,
+                  height: rs.checkboxSize,
+                  borderRadius: moderateScale(4),
+                  borderWidth: 2,
+                  borderColor: agreedToPrivacy ? AuthColors.primary : '#C5C5C5',
+                  backgroundColor: agreedToPrivacy ? AuthColors.primary : 'transparent',
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                  marginTop: verticalScale(1),
+                  flexShrink: 0,
+                }}>
+                  {agreedToPrivacy && (
+                    <Svg width={scale(10)} height={scale(10)} viewBox="0 0 12 12" fill="none">
+                      <Path d="M2 6L5 9L10 3" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                    </Svg>
+                  )}
+                </View>
                 <Text style={{
                   fontFamily: 'Inter',
-                  fontStyle: 'normal',
-                  fontWeight: '500',
-                  fontSize: moderateScale(12),
-                  lineHeight: moderateScale(16),
-                  letterSpacing: -0.01,
-                  color: '#4DABFE',
+                  fontWeight: '400',
+                  fontSize: rs.policyFontSize,
+                  lineHeight: rs.policyLineHeight,
+                  color: '#404040',
+                  flex: 1,
                 }}>
-                  privacy policy
+                  {'I consent to the collection and processing of my personal data as described in the '}
+                  <Text
+                    onPress={() => Linking.openURL('https://deuceleague.com/privacy-policy')}
+                    style={{ color: '#4DABFE', fontWeight: '600', textDecorationLine: 'underline' }}
+                  >
+                    Privacy Policy
+                  </Text>
                 </Text>
               </TouchableOpacity>
-              <Text style={{
-                fontFamily: 'Inter',
-                fontStyle: 'normal',
-                fontWeight: '500',
-                fontSize: moderateScale(12),
-                lineHeight: moderateScale(16),
-                letterSpacing: -0.01,
-                color: '#6C7278',
-              }}>
-                {' '}and{' '}
-              </Text>
-              <TouchableOpacity
-                onPress={() => handleDebouncedPress(() => setShowTermsOfService(true))}
-                style={{
-                  paddingTop: verticalScale(1),
-                  paddingBottom: verticalScale(1),
-                  paddingHorizontal: scale(2),
-                  borderBottomWidth: 1,
-                  borderBottomColor: '#4DABFE',
-                }}
-                accessibilityLabel="Terms of service"
-                accessibilityRole="button"
-                accessibilityHint="Opens the terms of service"
-              >
-                <Text style={{
-                  fontFamily: 'Inter',
-                  fontStyle: 'normal',
-                  fontWeight: '500',
-                  fontSize: moderateScale(12),
-                  lineHeight: moderateScale(16),
-                  letterSpacing: -0.01,
-                  color: '#4DABFE',
-                }}>
-                  terms of service
-                </Text>
-              </TouchableOpacity>
-              <Text style={{
-                fontFamily: 'Inter',
-                fontStyle: 'normal',
-                fontWeight: '500',
-                fontSize: moderateScale(12),
-                lineHeight: moderateScale(16),
-                letterSpacing: -0.01,
-                color: '#6C7278',
-              }}>
-                .
-              </Text>
             </View>
 
             {/* Sign Up Button with Arrow */}
@@ -682,14 +595,12 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({
               justifyContent: 'space-between',
               alignItems: 'center',
               width: '100%',
-              marginTop: verticalScale(16),
+              // marginTop: rs.signUpRowMarginTop,
             }}>
               <Text style={{
                 fontFamily: 'Inter',
-                fontStyle: 'normal',
                 fontWeight: '600',
-                fontSize: moderateScale(22),
-                lineHeight: moderateScale(28),
+                fontSize: rs.signUpFontSize,
                 letterSpacing: -0.01,
                 color: '#000000',
               }}>
@@ -699,9 +610,9 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({
                 onPress={handleSignUp}
                 disabled={isLoading}
                 style={{
-                  width: scale(56),
-                  height: scale(56),
-                  borderRadius: moderateScale(28),
+                  width: rs.btnSize,
+                  height: rs.btnSize,
+                  borderRadius: rs.btnSize / 2,
                   justifyContent: 'center',
                   alignItems: 'center',
                   shadowColor: AuthColors.primary,
@@ -720,9 +631,9 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 1 }}
                   style={{
-                    width: scale(56),
-                    height: scale(56),
-                    borderRadius: moderateScale(28),
+                    width: rs.btnSize,
+                    height: rs.btnSize,
+                    borderRadius: rs.btnSize / 2,
                     justifyContent: 'center',
                     alignItems: 'center',
                   }}
@@ -730,7 +641,7 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({
                   {isLoading ? (
                     <ActivityIndicator size="small" color="white" />
                   ) : (
-                    <Svg width={moderateScale(42)} height={moderateScale(42)} viewBox="0 0 42 42" fill="none">
+                    <Svg width={moderateScale(36)} height={moderateScale(36)} viewBox="0 0 42 42" fill="none">
                       <Path d="M8.75 21H33.25M33.25 21L26.25 28M33.25 21L26.25 14" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
                     </Svg>
                   )}
@@ -743,10 +654,10 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({
               textAlign: 'center',
               fontFamily: 'Inter',
               fontWeight: '500',
-              fontSize: moderateScale(11),
-              lineHeight: moderateScale(16),
+              fontSize: rs.labelFontSize,
+              lineHeight: moderateScale(15),
               letterSpacing: -0.01,
-              color: '#404040'
+              color: '#404040',
             }}>or sign up with</Text>
 
             {/* Social Sign Up Buttons */}
@@ -754,7 +665,7 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({
               flexDirection: 'row',
               justifyContent: 'center',
               alignItems: 'center',
-              gap: scale(6)
+              gap: rs.socialGap,
             }}>
               <SocialButton
                 type="apple"
@@ -771,21 +682,21 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({
               flexDirection: 'row',
               justifyContent: 'center',
               alignItems: 'center',
-              gap: scale(6)
+              gap: scale(4),
+              paddingBottom: verticalScale(14),
             }}>
               <Text style={{
                 fontFamily: 'Inter',
                 fontWeight: '500',
-                fontSize: moderateScale(14),
-                lineHeight: moderateScale(22),
+                fontSize: rs.loginFontSize,
+                lineHeight: rs.loginLineHeight,
                 letterSpacing: -0.01,
                 color: '#404040',
               }}>Already have an account?</Text>
               <TouchableOpacity
                 onPress={() => handleDebouncedPress(onLogin)}
                 style={{
-                  paddingTop: verticalScale(2),
-                  paddingBottom: verticalScale(2),
+                  paddingVertical: verticalScale(2),
                   paddingHorizontal: scale(3),
                   borderBottomWidth: 1,
                   borderBottomColor: AuthColors.primary,
@@ -797,8 +708,8 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({
                 <Text style={{
                   fontFamily: 'Inter',
                   fontWeight: '600',
-                  fontSize: moderateScale(14),
-                  lineHeight: moderateScale(22),
+                  fontSize: rs.loginFontSize,
+                  lineHeight: rs.loginLineHeight,
                   letterSpacing: -0.01,
                   color: AuthColors.primary,
                 }}>Log in</Text>
@@ -809,15 +720,6 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({
         </View>
       </ScrollView>
 
-      {/* Legal Modals */}
-      <PrivacyPolicyModal
-        visible={showPrivacyPolicy}
-        onClose={() => setShowPrivacyPolicy(false)}
-      />
-      <TermsOfServiceModal
-        visible={showTermsOfService}
-        onClose={() => setShowTermsOfService(false)}
-      />
     </KeyboardAvoidingView>
   );
 };
