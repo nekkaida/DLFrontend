@@ -1,5 +1,4 @@
-import { authClient } from '@/lib/auth-client';
-import { getBackendBaseURL } from '@/src/config/network';
+import axiosInstance from '@/lib/endpoints';
 
 export interface FiuuCheckoutParams {
   paymentUrl: string;
@@ -18,25 +17,19 @@ export interface FiuuCheckoutResponse {
 
 export class FiuuPaymentService {
   static async createCheckout(seasonId: string, userId: string): Promise<FiuuCheckoutResponse> {
-    const backendUrl = getBackendBaseURL();
-
-    const response = await authClient.$fetch(`${backendUrl}/api/payments/fiuu/checkout`, {
-      method: 'POST',
-      body: {
-        seasonId,
-        userId,
-      },
+    const response = await axiosInstance.post('/api/payments/fiuu/checkout', {
+      seasonId,
+      userId,
     });
 
-    const payload = response as any;
+    const payload = response.data as any;
 
-    const maybeData = payload?.data?.data ?? payload?.data ?? payload;
+    const maybeData = payload?.data ?? payload;
     const checkout = maybeData?.checkout;
 
     if (!checkout) {
       const messageCandidate =
         maybeData?.message ??
-        payload?.data?.message ??
         payload?.message ??
         payload?.error?.message ??
         payload?.error;
@@ -56,7 +49,7 @@ export class FiuuPaymentService {
       amount: maybeData.amount,
       currency: maybeData.currency,
       checkout,
-      message: payload?.message ?? maybeData?.message,
+      message: maybeData?.message,
     };
   }
 }

@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
-import { useSession, authClient } from '@/lib/auth-client';
-import { getBackendBaseURL } from '@/config/network';
+import { useSession } from '@/lib/auth-client';
+import axiosInstance from '@/lib/endpoints';
 import { toast } from 'sonner-native';
 import { Friend, FriendRequestsData } from '../types';
 
@@ -16,13 +16,10 @@ export const useFriends = () => {
         return;
       }
 
-      const backendUrl = getBackendBaseURL();
-      const authResponse = await authClient.$fetch(`${backendUrl}/api/pairing/friends`, {
-        method: 'GET',
-      });
+      const response = await axiosInstance.get('/api/pairing/friends');
 
-      if (authResponse && (authResponse as any).data) {
-        const friendsData = (authResponse as any).data.data || (authResponse as any).data;
+      if (response.data) {
+        const friendsData = response.data.data || response.data;
         setFriends(friendsData);
       }
     } catch (error) {
@@ -36,13 +33,10 @@ export const useFriends = () => {
         return;
       }
 
-      const backendUrl = getBackendBaseURL();
-      const authResponse = await authClient.$fetch(`${backendUrl}/api/pairing/friendship/requests`, {
-        method: 'GET',
-      });
+      const response = await axiosInstance.get('/api/pairing/friendship/requests');
 
-      if (authResponse && (authResponse as any).data) {
-        const requestsData = (authResponse as any).data.data || (authResponse as any).data;
+      if (response.data) {
+        const requestsData = response.data.data || response.data;
         setFriendRequests(requestsData);
       }
     } catch (error) {
@@ -56,14 +50,9 @@ export const useFriends = () => {
         return;
       }
 
-      const backendUrl = getBackendBaseURL();
-      const response = await authClient.$fetch(`${backendUrl}/api/pairing/friendship/request`, {
-        method: 'POST',
-        body: { recipientId },
-      });
+      const response = await axiosInstance.post('/api/pairing/friendship/request', { recipientId });
 
-      const responseData = (response as any).data || response;
-      if (responseData && responseData.message) {
+      if (response.data?.message) {
         toast.success('Success', {
           id: `friend-request-sent-${recipientId}`,
           description: 'Friend request sent!',
@@ -84,16 +73,11 @@ export const useFriends = () => {
     try {
       setActionLoading(friendshipId);
 
-      const backendUrl = getBackendBaseURL();
-      const response = await authClient.$fetch(
-        `${backendUrl}/api/pairing/friendship/${friendshipId}/accept`,
-        {
-          method: 'POST',
-        }
+      const response = await axiosInstance.post(
+        `/api/pairing/friendship/${friendshipId}/accept`
       );
 
-      const responseData = (response as any).data || response;
-      if (responseData && responseData.message) {
+      if (response.data?.message) {
         toast.success('Success', {
           id: `friend-request-accepted-${friendshipId}`,
           description: 'Friend request accepted!',
@@ -116,16 +100,11 @@ export const useFriends = () => {
     try {
       setActionLoading(friendshipId);
 
-      const backendUrl = getBackendBaseURL();
-      const response = await authClient.$fetch(
-        `${backendUrl}/api/pairing/friendship/${friendshipId}/reject`,
-        {
-          method: 'POST',
-        }
+      const response = await axiosInstance.post(
+        `/api/pairing/friendship/${friendshipId}/reject`
       );
 
-      const responseData = (response as any).data || response;
-      if (responseData && responseData.message) {
+      if (response.data?.message) {
         toast.success('Request rejected', {
           id: `friend-request-rejected-${friendshipId}`,
         });
@@ -146,16 +125,11 @@ export const useFriends = () => {
     try {
       setActionLoading(friendshipId);
 
-      const backendUrl = getBackendBaseURL();
-      const response = await authClient.$fetch(
-        `${backendUrl}/api/pairing/friendship/${friendshipId}`,
-        {
-          method: 'DELETE',
-        }
+      const response = await axiosInstance.delete(
+        `/api/pairing/friendship/${friendshipId}`
       );
 
-      const responseData = (response as any).data || response;
-      if (responseData && responseData.message) {
+      if (response.data?.message) {
         toast.success('Friend removed', {
           id: `friend-removed-${friendshipId}`,
         });

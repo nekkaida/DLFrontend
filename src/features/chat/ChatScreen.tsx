@@ -1,6 +1,6 @@
-import { getBackendBaseURL } from "@/config/network";
 import { moderateScale, scale, verticalScale } from "@/core/utils/responsive";
-import { authClient, useSession } from "@/lib/auth-client";
+import { useSession } from "@/lib/auth-client";
+import axiosInstance from "@/lib/endpoints";
 import { NavBar } from "@/shared/components/layout";
 import { AnimatedFilterChip } from "@/shared/components/ui/AnimatedFilterChip";
 import { SegmentedControl } from "@/shared/components/ui/SegmentedControl";
@@ -219,31 +219,23 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
       }
       profileFetchAbortRef.current = new AbortController();
 
-      const backendUrl = getBackendBaseURL();
-      chatLogger.debug(
-        "Fetching profile data from:",
-        `${backendUrl}/api/player/profile/me`,
-      );
+      chatLogger.debug("Fetching profile data from:", "/api/player/profile/me");
 
-      const authResponse = (await authClient.$fetch(
-        `${backendUrl}/api/player/profile/me`,
-        {
-          method: "GET",
-          signal: profileFetchAbortRef.current.signal,
-        },
-      )) as AuthResponse | null;
+      const response = await axiosInstance.get("/api/player/profile/me", {
+        signal: profileFetchAbortRef.current.signal,
+      });
 
       // Check if still mounted before updating state
       if (!isMountedRef.current) return;
 
-      if (authResponse?.data?.data) {
-        chatLogger.debug("Setting profile data:", authResponse.data.data);
-        setProfileData(authResponse.data.data);
-      } else if (authResponse?.data) {
-        chatLogger.debug("Setting profile data (direct):", authResponse.data);
-        setProfileData(authResponse.data as ProfileData);
+      if (response?.data?.data) {
+        chatLogger.debug("Setting profile data:", response.data.data);
+        setProfileData(response.data.data);
+      } else if (response?.data) {
+        chatLogger.debug("Setting profile data (direct):", response.data);
+        setProfileData(response.data as ProfileData);
       } else {
-        chatLogger.error("No profile data received from authClient");
+        chatLogger.error("No profile data received");
       }
     } catch (error: unknown) {
       // Ignore abort errors

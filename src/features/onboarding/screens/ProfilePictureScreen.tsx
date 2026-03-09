@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { useRouter } from 'expo-router';
 
 import {
@@ -16,8 +16,8 @@ import { Svg, Path, G, Circle, Rect, Defs, ClipPath } from 'react-native-svg';
 import { CircularImageCropper } from '../components';
 import { LinearGradient } from 'expo-linear-gradient';
 import { toast } from 'sonner-native';
-import { useSession, authClient } from '@/lib/auth-client';
-import { getBackendBaseURL } from '@/config/network';
+import { useSession } from '@/lib/auth-client';
+import axiosInstance from '@/lib/endpoints';
 import { questionnaireAPI } from '../services/api';
 import * as Haptics from 'expo-haptics';
 import AllSetArrowIcon from '../../../../assets/icons/allset-arrow.svg';
@@ -74,6 +74,14 @@ const ProfilePictureScreen = () => {
     },
   });
 
+  // Load existing profile image from session on mount
+  useEffect(() => {
+    if (session?.user?.image && !profileImage) {
+      setProfileImage(session.user.image);
+      setHadUploadedImage(true);
+    }
+  }, [session?.user?.image, profileImage, setProfileImage]);
+
   // Responsive sizes
   const imageSize = getResponsiveValue({
     smallPhone: 200,
@@ -117,14 +125,7 @@ const ProfilePictureScreen = () => {
         // If user had uploaded an image before clicking skip, delete it from backend
         if (hadUploadedImage && session?.user?.id) {
           try {
-            const backendUrl = getBackendBaseURL();
-            await authClient.$fetch(`${backendUrl}/api/player/profile/me`, {
-              method: 'PUT',
-              body: JSON.stringify({ image: null }),
-              headers: {
-                'Content-Type': 'application/json',
-              },
-            });
+            await axiosInstance.put('/api/player/profile/me', { image: null });
           } catch {
             // Show error to user but allow them to continue
             toast.error('Warning', {

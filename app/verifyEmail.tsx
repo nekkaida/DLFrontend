@@ -148,14 +148,24 @@ export default function VerifyEmailScreen() {
         // Stop animation before navigation
         blinkAnimationRef.current?.stop();
 
-        // Navigate immediately after successful verification.
-        // The Expo client plugin stores the session cookie in SecureStore
-        // automatically — no need to poll getSession().
-        // IMPORTANT: Do NOT use getSession() here — it calls the backend
-        // and sets the session atom to null on any failure, which would
-        // log the user out during a transient network hiccup.
-        if (__DEV__) console.log('Email verified, marking as logged in and navigating to onboarding');
+        // After email verification with autoSignInAfterVerification: true,
+        // Better Auth creates a new session. Give the expo client plugin
+        // time to store the session cookie in SecureStore before navigating.
+        // This prevents race conditions where the app tries to authenticate
+        // before the cookie is fully persisted.
+        if (__DEV__) console.log('Email verified, waiting for session to sync...');
+
+        // Small delay to allow session cookie to be stored
+        await new Promise(resolve => setTimeout(resolve, 500));
+
+        // Verify the session cookie is available before navigating
+        const cookies = authClient.getCookie();
+        if (__DEV__) {
+          console.log('Session cookie available:', !!cookies);
+        }
+
         await AuthStorage.markLoggedIn();
+        if (__DEV__) console.log('Navigating to onboarding...');
         router.replace('/onboarding/personal-info');
       }
     } catch (err) {

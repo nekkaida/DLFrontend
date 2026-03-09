@@ -46,6 +46,8 @@ interface MatchInfoModalProps {
   creatorName: string;
   /** Used to display the match creator's avatar */
   creatorImage?: string | null;
+  /** Creator's user ID - used to filter them from participants list */
+  creatorId?: string;
   formattedDate: string;
   formattedTime: string;
   formattedEndTime: string;
@@ -59,6 +61,7 @@ export const MatchInfoModal: React.FC<MatchInfoModalProps> = memo(({
   matchData,
   creatorName,
   creatorImage,
+  creatorId,
   formattedDate,
   formattedTime,
   formattedEndTime,
@@ -171,10 +174,20 @@ export const MatchInfoModal: React.FC<MatchInfoModalProps> = memo(({
                 {creatorName || 'Unknown'}
               </Text>
             </View>
-            {/* Other participants (excluding creator) */}
+            {/* Other participants (excluding creator by userId to avoid duplicates) */}
             {matchData.participants
-              ?.filter(p => !p.invitationStatus || p.invitationStatus === 'ACCEPTED' || p.invitationStatus === 'PENDING')
-              .slice(1) // Skip first participant (creator already shown)
+              ?.filter(p => {
+                // Filter out declined participants
+                if (p.invitationStatus && p.invitationStatus !== 'ACCEPTED' && p.invitationStatus !== 'PENDING') {
+                  return false;
+                }
+                // Filter out the creator (they're already shown above)
+                const participantUserId = p.user?.id || p.userId || p.id;
+                if (creatorId && participantUserId === creatorId) {
+                  return false;
+                }
+                return true;
+              })
               .map((participant, index) => {
                 // Handle both API format (has user object) and chat format (just userId)
                 const userName = participant.user?.name || (isLoading ? 'Loading...' : 'Player');
@@ -200,11 +213,12 @@ export const MatchInfoModal: React.FC<MatchInfoModalProps> = memo(({
               })}
             {/* Empty slots */}
             {(() => {
-              const activeCount = matchData.participants?.filter(
+              // Count active participants (including creator who is shown separately)
+              const activeParticipants = matchData.participants?.filter(
                 p => !p.invitationStatus || p.invitationStatus === 'ACCEPTED' || p.invitationStatus === 'PENDING'
-              ).length || 0;
+              ) || [];
               // Use at least 1 for creator if no participants
-              const filledSlots = Math.max(activeCount, 1);
+              const filledSlots = Math.max(activeParticipants.length, 1);
               const maxSlots = matchData.matchType === 'DOUBLES' || matchData.numberOfPlayers === '4' ? 4 : 2;
               const emptySlots = Math.max(0, maxSlots - filledSlots);
               return Array.from({ length: emptySlots }).map((_, idx) => (

@@ -5,10 +5,9 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { SportSwitcher } from '@/shared/components/ui/SportSwitcher';
-import { authClient } from '@/lib/auth-client';
 import { useSession } from '@/lib/auth-client';
+import axiosInstance from '@/lib/endpoints';
 import * as Haptics from 'expo-haptics';
-import { getBackendBaseURL } from '@/src/config/network';
 import { SeasonService, Season } from '@/src/features/dashboard-user/services/SeasonService';
 import { LeagueService } from '@/src/features/leagues/services/LeagueService';
 import { PaymentOptionsBottomSheet, InvitePartnerBottomSheet } from '../components';
@@ -131,12 +130,9 @@ export default function DoublesTeamPairingScreen({
     const fetchProfileData = async () => {
       if (!session?.user?.id) return;
       try {
-        const backendUrl = getBackendBaseURL();
-        const authResponse = await authClient.$fetch(`${backendUrl}/api/player/profile/me`, {
-          method: 'GET',
-        });
-        if (authResponse && (authResponse as any).data && (authResponse as any).data.data) {
-          setProfileData((authResponse as any).data.data);
+        const response = await axiosInstance.get('/api/player/profile/me');
+        if (response?.data?.data) {
+          setProfileData(response.data.data);
         }
       } catch (error) {
         console.error('Error fetching profile data:', error);
@@ -166,23 +162,21 @@ export default function DoublesTeamPairingScreen({
 
     try {
       setIsPairingLoading(true);
-      const backendUrl = getBackendBaseURL();
 
       // Check for active partnership
-      const partnershipResponse = await authClient.$fetch(
-        `${backendUrl}/api/pairing/partnership/active/${seasonId}`,
-        { method: 'GET' }
+      const partnershipResponse = await axiosInstance.get(
+        `/api/pairing/partnership/active/${seasonId}`
       );
 
       // Extract partnership data correctly from nested structure
-      const rawData = (partnershipResponse as any)?.data?.data;
+      const rawData = partnershipResponse?.data?.data;
       const partnershipData = rawData !== null && typeof rawData === 'object' && rawData.id ? rawData : null;
       
       console.log('🔎 Partnership response:', {
         partnershipData,
         hasData: !!partnershipData,
         rawResponse: partnershipResponse,
-        responseData: (partnershipResponse as any)?.data,
+        responseData: partnershipResponse?.data,
       });
 
       if (partnershipData && partnershipData.id) {
@@ -239,13 +233,12 @@ export default function DoublesTeamPairingScreen({
       }
 
       // No partnership, check for pending invitation
-      const invitationResponse = await authClient.$fetch(
-        `${backendUrl}/api/pairing/season/invitation/pending/${seasonId}`,
-        { method: 'GET' }
+      const invitationResponse = await axiosInstance.get(
+        `/api/pairing/season/invitation/pending/${seasonId}`
       );
 
       // Extract invitation data correctly from nested structure
-      const rawInvData = (invitationResponse as any)?.data?.data;
+      const rawInvData = invitationResponse?.data?.data;
       const invitationData = rawInvData !== null && typeof rawInvData === 'object' && rawInvData.id ? rawInvData : null;
       
       console.log('🔎 Invitation response:', { invitationData, hasData: !!invitationData });
@@ -277,6 +270,7 @@ export default function DoublesTeamPairingScreen({
   const fetchSeasonData = React.useCallback(async (showLoading: boolean = true) => {
     if (!seasonId) {
       setIsLoading(false);
+      setError('No season ID provided');
       return;
     }
 
@@ -286,12 +280,12 @@ export default function DoublesTeamPairingScreen({
       }
       setError(null);
 
-      const allSeasons = await SeasonService.fetchAllSeasons();
-      const foundSeason = allSeasons.find(s => s.id === seasonId);
+      // Fetch season directly by ID (more efficient than fetching all seasons)
+      const foundSeason = await SeasonService.fetchSeasonById(seasonId);
 
       if (foundSeason) {
         setSeason(foundSeason);
-        
+
         if (leagueId) {
           try {
             const leagueData = await LeagueService.fetchLeagueById(leagueId);
@@ -301,11 +295,12 @@ export default function DoublesTeamPairingScreen({
           }
         }
       } else {
-        setError('Season not found');
+        console.error('Season not found for ID:', seasonId);
+        setError('Season not found. It may have been removed or is no longer available.');
       }
     } catch (err) {
       console.error('Error fetching season data:', err);
-      setError('Failed to load season details');
+      setError('Failed to load season details. Please check your connection and try again.');
     } finally {
       if (showLoading) {
         setIsLoading(false);
@@ -451,7 +446,6 @@ export default function DoublesTeamPairingScreen({
       setSelectedPartner(player);
 
       // Send season invitation
-      const backendUrl = getBackendBaseURL();
       const invitationPayload = {
         recipientId: player.id,
         seasonId: seasonId,
@@ -459,20 +453,17 @@ export default function DoublesTeamPairingScreen({
       };
       console.log('📤 Sending invitation with payload:', invitationPayload);
 
-      const response = await authClient.$fetch(
-        `${backendUrl}/api/pairing/season/invitation`,
-        {
-          method: 'POST',
-          body: invitationPayload
-        }
+      const response = await axiosInstance.post(
+        '/api/pairing/season/invitation',
+        invitationPayload
       );
 
       console.log('✅ Invitation API response:', response);
-      const responseData = (response as any)?.data || response;
+      const responseData = response?.data || response;
       
       // Check if response contains an error
-      if ((response as any)?.error) {
-        const errorObj = (response as any).error;
+      if (response?.data?.error) {
+        const errorObj = response.data.error;
         const errorMessage = errorObj?.error || errorObj?.message || 'Failed to send invitation';
         toast.error('Failed to send invitation', {
           description: errorMessage,
@@ -655,15 +646,11 @@ export default function DoublesTeamPairingScreen({
           style: 'destructive',
           onPress: async () => {
             try {
-              const backendUrl = getBackendBaseURL();
-              const response = await authClient.$fetch(
-                `${backendUrl}/api/pairing/partnership/${currentPartnership.id}/dissolve`,
-                {
-                  method: 'POST',
-                }
+              const response = await axiosInstance.post(
+                `/api/pairing/partnership/${currentPartnership.id}/dissolve`
               );
 
-              const responseData = (response as any).data || response;
+              const responseData = response?.data || response;
               if (responseData && responseData.success) {
                 toast.success('Partnership Unlinked', {
                   description: 'You can now find a new partner',
@@ -793,6 +780,43 @@ export default function DoublesTeamPairingScreen({
         </View>
       </Animated.View>
 
+      {/* Loading and error states shown without animation (full opacity) */}
+      {isLoading ? (
+        <View style={styles.contentContainer}>
+          <View style={styles.contentBox}>
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="large" color="#A04DFE" />
+              <Text style={styles.loadingText}>Loading...</Text>
+            </View>
+          </View>
+        </View>
+      ) : error ? (
+        <View style={styles.contentContainer}>
+          <View style={styles.contentBox}>
+            <View style={styles.errorContainer}>
+              <TouchableOpacity
+                style={styles.errorBackButton}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  router.back();
+                }}
+              >
+                <Ionicons name="arrow-back" size={24} color="#374151" />
+              </TouchableOpacity>
+              <Ionicons name="alert-circle-outline" size={48} color="#DC2626" style={{ marginBottom: 12 }} />
+              <Text style={styles.errorText}>{error}</Text>
+              <View style={styles.errorButtonsRow}>
+                <TouchableOpacity style={styles.errorBackTextButton} onPress={() => router.back()}>
+                  <Text style={styles.errorBackTextButtonText}>Go Back</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.retryButton} onPress={() => fetchSeasonData()}>
+                  <Text style={styles.retryButtonText}>Retry</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </View>
+      ) : (
       <Animated.View
         style={{
           flex: 1,
@@ -802,20 +826,7 @@ export default function DoublesTeamPairingScreen({
       >
         <View style={styles.contentContainer}>
           <View style={styles.contentBox}>
-          {isLoading ? (
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color="#A04DFE" />
-            <Text style={styles.loadingText}>Loading...</Text>
-          </View>
-        ) : error ? (
-          <View style={styles.errorContainer}>
-            <Text style={styles.errorText}>{error}</Text>
-            <TouchableOpacity style={styles.retryButton} onPress={() => fetchSeasonData()}>
-              <Text style={styles.retryButtonText}>Retry</Text>
-            </TouchableOpacity>
-          </View>
-        ) : (
-          <>
+          {/* Content rendered after loading */}
             <View style={styles.gradientHeaderContainer}>
               <TouchableOpacity 
                 style={styles.backButton}
@@ -1011,11 +1022,10 @@ export default function DoublesTeamPairingScreen({
                 </View>
               </View>
             </ScrollView>
-          </>
-        )}
           </View>
         </View>
       </Animated.View>
+      )}
 
       {/* Sticky Button - Hide when team is already registered */}
       {!isLoading && !error && season && !isTeamRegistered && (() => {
@@ -1177,6 +1187,29 @@ const styles = StyleSheet.create({
   },
   retryButtonText: {
     color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  errorBackButton: {
+    position: 'absolute',
+    top: 16,
+    left: 16,
+    padding: 8,
+    zIndex: 10,
+  },
+  errorButtonsRow: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 8,
+  },
+  errorBackTextButton: {
+    backgroundColor: '#F3F4F6',
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 8,
+  },
+  errorBackTextButtonText: {
+    color: '#374151',
     fontSize: 14,
     fontWeight: '600',
   },

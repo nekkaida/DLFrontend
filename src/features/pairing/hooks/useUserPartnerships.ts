@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
-import { authClient } from '@/lib/auth-client';
-import { getBackendBaseURL } from '@/src/config/network';
+import axiosInstance from '@/lib/endpoints';
 
 /**
  * Custom hook to fetch all active partnerships for the current user
@@ -31,13 +30,9 @@ export const useUserPartnerships = (userId: string | undefined) => {
     const fetchPartnerships = async () => {
       console.log('[useUserPartnerships] Starting fetch for userId:', userId);
       try {
-        const backendUrl = getBackendBaseURL();
-        const response = await authClient.$fetch(
-          `${backendUrl}/api/pairing/partnerships`,
-          { method: 'GET' }
-        );
+        const response = await axiosInstance.get('/api/pairing/partnerships');
 
-        const data = (response as any)?.data?.data || [];
+        const data = response.data?.data || [];
         console.log('[useUserPartnerships] Fetched partnerships:', data.length);
         console.log('[useUserPartnerships] First partnership:', data[0]);
 

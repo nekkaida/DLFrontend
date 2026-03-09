@@ -10,6 +10,7 @@
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
+      "usesAppleSignIn": true,
       "infoPlist": {
         "NSLocationWhenInUseUsageDescription": "This app needs access to your location to show nearby leagues and courts.",
         "NSLocationAlwaysAndWhenInUseUsageDescription": "This app needs access to your location to show nearby leagues and courts.",
@@ -58,7 +59,14 @@
           "locationWhenInUsePermission": "Allow Deuce League to use your location to find nearby courts and leagues."
         }
       ],
-      "expo-video"
+      "expo-video",
+      [
+        "@react-native-google-signin/google-signin",
+        {
+          "iosUrlScheme": "com.googleusercontent.apps.1049126820486-s6dpimmdmcgkcar6ju3c1turdlr05hpt"
+        }
+      ],
+      "expo-apple-authentication"
     ],
     "experiments": {
       "typedRoutes": true

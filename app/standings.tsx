@@ -11,18 +11,42 @@ import {
 } from '@/src/features/standings';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
+import { LinearGradient } from 'expo-linear-gradient';
 import { router, useLocalSearchParams } from 'expo-router';
 import React, { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Animated,
+  Dimensions,
   ScrollView,
+  StatusBar,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
+const { width } = Dimensions.get('window');
+
+// Championship color palette
+const COLORS = {
+  background: '#0A0C10',
+  cardBackground: 'rgba(22, 26, 35, 0.95)',
+  cardBorder: 'rgba(255, 255, 255, 0.08)',
+  gold: '#FFD700',
+  goldDark: '#D4A800',
+  silver: '#C0C0C0',
+  silverDark: '#A8A8A8',
+  bronze: '#CD7F32',
+  bronzeDark: '#A66628',
+  accent: '#00D4FF',
+  accentDark: '#00A8CC',
+  textPrimary: '#FFFFFF',
+  textSecondary: '#9CA3AF',
+  textMuted: '#6B7280',
+  divider: 'rgba(255, 255, 255, 0.06)',
+};
 
 interface Division {
   id: string;
@@ -58,66 +82,93 @@ export default function StandingsScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [divisions, setDivisions] = useState<Division[]>([]);
   const [userDivisionId, setUserDivisionId] = useState<string | null>(null);
+  const [activeDivisionIndex, setActiveDivisionIndex] = useState(0);
 
   const userId = session?.user?.id;
   const isPickleball = sportType?.toLowerCase() === 'pickleball';
 
   // Entry animation values
   const headerEntryOpacity = useRef(new Animated.Value(0)).current;
-  const headerEntryTranslateY = useRef(new Animated.Value(-20)).current;
+  const headerEntryScale = useRef(new Animated.Value(0.95)).current;
   const contentEntryOpacity = useRef(new Animated.Value(0)).current;
-  const contentEntryTranslateY = useRef(new Animated.Value(30)).current;
+  const contentEntryTranslateY = useRef(new Animated.Value(40)).current;
+  const tabsEntryOpacity = useRef(new Animated.Value(0)).current;
   const hasPlayedEntryAnimation = useRef(false);
+
+  // Get sport-specific gradient
+  const getSportGradient = (): readonly [string, string, string] => {
+    switch (sportType?.toLowerCase()) {
+      case 'tennis':
+        return ['#1A3D1A', '#2D5A2D', '#1A3D1A'] as const;
+      case 'padel':
+        return ['#1A3D5C', '#2D5A8A', '#1A3D5C'] as const;
+      case 'pickleball':
+      default:
+        return ['#2D1A4A', '#4A2D6A', '#2D1A4A'] as const;
+    }
+  };
+
+  const getAccentColor = (): string => {
+    switch (sportType?.toLowerCase()) {
+      case 'tennis':
+        return '#7CB342';
+      case 'padel':
+        return '#42A5F5';
+      case 'pickleball':
+      default:
+        return '#AB47BC';
+    }
+  };
 
   useEffect(() => {
     fetchStandings();
   }, [seasonId, userId]);
 
-  // Entry animation effect - triggers when loading is done
+  // Entry animation effect
   useEffect(() => {
     if (!isLoading && !hasPlayedEntryAnimation.current) {
       hasPlayedEntryAnimation.current = true;
-      Animated.stagger(80, [
-        // Header slides down
+
+      Animated.sequence([
+        // Header fades in and scales
         Animated.parallel([
           Animated.spring(headerEntryOpacity, {
             toValue: 1,
-            tension: 50,
-            friction: 8,
-            useNativeDriver: false,
+            tension: 60,
+            friction: 10,
+            useNativeDriver: true,
           }),
-          Animated.spring(headerEntryTranslateY, {
-            toValue: 0,
-            tension: 50,
-            friction: 8,
-            useNativeDriver: false,
+          Animated.spring(headerEntryScale, {
+            toValue: 1,
+            tension: 60,
+            friction: 10,
+            useNativeDriver: true,
           }),
         ]),
+        // Tabs fade in
+        Animated.timing(tabsEntryOpacity, {
+          toValue: 1,
+          duration: 250,
+          useNativeDriver: true,
+        }),
         // Content slides up
         Animated.parallel([
           Animated.spring(contentEntryOpacity, {
             toValue: 1,
             tension: 50,
             friction: 8,
-            useNativeDriver: false,
+            useNativeDriver: true,
           }),
           Animated.spring(contentEntryTranslateY, {
             toValue: 0,
             tension: 50,
             friction: 8,
-            useNativeDriver: false,
+            useNativeDriver: true,
           }),
         ]),
       ]).start();
     }
-  }, [
-    isLoading,
-    divisions,
-    headerEntryOpacity,
-    headerEntryTranslateY,
-    contentEntryOpacity,
-    contentEntryTranslateY,
-  ]);
+  }, [isLoading, divisions]);
 
   const fetchStandings = async () => {
     if (!seasonId) {
@@ -129,9 +180,7 @@ export default function StandingsScreen() {
       setIsLoading(true);
       const data = await StandingsService.getSeasonDivisionsWithStandings(seasonId, userId);
 
-      // Transform data to use shared types
       const transformedDivisions: Division[] = data.map(divData => {
-        // Transform standings from StandingEntry to StandingsPlayer
         const transformedStandings: StandingsPlayer[] = divData.standings.map((standing, index) => ({
           rank: standing.rank || index + 1,
           playerId: standing.odlayerId || standing.userId || standing.user?.id || '',
@@ -159,17 +208,17 @@ export default function StandingsScreen() {
         };
       });
 
-      // Sort divisions from oldest to newest by id (fallback, assumes id reflects creation order)
       const sortedDivisions = [...transformedDivisions].sort((a, b) => a.id.localeCompare(b.id));
       setDivisions(sortedDivisions);
 
-      // Find which division the user is in
-      const userDiv = data.find(d => d.userStanding);
-      if (userDiv) {
-        setUserDivisionId(userDiv.division.id);
+      // Find user's division and set as active
+      const userDivIndex = data.findIndex(d => d.userStanding);
+      if (userDivIndex >= 0) {
+        setUserDivisionId(data[userDivIndex].division.id);
+        setActiveDivisionIndex(userDivIndex);
       }
 
-      // Pre-fetch results for all divisions
+      // Pre-fetch results
       setDivisions((prevDivisions) =>
         prevDivisions.map((div) => ({ ...div, resultsLoading: true }))
       );
@@ -239,13 +288,12 @@ export default function StandingsScreen() {
     if (!dateStr) return '';
     try {
       const date = new Date(dateStr);
-      return date.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
+      return date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
     } catch {
       return dateStr;
     }
   };
 
-  // Check if current user is in a division's standings
   const isUserInDivision = (division: Division): boolean => {
     if (!userId) return false;
     const standings = division.standings || [];
@@ -259,86 +307,211 @@ export default function StandingsScreen() {
     return inIndividualStandings || inGroupedStandings;
   };
 
+  const handleDivisionChange = (index: number) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setActiveDivisionIndex(index);
+  };
+
+  const accentColor = getAccentColor();
+  const sportGradient = getSportGradient();
+
   return (
     <View style={styles.container}>
+      <StatusBar barStyle="light-content" backgroundColor={COLORS.background} />
+
+      {/* Gradient Background Overlay */}
+      <LinearGradient
+        colors={sportGradient}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.backgroundGradient}
+      />
+
       {/* Header */}
       <Animated.View
         style={[
           styles.header,
           {
-            paddingTop: insets.top + 8,
-            backgroundColor: sportColors.badgeColor,
+            paddingTop: insets.top + 12,
             opacity: headerEntryOpacity,
-            transform: [{ translateY: headerEntryTranslateY }],
+            transform: [{ scale: headerEntryScale }],
           }
         ]}
       >
+        {/* Back Button */}
         <TouchableOpacity
-          style={[styles.backButton, { top: insets.top + 12 }]}
-          onPress={() => router.back()}
+          style={styles.backButton}
+          onPress={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            router.back();
+          }}
           activeOpacity={0.7}
         >
-          <Ionicons name="chevron-back" size={28} color="#000000ff" />
+          <LinearGradient
+            colors={['rgba(255,255,255,0.15)', 'rgba(255,255,255,0.05)']}
+            style={styles.backButtonGradient}
+          >
+            <Ionicons name="chevron-back" size={24} color={COLORS.textPrimary} />
+          </LinearGradient>
         </TouchableOpacity>
 
+        {/* Header Content */}
         <View style={styles.headerContent}>
-          <Text style={styles.seasonTitle}>{seasonName || 'Season 1 (2025)'}</Text>
-          <Text style={styles.leagueTitle}>{leagueName || 'League'}</Text>
-          <View style={styles.dateRange}>
-            {startDate && <Text style={styles.dateText}>Start date: {formatDate(startDate)}</Text>}
-            {endDate && <Text style={styles.dateText}>End date: {formatDate(endDate)}</Text>}
+          {/* League Badge */}
+          <View style={[styles.leagueBadge, { backgroundColor: accentColor + '25' }]}>
+            <View style={[styles.leagueDot, { backgroundColor: accentColor }]} />
+            <Text style={[styles.leagueText, { color: accentColor }]}>
+              {leagueName || 'League'}
+            </Text>
           </View>
+
+          {/* Season Title */}
+          <Text style={styles.seasonTitle}>{seasonName || 'Season'}</Text>
+
+          {/* Date Range */}
+          <View style={styles.dateContainer}>
+            {startDate && (
+              <View style={styles.dateItem}>
+                <Ionicons name="calendar-outline" size={12} color={COLORS.textMuted} />
+                <Text style={styles.dateText}>{formatDate(startDate)}</Text>
+              </View>
+            )}
+            {startDate && endDate && (
+              <Text style={styles.dateSeparator}>-</Text>
+            )}
+            {endDate && (
+              <View style={styles.dateItem}>
+                <Text style={styles.dateText}>{formatDate(endDate)}</Text>
+              </View>
+            )}
+          </View>
+        </View>
+
+        {/* Trophy Icon */}
+        <View style={styles.trophyContainer}>
+          <LinearGradient
+            colors={[COLORS.gold, COLORS.goldDark]}
+            style={styles.trophyGradient}
+          >
+            <Ionicons name="trophy" size={20} color="#1A1A1A" />
+          </LinearGradient>
         </View>
       </Animated.View>
 
-      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+      {/* Division Tabs */}
+      {divisions.length > 1 && (
+        <Animated.View style={[styles.tabsContainer, { opacity: tabsEntryOpacity }]}>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.tabsScrollContent}
+          >
+            {divisions.map((division, index) => {
+              const isActive = index === activeDivisionIndex;
+              const isUserDiv = isUserInDivision(division);
+
+              return (
+                <TouchableOpacity
+                  key={division.id}
+                  onPress={() => handleDivisionChange(index)}
+                  activeOpacity={0.7}
+                >
+                  <View
+                    style={[
+                      styles.tab,
+                      isActive && styles.tabActive,
+                      isUserDiv && !isActive && styles.tabUserDivision,
+                    ]}
+                  >
+                    {isActive && (
+                      <LinearGradient
+                        colors={[accentColor, accentColor + 'CC']}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 1 }}
+                        style={StyleSheet.absoluteFill}
+                      />
+                    )}
+                    <Text
+                      style={[
+                        styles.tabText,
+                        isActive && styles.tabTextActive,
+                        isUserDiv && !isActive && styles.tabTextUserDivision,
+                      ]}
+                    >
+                      {division.name}
+                    </Text>
+                    {isUserDiv && (
+                      <View style={[styles.userIndicator, isActive && styles.userIndicatorActive]} />
+                    )}
+                  </View>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+        </Animated.View>
+      )}
+
+      {/* Content */}
+      <ScrollView
+        style={styles.scrollView}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.scrollContent}
+      >
         <Animated.View
           style={[
-            styles.standingsSection,
+            styles.contentContainer,
             {
               opacity: contentEntryOpacity,
               transform: [{ translateY: contentEntryTranslateY }],
             }
           ]}
         >
-          <Text style={styles.standingsTitle}>Standings</Text>
-
           {isLoading ? (
             <View style={styles.loadingContainer}>
-              <ActivityIndicator size="large" color={sportColors.background} />
-              <Text style={styles.loadingText}>Loading divisions...</Text>
+              <View style={styles.loadingSpinner}>
+                <ActivityIndicator size="large" color={accentColor} />
+              </View>
+              <Text style={styles.loadingText}>Loading standings...</Text>
             </View>
           ) : divisions.length === 0 ? (
             <View style={styles.emptyContainer}>
-              <Ionicons name="trophy-outline" size={48} color="#D1D5DB" />
-              <Text style={styles.emptyTitle}>No Divisions Found</Text>
+              <LinearGradient
+                colors={['rgba(255,255,255,0.1)', 'rgba(255,255,255,0.05)']}
+                style={styles.emptyIconContainer}
+              >
+                <Ionicons name="trophy-outline" size={56} color={COLORS.textMuted} />
+              </LinearGradient>
+              <Text style={styles.emptyTitle}>No Divisions Yet</Text>
               <Text style={styles.emptyText}>
-                No divisions available for this season
+                Divisions will appear once they're created for this season
               </Text>
             </View>
           ) : (
-            divisions.map((division) => (
-              <DivisionCard
-                key={division.id}
-                division={{
-                  id: division.id,
-                  name: division.name,
-                  gameType: division.gameType,
-                  genderCategory: division.genderCategory,
-                }}
-                standings={division.standings}
-                groupedStandings={division.groupedStandings}
-                results={division.results}
-                resultsLoading={division.resultsLoading}
-                showResults={division.showResults}
-                sportColors={sportColors}
-                isPickleball={isPickleball}
-                isUserDivision={isUserInDivision(division)}
-                currentUserId={userId}
-                showViewMatchesButton={false}
-                onToggleResults={() => toggleShowResults(division.id)}
-              />
-            ))
+            <View>
+              {/* Show only active division */}
+              {divisions[activeDivisionIndex] && (
+                <DivisionCard
+                  key={divisions[activeDivisionIndex].id}
+                  division={{
+                    id: divisions[activeDivisionIndex].id,
+                    name: divisions[activeDivisionIndex].name,
+                    gameType: divisions[activeDivisionIndex].gameType,
+                    genderCategory: divisions[activeDivisionIndex].genderCategory,
+                  }}
+                  standings={divisions[activeDivisionIndex].standings}
+                  groupedStandings={divisions[activeDivisionIndex].groupedStandings}
+                  results={divisions[activeDivisionIndex].results}
+                  resultsLoading={divisions[activeDivisionIndex].resultsLoading}
+                  showResults={divisions[activeDivisionIndex].showResults}
+                  sportColors={sportColors}
+                  isPickleball={isPickleball}
+                  isUserDivision={isUserInDivision(divisions[activeDivisionIndex])}
+                  currentUserId={userId}
+                  showViewMatchesButton={false}
+                  onToggleResults={() => toggleShowResults(divisions[activeDivisionIndex].id)}
+                />
+              )}
+            </View>
           )}
         </Animated.View>
       </ScrollView>
@@ -349,82 +522,194 @@ export default function StandingsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F6FAFC',
+    backgroundColor: COLORS.background,
+  },
+  backgroundGradient: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 350,
+    opacity: 0.6,
   },
   header: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
     paddingHorizontal: 20,
     paddingBottom: 20,
-    alignItems: 'center',
-    position: 'relative',
-    borderBottomLeftRadius: 20,
-    borderBottomRightRadius: 20,
-  },
-  backButton: {
-    position: 'absolute',
-    left: 16,
-    padding: 4,
     zIndex: 10,
   },
-  headerContent: {
+  backButton: {
+    marginRight: 16,
+    marginTop: 4,
+  },
+  backButtonGradient: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    justifyContent: 'center',
     alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
+  },
+  headerContent: {
+    flex: 1,
+  },
+  leagueBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    marginBottom: 8,
+  },
+  leagueDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    marginRight: 8,
+  },
+  leagueText: {
+    fontSize: 12,
+    fontWeight: '600',
+    letterSpacing: 0.5,
+    textTransform: 'uppercase',
   },
   seasonTitle: {
-    fontSize: 26,
-    fontWeight: '700',
-    color: '#000000',
-    marginBottom: 4,
-  },
-  leagueTitle: {
-    fontSize: 16,
-    fontWeight: '500',
-    color: '#FFFFFF',
+    fontSize: 28,
+    fontWeight: '800',
+    color: COLORS.textPrimary,
+    letterSpacing: -0.5,
     marginBottom: 8,
-    textAlign: 'center',
   },
-  dateRange: {
+  dateContainer: {
     flexDirection: 'row',
-    gap: 28,
-    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  dateItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
   },
   dateText: {
-    fontSize: 12,
-    color: '#000000',
+    fontSize: 13,
+    color: COLORS.textSecondary,
+    fontWeight: '500',
+  },
+  dateSeparator: {
+    fontSize: 13,
+    color: COLORS.textMuted,
+    marginHorizontal: 8,
+  },
+  trophyContainer: {
+    marginTop: 4,
+  },
+  trophyGradient: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  tabsContainer: {
+    paddingBottom: 16,
+  },
+  tabsScrollContent: {
+    paddingHorizontal: 20,
+    gap: 10,
+  },
+  tab: {
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.06)',
+    overflow: 'hidden',
+    position: 'relative',
+  },
+  tabActive: {
+    borderColor: 'transparent',
+  },
+  tabUserDivision: {
+    borderColor: COLORS.gold + '40',
+    backgroundColor: COLORS.gold + '10',
+  },
+  tabText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: COLORS.textSecondary,
+  },
+  tabTextActive: {
+    color: COLORS.textPrimary,
+  },
+  tabTextUserDivision: {
+    color: COLORS.gold,
+  },
+  userIndicator: {
+    position: 'absolute',
+    bottom: 4,
+    left: '50%',
+    marginLeft: -8,
+    width: 16,
+    height: 3,
+    borderRadius: 2,
+    backgroundColor: COLORS.gold,
+  },
+  userIndicatorActive: {
+    backgroundColor: COLORS.textPrimary,
   },
   scrollView: {
     flex: 1,
   },
-  standingsSection: {
-    padding: 16,
+  scrollContent: {
+    paddingBottom: 40,
   },
-  standingsTitle: {
-    fontSize: 22,
-    fontWeight: '700',
-    color: '#111827',
-    marginBottom: 16,
+  contentContainer: {
+    paddingHorizontal: 16,
   },
   loadingContainer: {
-    paddingVertical: 60,
+    paddingVertical: 80,
     alignItems: 'center',
-    gap: 12,
+    gap: 16,
+  },
+  loadingSpinner: {
+    width: 64,
+    height: 64,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   loadingText: {
-    fontSize: 14,
-    color: '#6B7280',
+    fontSize: 15,
+    color: COLORS.textSecondary,
+    fontWeight: '500',
   },
   emptyContainer: {
-    paddingVertical: 60,
+    paddingVertical: 80,
     alignItems: 'center',
-    gap: 12,
+    gap: 16,
+  },
+  emptyIconContainer: {
+    width: 100,
+    height: 100,
+    borderRadius: 30,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 8,
   },
   emptyTitle: {
-    fontSize: 16,
+    fontSize: 20,
     fontWeight: '700',
-    color: '#111827',
+    color: COLORS.textPrimary,
   },
   emptyText: {
-    fontSize: 14,
-    color: '#6B7280',
+    fontSize: 15,
+    color: COLORS.textSecondary,
     textAlign: 'center',
-    paddingHorizontal: 32,
+    paddingHorizontal: 40,
+    lineHeight: 22,
   },
 });

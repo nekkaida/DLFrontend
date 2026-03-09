@@ -18,8 +18,8 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
-import { useSession, authClient } from '@/lib/auth-client';
-import { getBackendBaseURL } from '@/config/network';
+import { useSession } from '@/lib/auth-client';
+import axiosInstance from '@/lib/endpoints';
 import { toast } from 'sonner-native';
 import { scale, verticalScale, moderateScale } from '@/core/utils/responsive';
 
@@ -100,15 +100,12 @@ export default function PairRequestsScreen() {
 
       if (showLoader) setIsLoading(true);
 
-      const backendUrl = getBackendBaseURL();
-      const response = await authClient.$fetch(`${backendUrl}/api/pairing/requests`, {
-        method: 'GET',
-      });
+      const response = await axiosInstance.get('/api/pairing/requests');
 
       console.log('Pair requests response:', response);
 
-      if (response && (response as any).data) {
-        const requestsData = (response as any).data.data || (response as any).data;
+      if (response && response.data) {
+        const requestsData = response.data.data || response.data;
         setRequests(requestsData);
       }
     } catch (error) {
@@ -186,15 +183,11 @@ export default function PairRequestsScreen() {
       // Find the request being accepted to get season info
       const acceptedRequest = requests.received.find(r => r.id === requestId);
 
-      const backendUrl = getBackendBaseURL();
-      const response = await authClient.$fetch(
-        `${backendUrl}/api/pairing/request/${requestId}/accept`,
-        {
-          method: 'POST',
-        }
+      const response = await axiosInstance.post(
+        `/api/pairing/request/${requestId}/accept`
       );
 
-      const responseData = (response as any).data || response;
+      const responseData = response.data || response;
       if (responseData && responseData.success) {
         toast.success('Success', {
           description: 'Partnership created! Ready to pay.',
@@ -246,15 +239,11 @@ export default function PairRequestsScreen() {
             try {
               setActionLoading(requestId);
 
-              const backendUrl = getBackendBaseURL();
-              const response = await authClient.$fetch(
-                `${backendUrl}/api/pairing/request/${requestId}/deny`,
-                {
-                  method: 'POST',
-                }
+              const response = await axiosInstance.post(
+                `/api/pairing/request/${requestId}/deny`
               );
 
-              const responseData = (response as any).data || response;
+              const responseData = response.data || response;
               if (responseData && responseData.success) {
                 toast.success('Request denied', {
                   description: 'You can find another partner to pair with',
@@ -301,15 +290,11 @@ export default function PairRequestsScreen() {
             try {
               setActionLoading(requestId);
 
-              const backendUrl = getBackendBaseURL();
-              const response = await authClient.$fetch(
-                `${backendUrl}/api/pairing/request/${requestId}`,
-                {
-                  method: 'DELETE',
-                }
+              const response = await axiosInstance.delete(
+                `/api/pairing/request/${requestId}`
               );
 
-              const responseData = (response as any).data || response;
+              const responseData = response.data || response;
               if (responseData && responseData.success) {
                 toast.success('Request cancelled');
                 await fetchRequests(false);

@@ -361,7 +361,7 @@ export class ChatService {
       isOnline: false,
       username: member.user.username,
       email: member.user.email,
-      role: member.role,
+      role: member.user.role || member.role, // Prefer user's system role, fallback to thread role
     };
   }
 

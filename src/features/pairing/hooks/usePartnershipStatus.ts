@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
-import { authClient } from '@/lib/auth-client';
-import { getBackendBaseURL } from '@/config/network';
+import axiosInstance from '@/lib/endpoints';
 
 interface PartnershipStatusData {
   hasMyPendingRequest: boolean;
@@ -50,24 +49,21 @@ export const usePartnershipStatus = ({
     }
 
     try {
-      const backendUrl = getBackendBaseURL();
-      const response = await authClient.$fetch(
-        `${backendUrl}/api/pairing/partnership/${partnershipId}/status`,
-        { method: 'GET' }
+      const response = await axiosInstance.get(
+        `/api/pairing/partnership/${partnershipId}/status`
       );
 
-      const responseData = (response as any)?.data;
-      if (responseData?.success && responseData?.data) {
+      if (response.data?.success && response.data?.data) {
         setStatus({
-          hasMyPendingRequest: responseData.data.hasMyPendingRequest || false,
-          hasPartnerPendingRequest: responseData.data.hasPartnerPendingRequest || false,
-          partnerHasLeft: responseData.data.partnerHasLeft || false,
-          myRequestedAt: responseData.data.myRequestedAt || null,
-          partnerRequestedAt: responseData.data.partnerRequestedAt || null,
+          hasMyPendingRequest: response.data.data.hasMyPendingRequest || false,
+          hasPartnerPendingRequest: response.data.data.hasPartnerPendingRequest || false,
+          partnerHasLeft: response.data.data.partnerHasLeft || false,
+          myRequestedAt: response.data.data.myRequestedAt || null,
+          partnerRequestedAt: response.data.data.partnerRequestedAt || null,
         });
         setError(null);
       } else {
-        setError(responseData?.message || 'Failed to fetch partnership status');
+        setError(response.data?.message || 'Failed to fetch partnership status');
       }
 
       setIsLoading(false);

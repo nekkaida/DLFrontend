@@ -84,7 +84,7 @@ const validateUsername = (username: string): { isValid: boolean; error: string }
 interface SignUpScreenProps {
   onSignUp: (data: SignUpData) => void | Promise<void>;
   onLogin: () => void;
-  onSocialSignUp: (provider: 'facebook' | 'google' | 'apple') => void | Promise<void>;
+  onSocialSignUp: (provider: 'google' | 'apple') => void | Promise<void>;
 }
 
 export interface SignUpData {
@@ -667,9 +667,14 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({
               alignItems: 'center',
               gap: rs.socialGap,
             }}>
-              <SocialButton type="facebook" onPress={() => onSocialSignUp('facebook')} />
-              <SocialButton type="apple"    onPress={() => onSocialSignUp('apple')} />
-              <SocialButton type="google"   onPress={() => onSocialSignUp('google')} />
+              <SocialButton
+                type="apple"
+                onPress={() => onSocialSignUp('apple')}
+              />
+              <SocialButton
+                type="google"
+                onPress={() => onSocialSignUp('google')}
+              />
             </View>
 
             {/* Login Link */}

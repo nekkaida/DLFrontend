@@ -11,12 +11,16 @@ import {
   Platform,
   Pressable,
   ActivityIndicator,
+  KeyboardAvoidingView,
+  LayoutChangeEvent,
+  useWindowDimensions,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { router } from 'expo-router';
+import axiosInstance from '@/lib/endpoints';
 
 // Type definitions
 type IoniconName = React.ComponentProps<typeof Ionicons>['name'];
@@ -50,6 +54,13 @@ interface PasswordValidation {
   isValid: boolean;
 }
 
+interface PasswordInputOptions {
+  isConfirmPassword?: boolean;
+  onFocus?: () => void;
+  onLayout?: (event: LayoutChangeEvent) => void;
+  testID?: string;
+}
+
 // BackgroundGradient Component (consistent with settings)
 const BackgroundGradient = () => {
   return (
@@ -64,6 +75,9 @@ const BackgroundGradient = () => {
 };
 
 const PrivacySecuritySettings: React.FC = () => {
+  const insets = useSafeAreaInsets();
+  const { width: windowWidth, height: windowHeight } = useWindowDimensions();
+
   // Password modal state
   const [passwordModalVisible, setPasswordModalVisible] = useState<boolean>(false);
   const [passwordForm, setPasswordForm] = useState<PasswordForm>({
@@ -76,6 +90,7 @@ const PrivacySecuritySettings: React.FC = () => {
   const [showNewPassword, setShowNewPassword] = useState<boolean>(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState<boolean>(false);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+  const [confirmPasswordInputY, setConfirmPasswordInputY] = useState<number>(0);
 
   // Legal modal states
   const [privacyPolicyModalVisible, setPrivacyPolicyModalVisible] = useState<boolean>(false);
@@ -85,6 +100,14 @@ const PrivacySecuritySettings: React.FC = () => {
   const isMountedRef = useRef<boolean>(true);
   const isSubmittingRef = useRef<boolean>(false);
   const abortControllerRef = useRef<AbortController | null>(null);
+  const passwordModalScrollRef = useRef<ScrollView | null>(null);
+
+  const passwordModalBottomPadding = Math.max(
+    insets.bottom + 32,
+    Math.round(windowHeight * 0.18)
+  );
+  const passwordModalSideMargin = Math.max(16, Math.round(windowWidth * 0.04));
+  const passwordModalCardPadding = windowWidth < 380 ? 20 : 24;
 
   // Cleanup on unmount
   useEffect(() => {
@@ -93,6 +116,18 @@ const PrivacySecuritySettings: React.FC = () => {
       abortControllerRef.current?.abort();
     };
   }, []);
+
+  useEffect(() => {
+    if (!passwordModalVisible) {
+      return;
+    }
+
+    const frame = requestAnimationFrame(() => {
+      passwordModalScrollRef.current?.scrollTo({ y: 0, animated: false });
+    });
+
+    return () => cancelAnimationFrame(frame);
+  }, [passwordModalVisible]);
 
 
 
@@ -173,29 +208,20 @@ const PrivacySecuritySettings: React.FC = () => {
 
     try {
       // Make actual API call to change password
-      const { getBackendBaseURL } = await import('@/src/config/network');
-      const { authClient } = await import('@/lib/auth-client');
-
-      const backendUrl = getBackendBaseURL();
-      const response = await authClient.$fetch(`${backendUrl}/api/player/profile/password`, {
-        method: 'PUT',
-        body: JSON.stringify({
-          currentPassword: passwordForm.currentPassword,
-          newPassword: passwordForm.newPassword,
-        }),
-        headers: {
-          'Content-Type': 'application/json',
-        },
+      const response = await axiosInstance.put('/api/player/profile/password', {
+        currentPassword: passwordForm.currentPassword,
+        newPassword: passwordForm.newPassword,
+      }, {
         signal: abortControllerRef.current.signal,
       });
 
       // Check if component is still mounted before updating state
       if (!isMountedRef.current) return;
 
-      // Safe type casting with proper null checks
-      const typedResponse = response as PasswordChangeResponse | null | undefined;
+      // axiosInstance normalizes response to { success: true, data: ... }
+      const typedResponse = response?.data;
 
-      if (typedResponse?.data?.success === true) {
+      if (typedResponse?.success === true) {
         // Success feedback with haptic
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         Alert.alert(
@@ -215,7 +241,6 @@ const PrivacySecuritySettings: React.FC = () => {
         );
       } else {
         const errorMessage =
-          typedResponse?.data?.message ??
           typedResponse?.message ??
           'Failed to change password';
         throw new Error(errorMessage);
@@ -284,8 +309,15 @@ const PrivacySecuritySettings: React.FC = () => {
     showPassword: boolean,
     toggleShowPassword: () => void,
     error?: string,
-    isConfirmPassword?: boolean
+    options?: PasswordInputOptions
   ) => {
+    const {
+      isConfirmPassword = false,
+      onFocus,
+      onLayout,
+      testID,
+    } = options ?? {};
+
     // Check if passwords match for confirm password field
     const passwordsMatch = isConfirmPassword && value && passwordForm.newPassword && value === passwordForm.newPassword;
     const passwordsDontMatch = isConfirmPassword && value && passwordForm.newPassword && value !== passwordForm.newPassword;
@@ -299,7 +331,7 @@ const PrivacySecuritySettings: React.FC = () => {
     };
 
     return (
-      <View style={styles.inputGroup}>
+      <View style={styles.inputGroup} onLayout={onLayout} testID={testID}>
         <View style={styles.inputLabelContainer}>
           <Text style={styles.inputLabel}>{label}</Text>
           {isConfirmPassword && value && passwordForm.newPassword && (
@@ -331,6 +363,7 @@ const PrivacySecuritySettings: React.FC = () => {
             accessibilityHint={`Enter your ${label.toLowerCase()}`}
             importantForAccessibility="yes"
             maxLength={128}
+            onFocus={onFocus}
           />
 
           <View style={styles.passwordRightSection}>
@@ -382,6 +415,21 @@ const PrivacySecuritySettings: React.FC = () => {
     );
   };
 
+  const handleConfirmPasswordLayout = useCallback((event: LayoutChangeEvent) => {
+    setConfirmPasswordInputY(event.nativeEvent.layout.y);
+  }, []);
+
+  const scrollConfirmPasswordIntoView = useCallback(() => {
+    const topOffset = Math.max(32, Math.round(windowHeight * 0.12));
+
+    requestAnimationFrame(() => {
+      passwordModalScrollRef.current?.scrollTo({
+        y: Math.max(0, confirmPasswordInputY - topOffset),
+        animated: true,
+      });
+    });
+  }, [confirmPasswordInputY, windowHeight]);
+
   // Password change modal
   const renderPasswordModal = () => (
     <Modal
@@ -413,88 +461,115 @@ const PrivacySecuritySettings: React.FC = () => {
           </TouchableOpacity>
         </View>
 
-        <ScrollView
-          style={styles.legalModalContent}
-          showsVerticalScrollIndicator={false}
-          keyboardShouldPersistTaps="handled"
-          contentContainerStyle={styles.legalScrollContent}
+        <KeyboardAvoidingView
+          testID="change-password-keyboard-container"
+          style={styles.legalModalBody}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          keyboardVerticalOffset={Platform.OS === 'ios' ? 12 : 0}
         >
-          <View style={styles.passwordContentContainer}>
-            <Text style={styles.passwordDescription}>
-              Create a strong password with at least 8 characters including uppercase, lowercase, numbers, and special characters.
-            </Text>
-
-              {renderPasswordInput(
-                'Current Password',
-                passwordForm.currentPassword,
-                (text) => setPasswordForm(prev => ({ ...prev, currentPassword: text })),
-                'Enter your current password',
-                showCurrentPassword,
-                () => setShowCurrentPassword(!showCurrentPassword),
-                passwordErrors.currentPassword
-              )}
-
-              {renderPasswordInput(
-                'New Password',
-                passwordForm.newPassword,
-                (text) => setPasswordForm(prev => ({ ...prev, newPassword: text })),
-                'Enter your new password',
-                showNewPassword,
-                () => setShowNewPassword(!showNewPassword),
-                passwordErrors.newPassword
-              )}
-
-              {passwordForm.newPassword && (
-                <View style={styles.passwordRequirements}>
-                  <Text style={styles.requirementsTitle}>Password Strength</Text>
-                  <View style={styles.requirementsList}>
-                    {Object.entries({
-                      minLength: 'At least 8 characters',
-                      hasUpperCase: 'One uppercase letter',
-                      hasLowerCase: 'One lowercase letter',
-                      hasNumbers: 'One number',
-                      hasSpecialChar: 'One special character',
-                    }).map(([key, text]) => {
-                      const validation = validatePassword(passwordForm.newPassword);
-                      const keyTyped = key as keyof PasswordValidation;
-                      const isValid = validation[keyTyped];
-                      return (
-                        <View key={key} style={styles.requirementItem}>
-                          <View style={[styles.requirementIcon, isValid && styles.requirementIconValid]}>
-                            <Ionicons
-                              name={isValid ? 'checkmark' : 'close'}
-                              size={12}
-                              color={isValid ? colors.white : colors.gray400}
-                            />
-                          </View>
-                          <Text style={[styles.requirementText, isValid && styles.requirementTextValid]}>
-                            {text}
-                          </Text>
-                        </View>
-                      );
-                    })}
-                  </View>
-                </View>
-              )}
-              {renderPasswordInput(
-                'Confirm New Password',
-                passwordForm.confirmPassword,
-                (text) => setPasswordForm(prev => ({ ...prev, confirmPassword: text })),
-                'Confirm your new password',
-                showConfirmPassword,
-                () => setShowConfirmPassword(!showConfirmPassword),
-                passwordErrors.confirmPassword,
-                true // isConfirmPassword flag
-              )}
-
-            <View style={styles.passwordSecurityTip}>
-              <Ionicons name="shield-checkmark" size={18} color={colors.primary} />
-              <Text style={styles.passwordSecurityTipText}>
-                For your security, you'll be logged out of all devices after changing your password.
+          <ScrollView
+            ref={passwordModalScrollRef}
+            testID="change-password-scroll"
+            style={styles.legalModalContent}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+            keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
+            contentContainerStyle={[
+              styles.legalScrollContent,
+              styles.passwordScrollContent,
+              { paddingBottom: passwordModalBottomPadding },
+            ]}
+          >
+            <View
+              style={[
+                styles.passwordContentContainer,
+                {
+                  marginHorizontal: passwordModalSideMargin,
+                  padding: passwordModalCardPadding,
+                },
+              ]}
+            >
+              <Text style={styles.passwordDescription}>
+                Create a strong password with at least 8 characters including uppercase, lowercase, numbers, and special characters.
               </Text>
+
+                {renderPasswordInput(
+                  'Current Password',
+                  passwordForm.currentPassword,
+                  (text) => setPasswordForm(prev => ({ ...prev, currentPassword: text })),
+                  'Enter your current password',
+                  showCurrentPassword,
+                  () => setShowCurrentPassword(!showCurrentPassword),
+                  passwordErrors.currentPassword
+                )}
+
+                {renderPasswordInput(
+                  'New Password',
+                  passwordForm.newPassword,
+                  (text) => setPasswordForm(prev => ({ ...prev, newPassword: text })),
+                  'Enter your new password',
+                  showNewPassword,
+                  () => setShowNewPassword(!showNewPassword),
+                  passwordErrors.newPassword
+                )}
+
+                {passwordForm.newPassword && (
+                  <View style={styles.passwordRequirements}>
+                    <Text style={styles.requirementsTitle}>Password Strength</Text>
+                    <View style={styles.requirementsList}>
+                      {Object.entries({
+                        minLength: 'At least 8 characters',
+                        hasUpperCase: 'One uppercase letter',
+                        hasLowerCase: 'One lowercase letter',
+                        hasNumbers: 'One number',
+                        hasSpecialChar: 'One special character',
+                      }).map(([key, text]) => {
+                        const validation = validatePassword(passwordForm.newPassword);
+                        const keyTyped = key as keyof PasswordValidation;
+                        const isValid = validation[keyTyped];
+                        return (
+                          <View key={key} style={styles.requirementItem}>
+                            <View style={[styles.requirementIcon, isValid && styles.requirementIconValid]}>
+                              <Ionicons
+                                name={isValid ? 'checkmark' : 'close'}
+                                size={12}
+                                color={isValid ? colors.white : colors.gray400}
+                              />
+                            </View>
+                            <Text style={[styles.requirementText, isValid && styles.requirementTextValid]}>
+                              {text}
+                            </Text>
+                          </View>
+                        );
+                      })}
+                    </View>
+                  </View>
+                )}
+                {renderPasswordInput(
+                  'Confirm New Password',
+                  passwordForm.confirmPassword,
+                  (text) => setPasswordForm(prev => ({ ...prev, confirmPassword: text })),
+                  'Confirm your new password',
+                  showConfirmPassword,
+                  () => setShowConfirmPassword(!showConfirmPassword),
+                  passwordErrors.confirmPassword,
+                  {
+                    isConfirmPassword: true,
+                    onFocus: scrollConfirmPasswordIntoView,
+                    onLayout: handleConfirmPasswordLayout,
+                    testID: 'change-password-confirm-group',
+                  }
+                )}
+
+              <View style={styles.passwordSecurityTip}>
+                <Ionicons name="shield-checkmark" size={18} color={colors.primary} />
+                <Text style={styles.passwordSecurityTipText}>
+                  For your security, you'll be logged out of all devices after changing your password.
+                </Text>
+              </View>
             </View>
-          </View>
-        </ScrollView>
+          </ScrollView>
+        </KeyboardAvoidingView>
       </SafeAreaView>
     </Modal>
   );
@@ -1179,6 +1254,9 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.white,
   },
+  legalModalBody: {
+    flex: 1,
+  },
   legalModalHeader: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1224,6 +1302,9 @@ const styles = StyleSheet.create({
   },
   legalScrollContent: {
     paddingBottom: 40,
+  },
+  passwordScrollContent: {
+    flexGrow: 1,
   },
   // Professional password modal styles
   passwordSaveButton: {

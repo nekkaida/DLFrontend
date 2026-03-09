@@ -35,12 +35,31 @@ export class SocketService {
         return;
       }
 
+      // Cookie values from SecureStore may be URL-encoded (containing %2F, %2B, %3D etc.)
+      // Better Auth expects raw Base64 values, so we need to decode each cookie value
+      const rawCookies = cookies.replace(/^;\s*/, '');
+      const decodedCookies = rawCookies.split('; ').map(cookie => {
+        const eqIndex = cookie.indexOf('=');
+        if (eqIndex === -1) return cookie;
+        const name = cookie.substring(0, eqIndex);
+        const value = cookie.substring(eqIndex + 1);
+        try {
+          return `${name}=${decodeURIComponent(value)}`;
+        } catch {
+          return cookie; // If decoding fails, use original
+        }
+      }).join('; ');
+
       // Pass cookie for Better Auth to validate on the server side
+      // Note: extraHeaders only works with polling transport, so we start with polling
+      // then upgrade to websocket. This ensures auth headers are sent properly.
       this._socket = io(backendUrl, {
         extraHeaders: {
-          'Cookie': cookies.replace(/^;\s*/, ''),
+          'Cookie': decodedCookies,
         },
-        transports: ['websocket'],
+        // Start with polling (sends headers), then upgrade to websocket
+        // Using websocket-only fails because extraHeaders aren't sent on WS upgrade
+        transports: ['polling', 'websocket'],
         timeout: 10000,
         reconnection: true,
         reconnectionDelay: this.reconnectDelay,

@@ -1,4 +1,4 @@
-import { authenticatedFetch } from '@/lib/authenticated-fetch';
+import axiosInstance from '@/lib/endpoints';
 import { getSportColors } from '@/constants/SportsColor';
 import {
   scale,
@@ -13,6 +13,8 @@ import * as Haptics from 'expo-haptics';
 import { router } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
+  ActionSheetIOS,
+  Alert,
   AppState,
   AppStateStatus,
   Image,
@@ -33,12 +35,13 @@ import { MatchFormData } from './components/CreateMatchScreen';
 import { GroupAvatarStack } from './components/GroupAvatarStack';
 import { DeleteMessageSheet } from './components/DeleteMessageSheet';
 import { MessageContextMenu } from './components/MessageContextMenu';
+import { GroupMenuSheet } from './components/GroupMenuSheet';
 import { useChatSocketEvents } from './hooks/useChatSocketEvents';
 import { ChatService } from './services/ChatService';
 import { useChatStore } from './stores/ChatStore';
 import { useCreateMatchStore } from './stores/CreateMatchStore';
 
-import { filterOutAdmins, Message, Thread } from './types';
+import { filterOutAdmins, isAdminUser, Message, Thread, User } from './types';
 
 // Match participant interface
 interface MatchParticipant {
@@ -81,6 +84,8 @@ export const ChatThreadScreen: React.FC<ChatThreadScreenProps> = ({ threadId, da
   const [showDeleteSheet, setShowDeleteSheet] = useState(false);
   const [messagePosition, setMessagePosition] = useState<{ x: number; y: number; width: number; height: number } | undefined>(undefined);
   const [isLoadingThread, setIsLoadingThread] = useState(true);
+  const [showGroupMenu, setShowGroupMenu] = useState(false);
+  const [showPersonalMenu, setShowPersonalMenu] = useState(false);
   const appStateRef = useRef<AppStateStatus>(AppState.currentState);
   const messageInputRef = useRef<MessageInputRef>(null);
   // Refs to prevent memory leaks and race conditions
@@ -333,15 +338,11 @@ export const ChatThreadScreen: React.FC<ChatThreadScreenProps> = ({ threadId, da
         chatLogger.debug('Fetching division data for match creation...');
 
         try {
-          const divisionResponse = await authenticatedFetch(
+          const divisionResponse = await axiosInstance.get(
             `/api/division/${currentThread.metadata.divisionId}`
           );
 
-          if (!divisionResponse.ok) {
-            throw new Error(`Failed to fetch division: ${divisionResponse.status}`);
-          }
-
-          const divisionResult = await divisionResponse.json();
+          const divisionResult = divisionResponse.data;
           const divisionData = divisionResult.data || divisionResult;
 
           divisionGameType = divisionData.gameType?.toUpperCase();
@@ -363,15 +364,11 @@ export const ChatThreadScreen: React.FC<ChatThreadScreenProps> = ({ threadId, da
         chatLogger.debug('Division is DOUBLES type, fetching partnership...');
 
         try {
-          const partnershipResponse = await authenticatedFetch(
+          const partnershipResponse = await axiosInstance.get(
             `/api/pairing/partnership/active/${seasonId}`
           );
 
-          if (!partnershipResponse.ok) {
-            throw new Error(`No active partnership found for this season`);
-          }
-
-          const partnershipResult = await partnershipResponse.json();
+          const partnershipResult = partnershipResponse.data;
           const partnership = partnershipResult?.data;
 
           if (!partnership || !partnership.id) {
@@ -463,23 +460,17 @@ export const ChatThreadScreen: React.FC<ChatThreadScreenProps> = ({ threadId, da
         chatLogger.debug('Added partnerId to payload:', partnerId);
       }
 
-      const matchResponse = await authenticatedFetch('/api/match/create', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(matchPayload),
-      });
+      const matchResponse = await axiosInstance.post('/api/match/create', matchPayload);
 
-      if (!matchResponse.ok) {
-        const errorData = await matchResponse.json();
+      if (!matchResponse.data?.success && !matchResponse.data?.data) {
         chatLogger.error('Match creation failed:', {
           status: matchResponse.status,
-          errorData,
+          errorData: matchResponse.data,
         });
-        throw new Error(errorData.error || 'Failed to create match');
+        throw new Error(matchResponse.data?.error || 'Failed to create match');
       }
 
-      const response = await matchResponse.json();
-      const matchResult = response?.data ?? response;
+      const matchResult = matchResponse.data?.data ?? matchResponse.data;
       // console.log('Match created successfully:', { matchId: matchResult.id });
 
       // Filter participants to only include ACCEPTED (not PENDING invitations)
@@ -519,15 +510,13 @@ export const ChatThreadScreen: React.FC<ChatThreadScreenProps> = ({ threadId, da
         },
       };
 
-      const messageResponse = await authenticatedFetch(`/api/chat/threads/${currentThread.id}/messages`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(messagePayload),
-      });
+      const messageResponse = await axiosInstance.post(
+        `/api/chat/threads/${currentThread.id}/messages`,
+        messagePayload
+      );
 
-      if (!messageResponse.ok) {
-        const errorData = await messageResponse.json();
-        throw new Error(errorData.error || 'Failed to send match message');
+      if (!messageResponse.data?.success && !messageResponse.data?.data) {
+        throw new Error(messageResponse.data?.error || 'Failed to send match message');
       }
 
       chatLogger.debug('Match message sent to thread');
@@ -682,6 +671,18 @@ export const ChatThreadScreen: React.FC<ChatThreadScreenProps> = ({ threadId, da
 
   const sportColors = useMemo(() => getSportColors(headerContent.sportType), [headerContent.sportType]);
 
+  // Get other participant for direct chats
+  const otherParticipant = useMemo(() => {
+    if (!currentThread || currentThread.type === 'group' || !user?.id) return null;
+    return currentThread.participants?.find(p => p.id !== user.id) || null;
+  }, [currentThread, user?.id]);
+
+  // Check if other participant is admin (hide menu for admins)
+  const isOtherParticipantAdmin = useMemo(() => {
+    if (!otherParticipant) return false;
+    return isAdminUser(otherParticipant as User);
+  }, [otherParticipant]);
+
   // Memoize participant preview text for group chats (excluding admins)
   const participantPreview = useMemo(() => {
     if (!currentThread || currentThread.type !== 'group') return '';
@@ -740,8 +741,122 @@ export const ChatThreadScreen: React.FC<ChatThreadScreenProps> = ({ threadId, da
   // Memoize menu button handler
   const handleGroupMenuPress = useCallback(() => {
     triggerHaptic(Haptics.ImpactFeedbackStyle.Light);
-    // TODO: Show menu options
+    setShowGroupMenu(true);
   }, []);
+
+  // Get group menu options
+  const getGroupMenuOptions = useCallback(() => {
+    const thread = currentThread || threads.find(t => t.id === threadId);
+
+    return [
+      {
+        id: 'group-info',
+        label: 'View Group Info',
+        icon: 'information-circle-outline' as const,
+        onPress: () => {
+          if (thread?.metadata?.divisionId) {
+            router.push({
+              pathname: '/chat/group-info',
+              params: {
+                threadId: thread.id,
+                divisionId: thread.metadata.divisionId,
+                divisionName: thread.name || 'Division',
+                sportType: thread.sportType || 'PICKLEBALL',
+                leagueName: thread.metadata?.leagueName || '',
+                seasonName: thread.metadata?.seasonName || '',
+                gameType: thread.metadata?.gameType || '',
+                genderCategory: thread.metadata?.genderCategory || '',
+              }
+            });
+          } else {
+            toast.info('Group info not available');
+          }
+        },
+      },
+      {
+        id: 'members',
+        label: 'View Members',
+        icon: 'people-outline' as const,
+        onPress: () => {
+          if (thread?.metadata?.seasonId) {
+            router.push({
+              pathname: '/user-dashboard/players-list',
+              params: {
+                contextType: 'season',
+                contextId: thread.metadata.seasonId,
+                contextName: thread.name || 'Division',
+                sport: thread.sportType?.toLowerCase() || 'pickleball',
+                totalPlayers: thread.participants?.length || 0,
+              }
+            });
+          } else {
+            toast.info('Unable to view members');
+          }
+        },
+      },
+    ];
+  }, [currentThread, threads, threadId]);
+
+  // Handle personal chat menu press
+  const handlePersonalMenuPress = useCallback(() => {
+    triggerHaptic(Haptics.ImpactFeedbackStyle.Light);
+    setShowPersonalMenu(true);
+  }, []);
+
+  // Get personal chat menu options
+  const getPersonalMenuOptions = useCallback(() => {
+    return [
+      {
+        id: 'view-profile',
+        label: 'View Profile',
+        icon: 'person-outline' as const,
+        onPress: () => {
+          if (otherParticipant?.id) {
+            router.push({
+              pathname: '/user-dashboard/player-profile',
+              params: {
+                playerId: otherParticipant.id,
+                playerName: otherParticipant.name || 'Player',
+              }
+            });
+          } else {
+            toast.info('Profile not available');
+          }
+        },
+      },
+      {
+        id: 'unfriend',
+        label: 'Unfriend',
+        icon: 'person-remove-outline' as const,
+        destructive: true,
+        onPress: () => {
+          if (otherParticipant?.id) {
+            Alert.alert(
+              'Unfriend',
+              `Are you sure you want to unfriend ${otherParticipant.name || 'this user'}?`,
+              [
+                { text: 'Cancel', style: 'cancel' },
+                {
+                  text: 'Unfriend',
+                  style: 'destructive',
+                  onPress: async () => {
+                    try {
+                      await axiosInstance.delete(`/api/friend/remove/${otherParticipant.id}`);
+                      toast.success('Friend removed');
+                      router.back();
+                    } catch (error) {
+                      console.error('Error unfriending:', error);
+                      toast.error('Failed to unfriend');
+                    }
+                  }
+                }
+              ]
+            );
+          }
+        },
+      },
+    ];
+  }, [otherParticipant]);
 
   // Memoize image error handler
   const handleAvatarError = useCallback(() => {
@@ -854,7 +969,7 @@ export const ChatThreadScreen: React.FC<ChatThreadScreenProps> = ({ threadId, da
                         });
                       }}
                     >
-                      <Text style={styles.secondaryActionText}>View All Matches</Text>
+                      <Text style={styles.secondaryActionText}>Matches</Text>
                     </Pressable>
                   </View>
                 </View>
@@ -901,9 +1016,12 @@ export const ChatThreadScreen: React.FC<ChatThreadScreenProps> = ({ threadId, da
               </>
             )}
 
-            {/* Only show headerAction for direct chats */}
-            {displayThread.type !== 'group' && (
-              <Pressable style={({ pressed }) => [styles.headerAction, pressed && { opacity: 0.7 }]}>
+            {/* Only show headerAction for direct chats (hide for admin users) */}
+            {displayThread.type !== 'group' && !isOtherParticipantAdmin && (
+              <Pressable
+                style={({ pressed }) => [styles.headerAction, pressed && { opacity: 0.7 }]}
+                onPress={handlePersonalMenuPress}
+              >
                 <Ionicons name="ellipsis-vertical" size={moderateScale(20)} color="#6B7280" />
               </Pressable>
             )}
@@ -952,6 +1070,24 @@ export const ChatThreadScreen: React.FC<ChatThreadScreenProps> = ({ threadId, da
         visible={showDeleteSheet}
         onClose={handleCloseDeleteSheet}
         onConfirmDelete={handleConfirmDelete}
+      />
+
+      {/* Group Menu Sheet */}
+      <GroupMenuSheet
+        visible={showGroupMenu}
+        onClose={() => setShowGroupMenu(false)}
+        sportType={displayThread.sportType}
+        options={getGroupMenuOptions()}
+        title={displayThread.name || 'Options'}
+      />
+
+      {/* Personal Chat Menu Sheet */}
+      <GroupMenuSheet
+        visible={showPersonalMenu}
+        onClose={() => setShowPersonalMenu(false)}
+        sportType={displayThread.sportType}
+        options={getPersonalMenuOptions()}
+        title={otherParticipant?.name || 'Options'}
       />
     </View>
   );
@@ -1066,20 +1202,21 @@ const styles = StyleSheet.create({
   groupHeaderWrapper: {
     flex: 1,
     flexDirection: 'row',
-    alignItems: 'flex-start',
+    alignItems: 'center',
   },
   groupHeaderAvatar: {
     marginRight: scale(12),
     alignItems: 'center',
   },
   groupHeaderMenuButton: {
-    padding: scale(12),
-    marginLeft: scale(4),
-    alignSelf: 'flex-start',
-    minWidth: scale(44),
-    minHeight: verticalScale(44),
+    padding: scale(8),
+    marginLeft: scale(2),
+    alignSelf: 'center',
+    width: scale(36),
+    height: scale(36),
     justifyContent: 'center',
     alignItems: 'center',
+    zIndex: 10,
   },
   sportBadgeAboveAvatar: {
     paddingHorizontal: scale(6),
@@ -1096,6 +1233,7 @@ const styles = StyleSheet.create({
   groupHeaderContent: {
     flex: 1,
     justifyContent: 'center',
+    marginRight: scale(4),
   },
   groupHeaderTopRow: {
     flexDirection: 'row',
@@ -1117,12 +1255,12 @@ const styles = StyleSheet.create({
   },
   groupActionButtons: {
     flexDirection: 'row',
-    gap: scale(8),
+    gap: scale(6),
   },
   actionButton: {
-    paddingHorizontal: scale(16),
-    paddingVertical: verticalScale(7),
-    borderRadius: moderateScale(16),
+    paddingHorizontal: scale(8),
+    paddingVertical: verticalScale(5),
+    borderRadius: moderateScale(12),
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1135,12 +1273,12 @@ const styles = StyleSheet.create({
     borderColor: '#E5E7EB',
   },
   primaryActionText: {
-    fontSize: moderateScale(12),
+    fontSize: moderateScale(10),
     fontWeight: '600',
     color: '#FFFFFF',
   },
   secondaryActionText: {
-    fontSize: moderateScale(12),
+    fontSize: moderateScale(10),
     fontWeight: '600',
     color: '#6B7280',
   },

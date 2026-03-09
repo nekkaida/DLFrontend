@@ -1,8 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { router } from 'expo-router';
 import { toast } from 'sonner-native';
-import { authClient } from '@/lib/auth-client';
-import { getBackendBaseURL } from '@/config/network';
+import axiosInstance from '@/lib/endpoints';
 
 interface WithdrawalRequest {
   id: string;
@@ -38,13 +37,9 @@ export const useWithdrawalRequestMonitor = ({
     if (!userId) return;
 
     try {
-      const backendUrl = getBackendBaseURL();
-      const response = await authClient.$fetch(
-        `${backendUrl}/api/player/withdrawal-requests`,
-        { method: 'GET' }
-      );
+      const response = await axiosInstance.get('/api/player/withdrawal-requests');
 
-      const requests = (response as any)?.data?.data || [];
+      const requests = response.data?.data || [];
       setPendingRequests(requests);
 
       // Check for status changes

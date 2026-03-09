@@ -230,14 +230,14 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
           >
             <NumberInput
               key={question.key}
-              value={currentPageAnswers[question.key] !== undefined ? String(currentPageAnswers[question.key]) : ''}
+              value={currentPageAnswers[question.key] !== undefined ? String(currentPageAnswers[question.key]) : (responses[question.key] !== undefined ? String(responses[question.key]) : '')}
               onChangeText={(text) => {
                 // Always store the text to allow typing intermediate values (e.g., "5." while typing "5.35")
                 // Store as string to preserve user's input; validation happens on submit
                 onAnswer(question.key, text);
               }}
               onSubmit={() => {
-                const text = currentPageAnswers[question.key] !== undefined ? String(currentPageAnswers[question.key]) : '';
+                const text = currentPageAnswers[question.key] !== undefined ? String(currentPageAnswers[question.key]) : (responses[question.key] !== undefined ? String(responses[question.key]) : '');
                 const numValue = parseFloat(text.replace(',', '.')); // Support comma as decimal separator
 
                 if (text.trim() === '') {
