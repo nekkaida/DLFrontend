@@ -19,7 +19,7 @@ import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import React from 'react';
-import { ActivityIndicator, Alert, Dimensions, Image, RefreshControl, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Dimensions, Image, Modal, RefreshControl, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import Animated, {
   Extrapolation,
   interpolate,
@@ -61,10 +61,7 @@ export default function LeagueDetailsScreen({
   const [selectedSport, setSelectedSport] = React.useState<'pickleball' | 'tennis' | 'padel'>('pickleball');
   const [isRefreshing, setIsRefreshing] = React.useState(false);
   const [showSeasonsSkeleton, setShowSeasonsSkeleton] = React.useState(false);
-  const [waitlistStatuses, setWaitlistStatuses] = React.useState<Map<string, WaitlistStatus>>(new Map());
-  const [isJoiningWaitlist, setIsJoiningWaitlist] = React.useState<string | null>(null);
-  const [waitlistBottomSheetSeasonId, setWaitlistBottomSheetSeasonId] = React.useState<string | null>(null);
-  const [leaveWaitlistDialogSeasonId, setLeaveWaitlistDialogSeasonId] = React.useState<string | null>(null);
+  const [showRulesModal, setShowRulesModal] = React.useState(false);
   const hasInitializedSeasonsRef = React.useRef(false);
   const isManualRefreshRef = React.useRef(false);
   const insets = useSafeAreaInsets();
@@ -1020,6 +1017,98 @@ export default function LeagueDetailsScreen({
     );
   };
 
+  const renderPastSeasonCard = (season: Season) => {
+    const normalizedCategories = normalizeCategoriesFromSeason(season);
+    const seasonCategory = normalizedCategories && normalizedCategories.length > 0 ? normalizedCategories[0] : null;
+    const categoryDisplayName = seasonCategory ? seasonCategory.name || '' : '';
+
+    const dateRange = season.startDate && season.endDate
+      ? `${formatSeasonDate(season.startDate)} – ${formatSeasonDate(season.endDate)}`
+      : null;
+
+    return (
+      <TouchableOpacity
+        key={season.id}
+        onPress={() => {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          router.push({
+            pathname: '/user-dashboard/season-details' as any,
+            params: { seasonId: season.id, seasonName: season.name, leagueId: leagueId, sport: sport }
+          });
+        }}
+        activeOpacity={0.9}
+      >
+        <View style={styles.pastSeasonCardWrapper}>
+          {/* Header row */}
+          <View style={styles.seasonCardHeader}>
+            <Text style={styles.seasonTitle}>{season.name}</Text>
+            {categoryDisplayName ? (
+              <View style={styles.pastCategoryChip}>
+                <Text style={styles.pastCategoryChipText}>{categoryDisplayName}</Text>
+              </View>
+            ) : null}
+          </View>
+
+          {/* Date range with calendar icon */}
+          {dateRange && (
+            <View style={styles.pastDateRow}>
+              <Text style={styles.pastDateIcon}>📅</Text>
+              <Text style={styles.pastDateText}>{dateRange}</Text>
+            </View>
+          )}
+
+          {/* Profile pictures */}
+          {season.memberships && season.memberships.length > 0 && (
+            <TouchableOpacity
+              style={[styles.seasonProfilePicturesContainer, { justifyContent: 'flex-start', marginBottom: 12 }]}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                router.push({
+                  pathname: '/user-dashboard/players-list',
+                  params: {
+                    contextType: 'season', contextId: season.id, contextName: season.name,
+                    sport: sport, totalPlayers: season._count?.memberships || season.registeredUserCount || 0,
+                  }
+                });
+              }}
+              activeOpacity={0.7}
+            >
+              {season.memberships.slice(0, 6).map((membership, index: number) => {
+                if (!membership.user) return null;
+                return (
+                  <View key={membership.id} style={[styles.seasonMemberProfilePicture, index > 0 && styles.seasonMemberProfilePictureOverlap]}>
+                    {membership.user.image ? (
+                      <Image source={{ uri: membership.user.image }} style={styles.seasonMemberProfileImage} />
+                    ) : (
+                      <View style={styles.defaultSeasonMemberProfileImage}>
+                        <Text style={styles.defaultSeasonMemberProfileText}>
+                          {membership.user.name?.charAt(0)?.toUpperCase() || 'U'}
+                        </Text>
+                      </View>
+                    )}
+                  </View>
+                );
+              })}
+              {season._count?.memberships && season._count.memberships > 6 && (
+                <View style={[styles.seasonRemainingCount, styles.seasonMemberProfilePictureOverlap]}>
+                  <Text style={styles.seasonRemainingCountText}>+{season._count.memberships - 6}</Text>
+                </View>
+              )}
+            </TouchableOpacity>
+          )}
+
+          {/* Bottom: View Standings link + Ended badge */}
+          <View style={styles.pastCardFooter}>
+            <TouchableOpacity onPress={() => handleViewStandingsPress(season)} activeOpacity={0.7}>
+              <Text style={styles.pastViewStandingsText}>View Standings</Text>
+            </TouchableOpacity>
+            <Text style={styles.pastEndedBadge}>Ended</Text>
+          </View>
+        </View>
+      </TouchableOpacity>
+    );
+  };
+
   const getSportConfig = () => {
     if (selectedSport === 'tennis') {
       return {
@@ -1423,14 +1512,48 @@ export default function LeagueDetailsScreen({
                 <View style={styles.leagueInfoContent}>
                   <LeagueInfoIcon width={43} height={43} style={styles.leagueInfoIcon} />
                   <View style={styles.leagueInfoTextContainer}>
-                    <Text style={styles.leagueInfoTitle}>League Info</Text>
+                    <Text style={styles.leagueInfoTitle}>Info & Rules</Text>
                     <Text style={styles.leagueInfoText}>
                       {league?.description || 'This is a friendly, competitive flex league. Join a league to meet new players in your area, stay active, and level up your game. All adult players are welcome to join!'}
                     </Text>
                   </View>
                 </View>
+                {league?.rules ? (
+                  <>
+                    <View style={styles.rulesInfoDivider} />
+                    <TouchableOpacity
+                      style={styles.viewRulesButton}
+                      onPress={() => setShowRulesModal(true)}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={styles.viewRulesText}>View League Rules →</Text>
+                    </TouchableOpacity>
+                  </>
+                ) : null}
               </View>
             </Animated.View>
+
+            {/* League Rules Modal */}
+            <Modal
+              visible={showRulesModal}
+              animationType="slide"
+              transparent
+              onRequestClose={() => setShowRulesModal(false)}
+            >
+              <View style={styles.rulesModalOverlay}>
+                <View style={styles.rulesModalContainer}>
+                  <View style={styles.rulesModalHeader}>
+                    <Text style={styles.rulesModalTitle}>League Rules</Text>
+                    <TouchableOpacity onPress={() => setShowRulesModal(false)} activeOpacity={0.7}>
+                      <Text style={styles.rulesModalClose}>✕</Text>
+                    </TouchableOpacity>
+                  </View>
+                  <ScrollView style={styles.rulesModalScroll} showsVerticalScrollIndicator={false}>
+                    <Text style={styles.rulesModalText}>{league?.rules}</Text>
+                  </ScrollView>
+                </View>
+              </View>
+            </Modal>
 
             {/* Category Filter Buttons */}
             {categories.length > 0 && (
@@ -1473,31 +1596,24 @@ export default function LeagueDetailsScreen({
                 <SeasonCardSkeleton sport={sport} count={2} />
               ) : (
                 <>
-                  {/* Current Seasons Section */}
-                  {currentSeasons.length > 0 && (
+                  {/* Current Season */}
+                  {(currentSeasons.length > 0 || upcomingSeasons.length > 0) && (
                     <View style={styles.seasonsSection}>
                       <Text style={styles.sectionTitle}>Current Season</Text>
                       {currentSeasons.map(renderSeasonCard)}
-                    </View>
-                  )}
-
-                  {/* Upcoming Seasons Section */}
-                  {upcomingSeasons.length > 0 && (
-                    <View style={styles.seasonsSection}>
-                      <Text style={styles.sectionTitle}>Upcoming Season</Text>
                       {upcomingSeasons.map(renderSeasonCard)}
                     </View>
                   )}
 
-                  {/* Past Seasons Section */}
+                  {/* Past Seasons */}
                   {pastSeasons.length > 0 && (
                     <View style={styles.seasonsSection}>
-                      <Text style={styles.sectionTitle}>Past Season</Text>
-                      {pastSeasons.map(renderSeasonCard)}
+                      <Text style={styles.sectionTitle}>Past Seasons</Text>
+                      {pastSeasons.map(renderPastSeasonCard)}
                     </View>
                   )}
 
-                  {/* Empty State - Show when no categories or no seasons */}
+                  {/* Empty state */}
                   {categories.length === 0 || (currentSeasons.length === 0 && upcomingSeasons.length === 0 && pastSeasons.length === 0) ? (
                     <View style={styles.emptyContainer}>
                       <Text style={styles.emptyText}>
@@ -1844,6 +1960,60 @@ const styles = StyleSheet.create({
     color: '#747477',
     lineHeight: 20,
   },
+  rulesInfoDivider: {
+    height: 0.5,
+    backgroundColor: '#E0E0E0',
+    marginTop: 12,
+    marginHorizontal: -20,
+  },
+  viewRulesButton: {
+    paddingTop: 10,
+    paddingBottom: 2,
+    alignSelf: 'flex-start',
+  },
+  viewRulesText: {
+    fontSize: isSmallScreen ? 12 : 13,
+    color: '#86868B',
+    fontWeight: '400',
+  },
+  rulesModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    justifyContent: 'flex-end',
+  },
+  rulesModalContainer: {
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    padding: 24,
+    paddingBottom: 40,
+    maxHeight: '75%',
+  },
+  rulesModalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  rulesModalTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#1A1C1E',
+  },
+  rulesModalClose: {
+    fontSize: 18,
+    color: '#86868B',
+    fontWeight: '400',
+    padding: 4,
+  },
+  rulesModalScroll: {
+    flexGrow: 0,
+  },
+  rulesModalText: {
+    fontSize: 14,
+    color: '#4B5563',
+    lineHeight: 22,
+  },
   categoriesContainer: {
     marginBottom: 24,
   },
@@ -1886,6 +2056,60 @@ const styles = StyleSheet.create({
   },
   seasonsSection: {
     marginBottom: 24,
+  },
+  pastSeasonCardWrapper: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 14,
+    padding: isSmallScreen ? 14 : 16,
+    marginBottom: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 4,
+    elevation: 1,
+    borderWidth: 1,
+    borderColor: '#F0F0F0',
+  },
+  pastDateRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+    gap: 6,
+  },
+  pastDateIcon: {
+    fontSize: 13,
+  },
+  pastDateText: {
+    fontSize: isSmallScreen ? 12 : 13,
+    color: '#6B7280',
+    fontWeight: '400',
+  },
+  pastCardFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 4,
+  },
+  pastViewStandingsText: {
+    fontSize: isSmallScreen ? 13 : 14,
+    color: '#FEA04D',
+    fontWeight: '500',
+  },
+  pastEndedBadge: {
+    fontSize: 12,
+    color: '#EF4444',
+    fontWeight: '500',
+  },
+  pastCategoryChip: {
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    backgroundColor: '#F3F4F6',
+  },
+  pastCategoryChipText: {
+    fontSize: isSmallScreen ? 12 : 13,
+    fontWeight: '600',
+    color: '#9CA3AF',
   },
   seasonCardWrapper: {
     borderRadius: 16,

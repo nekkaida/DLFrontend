@@ -1,5 +1,4 @@
 import BackButtonIcon from '@/assets/icons/back-button.svg';
-import LeagueInfoIcon from '@/assets/icons/league-info.svg';
 import { ManageTeamButton } from '@/features/pairing/components';
 import { useSession } from '@/lib/auth-client';
 import axiosInstance from '@/lib/endpoints';
@@ -15,10 +14,11 @@ import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import React from 'react';
-import { ActivityIndicator, Alert, Dimensions, Image, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Dimensions, Image, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import Animated, {
   Extrapolation,
   interpolate,
+  useAnimatedScrollHandler,
   useAnimatedStyle,
   useSharedValue,
   withSpring,
@@ -33,6 +33,14 @@ const { width } = Dimensions.get('window');
 
 const isSmallScreen = width < 375;
 const isTablet = width > 768;
+
+// Module-level constants so Reanimated worklets capture stable values
+// (avoids jitter caused by recaptured closures on every render)
+const HEADER_MAX_HEIGHT = isSmallScreen ? 210 : isTablet ? 240 : 220;
+const HEADER_MIN_HEIGHT = 80;
+const HEADER_SCROLL_DISTANCE = HEADER_MAX_HEIGHT - HEADER_MIN_HEIGHT;
+const COLLAPSE_START_THRESHOLD = 40;
+const COLLAPSE_END_THRESHOLD = COLLAPSE_START_THRESHOLD + HEADER_SCROLL_DISTANCE;
 
 interface SeasonDetailsScreenProps {
   seasonId: string;
@@ -80,14 +88,6 @@ export default function SeasonDetailsScreen({
   const howItWorksEntryTranslateY = useSharedValue(30);
   const buttonEntryOpacity = useSharedValue(0);
   const hasPlayedEntryAnimation = React.useRef(false);
-
-  // Constants for header animation
-  const TOP_HEADER_HEIGHT = STATUS_BAR_HEIGHT + (isSmallScreen ? 36 : isTablet ? 44 : 40);
-  const HEADER_MAX_HEIGHT = isSmallScreen ? 210 : isTablet ? 240 : 220; // Responsive height to fit profile pictures
-  const HEADER_MIN_HEIGHT = 80; // Collapsed header height
-  const HEADER_SCROLL_DISTANCE = HEADER_MAX_HEIGHT - HEADER_MIN_HEIGHT;
-  const COLLAPSE_START_THRESHOLD = 40; // Start collapsing after scrolling 40px
-  const COLLAPSE_END_THRESHOLD = COLLAPSE_START_THRESHOLD + HEADER_SCROLL_DISTANCE; // End of collapse range
   
   React.useEffect(() => {
     fetchSeasonData();
@@ -845,6 +845,14 @@ export default function SeasonDetailsScreen({
     };
   });
 
+  // Scroll handler — runs on UI thread (Reanimated worklet), works on both iOS & Android
+  const scrollHandler = useAnimatedScrollHandler({
+    onScroll: (event) => {
+      'worklet';
+      scrollY.value = event.contentOffset.y;
+    },
+  });
+
   return (
     <View style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
@@ -918,6 +926,7 @@ export default function SeasonDetailsScreen({
             <Animated.View
               style={[
                 styles.gradientHeaderContainer,
+                styles.gradientHeaderAbsolute,
                 headerAnimatedStyle,
                 headerEntryAnimatedStyle,
               ]}
@@ -983,15 +992,22 @@ export default function SeasonDetailsScreen({
                       bannerContainerAnimatedStyle,
                     ]}
                   >
-                    <View style={[styles.nameBanner, { backgroundColor: getBannerBackgroundColor(sport) }]}>
-                      <Text style={styles.seasonName}>
-                        {(() => {
-                          const categories = getNormalizedCategories(season);
-                          const categoryName = categories?.[0]?.name;
-                          return categoryName ? `${categoryName} | ` : '';
-                        })()}
-                        <Text style={styles.seasonNameHighlight}>{season?.name || seasonName}</Text>
-                      </Text>
+                    <View style={styles.pillsRow}>
+                      {/* Category pill chip — semi-transparent dark */}
+                      <View style={styles.categoryPillChip}>
+                        <Text style={styles.categoryPillText} numberOfLines={1}>
+                          {(() => {
+                            const categories = getNormalizedCategories(season);
+                            return categories?.[0]?.name || '';
+                          })()}
+                        </Text>
+                      </View>
+                      {/* Season trophy pill — top-right */}
+                      <View style={styles.trophyPillChip}>
+                        <Text style={styles.trophyPillText}>
+                          {'\uD83C\uDFC6 '}{(season?.name || seasonName)?.replace(/season\s*/i, 'S')}
+                        </Text>
+                      </View>
                     </View>
                     <View style={styles.playerCountContainer}>
                       <View style={styles.statusCircle} />
@@ -1048,11 +1064,14 @@ export default function SeasonDetailsScreen({
               </LinearGradient>
             </Animated.View>
 
-            <ScrollView
+            <Animated.ScrollView
               style={styles.scrollContainer}
               contentContainerStyle={styles.scrollContent}
               showsVerticalScrollIndicator={true}
+              onScroll={scrollHandler}
+              scrollEventThrottle={16}
             >
+              {/* Top spacer pushes content below the absolute-positioned header */}
               <View style={styles.scrollTopSpacer} />
               
               <Animated.View
@@ -1062,7 +1081,6 @@ export default function SeasonDetailsScreen({
                 ]}
               >
                 <View style={styles.seasonInfoContent}>
-                  <LeagueInfoIcon width={43} height={43} style={styles.seasonInfoIcon} />
                   <View style={styles.seasonInfoTextContainer}>
                     <Text style={styles.seasonInfoTitle}>Season Details</Text>
                     <View style={styles.detailRow}>
@@ -1170,12 +1188,11 @@ export default function SeasonDetailsScreen({
                   <View style={styles.infoItem}>
                     <View style={styles.infoItemTextContainer}>
                       <Text style={styles.endTitle}>Ready to hit the Court?</Text>
-                      <Text style={styles.endDescription}>Let's get started.</Text>
                     </View>
                   </View>
                 </View>
               </Animated.View>
-            </ScrollView>
+            </Animated.ScrollView>
           </>
         )}
         </View>
@@ -1191,17 +1208,27 @@ export default function SeasonDetailsScreen({
           ]}
         >
           <View style={styles.stickyButtonRow}>
+            {/* Primary action button */}
             <TouchableOpacity
               style={[
                 styles.stickyButton,
-                { backgroundColor: buttonConfig.color },
-                showManageTeam && styles.stickyButtonWithManageTeam
+                styles.stickyButtonPrimary,
+                buttonConfig.disabled && styles.stickyButtonDisabled,
               ]}
               onPress={buttonConfig.onPress}
               disabled={buttonConfig.disabled}
               activeOpacity={0.8}
             >
               <Text style={styles.stickyButtonText}>{buttonConfig.text}</Text>
+            </TouchableOpacity>
+
+            {/* View Standings secondary button */}
+            <TouchableOpacity
+              style={[styles.stickyButton, styles.stickyButtonSecondary]}
+              onPress={handleViewStandingsPress}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.stickyButtonSecondaryText}>View Standings</Text>
             </TouchableOpacity>
 
             {showManageTeam && partnership && (
@@ -1267,10 +1294,18 @@ const styles = StyleSheet.create({
     paddingBottom: 100,
   },
   scrollTopSpacer: {
-    height: 20,
+    height: HEADER_MAX_HEIGHT + 12,
   },
   gradientHeaderContainer: {
     width: '100%',
+    overflow: 'hidden',
+  },
+  gradientHeaderAbsolute: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 2,
   },
   loadingContainer: {
     flex: 1,
@@ -1392,6 +1427,39 @@ const styles = StyleSheet.create({
     marginHorizontal: -20,
     marginBottom: 20,
     alignItems: 'center',
+  },
+  pillsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    width: '100%',
+    marginBottom: 14,
+    gap: 8,
+  },
+  categoryPillChip: {
+    backgroundColor: 'rgba(0, 0, 0, 0.30)',
+    borderRadius: 20,
+    paddingHorizontal: 14,
+    paddingVertical: 5,
+    maxWidth: '60%',
+  },
+  categoryPillText: {
+    color: '#FFFFFF',
+    fontSize: isSmallScreen ? 12 : 13,
+    fontWeight: '600',
+  },
+  trophyPillChip: {
+    backgroundColor: 'rgba(255, 255, 255, 0.20)',
+    borderRadius: 20,
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.40)',
+  },
+  trophyPillText: {
+    color: '#FFFFFF',
+    fontSize: isSmallScreen ? 12 : 13,
+    fontWeight: '700',
   },
   leagueName: {
     fontSize: isSmallScreen ? 18 : isTablet ? 22 : 20,
@@ -1532,15 +1600,10 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   seasonInfoContent: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 16,
-  },
-  seasonInfoIcon: {
-    flexShrink: 0,
+    flexDirection: 'column',
   },
   seasonInfoTextContainer: {
-    flex: 1,
+    width: '100%',
   },
   seasonInfoTitle: {
     fontSize: isSmallScreen ? 16 : 18,
@@ -1708,9 +1771,25 @@ const styles = StyleSheet.create({
   stickyButtonWithManageTeam: {
     flex: 1,
   },
+  stickyButtonPrimary: {
+    backgroundColor: '#FEA04D',
+  },
+  stickyButtonSecondary: {
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1.5,
+    borderColor: '#FEA04D',
+  },
+  stickyButtonDisabled: {
+    backgroundColor: '#B2B2B2',
+  },
   stickyButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#2B2929',
+    fontSize: 17,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  stickyButtonSecondaryText: {
+    fontSize: 17,
+    fontWeight: '700',
+    color: '#FEA04D',
   },
 });
