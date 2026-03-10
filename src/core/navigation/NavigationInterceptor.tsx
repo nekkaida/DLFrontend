@@ -400,11 +400,12 @@ export const NavigationInterceptor: React.FC<NavigationInterceptorProps> = ({ ch
       console.log('NavigationInterceptor: Current onboarding status:', onboardingStatus);
       
       // For protected routes, refresh the onboarding status if stale
-      // Increased timeout from 10s to 60s to reduce API calls and prevent potential logout loops
-      // from hitting rate limits or backend issues during rapid navigation
+      // IMPORTANT: Once onboarding is confirmed complete, trust the cached value permanently.
+      // Only refresh when status is unknown or explicitly incomplete AND stale.
+      // This prevents transient backend failures from kicking users off settings/profile.
       const STALE_THRESHOLD_MS = 60 * 1000; // 60 seconds
       const isStale = !onboardingStatus?.timestamp || (Date.now() - onboardingStatus.timestamp > STALE_THRESHOLD_MS);
-      const needsRefresh = !onboardingStatus || (!onboardingStatus.completedOnboarding && !isCheckingOnboarding && !onboardingStatus?.backendError) || (isStale && !onboardingStatus?.backendError);
+      const needsRefresh = !onboardingStatus || (!onboardingStatus.completedOnboarding && !isCheckingOnboarding && !onboardingStatus?.backendError && isStale);
       
       if (needsRefresh) {
         console.log('NavigationInterceptor: Refreshing onboarding status for protected route...', 
