@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
-import { useSession, authClient } from '@/lib/auth-client';
-import { getBackendBaseURL } from '@/config/network';
+import { useSession } from '@/lib/auth-client';
+import axiosInstance from '@/lib/endpoints';
 
 interface ProfileData {
   image?: string;
@@ -17,15 +17,12 @@ export const useProfile = () => {
         return;
       }
 
-      const backendUrl = getBackendBaseURL();
-      const authResponse = await authClient.$fetch(`${backendUrl}/api/player/profile/me`, {
-        method: 'GET',
-      });
+      const response = await axiosInstance.get('/api/player/profile/me');
 
-      if (authResponse && (authResponse as any).data && (authResponse as any).data.data) {
-        setProfileData((authResponse as any).data.data);
-      } else if (authResponse && (authResponse as any).data) {
-        setProfileData((authResponse as any).data);
+      if (response.data?.data) {
+        setProfileData(response.data.data);
+      } else if (response.data) {
+        setProfileData(response.data);
       }
     } catch (error) {
       console.error('Error fetching profile:', error);

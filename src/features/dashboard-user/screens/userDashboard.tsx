@@ -2,8 +2,8 @@ import PadelLocationIcon from "@/assets/icons/padel-location.svg";
 import PickleballLocationIcon from "@/assets/icons/pickleball-location.svg";
 import SearchIcon from "@/assets/icons/search-icon.svg";
 import TennisLocationIcon from "@/assets/icons/tennis-location.svg";
-import { getBackendBaseURL } from "@/config/network";
-import { authClient, useSession } from "@/lib/auth-client";
+import { useSession } from "@/lib/auth-client";
+import axiosInstance from "@/lib/endpoints";
 import { NavBar } from "@/shared/components/layout";
 import { SportSwitcher } from "@/shared/components/ui/SportSwitcher";
 import { DeuceLogo } from "@/src";
@@ -305,40 +305,15 @@ export default function DashboardScreen() {
         return;
       }
 
-      const backendUrl = getBackendBaseURL();
-      // console.log(
-      //   "DashboardScreen: Fetching profile data from:",
-      //   `${backendUrl}/api/player/profile/me`
-      // );
+      const response = await axiosInstance.get("/api/player/profile/me");
 
-      const authResponse = await authClient.$fetch(
-        `${backendUrl}/api/player/profile/me`,
-        {
-          method: "GET",
-        },
-      );
-
-      // console.log("DashboardScreen: Profile API response:", authResponse);
-
-      if (
-        authResponse &&
-        (authResponse as any).data &&
-        (authResponse as any).data.data
-      ) {
-        // console.log(
-        //   "DashboardScreen: Setting profile data:",
-        //   (authResponse as any).data.data
-        // );
-        setProfileData((authResponse as any).data.data);
-      } else if (authResponse && (authResponse as any).data) {
-        // console.log(
-        //   "DashboardScreen: Setting profile data (direct):",
-        //   (authResponse as any).data
-        // );
-        setProfileData((authResponse as any).data);
+      if (response?.data?.data) {
+        setProfileData(response.data.data);
+      } else if (response?.data) {
+        setProfileData(response.data);
       } else {
         console.error(
-          "DashboardScreen: No profile data received from authClient",
+          "DashboardScreen: No profile data received",
         );
       }
     } catch (error) {

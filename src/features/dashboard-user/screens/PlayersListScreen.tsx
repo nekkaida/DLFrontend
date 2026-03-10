@@ -11,6 +11,7 @@ import {
   TextInput,
   RefreshControl,
   StatusBar,
+  Image,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -20,12 +21,11 @@ import * as Haptics from 'expo-haptics';
 import { getSportColors, SportType } from '@/constants/SportsColor';
 import { SeasonService, SeasonMembership } from '@/features/dashboard-user/services/SeasonService';
 import { LeagueService } from '@/features/leagues/services/LeagueService';
-import { PlayerListItemEnhanced } from '@/features/dashboard-user/components/PlayerListItemEnhanced';
 import { SkillRatings } from '@/src/utils/dmrCalculator';
-import axiosInstance, { endpoints } from '@/lib/endpoints';
 import BackButtonIcon from '@/assets/icons/back-button.svg';
+import { scale, verticalScale, moderateScale } from '@/core/utils/responsive';
 
-const { width } = Dimensions.get('window');
+const { width, height } = Dimensions.get('window');
 const isSmallScreen = width < 375;
 const isTablet = width > 768;
 
@@ -47,6 +47,148 @@ interface PlayerData {
   skillRatings?: SkillRatings | null;
 }
 
+// Animated Player Card Component
+const PlayerCard = React.memo(({
+  player,
+  index,
+  sport,
+  onPress,
+  sportColors,
+}: {
+  player: PlayerData;
+  index: number;
+  sport: string;
+  onPress: (id: string) => void;
+  sportColors: any;
+}) => {
+  const animatedValue = useRef(new Animated.Value(0)).current;
+  const scaleValue = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    Animated.timing(animatedValue, {
+      toValue: 1,
+      duration: 400,
+      delay: index * 50,
+      useNativeDriver: true,
+    }).start();
+  }, []);
+
+  const handlePressIn = () => {
+    Animated.spring(scaleValue, {
+      toValue: 0.98,
+      useNativeDriver: true,
+    }).start();
+  };
+
+  const handlePressOut = () => {
+    Animated.spring(scaleValue, {
+      toValue: 1,
+      friction: 3,
+      tension: 40,
+      useNativeDriver: true,
+    }).start();
+  };
+
+  const getInitials = (name: string) => {
+    const parts = name.split(' ');
+    if (parts.length >= 2) {
+      return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
+    }
+    return name.substring(0, 2).toUpperCase();
+  };
+
+  const getAvatarGradient = (name: string): [string, string] => {
+    const hash = name.split('').reduce((a, b) => {
+      a = ((a << 5) - a) + b.charCodeAt(0);
+      return a & a;
+    }, 0);
+
+    const gradients: [string, string][] = [
+      ['#667eea', '#764ba2'],
+      ['#f093fb', '#f5576c'],
+      ['#4facfe', '#00f2fe'],
+      ['#43e97b', '#38f9d7'],
+      ['#fa709a', '#fee140'],
+      ['#a8edea', '#fed6e3'],
+      ['#ff9a9e', '#fecfef'],
+      ['#ffecd2', '#fcb69f'],
+    ];
+
+    return gradients[Math.abs(hash) % gradients.length];
+  };
+
+  return (
+    <Animated.View
+      style={[
+        styles.playerCardContainer,
+        {
+          opacity: animatedValue,
+          transform: [
+            { translateY: animatedValue.interpolate({
+              inputRange: [0, 1],
+              outputRange: [30, 0],
+            })},
+            { scale: scaleValue },
+          ],
+        },
+      ]}
+    >
+      <TouchableOpacity
+        activeOpacity={1}
+        onPress={() => onPress(player.id)}
+        onPressIn={handlePressIn}
+        onPressOut={handlePressOut}
+        style={styles.playerCard}
+      >
+        {/* Avatar */}
+        <View style={styles.avatarContainer}>
+          {player.image ? (
+            <Image source={{ uri: player.image }} style={styles.avatar} />
+          ) : (
+            <LinearGradient
+              colors={getAvatarGradient(player.name)}
+              style={styles.avatarGradient}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+            >
+              <Text style={styles.avatarInitials}>{getInitials(player.name)}</Text>
+            </LinearGradient>
+          )}
+          {/* Online indicator dot */}
+          <View style={[styles.statusDot, { backgroundColor: sportColors.background }]} />
+        </View>
+
+        {/* Player Info */}
+        <View style={styles.playerInfo}>
+          <Text style={styles.playerName} numberOfLines={1}>{player.name}</Text>
+          <View style={styles.playerMeta}>
+            <View style={[styles.sportBadge, { backgroundColor: sportColors.background + '15' }]}>
+              <Ionicons
+                name="tennisball"
+                size={moderateScale(10)}
+                color={sportColors.background}
+              />
+              <Text style={[styles.sportBadgeText, { color: sportColors.background }]}>
+                {sport.charAt(0).toUpperCase() + sport.slice(1)}
+              </Text>
+            </View>
+            {player.status && player.status !== 'ACTIVE' && (
+              <View style={styles.statusBadge}>
+                <Text style={styles.statusText}>{player.status}</Text>
+              </View>
+            )}
+          </View>
+        </View>
+
+        {/* Arrow */}
+        <View style={styles.arrowContainer}>
+          <Ionicons name="chevron-forward" size={moderateScale(18)} color="#C4C4C6" />
+        </View>
+      </TouchableOpacity>
+    </Animated.View>
+  );
+});
+
 export default function PlayersListScreen({
   contextType,
   contextId,
@@ -59,59 +201,79 @@ export default function PlayersListScreen({
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [refreshing, setRefreshing] = useState(false);
+  const [isSearchFocused, setIsSearchFocused] = useState(false);
   const insets = useSafeAreaInsets();
 
-  // Entry animation values
-  const headerEntryOpacity = useRef(new Animated.Value(0)).current;
-  const headerEntryTranslateY = useRef(new Animated.Value(-20)).current;
-  const contentEntryOpacity = useRef(new Animated.Value(0)).current;
-  const contentEntryTranslateY = useRef(new Animated.Value(30)).current;
-  const hasPlayedEntryAnimation = useRef(false);
+  // Animation values
+  const headerOpacity = useRef(new Animated.Value(0)).current;
+  const headerTranslateY = useRef(new Animated.Value(-30)).current;
+  const searchOpacity = useRef(new Animated.Value(0)).current;
+  const searchTranslateY = useRef(new Animated.Value(20)).current;
+  const contentOpacity = useRef(new Animated.Value(0)).current;
+  const searchBarScale = useRef(new Animated.Value(1)).current;
+  const hasAnimated = useRef(false);
 
   const sportColors = getSportColors(sport.toUpperCase() as SportType);
+
+  // Sport-specific gradient colors
+  const getGradientColors = (): [string, string, string] => {
+    switch (sport) {
+      case 'tennis':
+        return ['#2D5016', '#4A7A25', '#6BA034'];
+      case 'padel':
+        return ['#1E4D6B', '#2E6D8E', '#3E8DB1'];
+      case 'pickleball':
+      default:
+        return ['#4A1D6A', '#6B2D8A', '#8C3DAA'];
+    }
+  };
 
   useEffect(() => {
     fetchPlayers();
   }, [contextType, contextId]);
 
-  // Entry animation effect
   useEffect(() => {
-    if (!isLoading && !error && players.length >= 0 && !hasPlayedEntryAnimation.current) {
-      hasPlayedEntryAnimation.current = true;
-      Animated.stagger(80, [
-        // Header animation
+    if (!isLoading && !hasAnimated.current) {
+      hasAnimated.current = true;
+
+      // Staggered entry animations
+      Animated.sequence([
         Animated.parallel([
-          Animated.spring(headerEntryOpacity, {
+          Animated.spring(headerOpacity, {
             toValue: 1,
             tension: 50,
             friction: 8,
-            useNativeDriver: false,
+            useNativeDriver: true,
           }),
-          Animated.spring(headerEntryTranslateY, {
+          Animated.spring(headerTranslateY, {
             toValue: 0,
             tension: 50,
             friction: 8,
-            useNativeDriver: false,
+            useNativeDriver: true,
           }),
         ]),
-        // Content animation
         Animated.parallel([
-          Animated.spring(contentEntryOpacity, {
+          Animated.spring(searchOpacity, {
             toValue: 1,
             tension: 50,
             friction: 8,
-            useNativeDriver: false,
+            useNativeDriver: true,
           }),
-          Animated.spring(contentEntryTranslateY, {
+          Animated.spring(searchTranslateY, {
             toValue: 0,
             tension: 50,
             friction: 8,
-            useNativeDriver: false,
+            useNativeDriver: true,
           }),
         ]),
+        Animated.timing(contentOpacity, {
+          toValue: 1,
+          duration: 300,
+          useNativeDriver: true,
+        }),
       ]).start();
     }
-  }, [isLoading, error, players]);
+  }, [isLoading]);
 
   const fetchPlayers = async () => {
     try {
@@ -121,47 +283,14 @@ export default function PlayersListScreen({
       let memberships: SeasonMembership[] = [];
 
       if (contextType === 'season') {
-        const allSeasons = await SeasonService.fetchAllSeasons();
-        const season = allSeasons.find(s => s.id === contextId);
+        // Use direct fetch by ID to include past/finished seasons
+        const season = await SeasonService.fetchSeasonById(contextId);
         memberships = season?.memberships || [];
       } else {
-        // For league, we need to fetch the league data
         const league = await LeagueService.fetchLeagueById(contextId);
         memberships = (league as any)?.memberships || [];
       }
 
-      // Get unique player IDs from memberships
-      const playerIds = memberships
-        .filter(membership => membership.user)
-        .map(membership => membership.user!.id);
-
-      // Fetch all players with skill ratings from the API
-      let allPlayersWithRatings: any[] = [];
-      try {
-        const response = await axiosInstance.get(endpoints.player.getAll);
-        // API returns { success, statusCode, data, message } - extract the data array
-        const responseData = response.data?.data ?? response.data;
-        if (responseData && Array.isArray(responseData.data)) {
-          allPlayersWithRatings = responseData.data;
-        } else if (Array.isArray(responseData)) {
-          allPlayersWithRatings = responseData;
-        }
-      } catch (err) {
-        console.error('Error fetching players with ratings:', err);
-        // Continue without ratings if fetch fails
-      }
-
-      // Create a map of player ID to skill ratings
-      const playerRatingsMap = new Map<string, SkillRatings>();
-      if (Array.isArray(allPlayersWithRatings)) {
-        for (const player of allPlayersWithRatings) {
-          if (player.id && player.skillRatings) {
-            playerRatingsMap.set(player.id, player.skillRatings);
-          }
-        }
-      }
-
-      // Transform memberships to PlayerData with skill ratings
       const playerData: PlayerData[] = memberships
         .filter(membership => membership.user)
         .map(membership => ({
@@ -169,9 +298,9 @@ export default function PlayersListScreen({
           name: membership.user!.name || 'Unknown Player',
           image: membership.user!.image,
           divisionId: membership.divisionId,
-          divisionName: undefined, // Will be populated if we have division data
+          divisionName: undefined,
           status: membership.status,
-          skillRatings: playerRatingsMap.get(membership.user!.id) || null,
+          skillRatings: null,
         }));
 
       setPlayers(playerData);
@@ -209,31 +338,50 @@ export default function PlayersListScreen({
     router.back();
   };
 
+  const handleSearchFocus = () => {
+    setIsSearchFocused(true);
+    Animated.spring(searchBarScale, {
+      toValue: 1.02,
+      friction: 8,
+      useNativeDriver: true,
+    }).start();
+  };
+
+  const handleSearchBlur = () => {
+    setIsSearchFocused(false);
+    Animated.spring(searchBarScale, {
+      toValue: 1,
+      friction: 8,
+      useNativeDriver: true,
+    }).start();
+  };
+
   const renderPlayerItem = ({ item, index }: { item: PlayerData; index: number }) => (
-    <View key={item.id}>
-      <PlayerListItemEnhanced
-        player={item}
-        sport={sport}
-        onPress={handlePlayerPress}
-      />
-      {index < filteredPlayers.length - 1 && <View style={styles.divider} />}
-    </View>
+    <PlayerCard
+      player={item}
+      index={index}
+      sport={sport}
+      onPress={handlePlayerPress}
+      sportColors={sportColors}
+    />
   );
 
   const renderEmptyState = () => {
     if (searchQuery.trim()) {
       return (
         <View style={styles.emptyContainer}>
-          <Ionicons name="search-outline" size={64} color="#9CA3AF" />
-          <Text style={styles.emptyTitle}>No players found</Text>
+          <View style={[styles.emptyIconContainer, { backgroundColor: sportColors.background + '15' }]}>
+            <Ionicons name="search-outline" size={moderateScale(48)} color={sportColors.background} />
+          </View>
+          <Text style={styles.emptyTitle}>No results found</Text>
           <Text style={styles.emptyText}>
             No players match "{searchQuery}"
           </Text>
           <TouchableOpacity
             onPress={() => setSearchQuery('')}
-            style={[styles.clearButton, { backgroundColor: sportColors.background }]}
+            style={[styles.actionButton, { backgroundColor: sportColors.background }]}
           >
-            <Text style={styles.clearButtonText}>Clear search</Text>
+            <Text style={styles.actionButtonText}>Clear search</Text>
           </TouchableOpacity>
         </View>
       );
@@ -241,10 +389,12 @@ export default function PlayersListScreen({
 
     return (
       <View style={styles.emptyContainer}>
-        <Ionicons name="people-outline" size={64} color="#9CA3AF" />
+        <View style={[styles.emptyIconContainer, { backgroundColor: sportColors.background + '15' }]}>
+          <Ionicons name="people-outline" size={moderateScale(48)} color={sportColors.background} />
+        </View>
         <Text style={styles.emptyTitle}>No players yet</Text>
         <Text style={styles.emptyText}>
-          No players have registered for this {contextType} yet.
+          Players will appear here once they join this {contextType}.
         </Text>
       </View>
     );
@@ -252,51 +402,49 @@ export default function PlayersListScreen({
 
   const renderErrorState = () => (
     <View style={styles.emptyContainer}>
-      <Ionicons name="cloud-offline-outline" size={64} color="#EF4444" />
-      <Text style={styles.emptyTitle}>Failed to load players</Text>
+      <View style={[styles.emptyIconContainer, { backgroundColor: '#FEE2E2' }]}>
+        <Ionicons name="cloud-offline-outline" size={moderateScale(48)} color="#DC2626" />
+      </View>
+      <Text style={styles.emptyTitle}>Connection error</Text>
       <Text style={styles.emptyText}>
-        {error || 'An error occurred while loading the player list.'}
+        Unable to load players. Please check your connection and try again.
       </Text>
       <TouchableOpacity
         onPress={fetchPlayers}
-        style={[styles.retryButton, { backgroundColor: sportColors.background }]}
+        style={[styles.actionButton, { backgroundColor: sportColors.background }]}
       >
-        <Text style={styles.retryButtonText}>Retry</Text>
+        <Ionicons name="refresh" size={moderateScale(16)} color="#FFFFFF" style={{ marginRight: 6 }} />
+        <Text style={styles.actionButtonText}>Try again</Text>
       </TouchableOpacity>
     </View>
   );
 
-  // Header component for both normal and error states
-  const renderHeader = () => (
-    <LinearGradient
-      colors={[sportColors.background, sportColors.buttonColor]}
-      start={{ x: 0, y: 0 }}
-      end={{ x: 1, y: 1 }}
-      style={[styles.header, { paddingTop: insets.top }]}
-    >
-      <View style={styles.headerRow}>
-        <TouchableOpacity onPress={handleBackPress} style={styles.backButton}>
-          <BackButtonIcon width={24} height={24} />
-        </TouchableOpacity>
-        <View style={styles.headerTextContainer}>
-          <Text style={styles.title} numberOfLines={1}>{contextName}</Text>
-          <Text style={styles.subtitle}>
-            {players.length} {players.length === 1 ? 'player' : 'players'}
-          </Text>
-        </View>
+  const renderLoadingState = () => (
+    <View style={styles.loadingContainer}>
+      <View style={styles.loadingContent}>
+        <ActivityIndicator size="large" color={sportColors.background} />
+        <Text style={styles.loadingText}>Loading players...</Text>
       </View>
-    </LinearGradient>
+      {/* Skeleton cards */}
+      {[1, 2, 3, 4, 5].map((_, index) => (
+        <Animated.View
+          key={index}
+          style={[
+            styles.skeletonCard,
+            { opacity: 0.3 + (index * 0.1) }
+          ]}
+        >
+          <View style={styles.skeletonAvatar} />
+          <View style={styles.skeletonContent}>
+            <View style={styles.skeletonLine} />
+            <View style={[styles.skeletonLine, styles.skeletonLineShort]} />
+          </View>
+        </Animated.View>
+      ))}
+    </View>
   );
 
-  if (error && !players.length) {
-    return (
-      <View style={styles.container}>
-        <StatusBar barStyle="light-content" />
-        {renderHeader()}
-        {renderErrorState()}
-      </View>
-    );
-  }
+  const gradientColors = getGradientColors();
 
   return (
     <View style={styles.container}>
@@ -305,11 +453,58 @@ export default function PlayersListScreen({
       {/* Header */}
       <Animated.View
         style={{
-          opacity: headerEntryOpacity,
-          transform: [{ translateY: headerEntryTranslateY }],
+          opacity: headerOpacity,
+          transform: [{ translateY: headerTranslateY }],
         }}
       >
-        {renderHeader()}
+        <LinearGradient
+          colors={gradientColors}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={[styles.header, { paddingTop: insets.top + verticalScale(8) }]}
+        >
+          {/* Background pattern overlay */}
+          <View style={styles.headerPattern}>
+            {[...Array(6)].map((_, i) => (
+              <View
+                key={i}
+                style={[
+                  styles.patternCircle,
+                  {
+                    left: (i % 3) * width * 0.4 - 50,
+                    top: Math.floor(i / 3) * 80 - 40,
+                    opacity: 0.08 - (i * 0.01),
+                  }
+                ]}
+              />
+            ))}
+          </View>
+
+          <View style={styles.headerContent}>
+            <TouchableOpacity
+              onPress={handleBackPress}
+              style={styles.backButton}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
+              <BackButtonIcon width={scale(22)} height={scale(22)} />
+            </TouchableOpacity>
+
+            <View style={styles.headerTextContainer}>
+              <Text style={styles.headerSubtitle}>
+                {contextType === 'season' ? 'Season' : 'League'}
+              </Text>
+              <Text style={styles.headerTitle} numberOfLines={1}>
+                {contextName}
+              </Text>
+              <View style={styles.playerCountBadge}>
+                <Ionicons name="people" size={moderateScale(12)} color="#FFFFFF" />
+                <Text style={styles.playerCountText}>
+                  {players.length} {players.length === 1 ? 'player' : 'players'}
+                </Text>
+              </View>
+            </View>
+          </View>
+        </LinearGradient>
       </Animated.View>
 
       {/* Search Bar */}
@@ -317,64 +512,70 @@ export default function PlayersListScreen({
         style={[
           styles.searchContainer,
           {
-            opacity: contentEntryOpacity,
-            transform: [{ translateY: contentEntryTranslateY }],
+            opacity: searchOpacity,
+            transform: [
+              { translateY: searchTranslateY },
+              { scale: searchBarScale },
+            ],
           },
         ]}
       >
-        <View style={[styles.searchInputWrapper, { borderColor: sportColors.background }]}>
-          <Ionicons name="search-outline" size={20} color="#9CA3AF" style={styles.searchIcon} />
+        <View style={[
+          styles.searchInputWrapper,
+          isSearchFocused && { borderColor: sportColors.background, borderWidth: 2 }
+        ]}>
+          <Ionicons
+            name="search-outline"
+            size={moderateScale(18)}
+            color={isSearchFocused ? sportColors.background : '#9CA3AF'}
+            style={styles.searchIcon}
+          />
           <TextInput
             style={styles.searchInput}
             placeholder="Search players..."
             placeholderTextColor="#9CA3AF"
             value={searchQuery}
             onChangeText={setSearchQuery}
+            onFocus={handleSearchFocus}
+            onBlur={handleSearchBlur}
           />
           {searchQuery.length > 0 && (
-            <TouchableOpacity onPress={() => setSearchQuery('')}>
-              <Ionicons name="close-circle" size={20} color="#9CA3AF" />
+            <TouchableOpacity
+              onPress={() => setSearchQuery('')}
+              style={styles.clearButton}
+            >
+              <Ionicons name="close-circle" size={moderateScale(18)} color="#9CA3AF" />
             </TouchableOpacity>
           )}
         </View>
       </Animated.View>
 
-      {/* Player List */}
-      <Animated.View
-        style={[
-          styles.listContainer,
-          {
-            opacity: contentEntryOpacity,
-            transform: [{ translateY: contentEntryTranslateY }],
-          },
-        ]}
-      >
+      {/* Content */}
+      <Animated.View style={[styles.content, { opacity: contentOpacity }]}>
         {isLoading ? (
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color={sportColors.background} />
-          </View>
+          renderLoadingState()
+        ) : error ? (
+          renderErrorState()
         ) : (
           <FlatList
             data={filteredPlayers}
             renderItem={renderPlayerItem}
             keyExtractor={(item) => item.id}
             ListEmptyComponent={renderEmptyState}
-            initialNumToRender={20}
-            maxToRenderPerBatch={10}
-            windowSize={10}
-            removeClippedSubviews={true}
-            getItemLayout={(data, index) => ({
-              length: 80,
-              offset: 80 * index,
-              index,
-            })}
+            contentContainerStyle={[
+              styles.listContent,
+              filteredPlayers.length === 0 && styles.listContentEmpty,
+            ]}
+            showsVerticalScrollIndicator={false}
             refreshControl={
               <RefreshControl
                 refreshing={refreshing}
                 onRefresh={onRefresh}
                 tintColor={sportColors.background}
+                colors={[sportColors.background]}
               />
             }
+            ItemSeparatorComponent={() => <View style={styles.separator} />}
           />
         )}
       </Animated.View>
@@ -385,125 +586,295 @@ export default function PlayersListScreen({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F9FAFB',
+    backgroundColor: '#F8FAFC',
   },
   header: {
-    paddingBottom: isSmallScreen ? 14 : isTablet ? 20 : 16,
-    paddingHorizontal: isSmallScreen ? 16 : isTablet ? 24 : 20,
+    paddingBottom: verticalScale(24),
+    paddingHorizontal: scale(20),
+    overflow: 'hidden',
   },
-  headerRow: {
+  headerPattern: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+  },
+  patternCircle: {
+    position: 'absolute',
+    width: 150,
+    height: 150,
+    borderRadius: 75,
+    backgroundColor: '#FFFFFF',
+  },
+  headerContent: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: isSmallScreen ? 8 : isTablet ? 12 : 10,
   },
   backButton: {
-    width: 40,
-    height: 40,
+    width: scale(44),
+    height: scale(44),
     justifyContent: 'center',
-    alignItems: 'flex-start',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    borderRadius: moderateScale(12),
+    marginRight: scale(12),
   },
   headerTextContainer: {
     flex: 1,
-    marginLeft: isSmallScreen ? 8 : isTablet ? 16 : 12,
   },
-  title: {
-    fontSize: isSmallScreen ? 18 : isTablet ? 24 : 20,
+  headerSubtitle: {
+    fontSize: moderateScale(12),
+    fontWeight: '500',
+    color: 'rgba(255, 255, 255, 0.75)',
+    letterSpacing: 0.5,
+    textTransform: 'uppercase',
+    marginBottom: verticalScale(2),
+  },
+  headerTitle: {
+    fontSize: moderateScale(22),
     fontWeight: '700',
     color: '#FFFFFF',
-    fontFamily: 'Inter',
     letterSpacing: -0.3,
   },
-  subtitle: {
-    fontSize: isSmallScreen ? 12 : isTablet ? 15 : 13,
-    fontWeight: '500',
+  playerCountBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: verticalScale(8),
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    paddingHorizontal: scale(10),
+    paddingVertical: verticalScale(4),
+    borderRadius: moderateScale(12),
+    alignSelf: 'flex-start',
+  },
+  playerCountText: {
+    fontSize: moderateScale(12),
+    fontWeight: '600',
     color: '#FFFFFF',
-    opacity: 0.85,
-    marginTop: 2,
-    fontFamily: 'Inter',
+    marginLeft: scale(4),
   },
   searchContainer: {
-    paddingHorizontal: isSmallScreen ? 16 : isTablet ? 24 : 20,
-    paddingVertical: isSmallScreen ? 12 : isTablet ? 16 : 14,
+    paddingHorizontal: scale(16),
+    paddingVertical: verticalScale(12),
     backgroundColor: '#FFFFFF',
     borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
+    borderBottomColor: '#F1F5F9',
   },
   searchInputWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F9FAFB',
-    borderRadius: 12,
-    borderWidth: 2,
-    paddingHorizontal: 12,
-    height: isSmallScreen ? 40 : isTablet ? 48 : 44,
+    backgroundColor: '#F8FAFC',
+    borderRadius: moderateScale(14),
+    paddingHorizontal: scale(14),
+    height: verticalScale(48),
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
   },
   searchIcon: {
-    marginRight: 8,
+    marginRight: scale(10),
   },
   searchInput: {
     flex: 1,
-    fontSize: isSmallScreen ? 14 : isTablet ? 18 : 16,
-    color: '#1F2937',
-    fontFamily: 'Inter',
+    fontSize: moderateScale(15),
+    color: '#1E293B',
+    fontWeight: '400',
   },
-  listContainer: {
+  clearButton: {
+    padding: scale(4),
+  },
+  content: {
     flex: 1,
   },
-  divider: {
-    height: 1,
-    backgroundColor: '#E5E7EB',
-    marginLeft: isSmallScreen ? 76 : isTablet ? 104 : 90,
+  listContent: {
+    paddingHorizontal: scale(16),
+    paddingTop: verticalScale(12),
+    paddingBottom: verticalScale(24),
   },
-  loadingContainer: {
+  listContentEmpty: {
     flex: 1,
     justifyContent: 'center',
-    alignItems: 'center',
-    paddingVertical: 60,
   },
+  playerCardContainer: {
+    marginBottom: verticalScale(8),
+  },
+  playerCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderRadius: moderateScale(16),
+    padding: scale(14),
+    shadowColor: '#1E293B',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  avatarContainer: {
+    position: 'relative',
+  },
+  avatar: {
+    width: scale(52),
+    height: scale(52),
+    borderRadius: moderateScale(16),
+  },
+  avatarGradient: {
+    width: scale(52),
+    height: scale(52),
+    borderRadius: moderateScale(16),
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  avatarInitials: {
+    fontSize: moderateScale(18),
+    fontWeight: '700',
+    color: '#FFFFFF',
+    letterSpacing: 0.5,
+  },
+  statusDot: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    width: scale(14),
+    height: scale(14),
+    borderRadius: scale(7),
+    borderWidth: 2.5,
+    borderColor: '#FFFFFF',
+  },
+  playerInfo: {
+    flex: 1,
+    marginLeft: scale(14),
+  },
+  playerName: {
+    fontSize: moderateScale(16),
+    fontWeight: '600',
+    color: '#1E293B',
+    letterSpacing: -0.2,
+    marginBottom: verticalScale(4),
+  },
+  playerMeta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: scale(8),
+  },
+  sportBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: scale(8),
+    paddingVertical: verticalScale(3),
+    borderRadius: moderateScale(8),
+    gap: scale(4),
+  },
+  sportBadgeText: {
+    fontSize: moderateScale(11),
+    fontWeight: '600',
+  },
+  statusBadge: {
+    backgroundColor: '#FEF3C7',
+    paddingHorizontal: scale(8),
+    paddingVertical: verticalScale(3),
+    borderRadius: moderateScale(8),
+  },
+  statusText: {
+    fontSize: moderateScale(10),
+    fontWeight: '600',
+    color: '#D97706',
+  },
+  arrowContainer: {
+    width: scale(32),
+    height: scale(32),
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#F8FAFC',
+    borderRadius: moderateScale(10),
+  },
+  separator: {
+    height: 0,
+  },
+  // Empty & Error States
   emptyContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 40,
-    paddingVertical: 60,
+    paddingHorizontal: scale(40),
+    paddingBottom: verticalScale(60),
+  },
+  emptyIconContainer: {
+    width: scale(100),
+    height: scale(100),
+    borderRadius: moderateScale(30),
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: verticalScale(20),
   },
   emptyTitle: {
-    fontSize: isSmallScreen ? 18 : isTablet ? 24 : 20,
+    fontSize: moderateScale(20),
     fontWeight: '700',
-    color: '#1F2937',
-    marginTop: 16,
-    marginBottom: 8,
-    fontFamily: 'Inter',
+    color: '#1E293B',
+    marginBottom: verticalScale(8),
+    textAlign: 'center',
   },
   emptyText: {
-    fontSize: isSmallScreen ? 14 : isTablet ? 18 : 16,
-    color: '#6B7280',
+    fontSize: moderateScale(14),
+    color: '#64748B',
     textAlign: 'center',
-    lineHeight: 22,
-    fontFamily: 'Inter',
+    lineHeight: verticalScale(20),
+    marginBottom: verticalScale(20),
   },
-  clearButton: {
-    marginTop: 20,
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 8,
+  actionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: scale(24),
+    paddingVertical: verticalScale(12),
+    borderRadius: moderateScale(12),
   },
-  clearButtonText: {
+  actionButtonText: {
     color: '#FFFFFF',
-    fontSize: isSmallScreen ? 14 : isTablet ? 18 : 16,
+    fontSize: moderateScale(15),
     fontWeight: '600',
-    fontFamily: 'Inter',
   },
-  retryButton: {
-    marginTop: 20,
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 8,
+  // Loading State
+  loadingContainer: {
+    flex: 1,
+    paddingHorizontal: scale(16),
+    paddingTop: verticalScale(40),
   },
-  retryButtonText: {
-    color: '#FFFFFF',
-    fontSize: isSmallScreen ? 14 : isTablet ? 18 : 16,
-    fontWeight: '600',
-    fontFamily: 'Inter',
+  loadingContent: {
+    alignItems: 'center',
+    marginBottom: verticalScale(32),
+  },
+  loadingText: {
+    marginTop: verticalScale(12),
+    fontSize: moderateScale(14),
+    color: '#64748B',
+    fontWeight: '500',
+  },
+  skeletonCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderRadius: moderateScale(16),
+    padding: scale(14),
+    marginBottom: verticalScale(8),
+  },
+  skeletonAvatar: {
+    width: scale(52),
+    height: scale(52),
+    borderRadius: moderateScale(16),
+    backgroundColor: '#E2E8F0',
+  },
+  skeletonContent: {
+    flex: 1,
+    marginLeft: scale(14),
+  },
+  skeletonLine: {
+    height: verticalScale(14),
+    backgroundColor: '#E2E8F0',
+    borderRadius: moderateScale(4),
+    width: '70%',
+    marginBottom: verticalScale(8),
+  },
+  skeletonLineShort: {
+    width: '40%',
+    marginBottom: 0,
   },
 });

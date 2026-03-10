@@ -29,8 +29,8 @@ import {
   ProfileSportsSection,
   ProfileDMRCard,
 } from '../components';
-import { getBackendBaseURL } from '@/config/network';
-import { authClient, useSession } from '@/lib/auth-client';
+import { useSession } from '@/lib/auth-client';
+import axiosInstance from '@/lib/endpoints';
 import { toast } from 'sonner-native';
 import { useProfileHandlers } from '../hooks/useProfileHandlers';
 import { useProfileState } from '../hooks/useProfileState';
@@ -119,25 +119,18 @@ export default function ProfileScreen() {
     try {
       if (!session?.user?.id) return;
 
-      const backendUrl = getBackendBaseURL();
       const sportParam = sport.toUpperCase();
-      const response = await authClient.$fetch(
-        `${backendUrl}/api/ratings/me/history?gameType=${gameType.toUpperCase()}&sport=${sportParam}&limit=20`,
-        { method: 'GET' }
+      const response = await axiosInstance.get(
+        `/api/ratings/me/history?gameType=${gameType.toUpperCase()}&sport=${sportParam}&limit=20`
       );
 
-      // API returns { success: true, data: [...] }
-      // authClient.$fetch wraps it in { data: { success, data } }
+      // axiosInstance normalizes response to { success: true, data: [...] }
       let historyData: any[] = [];
 
-      if (response && (response as any).data) {
-        const responseData = (response as any).data;
-        // Check if it's the nested structure from authClient
-        if (responseData.data && Array.isArray(responseData.data)) {
-          historyData = responseData.data;
-        } else if (Array.isArray(responseData)) {
-          historyData = responseData;
-        }
+      if (response?.data?.data && Array.isArray(response.data.data)) {
+        historyData = response.data.data;
+      } else if (Array.isArray(response?.data)) {
+        historyData = response.data;
       }
 
       if (historyData.length > 0) {
@@ -166,19 +159,14 @@ export default function ProfileScreen() {
       return;
     }
 
-    const backendUrl = getBackendBaseURL();
-
     // Fetch profile data
     try {
-      const profileResponse = await authClient.$fetch(
-        `${backendUrl}/api/player/profile/me`,
-        { method: 'GET' }
-      );
+      const profileResponse = await axiosInstance.get('/api/player/profile/me');
 
-      if (profileResponse && (profileResponse as any).data?.data) {
-        setProfileData((profileResponse as any).data.data);
-      } else if (profileResponse && (profileResponse as any).data) {
-        setProfileData((profileResponse as any).data);
+      if (profileResponse?.data?.data) {
+        setProfileData(profileResponse.data.data);
+      } else if (profileResponse?.data) {
+        setProfileData(profileResponse.data);
       }
     } catch (error) {
       console.error('Error fetching profile:', error);
@@ -189,13 +177,9 @@ export default function ProfileScreen() {
 
     // Fetch achievements independently
     try {
-      const achievementsResponse = await authClient.$fetch(
-        `${backendUrl}/api/player/profile/achievements`,
-        { method: 'GET' }
-      );
+      const achievementsResponse = await axiosInstance.get('/api/player/profile/achievements');
 
-      const raw = achievementsResponse as any;
-      const achData = raw?.data?.data ?? raw?.data ?? raw;
+      const achData = achievementsResponse?.data?.data ?? achievementsResponse?.data;
       if (achData?.achievements) {
         setAchievements(achData.achievements);
         setAchievementCounts({

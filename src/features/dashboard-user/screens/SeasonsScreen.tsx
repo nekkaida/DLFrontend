@@ -17,8 +17,7 @@ import { toast } from 'sonner-native';
 import { PaymentOptionsBottomSheet } from '../components';
 import BottomSheet from '@gorhom/bottom-sheet';
 import { ChoosePartnerBottomSheet, WaitingForPartnerBottomSheet, PartnershipDetailsBottomSheet } from '@/features/pairing/components';
-import { authClient } from '@/lib/auth-client';
-import { getBackendBaseURL } from '@/config/network';
+import axiosInstance from '@/lib/endpoints';
 import { FiuuPaymentService } from '@/src/features/payments/services/FiuuPaymentService';
 const { width, height } = Dimensions.get('window');
 
@@ -76,16 +75,16 @@ export default function SeasonsScreen({
   // Fetch user profile for gender check
   const [profileData, setProfileData] = React.useState<any>(null);
 
+  // Track user's registered season IDs
+  const [userRegisteredSeasonIds, setUserRegisteredSeasonIds] = React.useState<Set<string>>(new Set());
+
   React.useEffect(() => {
     const fetchProfileData = async () => {
       if (!session?.user?.id) return;
       try {
-        const backendUrl = getBackendBaseURL();
-        const authResponse = await authClient.$fetch(`${backendUrl}/api/player/profile/me`, {
-          method: 'GET',
-        });
-        if (authResponse && (authResponse as any).data && (authResponse as any).data.data) {
-          setProfileData((authResponse as any).data.data);
+        const response = await axiosInstance.get('/api/player/profile/me');
+        if (response?.data?.data) {
+          setProfileData(response.data.data);
         }
       } catch (error) {
         console.error('Error fetching profile data:', error);
@@ -94,8 +93,38 @@ export default function SeasonsScreen({
     fetchProfileData();
   }, [session?.user?.id]);
 
+  // Fetch user's registered seasons
+  React.useEffect(() => {
+    const fetchUserRegisteredSeasons = async () => {
+      if (!userId) return;
+      try {
+        const response = await axiosInstance.get('/api/season/membership/me');
+        const memberships = response?.data?.data || response?.data || [];
+        const seasonIds = new Set<string>(
+          memberships.map((m: any) => m.seasonId).filter(Boolean)
+        );
+        console.log('User registered season IDs:', Array.from(seasonIds));
+        setUserRegisteredSeasonIds(seasonIds);
+      } catch (error) {
+        console.error('Error fetching user registered seasons:', error);
+        // Fallback: try to get from profile seasons if available
+        try {
+          const response = await axiosInstance.get('/api/player/profile/me');
+          const profile = response?.data?.data || response?.data;
+          if (profile?.seasonMemberships) {
+            const seasonIds = new Set<string>(
+              profile.seasonMemberships.map((m: any) => m.seasonId).filter(Boolean)
+            );
+            setUserRegisteredSeasonIds(seasonIds);
+          }
+        } catch (e) {
+          console.error('Fallback also failed:', e);
+        }
+      }
+    };
+    fetchUserRegisteredSeasons();
+  }, [userId]);
 
-  
   const handleTabPress = (tabIndex: number) => {
     console.log(`Tab ${tabIndex} pressed - ${['In Progress', 'Upcoming', 'Past'][tabIndex]}`);
     setActiveTab(tabIndex);
@@ -222,13 +251,9 @@ React.useEffect(() => {
     }
     try {
       console.log('🔵 Fetching friends...');
-      const backendUrl = getBackendBaseURL();
-      console.log('🔵 Backend URL:', backendUrl);
-      const response = await authClient.$fetch(`${backendUrl}/api/pairing/friends`, {
-        method: 'GET',
-      });
+      const response = await axiosInstance.get('/api/pairing/friends');
       console.log('📦 Friends API response:', response);
-      const data = (response as any).data?.data || (response as any).data || [];
+      const data = response?.data?.data || response?.data || [];
       console.log('✅ Friends data:', data);
       console.log('📊 Friends count:', data.length);
       setFriends(data);
@@ -241,12 +266,10 @@ React.useEffect(() => {
   const fetchPendingInvitation = React.useCallback(async (seasonId: string) => {
     if (!userId) return null;
     try {
-      const backendUrl = getBackendBaseURL();
-      const response = await authClient.$fetch(
-        `${backendUrl}/api/pairing/season/invitation/pending/${seasonId}`,
-        { method: 'GET' }
+      const response = await axiosInstance.get(
+        `/api/pairing/season/invitation/pending/${seasonId}`
       );
-      return (response as any).data?.data || (response as any).data;
+      return response?.data?.data || response?.data;
     } catch (error) {
       console.error('Error fetching pending invitation:', error);
       return null;
@@ -287,16 +310,12 @@ React.useEffect(() => {
   const handleSendSeasonInvitation = React.useCallback(async (partnershipId: string, partnerId: string) => {
     if (!userId || !currentSeasonForBottomSheet) return;
     try {
-      const backendUrl = getBackendBaseURL();
-      const response = await authClient.$fetch(`${backendUrl}/api/pairing/season/invitation`, {
-        method: 'POST',
-        body: {
-          recipientId: partnerId,
-          generalPartnershipId: partnershipId,
-          seasonId: currentSeasonForBottomSheet,
-        },
+      const response = await axiosInstance.post('/api/pairing/season/invitation', {
+        recipientId: partnerId,
+        generalPartnershipId: partnershipId,
+        seasonId: currentSeasonForBottomSheet,
       });
-      const data = (response as any).data || response;
+      const data = response?.data || response;
       if (data && data.message) {
         toast.success('Season invitation sent!');
         choosePartnerBottomSheetRef.current?.close();
@@ -313,12 +332,10 @@ React.useEffect(() => {
   // Cancel season invitation
   const handleCancelSeasonInvitation = React.useCallback(async (invitationId: string) => {
     try {
-      const backendUrl = getBackendBaseURL();
-      const response = await authClient.$fetch(
-        `${backendUrl}/api/pairing/season/invitation/${invitationId}`,
-        { method: 'DELETE' }
+      const response = await axiosInstance.delete(
+        `/api/pairing/season/invitation/${invitationId}`
       );
-      const data = (response as any).data || response;
+      const data = response?.data || response;
       if (data && data.message) {
         toast.success('Invitation cancelled');
         waitingForPartnerBottomSheetRef.current?.close();
@@ -333,12 +350,10 @@ React.useEffect(() => {
   // Unlink season partnership
   const handleUnlinkPartnership = React.useCallback(async (partnershipId: string) => {
     try {
-      const backendUrl = getBackendBaseURL();
-      const response = await authClient.$fetch(
-        `${backendUrl}/api/pairing/partnership/${partnershipId}/dissolve`,
-        { method: 'POST' }
+      const response = await axiosInstance.post(
+        `/api/pairing/partnership/${partnershipId}/dissolve`
       );
-      const data = (response as any).data || response;
+      const data = response?.data || response;
       if (data && data.success) {
         toast.success('Partnership unlinked');
         partnershipDetailsBottomSheetRef.current?.close();
@@ -554,6 +569,7 @@ React.useEffect(() => {
       handleJoinWaitlistPress={handleJoinWaitlistPress}
       handleViewStandingsPress={handleViewStandingsPress}
       profileData={profileData}
+      userRegisteredSeasonIds={userRegisteredSeasonIds}
     />
   ));
 };
@@ -568,6 +584,7 @@ interface SeasonCardProps {
   handleJoinWaitlistPress: () => void;
   handleViewStandingsPress: (season: Season) => void;
   profileData: any;
+  userRegisteredSeasonIds: Set<string>;
 }
 
 const SeasonCard: React.FC<SeasonCardProps> = ({
@@ -579,10 +596,11 @@ const SeasonCard: React.FC<SeasonCardProps> = ({
   handleJoinWaitlistPress,
   handleViewStandingsPress,
   profileData,
+  userRegisteredSeasonIds,
 }) => {
-  const isUserRegistered = season.memberships?.some(
-    (m: any) => m.userId === userId
-  );
+  // Check if user is registered - use both API data and membership array
+  const isUserRegistered = userRegisteredSeasonIds.has(season.id) ||
+    season.memberships?.some((m: any) => m.userId === userId);
 
   // Check partnership for this specific season
   const { partnership } = useActivePartnership(
@@ -711,11 +729,13 @@ const SeasonCard: React.FC<SeasonCardProps> = ({
           style={[
             styles.registerButton,
             { backgroundColor:
-              !isUserRegistered && season.status === "ACTIVE" && !isRegOpen
-                ? '#B2B2B2'
-                : !canJoin && (season.status === "ACTIVE" || season.status === "UPCOMING")
+              isUserRegistered
+                ? '#9CA3AF' // Gray for already joined
+                : !isRegOpen && season.status === "ACTIVE"
                   ? '#B2B2B2'
-                  : SeasonService.getButtonColor(season.status) },
+                  : !canJoin && (season.status === "ACTIVE" || season.status === "UPCOMING")
+                    ? '#B2B2B2'
+                    : SeasonService.getButtonColor(season.status) },
           ]}
           onPress={async () => {
             console.log('🔴🔴🔴 BUTTON CLICKED!', {
@@ -797,13 +817,13 @@ const SeasonCard: React.FC<SeasonCardProps> = ({
         >
           <Text style={styles.registerButtonText}>
             {isUserRegistered
-              ? "View"
+              ? "Joined"
               : !isRegOpen && season.status === "ACTIVE"
               ? "Registration Closed"
               : !canJoin && (season.status === "ACTIVE" || season.status === "UPCOMING")
               ? "View Only"
               : isDoublesCategory && partnership
-              ? "View"
+              ? "Joined"
               : isDoublesCategory
               ? "Choose a Partner"
               : SeasonService.getButtonText(season.status)}

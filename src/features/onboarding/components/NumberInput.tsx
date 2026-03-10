@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -40,6 +40,8 @@ const NumberInput: React.FC<NumberInputProps> = ({
   keyboardType,
   ...textInputProps
 }) => {
+  const [validationError, setValidationError] = useState<string | null>(null);
+
   const defaultKeyboardType =
     keyboardType ??
     (Platform.select({
@@ -56,18 +58,85 @@ const NumberInput: React.FC<NumberInputProps> = ({
     return 'Enter value';
   };
 
-  const canSubmit = value.trim().length > 0;
+  // Validate and filter input
+  const handleTextChange = (text: string) => {
+    // Allow empty input
+    if (text === '') {
+      setValidationError(null);
+      onChangeText(text);
+      return;
+    }
+
+    // Replace comma with dot for decimal
+    const normalizedText = text.replace(',', '.');
+
+    // Only allow numbers and one decimal point
+    if (!/^-?\d*\.?\d*$/.test(normalizedText)) {
+      return; // Reject invalid characters
+    }
+
+    // Parse the number
+    const numValue = parseFloat(normalizedText);
+
+    // Allow partial input (like "5." while typing)
+    if (isNaN(numValue)) {
+      onChangeText(text);
+      setValidationError(null);
+      return;
+    }
+
+    // Check max value - block if exceeds
+    if (maxValue !== undefined && numValue > maxValue) {
+      setValidationError(`Maximum value is ${maxValue}`);
+      // Don't update if way over (more than 1 digit over for single digits)
+      if (numValue > maxValue * 10) {
+        return;
+      }
+      // Still allow the input but show error
+      onChangeText(text);
+      return;
+    }
+
+    // Check min value - show error but allow typing
+    if (minValue !== undefined && numValue < minValue && normalizedText.indexOf('.') === -1) {
+      // Only show error if it's a complete number (no decimal in progress)
+      if (normalizedText.length >= String(minValue).length) {
+        setValidationError(`Minimum value is ${minValue}`);
+      }
+    } else {
+      setValidationError(null);
+    }
+
+    onChangeText(text);
+  };
+
+  // Clear error when value becomes valid
+  useEffect(() => {
+    if (value) {
+      const numValue = parseFloat(value.replace(',', '.'));
+      if (!isNaN(numValue)) {
+        if (minValue !== undefined && maxValue !== undefined) {
+          if (numValue >= minValue && numValue <= maxValue) {
+            setValidationError(null);
+          }
+        }
+      }
+    }
+  }, [value, minValue, maxValue]);
+
+  const canSubmit = value.trim().length > 0 && !validationError;
   const canSkip = allowSkip;
+  const displayError = error || validationError;
 
   return (
     <View style={[styles.container, containerStyle]}>
       {label && <Text style={styles.label}>{label}</Text>}
       
-      <View style={[styles.inputWrapper, error && styles.inputError]}>
+      <View style={[styles.inputWrapper, displayError && styles.inputError]}>
         <TextInput
           style={styles.input}
           value={value}
-          onChangeText={onChangeText}
+          onChangeText={handleTextChange}
           placeholder={getPlaceholder()}
           placeholderTextColor="#6C7278"
           keyboardType={defaultKeyboardType}
@@ -78,26 +147,21 @@ const NumberInput: React.FC<NumberInputProps> = ({
         />
       </View>
 
-      {helpText && <Text style={styles.helpText}>{helpText}</Text>}
-      {error && <Text style={styles.errorText}>{error}</Text>}
+      {helpText && !displayError && <Text style={styles.helpText}>{helpText}</Text>}
+      {displayError && <Text style={styles.errorText}>{displayError}</Text>}
 
-      <View style={styles.buttonContainer}>
-        {canSubmit && (
-          <TouchableOpacity style={styles.submitButton} onPress={onSubmit}>
-            <Text style={styles.submitButtonText}>Submit</Text>
-          </TouchableOpacity>
-        )}
-        {canSkip && (
+      {canSkip && (
+        <View style={styles.buttonContainer}>
           <TouchableOpacity
-            style={[styles.skipButton, canSubmit && styles.skipButtonWithMargin]}
+            style={styles.skipButton}
             onPress={() => {
               onSkipAndProceed?.();
             }}
           >
             <Text style={styles.skipButtonText}>Skip</Text>
           </TouchableOpacity>
-        )}
-      </View>
+        </View>
+      )}
     </View>
   );
 };

@@ -18,8 +18,8 @@ export default function OnboardingLayout() {
           <Stack.Screen name="game-select" />
           <Stack.Screen name="profile-picture" />
           <Stack.Screen name="dmr-intro" />
-          <Stack.Screen name="skill-assessment" />
-          <Stack.Screen name="assessment-results" />
+          <Stack.Screen name="skill-assessment" options={{ gestureEnabled: false }} />
+          <Stack.Screen name="assessment-results" options={{ gestureEnabled: false }} />
         </Stack>
       </OnboardingProvider>
     </ErrorBoundary>

@@ -2,7 +2,6 @@ import { getSportColors, SportType } from "@/constants/SportsColor";
 import { useSession } from "@/lib/auth-client";
 import axiosInstance, { endpoints } from "@/lib/endpoints";
 import { MatchCardSkeleton } from "@/src/components/MatchCardSkeleton";
-import { authenticatedFetch } from "@/lib/authenticated-fetch";
 import { AnimatedFilterChip } from "@/src/shared/components/ui/AnimatedFilterChip";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -104,11 +103,9 @@ export default function MyGamesScreen({
     if (!session?.user?.id) return false;
 
     try {
-      const response = await authenticatedFetch('/api/match/my/summary');
+      const response = await axiosInstance.get('/api/match/my/summary');
+      const newSummary = response.data?.data ?? response.data;
 
-      if (!response.ok) return true; // If summary fails, assume new content
-
-      const newSummary = await response.json();
       const cachedSummaryStr = await AsyncStorage.getItem(
         MATCH_SUMMARY_CACHE_KEY,
       );
@@ -176,39 +173,14 @@ export default function MyGamesScreen({
       // Manual refresh - never show skeleton
 
       try {
-        const response = await authenticatedFetch('/api/match/my');
-
-        // console.log(`[MyGamesScreen] API Response status: ${response.status}`);
-
-        if (response.ok) {
-          const data = await response.json();
-     
-          // Fix: API returns data in data.data.matches structure
-          const matchesData = data.data?.matches || data.matches || data.data || data;
-          const finalMatches = Array.isArray(matchesData) ? matchesData : [];
-          // console.log(`[MyGamesScreen] Fetched ${finalMatches.length} matches`, {
-          //   activeTab,
-          //   upcomingPastTab,
-          //   matchStatuses: finalMatches.map(m => m?.status || 'unknown'),
-          //   rawData: matchesData,
-          //   apiStructure: {
-          //     hasData: !!data.data,
-          //     hasMatches: !!data.data?.matches,
-          //     matchesLength: data.data?.matches?.length || 0,
-          //   }
-          // });
-          setMatches(finalMatches);
-        } else {
-          const errorText = await response.text();
-          console.error("Failed to fetch matches:", {
-            status: response.status,
-            statusText: response.statusText,
-            errorBody: errorText
-          });
-          setMatches([]);
-        }
-      } catch (error) {
-        console.error("Error fetching my matches:", error);
+        const response = await axiosInstance.get(endpoints.match.getMy);
+        // Unwrap sendSuccess envelope: { success: true, data: T }
+        const payload = response.data?.data ?? response.data;
+        const matchesData = payload?.matches || payload;
+        const finalMatches = Array.isArray(matchesData) ? matchesData : [];
+        setMatches(finalMatches);
+      } catch (error: any) {
+        console.error("Error fetching my matches:", error?.response?.status, error?.response?.data, error?.message);
         setMatches([]);
       } finally {
         setRefreshing(false);

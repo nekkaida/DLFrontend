@@ -1,8 +1,7 @@
 // src/features/feed/hooks/usePostActions.ts
 
 import { useState, useCallback } from 'react';
-import { authClient } from '@/lib/auth-client';
-import { getBackendBaseURL } from '@/config/network';
+import axiosInstance from '@/lib/endpoints';
 import * as Haptics from 'expo-haptics';
 
 export const usePostActions = () => {
@@ -12,14 +11,7 @@ export const usePostActions = () => {
   const editCaption = useCallback(async (postId: string, caption: string): Promise<boolean> => {
     try {
       setIsEditing(true);
-      const backendUrl = getBackendBaseURL();
-      await authClient.$fetch(
-        `${backendUrl}/api/feed/posts/${postId}`,
-        {
-          method: 'PATCH',
-          body: { caption },
-        }
-      );
+      await axiosInstance.patch(`/api/feed/posts/${postId}`, { caption });
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       return true;
     } catch (err) {
@@ -33,11 +25,7 @@ export const usePostActions = () => {
   const deletePost = useCallback(async (postId: string): Promise<boolean> => {
     try {
       setIsDeleting(true);
-      const backendUrl = getBackendBaseURL();
-      await authClient.$fetch(
-        `${backendUrl}/api/feed/posts/${postId}`,
-        { method: 'DELETE' }
-      );
+      await axiosInstance.delete(`/api/feed/posts/${postId}`);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       return true;
     } catch (err) {

@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { useRouter } from 'expo-router';
 
 import {
@@ -16,8 +16,8 @@ import { Svg, Path, G, Circle, Rect, Defs, ClipPath } from 'react-native-svg';
 import { CircularImageCropper } from '../components';
 import { LinearGradient } from 'expo-linear-gradient';
 import { toast } from 'sonner-native';
-import { useSession, authClient } from '@/lib/auth-client';
-import { getBackendBaseURL } from '@/config/network';
+import { useSession } from '@/lib/auth-client';
+import axiosInstance from '@/lib/endpoints';
 import { questionnaireAPI } from '../services/api';
 import * as Haptics from 'expo-haptics';
 import AllSetArrowIcon from '../../../../assets/icons/allset-arrow.svg';
@@ -34,7 +34,7 @@ import { useProfileImageUpload } from '@/src/shared/hooks/useProfileImageUpload'
 const DefaultProfileIcon = ({ size }: { size: number }) => (
   <Svg width={size} height={size} viewBox="0 0 296 296" fill="none">
     <G clipPath="url(#clip0_1283_2316)">
-      <Rect width="311" height="311" fill="#EBEBEB" fillOpacity="0.32" />
+      <Rect width="311" height="311" fill="#ffffff" fillOpacity="0.32" />
       <Circle cx="145" cy="148" r="138" fill="#EBEBEB" />
       <Path
         d="M145 155.083C161.972 155.083 177.406 159.999 188.761 166.926C194.427 170.383 199.273 174.463 202.772 178.897C206.214 183.254 208.75 188.467 208.75 194.041C208.75 200.027 205.839 204.744 201.645 208.109C197.679 211.296 192.444 213.407 186.884 214.881C175.706 217.834 160.789 218.833 145 218.833C129.211 218.833 114.294 217.841 103.116 214.881C97.5558 213.407 92.3212 211.296 88.3546 208.109C84.1542 204.737 81.25 200.027 81.25 194.041C81.25 188.467 83.7858 183.254 87.2283 178.89C90.7275 174.463 95.5654 170.39 101.239 166.919C112.594 160.006 128.035 155.083 145 155.083ZM145 77.1665C154.393 77.1665 163.401 80.8979 170.043 87.5398C176.685 94.1817 180.417 103.19 180.417 112.583C180.417 121.976 176.685 130.985 170.043 137.627C163.401 144.268 154.393 148 145 148C135.607 148 126.599 144.268 119.957 137.627C113.315 130.985 109.583 121.976 109.583 112.583C109.583 103.19 113.315 94.1817 119.957 87.5398C126.599 80.8979 135.607 77.1665 145 77.1665Z"
@@ -73,6 +73,14 @@ const ProfilePictureScreen = () => {
       setHadUploadedImage(true); // Mark that user has uploaded an image
     },
   });
+
+  // Load existing profile image from session on mount
+  useEffect(() => {
+    if (session?.user?.image && !profileImage) {
+      setProfileImage(session.user.image);
+      setHadUploadedImage(true);
+    }
+  }, [session?.user?.image, profileImage, setProfileImage]);
 
   // Responsive sizes
   const imageSize = getResponsiveValue({
@@ -117,14 +125,7 @@ const ProfilePictureScreen = () => {
         // If user had uploaded an image before clicking skip, delete it from backend
         if (hadUploadedImage && session?.user?.id) {
           try {
-            const backendUrl = getBackendBaseURL();
-            await authClient.$fetch(`${backendUrl}/api/player/profile/me`, {
-              method: 'PUT',
-              body: JSON.stringify({ image: null }),
-              headers: {
-                'Content-Type': 'application/json',
-              },
-            });
+            await axiosInstance.put('/api/player/profile/me', { image: null });
           } catch {
             // Show error to user but allow them to continue
             toast.error('Warning', {
@@ -403,7 +404,7 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   imageContainer: {
-    backgroundColor: '#EBEBEB',
+    backgroundColor: 'transparent',
     justifyContent: 'center',
     alignItems: 'center',
     position: 'relative',

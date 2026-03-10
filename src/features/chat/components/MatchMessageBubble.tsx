@@ -294,6 +294,16 @@ export const MatchMessageBubble: React.FC<MatchMessageBubbleProps> = ({
     return status === 'COMPLETED' || status === 'FINISHED';
   }, [(matchData as any).status]);
 
+  // Check if match is full (all slots taken)
+  const isMatchFull = React.useMemo(() => {
+    const maxSlots = matchData.matchType === 'DOUBLES' || matchData.numberOfPlayers === '4' ? 4 : 2;
+    const participants = matchData.participants as MatchParticipant[] || [];
+    const acceptedParticipants = participants.filter(
+      (p) => p.invitationStatus === 'ACCEPTED' || !p.invitationStatus
+    );
+    return acceptedParticipants.length >= maxSlots;
+  }, [matchData.matchType, matchData.numberOfPlayers, matchData.participants]);
+
   // Check if user has already played against the match creator in this division
   useEffect(() => {
     const checkAlreadyPlayed = async () => {
@@ -747,21 +757,22 @@ export const MatchMessageBubble: React.FC<MatchMessageBubbleProps> = ({
             <TouchableOpacity
               style={[
                 styles.joinButton,
-                { 
-                  backgroundColor: (isUserInMatch || isMatchCompleted || (isFriendlyRequest && (isExpired || currentRequestStatus === 'DECLINED' || currentRequestStatus === 'EXPIRED'))) 
-                    ? '#9CA3AF' 
-                    : sportColors.buttonColor 
+                {
+                  backgroundColor: (isUserInMatch || isMatchCompleted || isMatchFull || (isFriendlyRequest && (isExpired || currentRequestStatus === 'DECLINED' || currentRequestStatus === 'EXPIRED')))
+                    ? '#9CA3AF'
+                    : sportColors.buttonColor
                 }
               ]}
-              activeOpacity={(isUserInMatch || isMatchCompleted || (isFriendlyRequest && (isExpired || currentRequestStatus === 'DECLINED' || currentRequestStatus === 'EXPIRED'))) ? 1 : 0.8}
-              disabled={isUserInMatch || isFetchingPartner || isMatchCompleted || (isFriendlyRequest && (isExpired || currentRequestStatus === 'DECLINED' || currentRequestStatus === 'EXPIRED'))}
+              activeOpacity={(isUserInMatch || isMatchCompleted || isMatchFull || (isFriendlyRequest && (isExpired || currentRequestStatus === 'DECLINED' || currentRequestStatus === 'EXPIRED'))) ? 1 : 0.8}
+              disabled={isUserInMatch || isFetchingPartner || isMatchCompleted || isMatchFull || (isFriendlyRequest && (isExpired || currentRequestStatus === 'DECLINED' || currentRequestStatus === 'EXPIRED'))}
               onPress={handleOpenJoinMatch}
             >
               <Text style={styles.joinButtonText}>
-                {isFetchingPartner ? 'Loading...' 
-                  : isMatchCompleted ? 'Completed' 
-                  : isUserInMatch ? 'Joined' 
-                  : (isFriendlyRequest && (isExpired || currentRequestStatus === 'DECLINED' || currentRequestStatus === 'EXPIRED')) 
+                {isFetchingPartner ? 'Loading...'
+                  : isMatchCompleted ? 'Completed'
+                  : isUserInMatch ? 'Joined'
+                  : isMatchFull ? 'Match Full'
+                  : (isFriendlyRequest && (isExpired || currentRequestStatus === 'DECLINED' || currentRequestStatus === 'EXPIRED'))
                     ? (currentRequestStatus === 'DECLINED' ? 'Declined' : 'Expired')
                     : 'Join match'}
               </Text>
@@ -782,6 +793,7 @@ export const MatchMessageBubble: React.FC<MatchMessageBubbleProps> = ({
         }}
         creatorName={senderName}
         creatorImage={senderImage}
+        creatorId={senderId}
         formattedDate={formatDisplayDate(matchData.date)}
         formattedTime={formattedStartTime}
         formattedEndTime={formattedEndTime}

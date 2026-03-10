@@ -1,5 +1,4 @@
-import { authClient } from '@/lib/auth-client';
-import { getBackendBaseURL } from '@/src/config/network';
+import axiosInstance from '@/lib/endpoints';
 
 export interface Category {
   id: string;
@@ -32,40 +31,33 @@ export class CategoryService {
   // fetch categories for a specific league
   static async fetchLeagueCategories(leagueId: string): Promise<Category[]> {
     try {
-      const backendUrl = getBackendBaseURL();
       console.log('CategoryService: Fetching categories for league:', leagueId);
-      console.log('CategoryService: API URL:', `${backendUrl}/api/category/league/${leagueId}`);
+      console.log('CategoryService: API URL:', `/api/category/league/${leagueId}`);
 
-      const response = await authClient.$fetch(`${backendUrl}/api/category/league/${leagueId}`, {
-        method: 'GET',
-      });
+      const response = await axiosInstance.get(`/api/category/league/${leagueId}`);
 
-      console.log('CategoryService: Raw API response:', response);
+      console.log('CategoryService: Raw API response:', response.data);
 
-      if (response && typeof response === 'object') {
-        const apiResponse = response as any;
-        
+      const apiResponse = response.data;
+
+      if (apiResponse && typeof apiResponse === 'object') {
         console.log('CategoryService: Debug - response structure:', {
           hasSuccess: 'success' in apiResponse,
           hasData: 'data' in apiResponse,
-          hasError: 'error' in apiResponse,
           dataType: typeof apiResponse.data,
           dataKeys: apiResponse.data ? Object.keys(apiResponse.data) : 'no data'
         });
-        
-        // handle the authClient.$fetch wrapped response structure
-        if (apiResponse.data && apiResponse.data.success && apiResponse.data.data) {
-          // Response is wrapped: { data: { success: true, data: [categories], message: "..." }, error: null }
-          if (Array.isArray(apiResponse.data.data)) {
-            console.log('CategoryService: Successfully fetched categories (wrapped):', apiResponse.data.data.length);
-            return apiResponse.data.data.filter((category: Category) => category.isActive);
-          }
-        }
-        
-        // handle direct ApiResponse structure (from backend controller)
+
+        // handle ApiResponse structure (from backend controller)
         if (apiResponse.success && Array.isArray(apiResponse.data)) {
-          console.log('CategoryService: Successfully fetched categories (direct):', apiResponse.data.length);
+          console.log('CategoryService: Successfully fetched categories:', apiResponse.data.length);
           return apiResponse.data.filter((category: Category) => category.isActive);
+        }
+
+        // handle direct array response
+        if (Array.isArray(apiResponse)) {
+          console.log('CategoryService: Successfully fetched categories (array):', apiResponse.length);
+          return apiResponse.filter((category: Category) => category.isActive);
         }
       }
 

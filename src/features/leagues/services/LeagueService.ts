@@ -5,6 +5,7 @@ export interface League {
   name: string;
   location?: string;
   description?: string;
+  rules?: string;
   status: 'ACTIVE' | 'INACTIVE' | 'SUSPENDED' | 'UPCOMING' | 'ONGOING' | 'FINISHED' | 'CANCELLED';
   sportType: 'PADEL' | 'PICKLEBALL' | 'TENNIS';
   joinType?: 'OPEN' | 'INVITE_ONLY' | 'MANUAL';

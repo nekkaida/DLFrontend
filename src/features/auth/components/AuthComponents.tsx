@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState } from "react";
 import {
   View,
   Text,
@@ -8,21 +8,19 @@ import {
   ViewStyle,
   ActivityIndicator,
   StyleSheet,
-} from 'react-native';
-import * as Haptics from 'expo-haptics';
-import { LinearGradient } from 'expo-linear-gradient';
-import { Ionicons } from '@expo/vector-icons';
-import Svg, { Path, G } from 'react-native-svg';
-import PhoneInput from 'react-native-phone-number-input';
-import { AuthStyles, AuthColors, AuthTypography } from '../styles/AuthStyles';
-import {
-  scale,
-  verticalScale,
-  moderateScale,
-} from '@/core/utils/responsive';
+} from "react-native";
+import * as Haptics from "expo-haptics";
+import { LinearGradient } from "expo-linear-gradient";
+import { Ionicons } from "@expo/vector-icons";
+import Svg, { Path, G } from "react-native-svg";
+import PhoneInput from "react-native-phone-number-input";
+import { AuthStyles, AuthColors, AuthTypography } from "../styles/AuthStyles";
+import { scale, verticalScale, moderateScale } from "@/core/utils/responsive";
 
 // Safe haptics wrapper - handles unsupported devices gracefully
-const triggerHaptic = async (style: Haptics.ImpactFeedbackStyle = Haptics.ImpactFeedbackStyle.Light) => {
+const triggerHaptic = async (
+  style: Haptics.ImpactFeedbackStyle = Haptics.ImpactFeedbackStyle.Light,
+) => {
   try {
     await Haptics.impactAsync(style);
   } catch {
@@ -31,13 +29,17 @@ const triggerHaptic = async (style: Haptics.ImpactFeedbackStyle = Haptics.Impact
 };
 
 // Status Bar Component
-export const StatusBar: React.FC<{ darkMode?: boolean }> = ({ darkMode = false }) => {
+export const StatusBar: React.FC<{ darkMode?: boolean }> = ({
+  darkMode = false,
+}) => {
   const textColor = darkMode ? AuthColors.white : AuthColors.black;
 
   return (
     <View style={AuthStyles.statusBar}>
       <View style={AuthStyles.statusBarLeft}>
-        <Text style={[AuthStyles.statusBarTime, { color: textColor }]}>9:41</Text>
+        <Text style={[AuthStyles.statusBarTime, { color: textColor }]}>
+          9:41
+        </Text>
         <Ionicons name="location" size={moderateScale(14)} color={textColor} />
       </View>
 
@@ -71,15 +73,24 @@ const DataIcon: React.FC<{ color: string }> = ({ color }) => (
 
 // Battery Icon
 const BatteryIcon: React.FC = () => (
-  <View style={{ flexDirection: 'row', alignItems: 'center', gap: scale(0.5) }}>
-    <Text style={{
-      fontFamily: AuthTypography.fontFamily.primary,
-      fontWeight: AuthTypography.fontWeight.heavy,
-      fontSize: moderateScale(11),
-      color: AuthColors.white,
-    }}>78</Text>
+  <View style={{ flexDirection: "row", alignItems: "center", gap: scale(0.5) }}>
+    <Text
+      style={{
+        fontFamily: AuthTypography.fontFamily.primary,
+        fontWeight: AuthTypography.fontWeight.heavy,
+        fontSize: moderateScale(11),
+        color: AuthColors.white,
+      }}
+    >
+      78
+    </Text>
     <Svg width={scale(27)} height={verticalScale(14)} viewBox="0 0 27 14">
-      <Path d="M2.5 4H22.5V10H2.5V4Z" stroke={AuthColors.black} strokeOpacity="0.3" fill="transparent" />
+      <Path
+        d="M2.5 4H22.5V10H2.5V4Z"
+        stroke={AuthColors.black}
+        strokeOpacity="0.3"
+        fill="transparent"
+      />
       <Path d="M2.5 4H15V10H2.5V4Z" fill="#34C759" />
       <Path d="M24 6H25V8H24V6Z" fill={AuthColors.black} strokeOpacity="0.3" />
     </Svg>
@@ -107,18 +118,23 @@ interface InputFieldProps {
   value: string;
   onChangeText: (text: string) => void;
   secureTextEntry?: boolean;
-  icon?: 'mail' | 'user' | 'lock' | 'phone';
+  icon?: "mail" | "user" | "lock" | "phone";
   showEyeIcon?: boolean;
   onEyePress?: () => void;
-  keyboardType?: 'default' | 'email-address' | 'phone-pad';
+  keyboardType?: "default" | "email-address" | "phone-pad";
   containerStyle?: ViewStyle;
   accessibilityLabel?: string;
   accessibilityHint?: string;
   maxLength?: number;
-  autoComplete?: 'off' | 'email' | 'username' | 'password' | 'password-new';
-  textContentType?: 'none' | 'emailAddress' | 'username' | 'password' | 'newPassword';
+  autoComplete?: "off" | "email" | "username" | "password" | "password-new";
+  textContentType?:
+    | "none"
+    | "emailAddress"
+    | "username"
+    | "password"
+    | "newPassword";
   // Validation props
-  validationStatus?: 'idle' | 'checking' | 'available' | 'taken';
+  validationStatus?: "idle" | "checking" | "available" | "taken";
   validationError?: string;
 }
 
@@ -131,28 +147,52 @@ export const InputField: React.FC<InputFieldProps> = ({
   icon,
   showEyeIcon = false,
   onEyePress,
-  keyboardType = 'default',
+  keyboardType = "default",
   containerStyle,
   accessibilityLabel,
   accessibilityHint,
   maxLength,
   autoComplete,
   textContentType,
-  validationStatus = 'idle',
+  validationStatus = "idle",
   validationError,
 }) => {
   const [isFocused, setIsFocused] = useState(false);
 
   const getIcon = () => {
     switch (icon) {
-      case 'mail':
-        return <Ionicons name="mail-outline" size={moderateScale(16)} color={AuthColors.gray[300]} />;
-      case 'user':
-        return <Ionicons name="person-outline" size={moderateScale(16)} color={AuthColors.gray[300]} />;
-      case 'lock':
-        return <Ionicons name="lock-closed-outline" size={moderateScale(16)} color={AuthColors.gray[300]} />;
-      case 'phone':
-        return <Ionicons name="call-outline" size={moderateScale(16)} color={AuthColors.gray[300]} />;
+      case "mail":
+        return (
+          <Ionicons
+            name="mail-outline"
+            size={moderateScale(16)}
+            color={AuthColors.gray[300]}
+          />
+        );
+      case "user":
+        return (
+          <Ionicons
+            name="person-outline"
+            size={moderateScale(16)}
+            color={AuthColors.gray[300]}
+          />
+        );
+      case "lock":
+        return (
+          <Ionicons
+            name="lock-closed-outline"
+            size={moderateScale(16)}
+            color={AuthColors.gray[300]}
+          />
+        );
+      case "phone":
+        return (
+          <Ionicons
+            name="call-outline"
+            size={moderateScale(16)}
+            color={AuthColors.gray[300]}
+          />
+        );
       default:
         return null;
     }
@@ -160,11 +200,13 @@ export const InputField: React.FC<InputFieldProps> = ({
 
   const getValidationIcon = () => {
     switch (validationStatus) {
-      case 'checking':
+      case "checking":
         return <ActivityIndicator size="small" color={AuthColors.primary} />;
-      case 'available':
+      // Style 1
+      case "available":
         return <Ionicons name="checkmark-circle" size={16} color="#10B981" />;
-      case 'taken':
+
+      case "taken":
         return <Ionicons name="close-circle" size={16} color="#EF4444" />;
       default:
         return null;
@@ -172,8 +214,8 @@ export const InputField: React.FC<InputFieldProps> = ({
   };
 
   const getBorderColor = () => {
-    if (validationStatus === 'available') return '#10B981';
-    if (validationStatus === 'taken') return '#EF4444';
+    if (validationStatus === "available") return "#10B981";
+    if (validationStatus === "taken") return "#EF4444";
     if (isFocused || value) return AuthColors.primary;
     return AuthColors.gray[200];
   };
@@ -181,10 +223,12 @@ export const InputField: React.FC<InputFieldProps> = ({
   return (
     <View style={[AuthStyles.inputFieldContainer, containerStyle]}>
       <Text style={AuthStyles.inputLabel}>{label}</Text>
-      <View style={[
-        AuthStyles.inputArea,
-        { borderColor: getBorderColor(), borderWidth: 1 }
-      ]}>
+      <View
+        style={[
+          AuthStyles.inputArea,
+          { borderColor: getBorderColor(), borderWidth: 1 },
+        ]}
+      >
         {icon && <View style={AuthStyles.inputIcon}>{getIcon()}</View>}
         <TextInput
           style={AuthStyles.inputText}
@@ -208,9 +252,7 @@ export const InputField: React.FC<InputFieldProps> = ({
           }}
         />
         {getValidationIcon() && (
-          <View style={{ marginRight: 8 }}>
-            {getValidationIcon()}
-          </View>
+          <View style={{ marginRight: 8 }}>{getValidationIcon()}</View>
         )}
         {showEyeIcon && (
           <TouchableOpacity
@@ -219,7 +261,9 @@ export const InputField: React.FC<InputFieldProps> = ({
               onEyePress?.();
             }}
             style={AuthStyles.eyeIcon}
-            accessibilityLabel={secureTextEntry ? "Show password" : "Hide password"}
+            accessibilityLabel={
+              secureTextEntry ? "Show password" : "Hide password"
+            }
             accessibilityRole="button"
             accessibilityHint="Toggles password visibility"
           >
@@ -232,12 +276,14 @@ export const InputField: React.FC<InputFieldProps> = ({
         )}
       </View>
       {validationError && (
-        <Text style={{ 
-          fontSize: 12, 
-          color: '#EF4444', 
-          marginTop: 4,
-          fontFamily: 'Inter'
-        }}>
+        <Text
+          style={{
+            fontSize: 12,
+            color: "#EF4444",
+            marginTop: 4,
+            fontFamily: "Inter",
+          }}
+        >
           {validationError}
         </Text>
       )}
@@ -262,15 +308,21 @@ export const PhoneInputField: React.FC<PhoneInputProps> = ({
   onChangeCountryCode,
 }) => {
   const phoneInput = useRef<PhoneInput>(null);
-  const [selectedCountryCode, setSelectedCountryCode] = React.useState('+60'); // Default to Malaysia
+  const [selectedCountryCode, setSelectedCountryCode] = React.useState("+60"); // Default to Malaysia
 
   return (
     <View style={AuthStyles.inputFieldContainer}>
       <Text style={AuthStyles.inputLabel}>{label}</Text>
-      <View style={[AuthStyles.inputArea, value ? AuthStyles.inputAreaActive : {}]}>
+      <View
+        style={[AuthStyles.inputArea, value ? AuthStyles.inputAreaActive : {}]}
+      >
         {/* Phone Icon */}
         <View style={AuthStyles.inputIcon}>
-          <Ionicons name="call-outline" size={moderateScale(16)} color={AuthColors.gray[300]} />
+          <Ionicons
+            name="call-outline"
+            size={moderateScale(16)}
+            color={AuthColors.gray[300]}
+          />
         </View>
 
         {/* Country Code Display */}
@@ -302,7 +354,13 @@ export const PhoneInputField: React.FC<PhoneInputProps> = ({
             flagButtonStyle={styles.compactPhoneFlagButton}
             countryPickerButtonStyle={styles.compactPhoneCountryPicker}
             disableArrowIcon={false}
-            renderDropdownImage={<Ionicons name="chevron-down" size={moderateScale(12)} color="#6B7280" />}
+            renderDropdownImage={
+              <Ionicons
+                name="chevron-down"
+                size={moderateScale(12)}
+                color="#6B7280"
+              />
+            }
           />
         </View>
 
@@ -329,7 +387,10 @@ interface CircleArrowButtonProps {
   loading?: boolean;
 }
 
-export const CircleArrowButton: React.FC<CircleArrowButtonProps> = ({ onPress, loading = false }) => (
+export const CircleArrowButton: React.FC<CircleArrowButtonProps> = ({
+  onPress,
+  loading = false,
+}) => (
   <TouchableOpacity
     style={[AuthStyles.circleButton, loading && { opacity: 0.7 }]}
     onPress={() => {
@@ -343,7 +404,11 @@ export const CircleArrowButton: React.FC<CircleArrowButtonProps> = ({ onPress, l
     {loading ? (
       <ActivityIndicator size="small" color={AuthColors.white} />
     ) : (
-      <Ionicons name="arrow-forward" size={moderateScale(24)} color={AuthColors.white} />
+      <Ionicons
+        name="arrow-forward"
+        size={moderateScale(24)}
+        color={AuthColors.white}
+      />
     )}
   </TouchableOpacity>
 );
@@ -355,7 +420,11 @@ interface PrimaryButtonProps {
   style?: ViewStyle;
 }
 
-export const PrimaryButton: React.FC<PrimaryButtonProps> = ({ title, onPress, style }) => (
+export const PrimaryButton: React.FC<PrimaryButtonProps> = ({
+  title,
+  onPress,
+  style,
+}) => (
   <TouchableOpacity
     style={[AuthStyles.primaryButton, style]}
     onPress={() => {
@@ -369,7 +438,7 @@ export const PrimaryButton: React.FC<PrimaryButtonProps> = ({ title, onPress, st
 
 // Social Login Button
 interface SocialButtonProps {
-  type: 'facebook' | 'google' | 'apple';
+  type: 'google' | 'apple';
   onPress: () => void;
   disabled?: boolean;
 }
@@ -377,34 +446,34 @@ interface SocialButtonProps {
 // Debounce delay for social buttons
 const SOCIAL_BUTTON_DEBOUNCE = 500;
 
-export const SocialButton: React.FC<SocialButtonProps> = ({ type, onPress, disabled = false }) => {
+export const SocialButton: React.FC<SocialButtonProps> = ({
+  type,
+  onPress,
+  disabled = false,
+}) => {
   const lastPressRef = useRef<number>(0);
 
   const getButtonStyle = () => {
-    switch (type) {
-      case 'facebook':
-        return AuthStyles.facebookButton;
-      case 'google':
-      case 'apple':
-        return AuthStyles.googleButton;
-    }
+    return AuthStyles.googleButton;
   };
 
   const getIcon = () => {
     switch (type) {
-      case 'facebook':
-        return <FacebookIcon />;
       case 'google':
         return <GoogleIcon />;
-      case 'apple':
-        return <Ionicons name="logo-apple" size={moderateScale(20)} color={AuthColors.black} />;
+      case "apple":
+        return (
+          <Ionicons
+            name="logo-apple"
+            size={moderateScale(20)}
+            color={AuthColors.black}
+          />
+        );
     }
   };
 
   const getAccessibilityLabel = () => {
     switch (type) {
-      case 'facebook':
-        return 'Sign in with Facebook';
       case 'google':
         return 'Sign in with Google';
       case 'apple':
@@ -424,7 +493,11 @@ export const SocialButton: React.FC<SocialButtonProps> = ({ type, onPress, disab
 
   return (
     <TouchableOpacity
-      style={[AuthStyles.socialButton, getButtonStyle(), disabled && { opacity: 0.5 }]}
+      style={[
+        AuthStyles.socialButton,
+        getButtonStyle(),
+        disabled && { opacity: 0.5 },
+      ]}
       onPress={handlePress}
       disabled={disabled}
       accessibilityLabel={getAccessibilityLabel()}
@@ -440,7 +513,10 @@ export const SocialButton: React.FC<SocialButtonProps> = ({ type, onPress, disab
 // Facebook Icon Component
 const FacebookIcon: React.FC = () => (
   <Svg width={scale(10)} height={scale(20)} viewBox="0 0 10 20">
-    <Path d="M9.34475 11.1068L9.86301 7.69417H6.621V5.48058C6.621 4.54672 7.07306 3.63592 8.52512 3.63592H10V0.730583C10 0.730583 8.6621 0.5 7.38356 0.5C4.71233 0.5 2.96804 2.13483 2.96804 5.0932V7.69417H0V11.1068H2.96804V19.357C3.56393 19.4516 4.17352 19.5 4.79452 19.5C5.41553 19.5 6.02511 19.4516 6.621 19.357V11.1068H9.34475Z" fill="white"/>
+    <Path
+      d="M9.34475 11.1068L9.86301 7.69417H6.621V5.48058C6.621 4.54672 7.07306 3.63592 8.52512 3.63592H10V0.730583C10 0.730583 8.6621 0.5 7.38356 0.5C4.71233 0.5 2.96804 2.13483 2.96804 5.0932V7.69417H0V11.1068H2.96804V19.357C3.56393 19.4516 4.17352 19.5 4.79452 19.5C5.41553 19.5 6.02511 19.4516 6.621 19.357V11.1068H9.34475Z"
+      fill="white"
+    />
   </Svg>
 );
 
@@ -448,10 +524,22 @@ const FacebookIcon: React.FC = () => (
 const GoogleIcon: React.FC = () => (
   <Svg width={scale(20)} height={scale(20)} viewBox="0 0 20 20">
     <G>
-      <Path d="M10 8.18V12H15.86C15.56 13.24 14.94 14.32 14.04 15.13L17.21 17.63C19.11 15.87 20.21 13.27 20.21 10.22C20.21 9.5 20.15 8.8 20.04 8.13H10V8.18Z" fill={AuthColors.google.blue} />
-      <Path d="M10 20C12.7 20 14.96 19.1 17.21 17.63L14.04 15.13C13.01 15.82 11.73 16.25 10 16.25C7.39 16.25 5.19 14.51 4.44 12.12H1.17V14.73C2.65 17.64 6.05 20 10 20Z" fill={AuthColors.google.green} />
-      <Path d="M4.44 12.12C3.96 10.88 3.96 9.12 4.44 7.88V5.27H1.17C-0.39 8.35 -0.39 11.65 1.17 14.73L4.44 12.12Z" fill={AuthColors.google.yellow} />
-      <Path d="M10 3.75C11.8 3.72 13.53 4.42 14.81 5.69L17.29 3.21C15.06 1.14 12.08 -0.03 10 0C6.05 0 2.65 2.36 1.17 5.27L4.44 7.88C5.19 5.49 7.39 3.75 10 3.75Z" fill={AuthColors.google.red} />
+      <Path
+        d="M10 8.18V12H15.86C15.56 13.24 14.94 14.32 14.04 15.13L17.21 17.63C19.11 15.87 20.21 13.27 20.21 10.22C20.21 9.5 20.15 8.8 20.04 8.13H10V8.18Z"
+        fill={AuthColors.google.blue}
+      />
+      <Path
+        d="M10 20C12.7 20 14.96 19.1 17.21 17.63L14.04 15.13C13.01 15.82 11.73 16.25 10 16.25C7.39 16.25 5.19 14.51 4.44 12.12H1.17V14.73C2.65 17.64 6.05 20 10 20Z"
+        fill={AuthColors.google.green}
+      />
+      <Path
+        d="M4.44 12.12C3.96 10.88 3.96 9.12 4.44 7.88V5.27H1.17C-0.39 8.35 -0.39 11.65 1.17 14.73L4.44 12.12Z"
+        fill={AuthColors.google.yellow}
+      />
+      <Path
+        d="M10 3.75C11.8 3.72 13.53 4.42 14.81 5.69L17.29 3.21C15.06 1.14 12.08 -0.03 10 0C6.05 0 2.65 2.36 1.17 5.27L4.44 7.88C5.19 5.49 7.39 3.75 10 3.75Z"
+        fill={AuthColors.google.red}
+      />
     </G>
   </Svg>
 );
@@ -464,7 +552,12 @@ interface LinkTextProps {
   style?: ViewStyle;
 }
 
-export const LinkText: React.FC<LinkTextProps> = ({ text, linkText, onPress, style }) => (
+export const LinkText: React.FC<LinkTextProps> = ({
+  text,
+  linkText,
+  onPress,
+  style,
+}) => (
   <View style={[AuthStyles.linkContainer, style]}>
     <Text style={AuthStyles.linkText}>{text}</Text>
     <TouchableOpacity onPress={onPress}>
@@ -476,14 +569,18 @@ export const LinkText: React.FC<LinkTextProps> = ({ text, linkText, onPress, sty
 // Back Button
 export const BackButton: React.FC<{ onPress: () => void }> = ({ onPress }) => (
   <TouchableOpacity style={AuthStyles.backButton} onPress={onPress}>
-    <Ionicons name="chevron-back" size={moderateScale(24)} color={AuthColors.black} />
+    <Ionicons
+      name="chevron-back"
+      size={moderateScale(24)}
+      color={AuthColors.black}
+    />
   </TouchableOpacity>
 );
 
 // Gradient Background
 export const GradientBackground: React.FC = () => (
   <LinearGradient
-    colors={['#FFB678', '#FFFFFF']}
+    colors={["#FFB678", "#FFFFFF"]}
     start={{ x: 0.5, y: 0 }}
     end={{ x: 0.5, y: 0.7882 }}
     style={AuthStyles.gradientBackground}
@@ -496,7 +593,10 @@ interface VerificationInputProps {
   onCodeChange: (code: string[]) => void;
 }
 
-export const VerificationInput: React.FC<VerificationInputProps> = ({ code, onCodeChange }) => {
+export const VerificationInput: React.FC<VerificationInputProps> = ({
+  code,
+  onCodeChange,
+}) => {
   const inputRefs = React.useRef<TextInput[]>([]);
 
   const handleCodeInput = (text: string, index: number) => {
@@ -511,7 +611,7 @@ export const VerificationInput: React.FC<VerificationInputProps> = ({ code, onCo
   };
 
   const handleKeyPress = (e: any, index: number) => {
-    if (e.nativeEvent.key === 'Backspace' && !code[index] && index > 0) {
+    if (e.nativeEvent.key === "Backspace" && !code[index] && index > 0) {
       inputRefs.current[index - 1]?.focus();
     }
   };
@@ -527,7 +627,7 @@ export const VerificationInput: React.FC<VerificationInputProps> = ({ code, onCo
             }
           }}
           style={AuthStyles.codeInput}
-          value={code[index] || ''}
+          value={code[index] || ""}
           onChangeText={(text) => handleCodeInput(text, index)}
           onKeyPress={(e) => handleKeyPress(e, index)}
           keyboardType="number-pad"
@@ -544,63 +644,63 @@ export const VerificationInput: React.FC<VerificationInputProps> = ({ code, onCo
 // Compact Phone Input Field Styles
 const styles = StyleSheet.create({
   countryCodeDisplay: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     height: verticalScale(46),
     paddingHorizontal: scale(8),
-    justifyContent: 'center',
+    justifyContent: "center",
   },
   countryCodeDropdown: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     height: verticalScale(46),
     width: scale(40), // Just enough for dropdown arrow
-    justifyContent: 'center',
+    justifyContent: "center",
   },
   countryCodeText: {
     fontSize: moderateScale(14),
-    color: '#000000',
-    fontFamily: 'Inter',
-    fontWeight: '600',
+    color: "#000000",
+    fontFamily: "Inter",
+    fontWeight: "600",
     lineHeight: moderateScale(20),
     letterSpacing: -0.01,
   },
   compactPhoneContainer: {
-    backgroundColor: 'transparent',
-    width: '100%',
+    backgroundColor: "transparent",
+    width: "100%",
     height: verticalScale(46),
     paddingLeft: 0,
     paddingRight: 0,
     margin: 0,
   },
   compactPhoneTextContainer: {
-    backgroundColor: 'transparent',
+    backgroundColor: "transparent",
     paddingVertical: 0,
     paddingHorizontal: 0,
     margin: 0,
     height: verticalScale(46),
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'flex-start',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "flex-start",
   },
   compactPhoneTextInput: {
     fontSize: moderateScale(14),
-    color: '#000000',
+    color: "#000000",
     height: verticalScale(46),
     paddingVertical: verticalScale(12),
     paddingHorizontal: scale(8),
-    fontFamily: 'Inter',
-    fontWeight: '500',
+    fontFamily: "Inter",
+    fontWeight: "500",
     lineHeight: moderateScale(20),
     letterSpacing: -0.01,
     flex: 1,
   },
   compactPhoneCodeText: {
     fontSize: 1, // Minimum font size for Android compatibility
-    color: 'transparent',
+    color: "transparent",
     height: verticalScale(20),
-    fontFamily: 'Inter',
-    fontWeight: '600',
+    fontFamily: "Inter",
+    fontWeight: "600",
     lineHeight: moderateScale(20),
     letterSpacing: -0.01,
     marginRight: 0,
@@ -612,35 +712,37 @@ const styles = StyleSheet.create({
     marginLeft: 0,
     marginRight: 0,
     height: verticalScale(46),
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     paddingHorizontal: 0,
     opacity: 0, // Use opacity to hide flag button
-    overflow: 'hidden',
+    overflow: "hidden",
   },
   compactPhoneCountryPicker: {
-    backgroundColor: 'transparent',
+    backgroundColor: "transparent",
     paddingHorizontal: scale(6), // Added horizontal padding
     paddingVertical: verticalScale(4), // Added vertical padding
     height: verticalScale(46),
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     minWidth: scale(24),
     maxWidth: scale(36),
   },
   phoneNumberInput: {
     flex: 1,
     fontSize: moderateScale(14),
-    color: '#000000',
+    color: "#000000",
     height: verticalScale(46),
-    paddingTop: Platform.OS === 'android' ? verticalScale(12) : verticalScale(1),
-    paddingBottom: Platform.OS === 'android' ? verticalScale(12) : 0,
+    paddingTop:
+      Platform.OS === "android" ? verticalScale(12) : verticalScale(1),
+    paddingBottom: Platform.OS === "android" ? verticalScale(12) : 0,
     paddingHorizontal: scale(8),
-    fontFamily: 'Inter',
-    fontWeight: '500',
-    lineHeight: Platform.OS === 'android' ? moderateScale(20) : moderateScale(18),
+    fontFamily: "Inter",
+    fontWeight: "500",
+    lineHeight:
+      Platform.OS === "android" ? moderateScale(20) : moderateScale(18),
     letterSpacing: -0.01,
-    textAlignVertical: Platform.OS === 'android' ? 'center' : 'top',
+    textAlignVertical: Platform.OS === "android" ? "center" : "top",
     includeFontPadding: false,
   },
 });

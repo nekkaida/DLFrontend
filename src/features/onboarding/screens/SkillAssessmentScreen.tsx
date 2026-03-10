@@ -323,34 +323,21 @@ const SkillAssessmentScreen = () => {
     }
   }, [padelQuestionnaire, data.skillAssessments, updateData, sport, currentSportIndex, fromDashboard, saveToBackend, proceedToNext]);
 
-  // Handle back button
+  // Handle back button - only goes back within questionnaire, never navigates away
   const handleBack = useCallback(() => {
     // Clear pending answers when navigating back
     pendingAnswersRef.current = {};
 
     if (isComprehensive) {
-      if (state.currentPageIndex > 0) {
+      // Only go back if we have history to go back to
+      if (state.questionHistory.length > 0) {
         actions.goBackHistory();
-        console.log('📖 Going back to previous question page:', state.currentPageIndex - 1);
-      } else {
-        // At first question page, go back to previous sport or game select
-        if (currentSportIndex > 0) {
-          const previousSport = selectedSports[currentSportIndex - 1];
-          router.push(`/onboarding/skill-assessment?sport=${previousSport}&sportIndex=${currentSportIndex - 1}`);
-        } else {
-          router.push('/onboarding/game-select');
-        }
+        console.log('📖 Going back to previous question page');
       }
-    } else {
-      // For simple dropdown, go back to previous sport or game select
-      if (currentSportIndex > 0) {
-        const previousSport = selectedSports[currentSportIndex - 1];
-        router.push(`/onboarding/skill-assessment?sport=${previousSport}&sportIndex=${currentSportIndex - 1}`);
-      } else {
-        router.push('/onboarding/game-select');
-      }
+      // On first question, do nothing - back button should be hidden
     }
-  }, [isComprehensive, state.currentPageIndex, currentSportIndex, selectedSports, actions]);
+    // For simple dropdown, back button is not shown
+  }, [isComprehensive, state.questionHistory.length, actions]);
 
   // Handle next question - simplified with stable questions array
   const proceedToNextQuestion = useCallback(async () => {

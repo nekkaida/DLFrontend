@@ -1,10 +1,10 @@
-import { getBackendBaseURL } from '@/config/network';
 import {
   scale,
   verticalScale,
   moderateScale,
 } from '@/core/utils/responsive';
-import { authClient, useSession } from '@/lib/auth-client';
+import { useSession } from '@/lib/auth-client';
+import axiosInstance from '@/lib/endpoints';
 import { ChatService } from '@/src/features/chat/services/ChatService';
 import { useChatStore } from '@/src/features/chat/stores/ChatStore';
 import { chatLogger } from '@/utils/logger';
@@ -39,7 +39,7 @@ interface UserApiResponse {
 interface FetchResponse {
   data?: {
     success: boolean;
-    data: UserApiResponse[];
+    users: UserApiResponse[];
     count: number;
   };
 }
@@ -89,17 +89,14 @@ export default function NewMessageScreen() {
 
     setIsLoading(true);
     try {
-      const backendUrl = getBackendBaseURL();
-
       // Fetch all available users (excludes admins and existing DM partners)
-      const response = await authClient.$fetch(
-        `${backendUrl}/api/chat/threads/users/available/${session.user.id}`,
-        { method: 'GET' }
+      const response = await axiosInstance.get(
+        `/api/chat/threads/users/available/${session.user.id}`
       );
 
-      const typedResponse = response as FetchResponse | null;
-      if (typedResponse?.data?.data) {
-        const usersData = typedResponse.data.data;
+      const typedResponse = response.data as FetchResponse['data'] | null;
+      if (typedResponse?.users && Array.isArray(typedResponse.users)) {
+        const usersData = typedResponse.users;
 
         // Transform users to player format
         const usersList: Player[] = usersData.map((item: UserApiResponse) => ({
@@ -206,7 +203,7 @@ export default function NewMessageScreen() {
       <Text style={styles.emptySubtext}>
         {searchQuery.trim()
           ? 'Try adjusting your search'
-          : 'You have already messaged all available users'}
+          : ''}
       </Text>
     </View>
   ), [searchQuery]);

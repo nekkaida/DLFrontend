@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
-import { useSession, authClient } from '@/lib/auth-client';
-import { getBackendBaseURL } from '@/config/network';
+import { useSession } from '@/lib/auth-client';
+import axiosInstance from '@/lib/endpoints';
 import { toast } from 'sonner-native';
 import { SeasonInvitationsData } from '../types';
 
@@ -15,13 +15,10 @@ export const useSeasonInvitations = () => {
         return;
       }
 
-      const backendUrl = getBackendBaseURL();
-      const authResponse = await authClient.$fetch(`${backendUrl}/api/pairing/season/invitations`, {
-        method: 'GET',
-      });
+      const response = await axiosInstance.get('/api/pairing/season/invitations');
 
-      if (authResponse && (authResponse as any).data) {
-        const invitationsData = (authResponse as any).data.data || (authResponse as any).data;
+      if (response.data) {
+        const invitationsData = response.data.data || response.data;
         setSeasonInvitations(invitationsData);
       }
     } catch (error) {
@@ -33,21 +30,16 @@ export const useSeasonInvitations = () => {
     try {
       setActionLoading(invitationId);
 
-      const backendUrl = getBackendBaseURL();
-      const response = await authClient.$fetch(
-        `${backendUrl}/api/pairing/season/invitation/${invitationId}/accept`,
-        {
-          method: 'POST',
-        }
+      const response = await axiosInstance.post(
+        `/api/pairing/season/invitation/${invitationId}/accept`
       );
 
-      const responseData = (response as any).data || response;
-      if (responseData && responseData.message) {
+      if (response.data?.message) {
         // Don't show toast here - socket event 'partnership_created' will handle it
         // This prevents duplicate toasts when user is on DoublesTeamPairingScreen
         await fetchSeasonInvitations();
         // Pass partnership data to onSuccess callback
-        onSuccess?.(responseData.data);
+        onSuccess?.(response.data.data);
       }
     } catch (error) {
       console.error('Error accepting season invitation:', error);
@@ -63,16 +55,11 @@ export const useSeasonInvitations = () => {
     try {
       setActionLoading(invitationId);
 
-      const backendUrl = getBackendBaseURL();
-      const response = await authClient.$fetch(
-        `${backendUrl}/api/pairing/season/invitation/${invitationId}/deny`,
-        {
-          method: 'POST',
-        }
+      const response = await axiosInstance.post(
+        `/api/pairing/season/invitation/${invitationId}/deny`
       );
 
-      const responseData = (response as any).data || response;
-      if (responseData && responseData.message) {
+      if (response.data?.message) {
         toast.success('Invitation denied');
         await fetchSeasonInvitations();
       }
@@ -90,16 +77,11 @@ export const useSeasonInvitations = () => {
     try {
       setActionLoading(invitationId);
 
-      const backendUrl = getBackendBaseURL();
-      const response = await authClient.$fetch(
-        `${backendUrl}/api/pairing/season/invitation/${invitationId}`,
-        {
-          method: 'DELETE',
-        }
+      const response = await axiosInstance.delete(
+        `/api/pairing/season/invitation/${invitationId}`
       );
 
-      const responseData = (response as any).data || response;
-      if (responseData && responseData.message) {
+      if (response.data?.message) {
         toast.success('Invitation cancelled');
         await fetchSeasonInvitations();
       }

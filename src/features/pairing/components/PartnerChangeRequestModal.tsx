@@ -13,8 +13,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { toast } from 'sonner-native';
-import { authClient } from '@/lib/auth-client';
-import { getBackendBaseURL } from '@/config/network';
+import axiosInstance from '@/lib/endpoints';
 
 interface Partnership {
   id: string;
@@ -130,23 +129,16 @@ export const PartnerChangeRequestModal: React.FC<PartnerChangeRequestModalProps>
                   ? customReason
                   : CHANGE_REASONS.find((r) => r.value === selectedReason)?.label || selectedReason;
 
-              const backendUrl = getBackendBaseURL();
-              const response = await authClient.$fetch(
-                `${backendUrl}/api/season/withdrawals`,
+              const response = await axiosInstance.post(
+                '/api/season/withdrawals',
                 {
-                  method: 'POST',
-                  body: JSON.stringify({
-                    seasonId: partnership?.seasonId || partnership?.season?.id,
-                    partnershipId: partnership?.id,
-                    reason: finalReason,
-                  }),
-                  headers: {
-                    'Content-Type': 'application/json',
-                  },
+                  seasonId: partnership?.seasonId || partnership?.season?.id,
+                  partnershipId: partnership?.id,
+                  reason: finalReason,
                 }
               );
 
-              const responseData = (response as any).data || response;
+              const responseData = response.data || response;
               if (responseData && (responseData.id || responseData.success)) {
                 toast.success('Request Submitted', {
                   description:

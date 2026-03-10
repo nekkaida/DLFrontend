@@ -169,7 +169,37 @@ static async fetchSeasonsByCategory(categoryId: string): Promise<Season[]> {
     }
   }
 
-  //Register Player to a season 
+  /**
+   * Fetch a single season by ID
+   */
+  static async fetchSeasonById(seasonId: string): Promise<Season | null> {
+    try {
+      const response = await axiosInstance.get(`/api/season/${seasonId}`);
+
+      if (response && response.data) {
+        const apiResponse = response.data as any;
+
+        // Handle success response
+        if (apiResponse.success && apiResponse.data) {
+          console.log('✅ SeasonService: Successfully fetched season by ID:', seasonId);
+          return apiResponse.data as Season;
+        }
+
+        // Handle direct data response
+        if (apiResponse.data) {
+          return apiResponse.data as Season;
+        }
+      }
+
+      console.warn('SeasonService: Season not found:', seasonId);
+      return null;
+    } catch (error) {
+      console.error('SeasonService: Error fetching season by ID:', error);
+      return null;
+    }
+  }
+
+  //Register Player to a season
 static async registerForSeason(seasonId: string, userId?: string, payLater: boolean = false): Promise<boolean> {
   try {
     console.log('SeasonService: Registering for season:', seasonId, 'payLater:', payLater);
@@ -234,19 +264,18 @@ static async registerForSeason(seasonId: string, userId?: string, payLater: bool
     const active: Season[] = [];
     const upcoming: Season[] = [];
     const finished: Season[] = [];
+    const now = new Date();
 
     seasons.forEach(season => {
-      switch (season.status) {
-        case 'ACTIVE':
-          active.push(season);
-          break;
-        case 'UPCOMING':
-          upcoming.push(season);
-          break;
-        case 'FINISHED':
-        case 'CANCELLED':
-          finished.push(season);
-          break;
+      // Treat any season whose endDate has passed as finished, regardless of stored status
+      const endDatePassed = season.endDate ? new Date(season.endDate) < now : false;
+
+      if (season.status === 'FINISHED' || season.status === 'CANCELLED' || endDatePassed) {
+        finished.push(season);
+      } else if (season.status === 'ACTIVE') {
+        active.push(season);
+      } else if (season.status === 'UPCOMING') {
+        upcoming.push(season);
       }
     });
 
