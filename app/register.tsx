@@ -159,8 +159,12 @@ export default function RegisterRoute() {
           await AuthStorage.markLoggedIn();
 
           // Force better-auth to refresh its internal session state
-          await authClient.getSession();
-          console.log('✅ Session state refreshed');
+          const sessionResult = await authClient.getSession();
+          if (sessionResult?.data?.session) {
+            console.log('✅ Session state refreshed - user:', sessionResult.data.user?.id);
+          } else {
+            console.warn('⚠️ getSession() returned no session - this may cause issues');
+          }
 
           try {
             await axiosInstance.put(endpoints.user.trackLogin);
@@ -209,8 +213,12 @@ export default function RegisterRoute() {
         await AuthStorage.markLoggedIn();
 
         // Force better-auth to refresh its internal session state
-        await authClient.getSession();
-        console.log('✅ Session state refreshed');
+        const sessionResult = await authClient.getSession();
+        if (sessionResult?.data?.session) {
+          console.log('✅ Session state refreshed - user:', sessionResult.data.user?.id);
+        } else {
+          console.warn('⚠️ getSession() returned no session - this may cause issues');
+        }
 
         try {
           await axiosInstance.put(endpoints.user.trackLogin);

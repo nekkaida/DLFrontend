@@ -169,8 +169,12 @@ export default function LoginRoute() {
 
           // Force better-auth to refresh its internal session state
           // This ensures useSession() sees the new session immediately
-          await authClient.getSession();
-          console.log("✅ Session state refreshed");
+          const sessionResult = await authClient.getSession();
+          if (sessionResult?.data?.session) {
+            console.log("✅ Session state refreshed - user:", sessionResult.data.user?.id);
+          } else {
+            console.warn("⚠️ getSession() returned no session - this may cause issues");
+          }
 
           try {
             await axiosInstance.put(endpoints.user.trackLogin);
@@ -220,8 +224,12 @@ export default function LoginRoute() {
 
         // Force better-auth to refresh its internal session state
         // This ensures useSession() sees the new session immediately
-        await authClient.getSession();
-        console.log("✅ Session state refreshed");
+        const sessionResult = await authClient.getSession();
+        if (sessionResult?.data?.session) {
+          console.log("✅ Session state refreshed - user:", sessionResult.data.user?.id);
+        } else {
+          console.warn("⚠️ getSession() returned no session - this may cause issues");
+        }
 
         // Track login
         try {

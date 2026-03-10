@@ -14,10 +14,22 @@ logNetworkConfig();
 const baseURL = getBackendBaseURL();
 console.log("🔑 Auth Client baseURL:", baseURL);
 
-// Custom fetch that adds X-Client-Type header to all auth requests
-const mobileAuthFetch: typeof fetch = (input, init) => {
+// Custom fetch that adds X-Client-Type header and session cookie to all auth requests
+const mobileAuthFetch: typeof fetch = async (input, init) => {
   const headers = new Headers(init?.headers);
   headers.set("X-Client-Type", "mobile");
+
+  // Add session cookie from SecureStore for auth requests
+  // This ensures getSession() can authenticate after OAuth sign-in
+  try {
+    const storedCookie = await SecureStore.getItemAsync("deuceleague_cookie");
+    if (storedCookie) {
+      headers.set("Cookie", storedCookie);
+    }
+  } catch (e) {
+    console.warn("🔐 [Auth Fetch] Failed to read cookie from SecureStore:", e);
+  }
+
   console.log("🔐 [Auth Fetch] Adding X-Client-Type: mobile header");
   return fetch(input, { ...init, headers });
 };
