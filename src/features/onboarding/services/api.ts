@@ -1,4 +1,6 @@
 // API service for questionnaires
+import { patchNativeOAuthSessionUser } from '@/lib/native-social-auth';
+import { OnboardingStorage } from '@/src/core/storage';
 import axiosInstance from '@/lib/endpoints';
 
 export interface QuestionOption {
@@ -391,7 +393,20 @@ export class QuestionnaireAPI {
         console.log('📥 completeOnboarding: Response status:', response.status);
       }
 
-      return response.data;
+      const payload = response.data?.data || response.data;
+
+      if (payload?.completedOnboarding) {
+        await Promise.allSettled([
+          patchNativeOAuthSessionUser({
+            completedOnboarding: true,
+            onboardingStep: 'PROFILE_PICTURE',
+          }),
+          OnboardingStorage.clearData(),
+          OnboardingStorage.clearProgress(),
+        ]);
+      }
+
+      return payload;
     } catch (error: any) {
       const errorMessage = error.response?.data?.error || error.response?.data?.message || error.message;
       if (__DEV__) {

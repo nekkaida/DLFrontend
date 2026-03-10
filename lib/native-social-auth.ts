@@ -1,6 +1,7 @@
 import { authClient } from "@/lib/auth-client";
 import { signInWithApple } from "@/lib/apple-signin";
 import axiosInstance, { endpoints } from "@/lib/endpoints";
+import { applySetCookieHeader } from "@/lib/expo-cookie";
 import { signInWithGoogle } from "@/lib/google-signin";
 import { AuthStorage } from "@/src/core/storage";
 import * as SecureStore from "expo-secure-store";
@@ -42,6 +43,7 @@ export interface NativeOAuthPayload {
   user: NativeOAuthUser;
   session: NativeOAuthSession;
   sessionToken: string;
+  sessionCookieHeader?: string | null;
   isNewUser: boolean;
 }
 
@@ -97,18 +99,26 @@ export const hydrateNativeOAuthSession = (payload: NativeOAuthPayload) => {
 export const bootstrapNativeOAuthSession = async (
   payload: NativeOAuthPayload,
 ) => {
-  const existingCookieState = parseCookieState(
-    await SecureStore.getItemAsync(COOKIE_STORAGE_KEY),
-  );
+  const existingCookieRaw = await SecureStore.getItemAsync(COOKIE_STORAGE_KEY);
+  const existingCookieState = parseCookieState(existingCookieRaw);
+  let nextCookieState: string;
 
-  existingCookieState[SESSION_COOKIE_NAME] = {
-    value: payload.sessionToken,
-    expires: normalizeExpiry(payload.session.expiresAt),
-  };
+  if (payload.sessionCookieHeader) {
+    nextCookieState = applySetCookieHeader(
+      payload.sessionCookieHeader,
+      existingCookieRaw ?? undefined,
+    );
+  } else {
+    existingCookieState[SESSION_COOKIE_NAME] = {
+      value: payload.sessionToken,
+      expires: normalizeExpiry(payload.session.expiresAt),
+    };
+    nextCookieState = JSON.stringify(existingCookieState);
+  }
 
   await SecureStore.setItemAsync(
     COOKIE_STORAGE_KEY,
-    JSON.stringify(existingCookieState),
+    nextCookieState,
   );
   await SecureStore.setItemAsync(
     SESSION_CACHE_KEY,
@@ -120,6 +130,76 @@ export const bootstrapNativeOAuthSession = async (
 
   hydrateNativeOAuthSession(payload);
   await AuthStorage.markLoggedIn();
+};
+
+export const patchNativeOAuthSessionUser = async (
+  updates: Partial<NativeOAuthUser>,
+) => {
+  if (Object.keys(updates).length === 0) {
+    return;
+  }
+
+  const sessionAtom = authClient.$store?.atoms?.session;
+  const currentAtomValue = sessionAtom?.get?.();
+  const currentSessionData = currentAtomValue?.data;
+  const currentUser = currentSessionData?.user;
+  const currentSession = currentSessionData?.session;
+
+  if (currentUser && currentSession && sessionAtom?.set) {
+    sessionAtom.set({
+      ...currentAtomValue,
+      data: {
+        user: {
+          ...currentUser,
+          ...updates,
+        },
+        session: currentSession,
+      },
+      error: null,
+      isPending: false,
+      isRefetching: false,
+      refetch: currentAtomValue?.refetch ?? (async () => undefined),
+    });
+  }
+
+  const cachedSessionRaw = await SecureStore.getItemAsync(SESSION_CACHE_KEY);
+  let cachedSessionData: Record<string, any> | null = null;
+
+  if (cachedSessionRaw) {
+    try {
+      const parsed = JSON.parse(cachedSessionRaw);
+      if (parsed && typeof parsed === "object") {
+        cachedSessionData = parsed;
+      }
+    } catch {
+      cachedSessionData = null;
+    }
+  }
+
+  const cachedUser =
+    cachedSessionData?.user && typeof cachedSessionData.user === "object"
+      ? cachedSessionData.user
+      : currentUser;
+  const cachedSession =
+    cachedSessionData?.session && typeof cachedSessionData.session === "object"
+      ? cachedSessionData.session
+      : currentSession;
+
+  if (!cachedUser || !cachedSession) {
+    return;
+  }
+
+  await SecureStore.setItemAsync(
+    SESSION_CACHE_KEY,
+    JSON.stringify({
+      ...(cachedSessionData ?? {}),
+      user: {
+        ...cachedUser,
+        ...updates,
+      },
+      session: cachedSession,
+    }),
+  );
 };
 
 const getNativeAuthPayload = (response: any): NativeOAuthPayload | null => {

@@ -9,6 +9,19 @@ const mockSignInWithApple = jest.fn();
 const mockMarkLoggedIn = jest.fn();
 const mockToastError = jest.fn();
 const mockToastInfo = jest.fn();
+const buildCookieState = (setCookieHeader: string) => {
+  const [cookiePair] = setCookieHeader.split(";");
+  const [name, ...valueParts] = cookiePair.split("=");
+  const value = decodeURIComponent(valueParts.join("="));
+
+  return JSON.stringify({
+    [name]: {
+      value,
+      expires: "2030-01-01T00:00:00.000Z",
+    },
+  });
+};
+const mockGetSetCookie = jest.fn(buildCookieState);
 
 let sessionAtomState: any;
 const mockSessionAtom = {
@@ -59,6 +72,11 @@ jest.mock("@/src/core/storage", () => ({
   },
 }));
 
+jest.mock("@/lib/expo-cookie", () => ({
+  __esModule: true,
+  applySetCookieHeader: mockGetSetCookie,
+}));
+
 jest.mock("sonner-native", () => ({
   toast: {
     error: mockToastError,
@@ -68,12 +86,14 @@ jest.mock("sonner-native", () => ({
 
 const {
   bootstrapNativeOAuthSession,
+  patchNativeOAuthSessionUser,
   signInWithNativeOAuth,
 } = require("@/lib/native-social-auth");
 
 describe("native social auth helper", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockGetSetCookie.mockImplementation(buildCookieState);
     sessionAtomState = {
       data: null,
       error: null,
@@ -89,6 +109,8 @@ describe("native social auth helper", () => {
   test("bootstrapNativeOAuthSession writes Better Auth Expo storage and hydrates the session atom", async () => {
     const payload = {
       sessionToken: "session-token-123",
+      sessionCookieHeader:
+        "better-auth.session_token=session-token-123.signed-signature%3D%3D; Max-Age=604800; Path=/; HttpOnly; SameSite=Lax",
       isNewUser: true,
       user: {
         id: "user-1",
@@ -109,15 +131,17 @@ describe("native social auth helper", () => {
 
     await bootstrapNativeOAuthSession(payload);
 
-    expect(SecureStore.setItemAsync).toHaveBeenCalledWith(
-      "deuceleague_cookie",
-      JSON.stringify({
-        "better-auth.session_token": {
-          value: "session-token-123",
-          expires: "2030-01-01T00:00:00.000Z",
-        },
-      }),
+    const cookieWriteCall = (SecureStore.setItemAsync as jest.Mock).mock.calls.find(
+      (call) => call[0] === "deuceleague_cookie" && typeof call[1] === "string",
     );
+
+    expect(cookieWriteCall).toBeDefined();
+    expect(cookieWriteCall?.[0]).toBe("deuceleague_cookie");
+    expect(JSON.parse(cookieWriteCall?.[1] as string)).toMatchObject({
+      "better-auth.session_token": {
+        value: "session-token-123.signed-signature==",
+      },
+    });
     expect(SecureStore.setItemAsync).toHaveBeenCalledWith(
       "deuceleague_session_data",
       JSON.stringify({
@@ -149,6 +173,8 @@ describe("native social auth helper", () => {
         success: true,
         data: {
           sessionToken: "session-token-456",
+          sessionCookieHeader:
+            "better-auth.session_token=session-token-456.signed-signature%3D%3D; Max-Age=604800; Path=/; HttpOnly; SameSite=Lax",
           isNewUser: true,
           user: {
             id: "user-2",
@@ -191,6 +217,68 @@ describe("native social auth helper", () => {
       },
     });
     expect(mockToastError).not.toHaveBeenCalled();
+  });
+
+  test("patchNativeOAuthSessionUser updates the hydrated session atom and persisted session cache", async () => {
+    sessionAtomState = {
+      data: {
+        user: {
+          id: "user-3",
+          email: "existing-user@example.com",
+          name: "Existing User",
+          image: null,
+          emailVerified: true,
+          role: "USER",
+          username: "SteadyFalcon001",
+          completedOnboarding: false,
+          onboardingStep: null,
+        },
+        session: {
+          id: "session-3",
+          expiresAt: "2030-03-01T00:00:00.000Z",
+        },
+      },
+      error: null,
+      isPending: false,
+      isRefetching: false,
+      refetch: jest.fn(),
+    };
+    mockSessionAtom.get.mockImplementation(() => sessionAtomState);
+    (SecureStore.getItemAsync as jest.Mock).mockResolvedValue(
+      JSON.stringify(sessionAtomState.data),
+    );
+
+    await patchNativeOAuthSessionUser({
+      completedOnboarding: true,
+      onboardingStep: "PROFILE_PICTURE",
+    });
+
+    expect(mockSessionAtom.set).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: {
+          user: expect.objectContaining({
+            id: "user-3",
+            completedOnboarding: true,
+            onboardingStep: "PROFILE_PICTURE",
+          }),
+          session: sessionAtomState.data.session,
+        },
+      }),
+    );
+
+    const sessionWriteCall = (SecureStore.setItemAsync as jest.Mock).mock.calls.find(
+      (call) => call[0] === "deuceleague_session_data",
+    );
+
+    expect(sessionWriteCall).toBeDefined();
+    expect(JSON.parse(sessionWriteCall?.[1] as string)).toMatchObject({
+      user: {
+        id: "user-3",
+        completedOnboarding: true,
+        onboardingStep: "PROFILE_PICTURE",
+      },
+      session: sessionAtomState.data.session,
+    });
   });
 
   test("landing, login, and register routes use the shared native social auth helper", () => {
