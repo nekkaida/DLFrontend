@@ -116,6 +116,10 @@ export const NavigationInterceptor: React.FC<NavigationInterceptorProps> = ({ ch
   } | null>(null);
   const [isCheckingOnboarding, setIsCheckingOnboarding] = useState(false);
   const [hasEverLoggedIn, setHasEverLoggedIn] = useState<boolean | null>(null); // null = checking, true/false = result
+  const sessionCompletedOnboarding = Boolean(
+    session?.user && (session.user as any).completedOnboarding,
+  );
+  const sessionOnboardingStep = (session?.user as any)?.onboardingStep ?? null;
 
   // Check onboarding completion status from backend (using existing APIs)
   const checkOnboardingStatus = async (userId: string, forceRefresh: boolean = false) => {
@@ -310,6 +314,27 @@ export const NavigationInterceptor: React.FC<NavigationInterceptorProps> = ({ ch
       setOnboardingStatus(null);
     }
   }, [session?.user?.id]);
+
+  useEffect(() => {
+    if (!session?.user?.id || !sessionCompletedOnboarding) {
+      return;
+    }
+
+    setOnboardingStatus((currentStatus) => {
+      if (currentStatus?.completedOnboarding) {
+        return currentStatus;
+      }
+
+      return {
+        completedOnboarding: true,
+        hasCompletedAssessment: true,
+        onboardingStep: sessionOnboardingStep || currentStatus?.onboardingStep || 'PROFILE_PICTURE',
+        selectedSports: currentStatus?.selectedSports || [],
+        completedSports: currentStatus?.completedSports || [],
+        timestamp: Date.now(),
+      };
+    });
+  }, [session?.user?.id, sessionCompletedOnboarding, sessionOnboardingStep]);
 
   // Track navigation stack and block auth pages for authenticated users
   useEffect(() => {

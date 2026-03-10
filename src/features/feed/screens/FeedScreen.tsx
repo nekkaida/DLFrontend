@@ -29,10 +29,10 @@ import {
   FriendsList,
   LikersSheet,
   PostOptionsSheet,
+  ScorecardCaptureWrapper,
   ShareOptionsSheet,
   SportFilterSheet,
   type ScorecardCaptureRef,
-  type ShareStyle,
 } from "../components";
 import { useFeedPosts, usePostActions, useSharePost } from "../hooks";
 import { feedTheme } from "../theme";
@@ -74,7 +74,7 @@ export default function FeedScreen({ sport = "default" }: FeedScreenProps) {
   // Share state
   const [sharePostId, setSharePostId] = useState<string | null>(null);
   const shareSheetRef = useRef<BottomSheet>(null);
-  const scorecardRefs = useRef<Map<string, ScorecardCaptureRef>>(new Map());
+  const shareCaptureRef = useRef<ScorecardCaptureRef>(null);
   const {
     captureAndShare,
     captureAndSave,
@@ -117,8 +117,6 @@ export default function FeedScreen({ sport = "default" }: FeedScreenProps) {
       if (editTimeoutRef.current) {
         clearTimeout(editTimeoutRef.current);
       }
-      // Clear postRefs map
-      scorecardRefs.current.clear();
     };
   }, []);
 
@@ -341,7 +339,7 @@ export default function FeedScreen({ sport = "default" }: FeedScreenProps) {
   const handleShareImage = useCallback(
     async (style?: "transparent" | "white" | "dark") => {
       if (!sharePostId) return;
-      const scorecardRef = scorecardRefs.current.get(sharePostId);
+      const scorecardRef = shareCaptureRef.current;
       if (scorecardRef) {
         // Set background style based on selection
         scorecardRef.setBackgroundStyle(
@@ -372,7 +370,7 @@ export default function FeedScreen({ sport = "default" }: FeedScreenProps) {
   const handleSaveImage = useCallback(
     async (style?: "transparent" | "white" | "dark") => {
       if (!sharePostId) return;
-      const scorecardRef = scorecardRefs.current.get(sharePostId);
+      const scorecardRef = shareCaptureRef.current;
       if (scorecardRef) {
         // Set background style based on selection
         scorecardRef.setBackgroundStyle(
@@ -403,7 +401,7 @@ export default function FeedScreen({ sport = "default" }: FeedScreenProps) {
   const handleShareToInstagram = useCallback(
     async (style?: "transparent" | "white" | "dark") => {
       if (!sharePostId) return;
-      const scorecardRef = scorecardRefs.current.get(sharePostId);
+      const scorecardRef = shareCaptureRef.current;
       if (scorecardRef) {
         // Set background style based on selection
         scorecardRef.setBackgroundStyle(
@@ -485,13 +483,6 @@ export default function FeedScreen({ sport = "default" }: FeedScreenProps) {
           // onMatchPress={handleMatchPress}
           showOptionsButton={isOwnPost}
           currentUserId={currentUserId}
-          onScorecardRef={(postId, ref) => {
-            if (ref) {
-              scorecardRefs.current.set(postId, ref);
-            } else {
-              scorecardRefs.current.delete(postId);
-            }
-          }}
         />
       );
     },
@@ -683,6 +674,21 @@ export default function FeedScreen({ sport = "default" }: FeedScreenProps) {
         sportType={currentSharePost?.match.sport}
       />
 
+      {sharePostMatch && (
+        <View style={styles.hiddenCaptureHost} pointerEvents="none">
+          <ScorecardCaptureWrapper
+            ref={shareCaptureRef}
+            match={sharePostMatch}
+            sportColors={getSportColors(
+              (sharePostMatch.sport?.toUpperCase() || "TENNIS") as SportType,
+            )}
+            isPickleball={sharePostMatch.sport?.toUpperCase() === "PICKLEBALL"}
+            cardWidth={1}
+            captureOnly
+          />
+        </View>
+      )}
+
     </View>
   );
 }
@@ -691,6 +697,12 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: feedTheme.colors.background,
+  },
+  hiddenCaptureHost: {
+    position: "absolute",
+    width: 0,
+    height: 0,
+    overflow: "hidden",
   },
   loadingContainer: {
     flex: 1,

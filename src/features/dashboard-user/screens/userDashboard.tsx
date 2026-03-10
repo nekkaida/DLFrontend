@@ -75,7 +75,7 @@ const isLargeScreen = width > 414;
 const isTablet = width > 768;
 
 export default function DashboardScreen() {
-  const { data: session } = useSession();
+  const { data: session, isPending } = useSession();
   const insets = useSafeAreaInsets();
   const {
     sport: routeSport,
@@ -240,6 +240,11 @@ export default function DashboardScreen() {
 
   // Basic session protection only - let login.tsx handle onboarding flow
   useEffect(() => {
+    if (isPending) {
+      console.log("DashboardScreen: Session still loading, waiting");
+      return;
+    }
+
     if (!session?.user?.id) {
       console.log("DashboardScreen: No session, redirecting to login");
       router.replace("/login");
@@ -256,7 +261,7 @@ export default function DashboardScreen() {
     }
 
     console.log("DashboardScreen: User has valid session, allowing access");
-  }, [session]);
+  }, [session, isPending]);
 
   // Disable Android hardware back when not on main dashboard view
   useEffect(() => {

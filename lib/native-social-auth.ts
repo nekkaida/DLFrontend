@@ -54,6 +54,14 @@ export interface NativeOAuthSuccess {
   user: NativeOAuthUser;
 }
 
+const getPostAuthRoute = (
+  payload: NativeOAuthPayload,
+): NativeOAuthSuccess["nextRoute"] => {
+  return payload.user.completedOnboarding
+    ? "/user-dashboard"
+    : "/onboarding/personal-info";
+};
+
 const parseCookieState = (rawValue: string | null): NativeOAuthCookieState => {
   if (!rawValue) {
     return {};
@@ -262,9 +270,7 @@ export const signInWithNativeOAuth = async (
 
       return {
         isNewUser: payload.isNewUser,
-        nextRoute: payload.isNewUser
-          ? "/onboarding/personal-info"
-          : "/user-dashboard",
+        nextRoute: getPostAuthRoute(payload),
         session: payload.session,
         user: payload.user,
       };
@@ -297,9 +303,7 @@ export const signInWithNativeOAuth = async (
 
     return {
       isNewUser: payload.isNewUser,
-      nextRoute: payload.isNewUser
-        ? "/onboarding/personal-info"
-        : "/user-dashboard",
+      nextRoute: getPostAuthRoute(payload),
       session: payload.session,
       user: payload.user,
     };
