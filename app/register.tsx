@@ -1,40 +1,11 @@
 import React, { useState } from 'react';
-import { Platform } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SignUpScreen, SignUpData } from '@/src/features/auth/screens/SignUpScreen';
 import { authClient } from '@/lib/auth-client';
-import { signInWithApple } from '@/lib/apple-signin';
-import { signInWithGoogle } from '@/lib/google-signin';
-import axiosInstance, { endpoints } from '@/lib/endpoints';
-import * as SecureStore from 'expo-secure-store';
+import { signInWithNativeOAuth } from '@/lib/native-social-auth';
 import { toast } from 'sonner-native';
 import { AuthStorage } from '@/src/core/storage';
 import { useEmailVerificationStore } from '@/src/stores/emailVerificationStore';
-
-// Store session token AND session data in SecureStore (same format as Better Auth Expo client)
-// This ensures useSession() works properly without needing to fetch from server
-const storeSessionWithData = async (
-  sessionToken: string,
-  user: any,
-  session: any
-) => {
-  const sessionData = {
-    session: {
-      session: session,
-      user: user,
-      updatedAt: Date.now(),
-      version: "1",
-    },
-    expiresAt: Date.now() + 5 * 60 * 1000, // 5 minutes cache
-    signature: "manual",
-  };
-
-  const encodedSessionData = btoa(JSON.stringify(sessionData));
-  const cookieValue = `better-auth.session_token=${sessionToken}; better-auth.session_data=${encodedSessionData}`;
-
-  await SecureStore.setItemAsync("deuceleague_cookie", cookieValue);
-  console.log("✅ Session token and data stored in SecureStore");
-};
 
 export default function RegisterRoute() {
   const router = useRouter();
@@ -116,116 +87,13 @@ export default function RegisterRoute() {
   };
 
   const handleSocialSignUp = async (provider: 'google' | 'apple') => {
-    // Prevent double-clicks while OAuth is in progress
     if (isSocialLoading) return;
 
     try {
       setIsSocialLoading(true);
-
-      // Apple Sign-In (iOS only)
-      if (provider === 'apple') {
-        if (Platform.OS !== 'ios') {
-          toast.info('Apple Sign-In is only available on iOS');
-          return;
-        }
-
-        console.log('🍎 Starting Apple Sign-In from register...');
-
-        const appleResult = await signInWithApple();
-
-        if (!appleResult.success) {
-          console.error('Apple Sign-In failed:', appleResult.error);
-          toast.error(appleResult.error || 'Apple sign-in failed');
-          return;
-        }
-
-        console.log('✅ Apple Sign-In successful, authenticating with backend...');
-
-        const response = await axiosInstance.post(endpoints.auth.appleNative, {
-          identityToken: appleResult.identityToken,
-          fullName: appleResult.user?.fullName,
-          email: appleResult.user?.email,
-        });
-
-        if (response.data?.success && response.data.data?.sessionToken) {
-          console.log('✅ Backend authentication successful');
-
-          // Store session token AND session data for better-auth compatibility
-          await storeSessionWithData(
-            response.data.data.sessionToken,
-            response.data.data.user,
-            response.data.data.session
-          );
-          await AuthStorage.markLoggedIn();
-
-          // Force better-auth to refresh its internal session state
-          await authClient.getSession();
-          console.log('✅ Session state refreshed');
-
-          try {
-            await axiosInstance.put(endpoints.user.trackLogin);
-          } catch (trackErr) {
-            console.error('Failed to track login:', trackErr);
-          }
-
-          // New users go to onboarding
-          if (response.data.data?.isNewUser) {
-            router.replace('/onboarding/personal-info');
-          } else {
-            router.replace('/user-dashboard');
-          }
-        } else {
-          toast.error(response.data?.message || 'Authentication failed');
-        }
-        return;
-      }
-
-      // Google Sign-In (iOS and Android)
-      console.log('🔐 Starting native Google Sign-In from register...');
-
-      const googleResult = await signInWithGoogle();
-
-      if (!googleResult.success) {
-        console.error('Google Sign-In failed:', googleResult.error);
-        toast.error(googleResult.error || 'Google sign-in failed');
-        return;
-      }
-
-      console.log('✅ Google Sign-In successful, authenticating with backend...');
-
-      const response = await axiosInstance.post(endpoints.auth.googleNative, {
-        idToken: googleResult.idToken,
-      });
-
-      if (response.data?.success && response.data.data?.sessionToken) {
-        console.log('✅ Backend authentication successful');
-
-        // Store session token AND session data for better-auth compatibility
-        await storeSessionWithData(
-          response.data.data.sessionToken,
-          response.data.data.user,
-          response.data.data.session
-        );
-        await AuthStorage.markLoggedIn();
-
-        // Force better-auth to refresh its internal session state
-        await authClient.getSession();
-        console.log('✅ Session state refreshed');
-
-        try {
-          await axiosInstance.put(endpoints.user.trackLogin);
-        } catch (trackErr) {
-          console.error('Failed to track login:', trackErr);
-        }
-
-        // New users go to onboarding
-        if (response.data.data?.isNewUser) {
-          router.replace('/onboarding/personal-info');
-        } else {
-          router.replace('/user-dashboard');
-        }
-      } else {
-        toast.error(response.data?.message || 'Authentication failed');
+      const result = await signInWithNativeOAuth(provider);
+      if (result) {
+        router.replace(result.nextRoute);
       }
     } catch (error: any) {
       console.error('Social sign-up error:', error);
