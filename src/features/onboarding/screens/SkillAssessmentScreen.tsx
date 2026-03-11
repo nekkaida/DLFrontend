@@ -13,6 +13,7 @@ import { useQuestionProgress } from './skill-assessment/hooks/useQuestionProgres
 import { expandSkillMatrixQuestions } from './skill-assessment/utils/skillMatrixExpander';
 import { getFirstName } from './skill-assessment/utils/questionnaireHelpers';
 import { filterVisibleQuestions } from './skill-assessment/utils/showIfEvaluator';
+import { shouldCompleteQuestionnaire } from './skill-assessment/utils/completionCheck';
 import { validateNumberInput } from './skill-assessment/utils/validateNumberInput';
 import { PickleballQuestionnaire, QuestionnaireResponse } from '../services/PickleballQuestionnaire';
 import { TennisQuestionnaire, TennisQuestionnaireResponse } from '../services/TennisQuestionnaire';
@@ -44,12 +45,18 @@ const SkillAssessmentScreen = () => {
   // Ref to store pending answers for synchronous access (avoids race condition with reducer)
   const pendingAnswersRef = useRef<Record<string, any>>({});
 
+  // Guard: prevent the init useEffect from re-running when completion handlers
+  // update data.skillAssessments (which would reset the questionnaire mid-flow)
+  const hasInitializedForSport = useRef<string | null>(null);
+
   // Determine if comprehensive questionnaire
   const isComprehensive = sport === 'pickleball' || sport === 'tennis' || sport === 'padel';
 
   // Fully reset questionnaire state whenever the selected sport changes so previous answers/history don't bleed over
   useEffect(() => {
     if (sport === 'pickleball' || sport === 'tennis' || sport === 'padel') {
+      // Allow re-init for the new sport
+      hasInitializedForSport.current = null;
       actions.resetQuestionnaire();
     }
   }, [sport, actions]);
@@ -75,8 +82,14 @@ const SkillAssessmentScreen = () => {
   );
 
   // Initialize questionnaire based on sport
+  // IMPORTANT: Only runs once per sport. Completion handlers update data.skillAssessments
+  // which must NOT re-trigger this effect (it would reset the questionnaire mid-flow).
   useEffect(() => {
     if (sport === 'pickleball' || sport === 'tennis' || sport === 'padel') {
+      // Skip re-init if we've already initialized for this sport
+      if (hasInitializedForSport.current === sport) return;
+      hasInitializedForSport.current = sport as string;
+
       actions.setQuestionnaireType(sport as 'pickleball' | 'tennis' | 'padel');
       actions.showIntroduction(true);
       actions.forceShowQuestionnaire(false);
@@ -84,12 +97,14 @@ const SkillAssessmentScreen = () => {
       const questionnaire = getCurrentQuestionnaire();
       if (!questionnaire) {
         console.error('No questionnaire instance available for sport:', sport);
+        hasInitializedForSport.current = null; // Allow retry
         return;
       }
 
       // Validate questionnaire has getAllQuestions method
       if (typeof questionnaire.getAllQuestions !== 'function') {
         console.error('Questionnaire missing getAllQuestions method');
+        hasInitializedForSport.current = null; // Allow retry
         return;
       }
 
@@ -103,6 +118,7 @@ const SkillAssessmentScreen = () => {
       } catch (error) {
         console.error('Failed to load all questions:', error);
         toast.error('Failed to load questionnaire. Please try again.');
+        hasInitializedForSport.current = null; // Allow retry
         return;
       }
 
@@ -411,7 +427,7 @@ const SkillAssessmentScreen = () => {
     const currentVisibleIndex = visibleQuestions.findIndex(
       q => q.key === currentQuestion?.key
     );
-    const isLastVisibleQuestion = currentVisibleIndex >= visibleQuestions.length - 1;
+    const isLastVisibleQuestion = shouldCompleteQuestionnaire(currentVisibleIndex, visibleQuestions.length);
 
     // Check completion: all visible questions answered
     // (showIf conditions handle DUPR→questionnaire branching declaratively)

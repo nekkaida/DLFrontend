@@ -14,12 +14,17 @@ interface QuestionProgressBarProps {
   total: number;
 }
 
+export function calculateProgressPercentage(current: number, total: number): number {
+  if (total <= 0) return 0;
+  return (current / total) * 100;
+}
+
 export const QuestionProgressBar: React.FC<QuestionProgressBarProps> = ({
   current,
   total,
 }) => {
   const percentage = useMemo(() => {
-    return (current / total) * 100;
+    return calculateProgressPercentage(current, total);
   }, [current, total]);
 
   const animatedProgress = useSharedValue(percentage);

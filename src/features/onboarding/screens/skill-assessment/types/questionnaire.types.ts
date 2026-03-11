@@ -1,5 +1,6 @@
 // Type definitions for skill assessment questionnaire
-export type SportType = 'pickleball' | 'tennis' | 'padel' | 'basketball' | 'soccer' | 'volleyball';
+// SportType is canonically defined in features/onboarding/types/index.ts
+export type { SportType } from '../../../types';
 
 export type QuestionType = 'single_choice' | 'number' | 'skill_matrix';
 

@@ -63,6 +63,10 @@ export default function LeagueDetailsScreen({
   const [isRefreshing, setIsRefreshing] = React.useState(false);
   const [showSeasonsSkeleton, setShowSeasonsSkeleton] = React.useState(false);
   const [showRulesModal, setShowRulesModal] = React.useState(false);
+  const [waitlistStatuses, setWaitlistStatuses] = React.useState<Map<string, WaitlistStatus>>(new Map());
+  const [isJoiningWaitlist, setIsJoiningWaitlist] = React.useState<string | null>(null);
+  const [waitlistBottomSheetSeasonId, setWaitlistBottomSheetSeasonId] = React.useState<string | null>(null);
+  const [leaveWaitlistDialogSeasonId, setLeaveWaitlistDialogSeasonId] = React.useState<string | null>(null);
   const hasInitializedSeasonsRef = React.useRef(false);
   const isManualRefreshRef = React.useRef(false);
   const insets = useSafeAreaInsets();

@@ -38,10 +38,15 @@ export const OnboardingProvider: React.FC<{ children: ReactNode }> = ({ children
 
   // Load data from local storage first, then fetch from backend if needed
   useEffect(() => {
+    const abortController = new AbortController();
+
     const loadStoredData = async () => {
       try {
         setIsLoading(true);
-        const storedData = await OnboardingStorage.loadData<OnboardingData>();
+        const userId = session?.user?.id;
+        const storedData = await OnboardingStorage.loadData<OnboardingData>(userId);
+
+        if (abortController.signal.aborted) return;
 
         if (storedData && storedData.fullName) {
           // We have local data, use it
@@ -52,6 +57,9 @@ export const OnboardingProvider: React.FC<{ children: ReactNode }> = ({ children
           console.log('OnboardingContext: No local data, fetching from backend...');
           try {
             const profileResponse = await questionnaireAPI.getUserProfile(session.user.id);
+
+            if (abortController.signal.aborted) return;
+
             if (profileResponse.success && profileResponse.user) {
               const backendData: Partial<OnboardingData> = {};
 
@@ -73,7 +81,7 @@ export const OnboardingProvider: React.FC<{ children: ReactNode }> = ({ children
                 const mergedData = { ...initialData, ...backendData };
                 setData(mergedData);
                 // Save to local storage for future use
-                await OnboardingStorage.saveData(mergedData);
+                await OnboardingStorage.saveData(mergedData, userId);
               }
             }
           } catch (backendError) {
@@ -84,11 +92,17 @@ export const OnboardingProvider: React.FC<{ children: ReactNode }> = ({ children
         console.error('Failed to load onboarding data:', error);
         // Continue with initial data if loading fails
       } finally {
-        setIsLoading(false);
+        if (!abortController.signal.aborted) {
+          setIsLoading(false);
+        }
       }
     };
 
     loadStoredData();
+
+    return () => {
+      abortController.abort();
+    };
   }, [session?.user?.id]);
 
   const updateData = async (updates: Partial<OnboardingData>) => {
@@ -97,7 +111,7 @@ export const OnboardingProvider: React.FC<{ children: ReactNode }> = ({ children
     
     // Auto-save to storage
     try {
-      await OnboardingStorage.saveData(newData);
+      await OnboardingStorage.saveData(newData, session?.user?.id);
     } catch (error) {
       console.error('Failed to save onboarding data:', error);
       // Continue despite save failure
@@ -107,7 +121,7 @@ export const OnboardingProvider: React.FC<{ children: ReactNode }> = ({ children
   const clearData = async () => {
     setData(initialData);
     try {
-      await OnboardingStorage.clearData();
+      await OnboardingStorage.clearData(session?.user?.id);
       await OnboardingStorage.clearProgress();
     } catch (error) {
       console.error('Failed to clear onboarding data:', error);

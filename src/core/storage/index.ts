@@ -106,22 +106,31 @@ export const OnboardingStorage = {
   /**
    * Save onboarding data
    */
-  async saveData(data: any): Promise<void> {
-    return storageService.save(STORAGE_KEYS.ONBOARDING_DATA, data);
+  async saveData(data: any, userId?: string): Promise<void> {
+    const key = userId
+      ? `${STORAGE_KEYS.ONBOARDING_DATA}_${userId}`
+      : STORAGE_KEYS.ONBOARDING_DATA;
+    return storageService.save(key, data);
   },
 
   /**
-   * Load onboarding data
+   * Load onboarding data (user-scoped when userId provided)
    */
-  async loadData<T>(): Promise<T | null> {
-    return storageService.load<T>(STORAGE_KEYS.ONBOARDING_DATA);
+  async loadData<T>(userId?: string): Promise<T | null> {
+    const key = userId
+      ? `${STORAGE_KEYS.ONBOARDING_DATA}_${userId}`
+      : STORAGE_KEYS.ONBOARDING_DATA;
+    return storageService.load<T>(key);
   },
 
   /**
-   * Clear onboarding data
+   * Clear onboarding data (user-scoped when userId provided)
    */
-  async clearData(): Promise<void> {
-    return storageService.remove(STORAGE_KEYS.ONBOARDING_DATA);
+  async clearData(userId?: string): Promise<void> {
+    const key = userId
+      ? `${STORAGE_KEYS.ONBOARDING_DATA}_${userId}`
+      : STORAGE_KEYS.ONBOARDING_DATA;
+    return storageService.remove(key);
   },
 
   /**

@@ -3,6 +3,23 @@ import { renderHook, act, waitFor } from '@testing-library/react-native';
 import { OnboardingProvider, useOnboarding } from '../OnboardingContext';
 import type { OnboardingData, SportType } from '../types';
 
+// Mock auth-client to avoid ESM import issue with @better-auth/expo
+jest.mock('@/lib/auth-client', () => ({
+  useSession: jest.fn(),
+}));
+
+// Mock the questionnaireAPI
+jest.mock('../services/api', () => ({
+  questionnaireAPI: {
+    getUserProfile: jest.fn(),
+  },
+}));
+
+import { useSession } from '@/lib/auth-client';
+import { questionnaireAPI } from '../services/api';
+const mockUseSession = useSession as jest.Mock;
+const mockGetUserProfile = questionnaireAPI.getUserProfile as jest.Mock;
+
 // Mock the storage module
 jest.mock('@core/storage', () => ({
   OnboardingStorage: {
@@ -21,6 +38,8 @@ const mockStorage = OnboardingStorage as jest.Mocked<typeof OnboardingStorage>;
 describe('OnboardingContext', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockUseSession.mockReturnValue({ data: null });
+    mockGetUserProfile.mockResolvedValue({ success: false });
     mockStorage.loadData.mockResolvedValue(null);
     mockStorage.saveData.mockResolvedValue(undefined);
     mockStorage.clearData.mockResolvedValue(undefined);
@@ -60,6 +79,7 @@ describe('OnboardingContext', () => {
         latitude: undefined,
         longitude: undefined,
         selectedSports: [],
+        sportSkillLevels: {},
         skillAssessments: {},
         profileImage: undefined,
       });
@@ -325,6 +345,48 @@ describe('OnboardingContext', () => {
       expect(consoleSpy).toHaveBeenCalled();
 
       consoleSpy.mockRestore();
+    });
+  });
+
+  // BUG 14: AbortController — should not continue async work after unmount
+  describe('AbortController cleanup', () => {
+    it('should not save backend data to storage after unmount', async () => {
+      const consoleSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+      const consoleLogSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
+
+      // Setup: user is logged in, no local data, backend has data
+      mockUseSession.mockReturnValue({ data: { user: { id: 'user-123' } } });
+      mockStorage.loadData.mockResolvedValue(null); // No local data
+
+      // Create a deferred promise for the backend fetch
+      let resolveProfile: (value: any) => void;
+      const deferredProfile = new Promise<any>((resolve) => {
+        resolveProfile = resolve;
+      });
+      mockGetUserProfile.mockReturnValue(deferredProfile);
+
+      const { unmount } = renderHook(() => useOnboarding(), { wrapper });
+
+      // Unmount BEFORE the backend fetch resolves
+      unmount();
+
+      // Now resolve the backend fetch — after unmount
+      await act(async () => {
+        resolveProfile!({
+          success: true,
+          user: { name: 'Late Data', gender: 'male' },
+        });
+      });
+
+      // Without AbortController: saveData WILL be called with backend data
+      // With AbortController: saveData should NOT be called (async work aborted)
+      const saveCallsWithBackendData = mockStorage.saveData.mock.calls.filter(
+        (args: any[]) => args[0]?.fullName === 'Late Data'
+      );
+      expect(saveCallsWithBackendData).toHaveLength(0);
+
+      consoleSpy.mockRestore();
+      consoleLogSpy.mockRestore();
     });
   });
 });
