@@ -68,7 +68,7 @@ export const ProfileHeaderWithCurve: React.FC<ProfileHeaderWithCurveProps> = ({
 
 const styles = StyleSheet.create({
   headerContainer: {
-    backgroundColor: '#f3f4f6',
+    backgroundColor: '#FFFFFF',
   },
   safeHeader: {
     flex: 1,
@@ -80,7 +80,7 @@ const styles = StyleSheet.create({
     paddingTop: theme.spacing.sm,
   },
   iconButton: {
-    backgroundColor: '#e5e7eb',
+    backgroundColor: '#FFFFFF',
     justifyContent: 'center',
     alignItems: 'center',
   },

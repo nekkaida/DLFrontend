@@ -46,6 +46,7 @@ export default function ProfileScreen() {
   const [achievements, setAchievements] = useState<any[]>([]);
   const [achievementCounts, setAchievementCounts] = useState<{ completed: number; total: number }>({ completed: 0, total: 0 });
   const [ratingHistory, setRatingHistory] = useState<GameData[]>([]);
+  const [friendsCount, setFriendsCount] = useState(0);
   const [selectedGraphIndex, setSelectedGraphIndex] = useState<number | null>(null);
   const [leagueStatsData, setLeagueStatsData] = useState<{
     wins: number;
@@ -185,6 +186,16 @@ export default function ProfileScreen() {
       }
     } catch (error) {
       console.error('Error fetching achievements:', error);
+    }
+
+    // Fetch friends count (same endpoint pattern as Community screen)
+    try {
+      const friendsResponse = await axiosInstance.get('/api/pairing/friends');
+      const friendsData = friendsResponse?.data?.data ?? friendsResponse?.data ?? [];
+      setFriendsCount(Array.isArray(friendsData) ? friendsData.length : 0);
+    } catch (error) {
+      console.error('Error fetching friends:', error);
+      setFriendsCount(0);
     }
 
     setIsLoading(false);
@@ -437,9 +448,8 @@ export default function ProfileScreen() {
           showSettings={true}
         />
 
-        {/* Content */}
-        <View style={styles.whiteBackground}>
-          {/* Profile Info */}
+        {/* Top Profile Section */}
+        <View style={styles.profileTopSection}>
           <Animated.View
             style={{
               opacity: infoCardEntryOpacity,
@@ -451,9 +461,11 @@ export default function ProfileScreen() {
               username={userData.username}
               bio={userData.bio}
               location={userData.location}
+              onFriendsPress={() => navigateTo('/community')}
               imageUri={profileData?.image}
               isUploadingImage={isUploadingImage}
               onPickImage={pickImage}
+              friendsCount={friendsCount}
               isEditableImage={true}
               gender={userData.gender}
               sports={userData.sports || []}
@@ -461,6 +473,10 @@ export default function ProfileScreen() {
               showActionButtons={false}
             />
           </Animated.View>
+        </View>
+
+        {/* White Content Section */}
+        <View style={styles.whiteBackground}>
 
           {/* Weekly Match Streak — placeholder */}
           <Animated.View
@@ -592,11 +608,11 @@ export default function ProfileScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f3f4f6',
+    backgroundColor: '#D5D5D5',
   },
   scrollView: {
     flex: 1,
-    backgroundColor: '#f3f4f6',
+    backgroundColor: '#D5D5D5',
   },
   loadingContainer: {
     justifyContent: 'center',
@@ -616,10 +632,16 @@ const styles = StyleSheet.create({
     zIndex: 100,
   },
   whiteBackground: {
-    backgroundColor: '#f3f4f6',
+    backgroundColor: '#F6FAFC',
     paddingHorizontal: theme.spacing.lg,
+    paddingTop: theme.spacing.lg,
     paddingBottom: theme.spacing['2xl'],
     minHeight: '100%',
+  },
+  profileTopSection: {
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: theme.spacing.lg,
+    paddingBottom: theme.spacing.md,
   },
   streakCard: {
     backgroundColor: '#ffffff',

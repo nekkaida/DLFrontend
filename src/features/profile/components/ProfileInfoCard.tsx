@@ -16,6 +16,8 @@ interface ProfileInfoCardProps {
   username: string;
   bio: string;
   location: string;
+  friendsCount?: number;
+  onFriendsPress?: () => void;
   imageUri?: string | null;
   isUploadingImage?: boolean;
   onPickImage?: () => void;
@@ -35,6 +37,8 @@ export const ProfileInfoCard: React.FC<ProfileInfoCardProps> = ({
   username,
   bio,
   location,
+  friendsCount = 0,
+  onFriendsPress,
   imageUri,
   isUploadingImage = false,
   onPickImage,
@@ -57,9 +61,13 @@ export const ProfileInfoCard: React.FC<ProfileInfoCardProps> = ({
   const locationSize = Math.max(12, Math.min(15, width * 0.036));
   const pillFontSize = Math.max(11, Math.min(13, width * 0.031));
   const sportHeaderSize = Math.max(15, Math.min(17, width * 0.042));
+  const genderIconSize = Math.max(18, Math.min(22, width * 0.055));
+  const cardHorizontalPadding = Math.max(14, Math.min(20, width * 0.045));
+  const cardVerticalPadding = Math.max(10, Math.min(16, width * 0.03));
+  const sportsGap = Math.max(8, Math.min(12, width * 0.025));
 
   return (
-    <View style={styles.profileInfoCard}>
+    <View style={[styles.profileInfoCard, { paddingHorizontal: cardHorizontalPadding, paddingVertical: cardVerticalPadding }]}>
       <View style={styles.topRow}>
         <View style={styles.leftColumn}>
           {/* Name and Gender Row */}
@@ -69,7 +77,7 @@ export const ProfileInfoCard: React.FC<ProfileInfoCardProps> = ({
               {gender && gender !== 'Gender not set' && (
                 <Ionicons
                   name={gender.toLowerCase() === 'male' ? 'male' : 'female'}
-                  size={16}
+                  size={genderIconSize}
                   color={gender.toLowerCase() === 'male' ? '#4A90E2' : '#E91E63'}
                   style={styles.genderIcon}
                 />
@@ -110,6 +118,17 @@ export const ProfileInfoCard: React.FC<ProfileInfoCardProps> = ({
             )}
           </View>
 
+          <Pressable
+            style={styles.friendsPill}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              onFriendsPress?.();
+            }}
+            disabled={!onFriendsPress}
+          >
+            <Text style={styles.friendsPillText}>Friends {friendsCount}</Text>
+          </Pressable>
+
           {/* Bio */}
           <Text style={[styles.bio, { fontSize: bioSize, lineHeight: bioSize + 6 }]}>{bio}</Text>
 
@@ -149,11 +168,11 @@ export const ProfileInfoCard: React.FC<ProfileInfoCardProps> = ({
                 </Svg>
               </View>
             )}
-            {isEditableImage && onPickImage && (
+            {/* {isEditableImage && onPickImage && (
               <View style={styles.cameraBadge}>
-                <Ionicons name="camera" size={12} color="#fff" />
+                <Ionicons name="pencil" size={12} color="#fff" />
               </View>
-            )}
+            )} */}
           </Pressable>
 
           <Text style={[styles.username, { fontSize: usernameSize }]}>@{username}</Text>
@@ -165,7 +184,7 @@ export const ProfileInfoCard: React.FC<ProfileInfoCardProps> = ({
         <Text style={[styles.sportsEdit, { fontSize: sportHeaderSize }]}>Edit</Text>
       </View>
 
-      <View style={styles.sportsPills}>
+      <View style={[styles.sportsPills, { gap: sportsGap }] }>
         {sports.slice(0, 3).map((sport) => {
           const isActive = activeSports.includes(sport);
 
@@ -201,9 +220,8 @@ export const ProfileInfoCard: React.FC<ProfileInfoCardProps> = ({
 const styles = StyleSheet.create({
   profileInfoCard: {
     backgroundColor: '#ffffff',
-    paddingHorizontal: 0,
-    paddingTop: theme.spacing.md,
-    marginBottom: theme.spacing.lg,
+    width: '100%',
+    marginBottom: theme.spacing.md,
   },
   topRow: {
     flexDirection: 'row',
@@ -212,7 +230,7 @@ const styles = StyleSheet.create({
   },
   leftColumn: {
     flex: 1,
-    paddingRight: theme.spacing.md,
+    paddingRight: theme.spacing.sm,
   },
   rightColumn: {
     alignItems: 'center',
@@ -260,9 +278,26 @@ const styles = StyleSheet.create({
   },
   bio: {
     color: '#374151',
+    marginTop: theme.spacing.sm,
     marginBottom: theme.spacing.md,
     fontFamily: theme.typography.fontFamily.primary,
     fontWeight: '400' as any,
+  },
+  friendsPill: {
+    alignSelf: 'flex-start',
+    borderWidth: 1,
+    borderColor: '#d1d5db',
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    backgroundColor: '#f9fafb',
+    marginBottom: theme.spacing.md,
+  },
+  friendsPillText: {
+    color: '#4b5563',
+    fontSize: 12,
+    fontFamily: theme.typography.fontFamily.primary,
+    fontWeight: '500' as any,
   },
   locationContainer: {
     flexDirection: 'row',
@@ -276,7 +311,7 @@ const styles = StyleSheet.create({
   },
   sportsHeaderRow: {
     marginTop: theme.spacing.lg,
-    marginBottom: theme.spacing.sm,
+    marginBottom: theme.spacing.md,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
@@ -294,11 +329,10 @@ const styles = StyleSheet.create({
   sportsPills: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: theme.spacing.xs,
     justifyContent: 'flex-start',
   },
   sportPill: {
-    paddingHorizontal: theme.spacing.md,
+    paddingHorizontal: theme.spacing.lg,
     paddingVertical: theme.spacing.sm,
     borderRadius: 999,
     alignItems: 'center',
