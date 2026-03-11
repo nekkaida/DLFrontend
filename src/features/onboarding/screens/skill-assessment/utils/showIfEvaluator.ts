@@ -30,7 +30,7 @@ export function evaluateShowIf(
       case 'not_exists':
         return value === undefined || value === '' || value === null;
       default:
-        return true;
+        return false;
     }
   });
 }

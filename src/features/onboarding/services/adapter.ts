@@ -78,7 +78,7 @@ export class QuestionnaireBackendAdapter {
         for (const [key, subQ] of Object.entries(q.subQuestions)) {
           frontendQuestion.sub_questions[key] = {
             question: subQ.question,
-            options: subQ.options.map(opt => opt.label)
+            options: (subQ.options || []).map(opt => opt.label)
           };
         }
       }
