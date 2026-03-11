@@ -1,5 +1,5 @@
 // src/features/community/components/FriendRequestsPanel.tsx
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Modal,
   View,
@@ -39,6 +39,11 @@ export const FriendRequestsPanel: React.FC<FriendRequestsPanelProps> = ({
   onCancel,
 }) => {
   const [activeTab, setActiveTab] = useState<PanelTab>('received');
+
+  // F-8: Reset to "received" tab when panel closes
+  useEffect(() => {
+    if (!visible) setActiveTab('received');
+  }, [visible]);
 
   const receivedCount = friendRequests.received.length;
   const sentCount = friendRequests.sent.length;
