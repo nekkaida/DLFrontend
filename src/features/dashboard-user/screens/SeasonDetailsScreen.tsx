@@ -27,6 +27,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { toast } from 'sonner-native';
 import { PaymentOptionsBottomSheet } from '../components';
 import { getSeasonInfoIcons } from '../components/SeasonInfoIcons';
+import { normalizeCategoriesFromSeason } from '../utils/categoryNormalization';
 import { formatEntryFee } from '../utils/formatEntryFee';
 import { checkQuestionnaireStatus, getSeasonSport } from '../utils/questionnaireCheck';
 
@@ -241,7 +242,7 @@ export default function SeasonDetailsScreen({
     const doublesSeason = isDoublesSeason(season);
     const categories = getNormalizedCategories(season);
     
-    console.log('Is doubles season?', doublesSeason, 'Categories:', categories.map(c => c.name));
+    console.log('Is doubles season?', doublesSeason, 'Categories:', categories.map(c => c?.name));
     
     if (doublesSeason) {
       // Navigate to doubles team pairing screen
@@ -343,7 +344,8 @@ export default function SeasonDetailsScreen({
   // Helper to convert Date | string | undefined to string for router params
   const dateToParamString = (date: string | Date | undefined): string | undefined => {
     if (!date) return undefined;
-    return typeof date === 'string' ? date : date.toISOString();
+    if (typeof date === 'string') return date;
+    return Number.isNaN(date.getTime()) ? undefined : date.toISOString();
   };
 
   const handleViewStandingsPress = () => {
@@ -469,6 +471,9 @@ export default function SeasonDetailsScreen({
   const formatSeasonDate = (date: string | Date | undefined): string => {
     if (!date) return 'N/A';
     const dateObj = typeof date === 'string' ? new Date(date) : date;
+    if (Number.isNaN(dateObj.getTime())) {
+      return 'Date TBD';
+    }
     return dateObj.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
   };
 
@@ -547,11 +552,7 @@ export default function SeasonDetailsScreen({
 
   // Helper function to normalize categories (handle both singular and plural)
   const getNormalizedCategories = (season: Season | null): any[] => {
-    if (!season) return [];
-    const category = (season as any)?.category;
-    const categories = (season as any)?.categories || (category ? [category] : []);
-    const normalizedCategories = Array.isArray(categories) ? categories : [categories].filter(Boolean);
-    return normalizedCategories;
+    return normalizeCategoriesFromSeason(season);
   };
 
   // Helper function to check if season is doubles

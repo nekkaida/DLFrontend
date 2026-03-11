@@ -127,7 +127,7 @@ static async fetchSeasonsByCategory(categoryId: string): Promise<Season[]> {
 
     // Filter seasons that include this category
     const filteredSeasons = allSeasons.filter(season =>
-      season.categories?.some(cat => cat.id === categoryId)
+      season.categories?.some(cat => cat?.id === categoryId)
     );
 
     return filteredSeasons;

@@ -79,6 +79,12 @@ export default function SeasonsScreen({
   // Track user's registered season IDs
   const [userRegisteredSeasonIds, setUserRegisteredSeasonIds] = React.useState<Set<string>>(new Set());
 
+  const dateToIsoParam = (date: string | Date | undefined): string | undefined => {
+    if (!date) return undefined;
+    if (typeof date === 'string') return date;
+    return Number.isNaN(date.getTime()) ? undefined : date.toISOString();
+  };
+
   React.useEffect(() => {
     const fetchProfileData = async () => {
       if (!session?.user?.id) return;
@@ -687,8 +693,8 @@ const SeasonCard: React.FC<SeasonCardProps> = ({
               <CalendarIcon width={16} height={16} style={styles.detailIcon} />
               <Text style={styles.detailText}>
                 Duration: {SeasonService.formatDateRange(
-                  typeof season.startDate === 'string' ? season.startDate : season.startDate.toISOString(),
-                  typeof season.endDate === 'string' ? season.endDate : season.endDate.toISOString()
+                  dateToIsoParam(season.startDate) || '',
+                  dateToIsoParam(season.endDate) || ''
                 )}
               </Text>
             </View>
@@ -699,9 +705,7 @@ const SeasonCard: React.FC<SeasonCardProps> = ({
               <ClockIcon width={16} height={16} style={styles.detailIcon} />
               <Text style={styles.detailText}>
                 Last Registration: {SeasonService.formatDate(
-                  typeof season.regiDeadline === 'string' 
-                    ? season.regiDeadline 
-                    : season.regiDeadline.toISOString()
+                  dateToIsoParam(season.regiDeadline) || ''
                 )}
               </Text>
             </View>

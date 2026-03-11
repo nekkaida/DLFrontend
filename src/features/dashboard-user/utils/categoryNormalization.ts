@@ -17,7 +17,9 @@
  * normalizeCategoriesFromSeason(season); // [{ id: 'cat1', name: 'Singles' }]
  */
 export const normalizeCategoriesFromSeason = (season: any): any[] => {
+  if (!season) return [];
   const category = season.category;
   const categories = season.categories || (category ? [category] : []);
-  return Array.isArray(categories) ? categories : [categories].filter(Boolean);
+  const normalized = Array.isArray(categories) ? categories : [categories];
+  return normalized.filter(Boolean);
 };
