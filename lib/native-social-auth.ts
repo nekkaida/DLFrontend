@@ -131,7 +131,7 @@ export const bootstrapNativeOAuthSession = async (
     await AuthStorage.markLoggedIn();
   } catch (error) {
     // Rollback: restore previous SecureStore state to avoid partial writes
-    console.error("bootstrapNativeOAuthSession failed, rolling back:", error);
+    if (__DEV__) console.error("bootstrapNativeOAuthSession failed, rolling back:", error);
     try {
       if (existingCookieRaw !== null) {
         await SecureStore.setItemAsync(COOKIE_STORAGE_KEY, existingCookieRaw);
@@ -144,7 +144,7 @@ export const bootstrapNativeOAuthSession = async (
         await SecureStore.deleteItemAsync(SESSION_CACHE_KEY);
       }
     } catch (rollbackError) {
-      console.error("Rollback also failed:", rollbackError);
+      if (__DEV__) console.error("Rollback also failed:", rollbackError);
     }
     throw error;
   }
@@ -237,7 +237,7 @@ const trackSuccessfulLogin = async () => {
   try {
     await axiosInstance.put(endpoints.user.trackLogin);
   } catch (error) {
-    console.error("Failed to track login:", error);
+    if (__DEV__) console.error("Failed to track login:", error);
   }
 };
 
@@ -318,7 +318,7 @@ export const signInWithNativeOAuth = async (
       user: payload.user,
     };
   } catch (error: any) {
-    console.error("Native social auth error:", error);
+    if (__DEV__) console.error("Native social auth error:", error);
     toast.error(
       getErrorMessage(error, "Social login failed. Please try again."),
     );
