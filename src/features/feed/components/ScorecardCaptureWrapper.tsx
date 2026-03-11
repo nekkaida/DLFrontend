@@ -17,6 +17,7 @@ interface ScorecardCaptureWrapperProps {
   sportColors: SportColors;
   isPickleball: boolean;
   cardWidth: number;
+  captureOnly?: boolean;
 }
 
 export interface ScorecardCaptureRef {
@@ -32,7 +33,7 @@ export interface ScorecardCaptureRef {
 export const ScorecardCaptureWrapper = forwardRef<
   ScorecardCaptureRef,
   ScorecardCaptureWrapperProps
->(({ match, sportColors, isPickleball, cardWidth }, ref) => {
+>(({ match, sportColors, isPickleball, cardWidth, captureOnly = false }, ref) => {
   const [backgroundStyle, setBackgroundStyle] =
     useState<CardBackgroundStyle>("white");
   const viewRef = useRef<View>(null);
@@ -62,41 +63,30 @@ export const ScorecardCaptureWrapper = forwardRef<
 
   return (
     <>
-      {/* Display version - shown in feed */}
-      <View
-        style={{
-          width: cardWidth,
-          height: displayHeight,
-          overflow: "hidden",
-          alignItems: "center",
-          justifyContent: "center",
-        }}
-      >
-        {/* <MatchResultCard
-          match={match}
-          index={0}
-          totalResults={1}
-          sportColors={sportColors}
-          isPickleball={isPickleball}
-          cardWidth={cardWidth}
-          cardGap={0}
-          expandedComments={new Set()}
-          onToggleComments={() => {}}
-          backgroundStyle="white"
-        /> */}
-        <ScoreCard
-          match={match}
-          sportColors={sportColors}
-          isFriendly={isFriendly}
-          scoreHeaderRowStyle={{ borderRadius: 22 }}
-          containerStyle={{
-            width: DISPLAY_BASE_WIDTH,
-            height: DISPLAY_BASE_HEIGHT,
-            boxShadow: "none",
-            transform: [{ scale: displayScale }],
+      {!captureOnly && (
+        <View
+          style={{
+            width: cardWidth,
+            height: displayHeight,
+            overflow: "hidden",
+            alignItems: "center",
+            justifyContent: "center",
           }}
-        />
-      </View>
+        >
+          <ScoreCard
+            match={match}
+            sportColors={sportColors}
+            isFriendly={isFriendly}
+            scoreHeaderRowStyle={{ borderRadius: 22 }}
+            containerStyle={{
+              width: DISPLAY_BASE_WIDTH,
+              height: DISPLAY_BASE_HEIGHT,
+              boxShadow: "none",
+              transform: [{ scale: displayScale }],
+            }}
+          />
+        </View>
+      )}
 
       {/* Capture version - hidden from view, used only for sharing */}
       <View

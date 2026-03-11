@@ -281,6 +281,51 @@ describe("native social auth helper", () => {
     });
   });
 
+  test("completed social users route to dashboard even if isNewUser is true", async () => {
+    mockSignInWithGoogle.mockResolvedValue({
+      success: true,
+      idToken: "google-id-token",
+    });
+
+    mockPost.mockResolvedValue({
+      data: {
+        success: true,
+        data: {
+          isNewUser: true,
+          sessionToken: "signed-session-token",
+          sessionCookieHeader:
+            "better-auth.session_token=signed-session-token; Path=/; HttpOnly",
+          session: {
+            id: "session-4",
+            expiresAt: "2030-04-01T00:00:00.000Z",
+          },
+          user: {
+            id: "user-4",
+            email: "returning-user@example.com",
+            name: "Returning User",
+            image: null,
+            emailVerified: true,
+            role: "USER",
+            username: "ReadyFalcon654",
+            completedOnboarding: true,
+            onboardingStep: "PROFILE_PICTURE",
+          },
+        },
+      },
+    });
+
+    const result = await signInWithNativeOAuth("google");
+
+    expect(result).toMatchObject({
+      isNewUser: true,
+      nextRoute: "/user-dashboard",
+      user: {
+        id: "user-4",
+        completedOnboarding: true,
+      },
+    });
+  });
+
   test("landing, login, and register routes use the shared native social auth helper", () => {
     const routeFiles = [
       path.resolve(__dirname, "../index.tsx"),

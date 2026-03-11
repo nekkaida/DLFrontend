@@ -120,6 +120,84 @@ describe('BUG E: 429 must be handled distinctly from transient errors', () => {
   });
 });
 
+function reconcileCompletedOnboardingStatus(
+  currentStatus: OnboardingStatus | null,
+  sessionCompletedOnboarding: boolean,
+  sessionOnboardingStep: string | null
+): OnboardingStatus | null {
+  if (!sessionCompletedOnboarding) {
+    return currentStatus;
+  }
+
+  if (currentStatus?.completedOnboarding) {
+    return currentStatus;
+  }
+
+  return {
+    completedOnboarding: true,
+    hasCompletedAssessment: true,
+    onboardingStep: sessionOnboardingStep || currentStatus?.onboardingStep || 'PROFILE_PICTURE',
+    selectedSports: currentStatus?.selectedSports || [],
+    completedSports: currentStatus?.completedSports || [],
+    timestamp: Date.now(),
+  };
+}
+
+describe('BUG G: completed session should override stale incomplete onboarding state', () => {
+  beforeEach(() => {
+    jest.spyOn(Date, 'now').mockReturnValue(2000000);
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  test('promotes stale incomplete status to completed when session is completed', () => {
+    const staleIncomplete: OnboardingStatus = {
+      completedOnboarding: false,
+      hasCompletedAssessment: false,
+      onboardingStep: 'PERSONAL_INFO',
+      selectedSports: ['pickleball'],
+      completedSports: [],
+      timestamp: 1999000,
+    };
+
+    const result = reconcileCompletedOnboardingStatus(
+      staleIncomplete,
+      true,
+      'PROFILE_PICTURE',
+    );
+
+    expect(result).toEqual({
+      completedOnboarding: true,
+      hasCompletedAssessment: true,
+      onboardingStep: 'PROFILE_PICTURE',
+      selectedSports: ['pickleball'],
+      completedSports: [],
+      timestamp: 2000000,
+    });
+  });
+
+  test('keeps completed status unchanged when already completed', () => {
+    const completed: OnboardingStatus = {
+      completedOnboarding: true,
+      hasCompletedAssessment: true,
+      onboardingStep: 'PROFILE_PICTURE',
+      selectedSports: ['pickleball'],
+      completedSports: ['pickleball'],
+      timestamp: 1999000,
+    };
+
+    const result = reconcileCompletedOnboardingStatus(
+      completed,
+      true,
+      'PROFILE_PICTURE',
+    );
+
+    expect(result).toBe(completed);
+  });
+});
+
 describe('BUG C: 401 should retry before nuking session', () => {
   test('shouldRetry401 returns true on first 401, false on second', () => {
     let retryCount = 0;
