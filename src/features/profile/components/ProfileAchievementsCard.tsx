@@ -67,12 +67,6 @@ export const ProfileAchievementsCard: React.FC<ProfileAchievementsCardProps> = (
         <View style={styles.headerLeft}>
           <Text style={styles.badgeCount}>{displayCount}</Text>
           <Text style={styles.badgesLabel}>Badges</Text>
-          <Ionicons
-            name="medal"
-            size={18}
-            color="#F59E0B"
-            style={styles.trophyIcon}
-          />
         </View>
         <Pressable onPress={handleViewAll} hitSlop={8}>
           <Text style={styles.viewAllText}>View all</Text>
@@ -118,6 +112,11 @@ const styles = StyleSheet.create({
   section: {
     marginTop: theme.spacing.lg,
     marginBottom: theme.spacing.sm,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    paddingHorizontal: theme.spacing.lg,
+    paddingVertical: theme.spacing.md,
+    boxShadow: '0px 12px 24px rgba(0, 0, 0, 0.10)',
   },
   header: {
     flexDirection: 'row',
@@ -131,16 +130,16 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   badgeCount: {
-    fontSize: 20,
-    fontWeight: '700' as any,
-    color: '#111827',
+    fontSize: 28,
+    fontWeight: '800' as any,
+    color: '#1D1D1F',
     fontFamily: theme.typography.fontFamily.primary,
     letterSpacing: -0.3,
   },
   badgesLabel: {
-    fontSize: 20,
-    fontWeight: '700' as any,
-    color: '#111827',
+    fontSize: 18,
+    fontWeight: '200' as any,
+    color: '#1D1D1F',
     fontFamily: theme.typography.fontFamily.primary,
     letterSpacing: -0.3,
   },

@@ -16,7 +16,7 @@ import {
   Text,
   View
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import TorchIcon from '@/assets/icons/profile/torch.svg';
 import { CircularImageCropper } from '../../onboarding/components';
 import {
   MatchHistoryButton,
@@ -494,12 +494,12 @@ export default function ProfileScreen() {
                 style={styles.streakEditBtn}
                 onPress={() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)}
               >
-                <Ionicons name="pencil" size={14} color="#fff" />
+                <TorchIcon width={24} height={24} fill="#1D1D1F" />
               </Pressable>
             </View>
           </Animated.View>
 
-          {/* Achievements / Badges */}
+          {/* Badges */}
           <Animated.View
             style={{
               opacity: achievementsEntryOpacity,
@@ -654,11 +654,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     marginBottom: theme.spacing.md,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 4,
-    elevation: 1,
+    boxShadow: '0px 12px 24px rgba(0, 0, 0, 0.12)',
   },
   streakNumber: {
     fontSize: 28,
@@ -679,7 +675,6 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: theme.colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
   },

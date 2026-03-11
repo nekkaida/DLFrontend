@@ -53,6 +53,7 @@ const styles = StyleSheet.create({
   skillLevelSection: {
     marginTop: theme.spacing.lg,
     marginBottom: theme.spacing.sm,
+    
   },
   skillContainer: {
     backgroundColor: '#ffffff',
@@ -64,11 +65,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     gap: theme.spacing.xl * 3,
-    shadowColor: theme.colors.neutral.black,
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.03,
-    shadowRadius: 4,
-    elevation: 1,
+    // shadowColor: theme.colors.neutral.black,
+    // shadowOffset: { width: 0, height: 1 },
+    // shadowOpacity: 0.03,
+    // shadowRadius: 4,
+    boxShadow: '0px 12px 24px rgba(0, 0, 0, 0.12)',
   },
   skillLabel: {
     fontSize: 16,

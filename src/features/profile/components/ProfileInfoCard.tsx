@@ -4,12 +4,7 @@ import * as Haptics from 'expo-haptics';
 import React from 'react';
 import { ActivityIndicator, Image, Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
-
-const SPORT_COLORS = {
-  Tennis: '#A2E047',
-  Pickleball: '#A04DFE',
-  Padel: '#4DABFE',
-} as const;
+import { getProfileSportConfig } from '../utils/profileSportUi';
 
 interface ProfileInfoCardProps {
   name: string;
@@ -186,7 +181,10 @@ export const ProfileInfoCard: React.FC<ProfileInfoCardProps> = ({
 
       <View style={[styles.sportsPills, { gap: sportsGap }] }>
         {sports.slice(0, 3).map((sport) => {
-          const isActive = activeSports.includes(sport);
+          const isActive = activeSports.length === 0 || activeSports.includes(sport);
+          const config = getProfileSportConfig(sport);
+          const iconColor = isActive ? '#FFFFFF' : config.color;
+          const Icon = config.Icon;
 
           return (
             <Pressable
@@ -194,8 +192,8 @@ export const ProfileInfoCard: React.FC<ProfileInfoCardProps> = ({
               style={[
                 styles.sportPill,
                 {
-                  backgroundColor: SPORT_COLORS[sport as keyof typeof SPORT_COLORS] || '#6de9a0',
-                  opacity: isActive ? 1 : 0.7,
+                  borderColor: config.color,
+                  backgroundColor: isActive ? config.color : '#FFFFFF',
                 }
               ]}
               onPress={() => {
@@ -203,7 +201,8 @@ export const ProfileInfoCard: React.FC<ProfileInfoCardProps> = ({
                 onSportPress?.(sport);
               }}
             >
-              <Text style={[styles.sportPillText, { fontSize: pillFontSize }]}>
+              <Icon width={14} height={14} fill={iconColor} color={iconColor} />
+              <Text style={[styles.sportPillText, { fontSize: pillFontSize, color: iconColor }]}>
                 {sport}
               </Text>
             </Pressable>
@@ -332,16 +331,17 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-start',
   },
   sportPill: {
-    paddingHorizontal: theme.spacing.lg,
-    paddingVertical: theme.spacing.sm,
-    borderRadius: 999,
+    flexDirection: 'row',
     alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: 7,
+    borderRadius: 999,
+    borderWidth: 1,
   },
   sportPillText: {
-    color: theme.colors.neutral.white,
     fontFamily: theme.typography.fontFamily.primary,
     fontWeight: '600' as any,
-    opacity: 0.95,
   },
   moreSportsText: {
     color: theme.colors.neutral.gray[500],

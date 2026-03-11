@@ -19,7 +19,7 @@ export const ProfileHeaderWithCurve: React.FC<ProfileHeaderWithCurveProps> = ({
   const { width } = useWindowDimensions();
   const headerHeight = Math.max(96, Math.min(124, width * 0.28));
   const iconButtonSize = Math.max(36, Math.min(42, width * 0.11));
-  const iconSize = Math.max(20, Math.min(24, width * 0.06));
+  const iconSize = Math.max(24, Math.min(24, width * 0.06));
   const horizontalPadding = Math.max(16, Math.min(24, width * 0.05));
 
   return (
@@ -36,7 +36,7 @@ export const ProfileHeaderWithCurve: React.FC<ProfileHeaderWithCurveProps> = ({
             accessibilityLabel="Back"
             accessibilityRole="button"
           >
-            <Ionicons name="arrow-back" size={iconSize} color="#1f2937" />
+            <Ionicons name="chevron-back" size={iconSize} color="#1D1D1F" />
           </Pressable>
           {showSettings && onSettings && (
             <Pressable
