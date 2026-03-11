@@ -8,14 +8,15 @@ import {
   ActivityIndicator,
   Alert,
   Animated,
-  Dimensions,
   Platform,
+  Pressable,
   RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
   View
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { CircularImageCropper } from '../../onboarding/components';
 import {
   MatchHistoryButton,
@@ -24,7 +25,6 @@ import {
   ProfileHeaderWithCurve,
   ProfileInfoCard,
   ProfileLeagueStatsCard,
-  ProfilePictureSection,
   ProfileSkillLevelCard,
   ProfileSportsSection,
   ProfileDMRCard,
@@ -37,8 +37,6 @@ import { useProfileState } from '../hooks/useProfileState';
 import { ProfileDataTransformer } from '../services/ProfileDataTransformer';
 import { useProfileImageUpload } from '@/src/shared/hooks/useProfileImageUpload';
 import type { GameData } from '../types';
-
-const { width } = Dimensions.get('window');
 
 export default function ProfileScreen() {
   const { data: session } = useSession();
@@ -57,8 +55,6 @@ export default function ProfileScreen() {
   const hasInitializedSport = useRef(false);
 
   // Entry animation values
-  const profilePictureEntryOpacity = useRef(new Animated.Value(0)).current;
-  const profilePictureEntryTranslateY = useRef(new Animated.Value(-20)).current;
   const infoCardEntryOpacity = useRef(new Animated.Value(0)).current;
   const infoCardEntryTranslateY = useRef(new Animated.Value(30)).current;
   const achievementsEntryOpacity = useRef(new Animated.Value(0)).current;
@@ -230,21 +226,6 @@ export default function ProfileScreen() {
     if (!isLoading && profileData && !hasPlayedEntryAnimation.current) {
       hasPlayedEntryAnimation.current = true;
       Animated.stagger(80, [
-        // Profile picture slides down
-        Animated.parallel([
-          Animated.spring(profilePictureEntryOpacity, {
-            toValue: 1,
-            tension: 50,
-            friction: 8,
-            useNativeDriver: false,
-          }),
-          Animated.spring(profilePictureEntryTranslateY, {
-            toValue: 0,
-            tension: 50,
-            friction: 8,
-            useNativeDriver: false,
-          }),
-        ]),
         // Info card slides up
         Animated.parallel([
           Animated.spring(infoCardEntryOpacity, {
@@ -295,8 +276,6 @@ export default function ProfileScreen() {
   }, [
     isLoading,
     profileData,
-    profilePictureEntryOpacity,
-    profilePictureEntryTranslateY,
     infoCardEntryOpacity,
     infoCardEntryTranslateY,
     achievementsEntryOpacity,
@@ -460,21 +439,6 @@ export default function ProfileScreen() {
 
         {/* Content */}
         <View style={styles.whiteBackground}>
-          {/* Profile Picture */}
-          <Animated.View
-            style={{
-              opacity: profilePictureEntryOpacity,
-              transform: [{ translateY: profilePictureEntryTranslateY }],
-            }}
-          >
-            <ProfilePictureSection
-              imageUri={profileData?.image}
-              isUploading={isUploadingImage}
-              onPickImage={pickImage}
-              isEditable={true}
-            />
-          </Animated.View>
-
           {/* Profile Info */}
           <Animated.View
             style={{
@@ -487,6 +451,10 @@ export default function ProfileScreen() {
               username={userData.username}
               bio={userData.bio}
               location={userData.location}
+              imageUri={profileData?.image}
+              isUploadingImage={isUploadingImage}
+              onPickImage={pickImage}
+              isEditableImage={true}
               gender={userData.gender}
               sports={userData.sports || []}
               activeSports={userData.activeSports || []}
@@ -494,7 +462,28 @@ export default function ProfileScreen() {
             />
           </Animated.View>
 
-          {/* Achievements */}
+          {/* Weekly Match Streak — placeholder */}
+          <Animated.View
+            style={{
+              opacity: infoCardEntryOpacity,
+              transform: [{ translateY: infoCardEntryTranslateY }],
+            }}
+          >
+            <View style={styles.streakCard}>
+              <View>
+                <Text style={styles.streakNumber}>1</Text>
+                <Text style={styles.streakLabel}>Weekly Match Streak</Text>
+              </View>
+              <Pressable
+                style={styles.streakEditBtn}
+                onPress={() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)}
+              >
+                <Ionicons name="pencil" size={14} color="#fff" />
+              </Pressable>
+            </View>
+          </Animated.View>
+
+          {/* Achievements / Badges */}
           <Animated.View
             style={{
               opacity: achievementsEntryOpacity,
@@ -603,11 +592,11 @@ export default function ProfileScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: theme.colors.primary,
+    backgroundColor: '#f3f4f6',
   },
   scrollView: {
     flex: 1,
-    backgroundColor: theme.colors.primary,
+    backgroundColor: '#f3f4f6',
   },
   loadingContainer: {
     justifyContent: 'center',
@@ -627,9 +616,49 @@ const styles = StyleSheet.create({
     zIndex: 100,
   },
   whiteBackground: {
-    backgroundColor: '#ffffff',
+    backgroundColor: '#f3f4f6',
     paddingHorizontal: theme.spacing.lg,
     paddingBottom: theme.spacing['2xl'],
     minHeight: '100%',
+  },
+  streakCard: {
+    backgroundColor: '#ffffff',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#f1f5f9',
+    paddingVertical: theme.spacing.md,
+    paddingHorizontal: theme.spacing.lg,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: theme.spacing.md,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 4,
+    elevation: 1,
+  },
+  streakNumber: {
+    fontSize: 28,
+    fontWeight: '700' as any,
+    color: '#111827',
+    fontFamily: theme.typography.fontFamily.primary,
+    letterSpacing: -0.5,
+    lineHeight: 34,
+  },
+  streakLabel: {
+    fontSize: 13,
+    fontWeight: '500' as any,
+    color: theme.colors.neutral.gray[500],
+    fontFamily: theme.typography.fontFamily.primary,
+    marginTop: 2,
+  },
+  streakEditBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: theme.colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });
