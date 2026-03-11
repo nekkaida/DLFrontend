@@ -14,8 +14,14 @@ export const useSeasonSelection = (categories: Category[]) => {
 
   // Set default selected category when categories are loaded
   useEffect(() => {
-    if (categories.length > 0 && !selectedCategoryId) {
-      setSelectedCategoryId(categories[0].id);
+    const firstValidCategory = categories.find((category) => Boolean(category?.id));
+
+    if (firstValidCategory && !selectedCategoryId) {
+      setSelectedCategoryId(firstValidCategory.id);
+    }
+
+    if (!firstValidCategory && selectedCategoryId) {
+      setSelectedCategoryId(null);
     }
   }, [categories, selectedCategoryId]);
 

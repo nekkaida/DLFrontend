@@ -532,7 +532,8 @@ export default function LeagueDetailsScreen({
   // Helper to convert Date | string | undefined to string for router params
   const dateToParamString = (date: string | Date | undefined): string | undefined => {
     if (!date) return undefined;
-    return typeof date === 'string' ? date : date.toISOString();
+    if (typeof date === 'string') return date;
+    return Number.isNaN(date.getTime()) ? undefined : date.toISOString();
   };
 
   const handleViewStandingsPress = (season: Season) => {
@@ -686,6 +687,9 @@ export default function LeagueDetailsScreen({
 
   const formatSeasonDate = (date: string | Date): string => {
     const dateObj = typeof date === 'string' ? new Date(date) : date;
+    if (Number.isNaN(dateObj.getTime())) {
+      return 'Date TBD';
+    }
     return dateObj.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
   };
 
@@ -1562,7 +1566,7 @@ export default function LeagueDetailsScreen({
               <Animated.View style={categoriesEntryAnimatedStyle}>
                 <View style={styles.categoriesContainer}>
                   <View style={styles.categoryButtons}>
-                    {categories.map((category) => {
+                    {categories.filter((category) => Boolean(category?.id)).map((category) => {
                       const displayName = CategoryService.getCategoryDisplayName(
                         category,
                         CategoryService.getEffectiveGameType(category, 'SINGLES')
