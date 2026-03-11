@@ -20,6 +20,7 @@ import * as Haptics from 'expo-haptics';
 import * as ImagePicker from 'expo-image-picker';
 import { toast } from 'sonner-native';
 import axiosInstance, { endpoints } from '@/lib/endpoints';
+import { extractResponseData, extractErrorMessage } from '../utils/responseHelpers';
 import Constants from 'expo-constants';
 
 // BackgroundGradient Component (consistent with settings)
@@ -35,8 +36,8 @@ const BackgroundGradient = () => {
   );
 };
 
-// Feedback types
-type FeedbackType = 'FEEDBACK' | 'BUG' | 'FEATURE_REQUEST' | 'IMPROVEMENT';
+// Feedback types — must match backend BugReportType enum
+type FeedbackType = 'FEEDBACK' | 'BUG' | 'SUGGESTION' | 'IMPROVEMENT';
 
 interface FeedbackTypeOption {
   id: FeedbackType;
@@ -48,7 +49,7 @@ interface FeedbackTypeOption {
 const feedbackTypes: FeedbackTypeOption[] = [
   { id: 'FEEDBACK', label: 'Feedback', icon: 'chatbubble-outline', description: 'General feedback' },
   { id: 'BUG', label: 'Bug Report', icon: 'bug-outline', description: 'Report an issue' },
-  { id: 'FEATURE_REQUEST', label: 'Feature', icon: 'bulb-outline', description: 'Suggest a feature' },
+  { id: 'SUGGESTION', label: 'Feature', icon: 'bulb-outline', description: 'Suggest a feature' },
   { id: 'IMPROVEMENT', label: 'Improvement', icon: 'trending-up-outline', description: 'Suggest improvement' },
 ];
 
@@ -60,6 +61,7 @@ export default function FeedbackScreen() {
   const [description, setDescription] = useState('');
   const [screenshot, setScreenshot] = useState<ImagePicker.ImagePickerAsset | null>(null);
   const [isPicking, setIsPicking] = useState(false);
+  const [initFailed, setInitFailed] = useState(false);
 
   // Refs for race condition prevention and memory leak protection
   const isSubmittingRef = useRef(false);
@@ -73,27 +75,34 @@ export default function FeedbackScreen() {
     };
   }, []);
 
+  // Initialize app — extracted so it can be retried
+  const initApp = async (signal?: AbortSignal) => {
+    setInitFailed(false);
+    try {
+      const response = await axiosInstance.get(endpoints.bug.initApp, {
+        ...(signal ? { signal } : {}),
+      });
+      if (isMountedRef.current) {
+        const appData = extractResponseData(response.data);
+        if (appData?.appId) {
+          setAppId(appData.appId);
+        }
+      }
+    } catch (error: any) {
+      // Ignore abort errors
+      if (error?.name !== 'CanceledError' && error?.code !== 'ERR_CANCELED') {
+        console.error('Failed to initialize app:', error);
+        if (isMountedRef.current) {
+          setInitFailed(true);
+        }
+      }
+    }
+  };
+
   // Initialize app on mount with cleanup
   useEffect(() => {
     const controller = new AbortController();
-
-    const initApp = async () => {
-      try {
-        const response = await axiosInstance.get(endpoints.bug.initApp, {
-          signal: controller.signal,
-        });
-        if (isMountedRef.current && response.data?.appId) {
-          setAppId(response.data.appId);
-        }
-      } catch (error: any) {
-        // Ignore abort errors
-        if (error?.name !== 'CanceledError' && error?.code !== 'ERR_CANCELED') {
-          console.error('Failed to initialize app:', error);
-        }
-      }
-    };
-    initApp();
-
+    initApp(controller.signal);
     return () => {
       controller.abort();
     };
@@ -181,11 +190,12 @@ export default function FeedbackScreen() {
     if (isSubmittingRef.current || isSubmitting) return;
     if (!validateForm()) return;
 
-    // Check appId is initialized
+    // Check appId is initialized — auto-retry if not
     if (!appId) {
       toast.error('Not Ready', {
-        description: 'Please wait a moment and try again.',
+        description: 'Initializing... Please try again in a moment.',
       });
+      initApp();
       return;
     }
 
@@ -207,7 +217,8 @@ export default function FeedbackScreen() {
       };
 
       const response = await axiosInstance.post(endpoints.bug.createReport, reportData);
-      const reportId = response.data?.id;
+      const responseData = extractResponseData(response.data);
+      const reportId = responseData?.id;
 
       if (!reportId) {
         throw new Error('Invalid server response - missing report ID');
@@ -264,7 +275,7 @@ export default function FeedbackScreen() {
       console.error('Failed to submit feedback:', error);
       if (isMountedRef.current) {
         toast.error('Submission Failed', {
-          description: error.response?.data?.error || 'Please try again later.',
+          description: extractErrorMessage(error, 'Please try again later.'),
         });
       }
     } finally {
@@ -310,6 +321,22 @@ export default function FeedbackScreen() {
             contentContainerStyle={styles.scrollContent}
             keyboardShouldPersistTaps="handled"
           >
+            {/* Init failure retry banner */}
+            {initFailed && !appId && (
+              <Pressable
+                style={styles.retryBanner}
+                onPress={() => initApp()}
+                accessible={true}
+                accessibilityLabel="Retry connection"
+                accessibilityRole="button"
+              >
+                <Ionicons name="refresh-outline" size={18} color="#D97706" />
+                <Text style={styles.retryBannerText}>
+                  Connection failed. Tap to retry.
+                </Text>
+              </Pressable>
+            )}
+
             {/* Feedback Type Selector */}
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>What type of feedback?</Text>
@@ -662,5 +689,22 @@ const styles = StyleSheet.create({
     fontFamily: theme.typography.fontFamily.primary,
     textAlign: 'center',
     marginTop: theme.spacing.lg,
+  },
+  retryBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FEF3C7',
+    borderRadius: 8,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    marginBottom: 12,
+    gap: 8,
+  },
+  retryBannerText: {
+    fontSize: theme.typography.fontSize.sm,
+    color: '#D97706',
+    fontFamily: theme.typography.fontFamily.primary,
+    fontWeight: '500',
   },
 });
