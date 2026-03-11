@@ -18,6 +18,7 @@ interface ScorecardCaptureWrapperProps {
   isPickleball: boolean;
   cardWidth: number;
   captureOnly?: boolean;
+  renderCaptureHost?: boolean;
 }
 
 export interface ScorecardCaptureRef {
@@ -33,7 +34,18 @@ export interface ScorecardCaptureRef {
 export const ScorecardCaptureWrapper = forwardRef<
   ScorecardCaptureRef,
   ScorecardCaptureWrapperProps
->(({ match, sportColors, isPickleball, cardWidth, captureOnly = false }, ref) => {
+>(
+  (
+    {
+      match,
+      sportColors,
+      isPickleball,
+      cardWidth,
+      captureOnly = false,
+      renderCaptureHost = true,
+    },
+    ref,
+  ) => {
   const [backgroundStyle, setBackgroundStyle] =
     useState<CardBackgroundStyle>("white");
   const viewRef = useRef<View>(null);
@@ -54,7 +66,6 @@ export const ScorecardCaptureWrapper = forwardRef<
   const CAPTURE_WIDTH = 1080;
   const CAPTURE_HEIGHT = 1920;
   const PADDING = 0;
-  const CARD_WIDTH = CAPTURE_WIDTH;
 
   const DISPLAY_BASE_WIDTH = 850;
   const DISPLAY_BASE_HEIGHT = 600;
@@ -88,45 +99,47 @@ export const ScorecardCaptureWrapper = forwardRef<
         </View>
       )}
 
-      {/* Capture version - hidden from view, used only for sharing */}
-      <View
-        ref={viewRef}
-        collapsable={false}
-        style={[
-          styles.captureContainer,
-          {
-            width: CAPTURE_WIDTH,
-            height: CAPTURE_HEIGHT,
-            backgroundColor:
-              backgroundStyle === "dark"
-                ? "transparent"
-                : backgroundStyle === "white"
+      {renderCaptureHost && (
+        <View
+          ref={viewRef}
+          collapsable={false}
+          style={[
+            styles.captureContainer,
+            {
+              width: CAPTURE_WIDTH,
+              height: CAPTURE_HEIGHT,
+              backgroundColor:
+                backgroundStyle === "dark"
                   ? "transparent"
-                  : "transparent",
-            padding: PADDING,
-          },
-        ]}
-      >
-        {/* Render appropriate scorecard based on background style */}
-        {backgroundStyle === "white" ? (
-          <SolidScorecard
-            match={match}
-            sportColors={sportColors}
-            isFriendly={isFriendly}
-          />
-        ) : backgroundStyle === "dark" ? (
-          <DarkThemeScorecard
-            match={match}
-            sportColors={sportColors}
-            isFriendly={isFriendly}
-          />
-        ) : (
-          <TransparentScorecard match={match} />
-        )}
-      </View>
+                  : backgroundStyle === "white"
+                    ? "transparent"
+                    : "transparent",
+              padding: PADDING,
+            },
+          ]}
+        >
+          {/* Capture version - hidden from view, used only for sharing */}
+          {backgroundStyle === "white" ? (
+            <SolidScorecard
+              match={match}
+              sportColors={sportColors}
+              isFriendly={isFriendly}
+            />
+          ) : backgroundStyle === "dark" ? (
+            <DarkThemeScorecard
+              match={match}
+              sportColors={sportColors}
+              isFriendly={isFriendly}
+            />
+          ) : (
+            <TransparentScorecard match={match} />
+          )}
+        </View>
+      )}
     </>
   );
-});
+},
+);
 
 ScorecardCaptureWrapper.displayName = "ScorecardCaptureWrapper";
 

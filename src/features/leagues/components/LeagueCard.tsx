@@ -144,7 +144,9 @@ export function LeagueCard({ league, onJoinPress, variant = 'regular', size = 'c
                 {/* Categories chips */}
                 {league.categories && league.categories.length > 0 && (
                   <View style={styles.categoriesContainer}>
-                    {league.categories.map((category) => (
+                    {league.categories
+                      .filter((category) => Boolean(category?.id))
+                      .map((category) => (
                       <View key={category.id} style={styles.categoryChip}>
                         <Text style={styles.categoryText}>{category.name}</Text>
                       </View>
@@ -432,7 +434,9 @@ export function ActiveLeagueCard({ league, onViewStandings, sport = 'pickleball'
           {/* Category Chips */}
           {league.categories && league.categories.length > 0 && (
             <View style={styles.activeCardCategoriesContainer}>
-              {league.categories.map((category) => (
+              {league.categories
+                .filter((category) => Boolean(category?.id))
+                .map((category) => (
                 <View key={category.id} style={styles.activeCardCategoryChip}>
                   <Text style={styles.activeCardCategoryText}>
                     {category.name || 'Category'}
@@ -1049,4 +1053,3 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
 });
-

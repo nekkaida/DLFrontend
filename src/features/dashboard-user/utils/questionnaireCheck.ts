@@ -69,7 +69,7 @@ export function getSeasonSport(
 
   // Try to get sport from categories first (primary location)
   if (season.categories && season.categories.length > 0) {
-    const gameType = season.categories[0].game_type?.toLowerCase();
+    const gameType = season.categories[0]?.game_type?.toLowerCase();
     if (gameType === 'pickleball' || gameType === 'tennis' || gameType === 'padel') {
       return gameType;
     }
@@ -77,7 +77,7 @@ export function getSeasonSport(
 
   // Fallback: try to get sport from league
   if (season.leagues && season.leagues.length > 0) {
-    const sportType = season.leagues[0].sportType?.toLowerCase();
+    const sportType = season.leagues[0]?.sportType?.toLowerCase();
     if (sportType === 'pickleball' || sportType === 'tennis' || sportType === 'padel') {
       return sportType;
     }
@@ -86,4 +86,3 @@ export function getSeasonSport(
   // fallback: default to pickleball
   return 'pickleball';
 }
-
