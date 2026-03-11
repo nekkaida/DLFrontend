@@ -19,6 +19,7 @@ import BottomSheet from '@gorhom/bottom-sheet';
 import { ChoosePartnerBottomSheet, WaitingForPartnerBottomSheet, PartnershipDetailsBottomSheet } from '@/features/pairing/components';
 import axiosInstance from '@/lib/endpoints';
 import { FiuuPaymentService } from '@/src/features/payments/services/FiuuPaymentService';
+import { formatEntryFee } from '../utils/formatEntryFee';
 const { width, height } = Dimensions.get('window');
 
 interface SeasonsScreenProps {
@@ -598,6 +599,7 @@ const SeasonCard: React.FC<SeasonCardProps> = ({
   profileData,
   userRegisteredSeasonIds,
 }) => {
+  const entryFee = formatEntryFee(season.entryFee);
   // Check if user is registered - use both API data and membership array
   const isUserRegistered = userRegisteredSeasonIds.has(season.id) ||
     season.memberships?.some((m: any) => m.userId === userId);
@@ -710,10 +712,7 @@ const SeasonCard: React.FC<SeasonCardProps> = ({
             <Text style={styles.detailText}>
               Entry Fee:{" "}
               <Text style={styles.highlightText}>
-                RM
-                {typeof season.entryFee === "number"
-                  ? season.entryFee.toFixed(2)
-                  : parseFloat(season.entryFee.toString()).toFixed(2)}
+                RM{entryFee ?? '0.00'}
               </Text>
             </Text>
           </View>

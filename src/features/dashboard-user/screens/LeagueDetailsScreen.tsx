@@ -33,6 +33,7 @@ import { PaymentOptionsBottomSheet } from '../components';
 import { useLeagueData } from '../hooks/useLeagueData';
 import { useSeasonSelection } from '../hooks/useSeasonSelection';
 import { useUserProfile } from '../hooks/useUserProfile';
+import { formatEntryFee } from '../utils/formatEntryFee';
 import { normalizeCategoriesFromSeason } from '../utils/categoryNormalization';
 import { checkQuestionnaireStatus, getSeasonSport } from '../utils/questionnaireCheck';
 
@@ -689,6 +690,7 @@ export default function LeagueDetailsScreen({
   };
 
   const renderSeasonCard = (season: Season) => {
+    const entryFee = formatEntryFee(season.entryFee);
     const userMembership = season.memberships?.find((m: any) => m.userId === userId);
     // Check both membership data from season AND the separately fetched user memberships
     const isUserRegistered = !!userMembership || userRegisteredSeasonIds.has(season.id);
@@ -976,10 +978,10 @@ export default function LeagueDetailsScreen({
             </View>
           )}
 
-          {season.paymentRequired && (
+          {season.paymentRequired && entryFee && (
             <View style={styles.entryFeeContainer}>
             <Text style={styles.entryFeeText}>
-              Entry fee: <Text style={styles.entryFeeAmount}>RM{typeof season.entryFee === 'string' ? parseFloat(season.entryFee).toFixed(2) : season.entryFee.toFixed(2)}</Text>
+              Entry fee: <Text style={styles.entryFeeAmount}>RM{entryFee}</Text>
             </Text>
             </View>
           )}

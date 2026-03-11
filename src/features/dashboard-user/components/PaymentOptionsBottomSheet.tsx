@@ -19,6 +19,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Season } from '../services/SeasonService';
+import { formatEntryFee } from '../utils/formatEntryFee';
 
 const { width } = Dimensions.get('window');
 const isSmallScreen = width < 375;
@@ -132,9 +133,7 @@ export const PaymentOptionsBottomSheet: React.FC<PaymentOptionsBottomSheetProps>
 
   if (!season) return null;
 
-  const entryFee = typeof season.entryFee === 'string'
-    ? parseFloat(season.entryFee).toFixed(2)
-    : season.entryFee.toFixed(2);
+  const entryFee = formatEntryFee(season.entryFee);
 
   return (
     <BottomSheetModal
@@ -171,7 +170,7 @@ export const PaymentOptionsBottomSheet: React.FC<PaymentOptionsBottomSheetProps>
           <View style={styles.feeCard}>
             <View style={styles.feeContent}>
               <Text style={styles.feeLabel}>Entry Fee</Text>
-              <Text style={styles.feeAmount}>RM{entryFee}</Text>
+              <Text style={styles.feeAmount}>RM{entryFee ?? '0.00'}</Text>
             </View>
             <View style={styles.feeDivider} />
             <View style={styles.feeContent}>

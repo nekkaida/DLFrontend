@@ -27,6 +27,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { toast } from 'sonner-native';
 import { PaymentOptionsBottomSheet } from '../components';
 import { getSeasonInfoIcons } from '../components/SeasonInfoIcons';
+import { formatEntryFee } from '../utils/formatEntryFee';
 import { checkQuestionnaireStatus, getSeasonSport } from '../utils/questionnaireCheck';
 
 const { width } = Dimensions.get('window');
@@ -70,6 +71,7 @@ export default function SeasonDetailsScreen({
   const [showLeaveWaitlistDialog, setShowLeaveWaitlistDialog] = React.useState(false);
   const insets = useSafeAreaInsets();
   const STATUS_BAR_HEIGHT = insets.top;
+  const formattedEntryFee = season ? formatEntryFee(season.entryFee) : null;
 
   const userId = session?.user?.id;
 
@@ -1109,11 +1111,11 @@ export default function SeasonDetailsScreen({
                       </View>
                     )}
 
-                    {season?.paymentRequired && season?.entryFee !== undefined && (
+                    {season?.paymentRequired && formattedEntryFee && (
                       <View style={styles.detailRow}>
                         <Text style={styles.detailLabel}>Entry fee: </Text>
                         <Text style={styles.detailValue}>
-                          RM{typeof season.entryFee === 'string' ? parseFloat(season.entryFee).toFixed(2) : season.entryFee.toFixed(2)}
+                          RM{formattedEntryFee}
                         </Text>
                       </View>
                     )}

@@ -201,6 +201,7 @@ export const FeedPostCard = forwardRef<View, FeedPostCardProps>(
             sportColors={sportColors}
             isPickleball={isPickleball}
             cardWidth={CARD_WIDTH}
+            renderCaptureHost={false}
           />
         </View>
 

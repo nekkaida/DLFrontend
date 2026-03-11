@@ -4,7 +4,7 @@ import PaddleIcon from "@/assets/icons/sports/Paddle.svg";
 import PickleballIcon from "@/assets/icons/sports/Pickleball.svg";
 import TennisIcon from "@/assets/icons/sports/Tennis.svg";
 import { MatchResult, SportColors } from "@/features/standings/types";
-import { format } from "date-fns";
+import { format, isValid } from "date-fns";
 import { LinearGradient } from "expo-linear-gradient";
 import React from "react";
 import { Image, StyleSheet, Text, View, ViewStyle } from "react-native";
@@ -39,6 +39,16 @@ const getSportIcon = (
 
 const PHOTO_SIZE = 80;
 const NAME_COLUMN_WIDTH = 350;
+
+type ScoreCardPlayer = {
+  name?: string | null;
+  image?: string | null;
+};
+
+const createFallbackPlayer = (label: string): ScoreCardPlayer => ({
+  name: label,
+  image: null,
+});
 
 // ─── Preview fixed sizes ──────────────────────────────────────────────────────
 // All values here are the actual pixel sizes used when rendering the preview card.
@@ -100,10 +110,33 @@ const ScoreCard: React.FC<ScoreCardProps> = ({
   previewScale,
 }) => {
   const isPreview = previewScale !== undefined;
+  const rawTeam1Players = Array.isArray(match.team1Players)
+    ? match.team1Players.filter(Boolean)
+    : [];
+  const rawTeam2Players = Array.isArray(match.team2Players)
+    ? match.team2Players.filter(Boolean)
+    : [];
+  const isSingles =
+    Math.max(rawTeam1Players.length, rawTeam2Players.length) <= 1;
+  const team1Players = [
+    rawTeam1Players[0] ?? createFallbackPlayer("Player 1"),
+    rawTeam1Players[1] ?? createFallbackPlayer("Player 2"),
+  ];
+  const team2Players = [
+    rawTeam2Players[0] ?? createFallbackPlayer("Player 1"),
+    rawTeam2Players[1] ?? createFallbackPlayer("Player 2"),
+  ];
+  const parsedMatchDate = new Date(match.matchDate);
+  const formattedMatchDate = isValid(parsedMatchDate)
+    ? format(parsedMatchDate, "d MMM yyyy, h:mm a")
+    : "Date TBD";
   
   // Helper function to render player photo
-  const renderPlayerPhoto = (player: any, size: number = isPreview ? PREVIEW.photoSize : PHOTO_SIZE) => {
-    if (player.image) {
+  const renderPlayerPhoto = (
+    player: ScoreCardPlayer | undefined,
+    size: number = isPreview ? PREVIEW.photoSize : PHOTO_SIZE,
+  ) => {
+    if (player?.image) {
       return (
         <Image
           source={{ uri: player.image }}
@@ -122,7 +155,7 @@ const ScoreCard: React.FC<ScoreCardProps> = ({
         ]}
       >
         <Text style={[styles.playerPhotoText, { fontSize: size * 0.4 }]}>
-          {player.name?.charAt(0).toUpperCase() || "P"}
+          {player?.name?.charAt(0).toUpperCase() || "P"}
         </Text>
       </View>
     );
@@ -151,7 +184,6 @@ const ScoreCard: React.FC<ScoreCardProps> = ({
     (match.gameScores?.length ?? 0) > 0
       ? match.gameScores
       : match.setScores || [];
-  const isSingles = match.team1Players.length === 1;
   const matchTypeLabel = isFriendly ? "Friendly" : "League";
 
   // Get season and division info
@@ -224,7 +256,7 @@ const ScoreCard: React.FC<ScoreCardProps> = ({
           {isSingles ? (
             <>
               <View style={[styles.singlesRow, isPreview && { gap: PREVIEW.singlesRowGap }]}>
-                {renderPlayerPhoto(match.team1Players[0])}
+                {renderPlayerPhoto(team1Players[0])}
                 <Text
                   style={[
                     styles.teamName,
@@ -233,16 +265,16 @@ const ScoreCard: React.FC<ScoreCardProps> = ({
                   ]}
                   numberOfLines={2}
                 >
-                  {formatPlayerName(match.team1Players[0].name)}
+                  {formatPlayerName(team1Players[0].name ?? null)}
                 </Text>
               </View>
             </>
           ) : (
             <View style={styles.doublesContainer}>
               <View style={styles.doublesPhotos}>
-                {renderPlayerPhoto(match.team1Players[0])}
+                {renderPlayerPhoto(team1Players[0])}
                 <View style={{ marginLeft: isPreview ? PREVIEW.doublesPhotoOverlap : -30 }}>
-                  {renderPlayerPhoto(match.team1Players[1])}
+                  {renderPlayerPhoto(team1Players[1])}
                 </View>
               </View>
               <View style={[styles.doublesNames, isPreview && { marginLeft: PREVIEW.doublesNamesMarginLeft }]}>
@@ -254,7 +286,7 @@ const ScoreCard: React.FC<ScoreCardProps> = ({
                   ]}
                   numberOfLines={1}
                 >
-                  {formatPlayerName(match.team1Players[0].name, true)}
+                  {formatPlayerName(team1Players[0].name ?? null, true)}
                 </Text>
                 <Text
                   style={[
@@ -264,7 +296,7 @@ const ScoreCard: React.FC<ScoreCardProps> = ({
                   ]}
                   numberOfLines={1}
                 >
-                  {formatPlayerName(match.team1Players[1].name, true)}
+                  {formatPlayerName(team1Players[1].name ?? null, true)}
                 </Text>
               </View>
             </View>
@@ -283,7 +315,7 @@ const ScoreCard: React.FC<ScoreCardProps> = ({
           {isSingles ? (
             <>
               <View style={[styles.singlesRow, isPreview && { gap: PREVIEW.singlesRowGap }]}>
-                {renderPlayerPhoto(match.team2Players[0])}
+                {renderPlayerPhoto(team2Players[0])}
                 <Text
                   style={[
                     styles.teamName,
@@ -292,16 +324,16 @@ const ScoreCard: React.FC<ScoreCardProps> = ({
                   ]}
                   numberOfLines={2}
                 >
-                  {formatPlayerName(match.team2Players[0].name)}
+                  {formatPlayerName(team2Players[0].name ?? null)}
                 </Text>
               </View>
             </>
           ) : (
             <View style={styles.doublesContainer}>
               <View style={styles.doublesPhotos}>
-                {renderPlayerPhoto(match.team2Players[0])}
+                {renderPlayerPhoto(team2Players[0])}
                 <View style={{ marginLeft: isPreview ? PREVIEW.doublesPhotoOverlap : -30 }}>
-                  {renderPlayerPhoto(match.team2Players[1])}
+                  {renderPlayerPhoto(team2Players[1])}
                 </View>
               </View>
               <View style={[styles.doublesNames, isPreview && { marginLeft: PREVIEW.doublesNamesMarginLeft }]}>
@@ -313,7 +345,7 @@ const ScoreCard: React.FC<ScoreCardProps> = ({
                   ]}
                   numberOfLines={1}
                 >
-                  {formatPlayerName(match.team2Players[0].name, true)}
+                  {formatPlayerName(team2Players[0].name ?? null, true)}
                 </Text>
                 <Text
                   style={[
@@ -323,7 +355,7 @@ const ScoreCard: React.FC<ScoreCardProps> = ({
                   ]}
                   numberOfLines={1}
                 >
-                  {formatPlayerName(match.team2Players[1].name, true)}
+                  {formatPlayerName(team2Players[1].name ?? null, true)}
                 </Text>
               </View>
             </View>
@@ -333,7 +365,7 @@ const ScoreCard: React.FC<ScoreCardProps> = ({
 
       {/* Match Date */}
       <Text style={[styles.cardMatchDate, isPreview && { fontSize: PREVIEW.cardMatchDate, marginTop: 1 }]}>
-        {format(new Date(match.matchDate), "d MMM yyyy, h:mm a")}
+        {formattedMatchDate}
       </Text>
       {match.isWalkover && <Text style={styles.cardWalkover}>W/O</Text>}
       {/* Scores Columns */}
@@ -386,13 +418,13 @@ const ScoreCard: React.FC<ScoreCardProps> = ({
                   <View style={[styles.nameColumn, isPreview && { width: PREVIEW.nameColWidth, paddingLeft: 2 }]}>
                     <Text style={[styles.nameColumnText, isPreview && { fontSize: PREVIEW.nameColumnText, height: PREVIEW.boxHeight, lineHeight: PREVIEW.boxHeight }]} numberOfLines={1}>
                       {isSingles
-                        ? formatPlayerName(match.team1Players[0].name, true)
-                        : `${formatPlayerName(match.team1Players[0].name, true)}, ${formatPlayerName(match.team1Players[1].name, true)}`}
+                        ? formatPlayerName(team1Players[0].name ?? null, true)
+                        : `${formatPlayerName(team1Players[0].name ?? null, true)}, ${formatPlayerName(team1Players[1].name ?? null, true)}`}
                     </Text>
                     <Text style={[styles.nameColumnText, isPreview && { fontSize: PREVIEW.nameColumnText, height: PREVIEW.boxHeight, lineHeight: PREVIEW.boxHeight }]} numberOfLines={1}>
                       {isSingles
-                        ? formatPlayerName(match.team2Players[0].name, true)
-                        : `${formatPlayerName(match.team2Players[0].name, true)}, ${formatPlayerName(match.team2Players[1].name, true)}`}
+                        ? formatPlayerName(team2Players[0].name ?? null, true)
+                        : `${formatPlayerName(team2Players[0].name ?? null, true)}, ${formatPlayerName(team2Players[1].name ?? null, true)}`}
                     </Text>
                   </View>
 
