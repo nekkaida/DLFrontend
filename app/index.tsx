@@ -28,7 +28,7 @@ export default function LandingPage() {
   };
 
   const handleLogin = () => {
-    router.push("/login");
+    router.push({ pathname: "/login", params: { from: "landing" } });
   };
 
   const handleSocialLogin = async (
