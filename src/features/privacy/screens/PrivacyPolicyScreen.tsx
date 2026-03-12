@@ -92,9 +92,6 @@ const PrivacySecuritySettings: React.FC = () => {
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [confirmPasswordInputY, setConfirmPasswordInputY] = useState<number>(0);
 
-  // Legal modal states
-  const [privacyPolicyModalVisible, setPrivacyPolicyModalVisible] = useState<boolean>(false);
-  const [dataCollectionModalVisible, setDataCollectionModalVisible] = useState<boolean>(false);
 
   // Refs for safety guards
   const isMountedRef = useRef<boolean>(true);
@@ -574,143 +571,6 @@ const PrivacySecuritySettings: React.FC = () => {
     </Modal>
   );
 
-  // Privacy Policy Modal
-  const renderPrivacyPolicyModal = () => (
-    <Modal
-      visible={privacyPolicyModalVisible}
-      animationType="slide"
-      presentationStyle="pageSheet"
-      onRequestClose={() => setPrivacyPolicyModalVisible(false)}
-    >
-      <SafeAreaView style={styles.legalModalContainer}>
-        <View style={styles.legalModalHeader}>
-          <TouchableOpacity
-            onPress={() => {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              setPrivacyPolicyModalVisible(false);
-            }}
-            style={styles.legalCloseButton}
-          >
-            <Ionicons name="close" size={24} color={colors.gray600} />
-          </TouchableOpacity>
-          <Text style={styles.legalModalTitle}>Privacy Policy</Text>
-          <View style={styles.legalHeaderSpacer} />
-        </View>
-
-        <ScrollView
-          style={styles.legalModalContent}
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={styles.legalScrollContent}
-        >
-          <View style={styles.legalContentContainer}>
-            <Text style={[styles.legalSectionTitle, { marginTop: 0, borderTopWidth: 0, paddingTop: 0 }]}>Last Updated: January 15, {new Date().getFullYear()}</Text>
-
-              <Text style={styles.legalText}>
-                Welcome to Deuce League! We value your privacy and are committed to protecting your personal information. This Privacy Policy explains how we collect, use, and safeguard your data when you use our pickleball platform.
-              </Text>
-
-              <Text style={styles.legalSectionTitle}>Information We Collect</Text>
-              <Text style={styles.legalText}>
-                - Personal Information: Name, email address, phone number, and profile photo{"\n"}
-                - Game Data: Match results, skill levels, and playing statistics{"\n"}
-                - Location Data: Court locations and check-ins (with your permission){"\n"}
-                - Device Information: Device type, operating system, and app usage analytics
-              </Text>
-
-              <Text style={styles.legalSectionTitle}>How We Use Your Information</Text>
-              <Text style={styles.legalText}>
-                We use your information to provide and improve our services, including matching you with other players, tracking your progress, and enhancing your overall experience. We never sell your personal data to third parties.
-              </Text>
-
-              <Text style={styles.legalSectionTitle}>Data Security</Text>
-              <Text style={styles.legalText}>
-                We implement industry-standard security measures to protect your data, including encryption, secure servers, and regular security audits. Your information is stored securely and accessed only by authorized personnel.
-              </Text>
-
-              <Text style={styles.legalSectionTitle}>Your Rights</Text>
-              <Text style={styles.legalText}>
-                You have the right to access, update, or delete your personal information at any time. You can also opt out of certain data collection practices through your account settings.
-              </Text>
-
-              <Text style={styles.legalSectionTitle}>Contact Us</Text>
-            <Text style={styles.legalText}>
-              If you have any questions about this Privacy Policy, please contact our privacy team at privacy@deuceleague.com or through the app's contact form.
-            </Text>
-          </View>
-        </ScrollView>
-      </SafeAreaView>
-    </Modal>
-  );
-
-  // Data Collection Modal
-  const renderDataCollectionModal = () => (
-    <Modal
-      visible={dataCollectionModalVisible}
-      animationType="slide"
-      presentationStyle="pageSheet"
-      onRequestClose={() => setDataCollectionModalVisible(false)}
-    >
-      <SafeAreaView style={styles.legalModalContainer}>
-        <View style={styles.legalModalHeader}>
-          <TouchableOpacity
-            onPress={() => {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              setDataCollectionModalVisible(false);
-            }}
-            style={styles.legalCloseButton}
-          >
-            <Ionicons name="close" size={24} color={colors.gray600} />
-          </TouchableOpacity>
-          <Text style={styles.legalModalTitle}>Data Collection Notice</Text>
-          <View style={styles.legalHeaderSpacer} />
-        </View>
-
-        <ScrollView
-          style={styles.legalModalContent}
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={styles.legalScrollContent}
-        >
-          <View style={styles.legalContentContainer}>
-            <Text style={[styles.legalSectionTitle, { marginTop: 0, borderTopWidth: 0, paddingTop: 0 }]}>What Data We Collect</Text>
-
-              <Text style={styles.legalSubTitle}>Account Information</Text>
-              <Text style={styles.legalText}>
-                When you create an account, we collect your name, email address, phone number, and any profile information you choose to provide.
-              </Text>
-
-              <Text style={styles.legalSubTitle}>Game Performance Data</Text>
-              <Text style={styles.legalText}>
-                We track your match results, game statistics, skill progression, and tournament participation to provide personalized recommendations and improve matchmaking.
-              </Text>
-
-              <Text style={styles.legalSubTitle}>Location Information</Text>
-              <Text style={styles.legalText}>
-                With your permission, we collect location data to help you find nearby courts, track court visits, and provide location-based features.
-              </Text>
-
-              <Text style={styles.legalSubTitle}>Usage Analytics</Text>
-              <Text style={styles.legalText}>
-                We collect anonymous usage data to understand how our app is used, identify bugs, and improve performance. This includes app crashes, feature usage, and navigation patterns.
-              </Text>
-
-              <Text style={styles.legalSectionTitle}>Why We Collect This Data</Text>
-              <Text style={styles.legalText}>
-                - To match you with players of similar skill levels{"\n"}
-                - To track your progress and achievements{"\n"}
-                - To recommend courts and events near you{"\n"}
-                - To improve app performance and user experience{"\n"}
-                - To provide customer support and resolve issues
-              </Text>
-
-              <Text style={styles.legalSectionTitle}>Data Retention</Text>
-            <Text style={styles.legalText}>
-              We retain your data for as long as your account is active. If you delete your account, we will permanently remove your personal information within 30 days, except for anonymized usage data used for analytics.
-            </Text>
-          </View>
-        </ScrollView>
-      </SafeAreaView>
-    </Modal>
-  );
 
   return (
     <View style={styles.container}>
@@ -732,7 +592,7 @@ const PrivacySecuritySettings: React.FC = () => {
             <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
           </Pressable>
 
-          <Text style={styles.headerTitle}>Privacy & Security</Text>
+          <Text style={styles.headerTitle}>Change Password</Text>
 
           <View style={styles.headerSpacer} />
         </View>
@@ -755,45 +615,9 @@ const PrivacySecuritySettings: React.FC = () => {
             </View>
           </View>
 
-          {/* Legal & Transparency Section */}
-          <View style={styles.section}>
-            {renderSectionHeader('Legal & Transparency', 'document-text')}
-            <View style={styles.card}>
-            {renderButtonItem(
-              'Privacy Policy',
-              'Read our privacy policy',
-              () => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                setPrivacyPolicyModalVisible(true);
-              },
-              'View'
-            )}
-            {renderButtonItem(
-              'Data Collection Notice',
-              'What data we collect and why',
-              () => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                setDataCollectionModalVisible(true);
-              },
-              'View'
-            )}
-            {/* {renderButtonItem(
-              'Contact Privacy Team',
-              'Questions about your privacy',
-              () => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                setContactModalVisible(true);
-              },
-              'Contact'
-            )} */}
-            </View>
-          </View>
         </ScrollView>
 
         {renderPasswordModal()}
-        {renderPrivacyPolicyModal()}
-        {renderDataCollectionModal()}
-        {/* {renderContactModal()} */}
       </SafeAreaView>
     </View>
   );
@@ -1109,53 +933,6 @@ const styles = StyleSheet.create({
   requirementTextValid: {
     color: colors.success,
     fontWeight: '500',
-  },
-  // Legal content styles
-  legalContentContainer: {
-    backgroundColor: colors.white,
-    marginHorizontal: 16,
-    marginTop: 16,
-    borderRadius: 12,
-    padding: 24,
-    ...Platform.select({
-      ios: {
-        shadowColor: colors.black,
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.08,
-        shadowRadius: 8,
-      },
-      android: {
-        elevation: 3,
-      },
-    }),
-  },
-  legalSectionTitle: {
-    fontSize: 18, // theme.typography.fontSize.lg+
-    fontWeight: '700', // theme.typography.fontWeight.heavy
-    color: colors.gray900,
-    fontFamily: 'Inter',
-    marginBottom: 16,
-    marginTop: 24,
-    paddingTop: 8,
-    borderTopWidth: 1,
-    borderTopColor: colors.gray100,
-  },
-  legalSubTitle: {
-    fontSize: 14, // theme.typography.fontSize.base
-    fontWeight: '600', // theme.typography.fontWeight.semibold
-    color: colors.gray700,
-    fontFamily: 'Inter',
-    marginBottom: 8,
-    marginTop: 16,
-  },
-  legalText: {
-    fontSize: 15, // theme.typography.fontSize.base+
-    fontWeight: '400', // theme.typography.fontWeight.regular
-    color: colors.gray700,
-    fontFamily: 'Inter',
-    lineHeight: 24,
-    marginBottom: 20,
-    letterSpacing: 0.2,
   },
   contactMethod: {
     flexDirection: 'row',

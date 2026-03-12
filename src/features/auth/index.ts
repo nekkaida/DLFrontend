@@ -1,5 +1,5 @@
 // Export all authentication screens
-export { LandingScreen, LoadingScreen } from './screens/LandingScreen';
+export { LandingScreen } from './screens/LandingScreen';
 export { LoginScreen } from './screens/LoginScreen';
 export { SignUpScreen, type SignUpData } from './screens/SignUpScreen';
 export { VerificationScreen } from './screens/VerificationScreen';

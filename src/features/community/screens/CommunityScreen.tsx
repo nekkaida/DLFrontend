@@ -52,6 +52,7 @@ export default function CommunityScreen({ sport = 'pickleball', mode = 'friend',
     sendFriendRequest,
     acceptFriendRequest,
     rejectFriendRequest,
+    removeFriend,
   } = useFriends();
   const {
     seasonInvitations,
@@ -162,12 +163,19 @@ export default function CommunityScreen({ sport = 'pickleball', mode = 'friend',
     return friends.some(f => f.friend.id === playerId);
   }, [friends]);
 
-  // Check if the current user already sent a pending request to this player
+  // F-4: Check if there's a pending request in either direction
+  // F-5: Also check optimistic pending set for instant UI feedback
+  const [optimisticPendingIds, setOptimisticPendingIds] = useState<Set<string>>(new Set());
+
   const isPendingRequestSent = useCallback((playerId: string) => {
-    return friendRequests.sent.some(
-      r => r.recipientId === playerId && r.status === 'PENDING'
-    );
-  }, [friendRequests.sent]);
+    return optimisticPendingIds.has(playerId)
+      || friendRequests.sent.some(
+        r => r.recipientId === playerId && r.status === 'PENDING'
+      )
+      || friendRequests.received.some(
+        r => r.requesterId === playerId && r.status === 'PENDING'
+      );
+  }, [friendRequests.sent, friendRequests.received, optimisticPendingIds]);
 
   // Pending received count (for badge on icon)
   const pendingReceivedCount = useMemo(
@@ -267,6 +275,13 @@ export default function CommunityScreen({ sport = 'pickleball', mode = 'friend',
         return;
       }
 
+      // F-7: Check pending request (missing from this path before)
+      if (isPendingRequestSent(selectedPlayer.id)) {
+        toast.info('Friend request already sent.');
+        closeModal();
+        return;
+      }
+
       setFriendRequestRecipient({
         id: selectedPlayer.id,
         name: selectedPlayer.name
@@ -283,7 +298,7 @@ export default function CommunityScreen({ sport = 'pickleball', mode = 'friend',
         setFriendRequestModalVisible(true);
       }
     }, 300);
-  }, [selectedPlayer, closeModal, isFriend]);
+  }, [selectedPlayer, closeModal, isFriend, isPendingRequestSent]);
 
   const handleSendFriendRequestConfirm = useCallback(async () => {
     try {
@@ -291,10 +306,26 @@ export default function CommunityScreen({ sport = 'pickleball', mode = 'friend',
         return;
       }
 
-      await sendFriendRequest(friendRequestRecipient.id);
+      const recipientId = friendRequestRecipient.id;
+
+      // F-5: Set loading state and optimistic pending update
+      setDirectActionLoading(recipientId);
+      setOptimisticPendingIds(prev => new Set(prev).add(recipientId));
+
+      await sendFriendRequest(recipientId);
       setFriendRequestRecipient(null);
     } catch (error) {
+      // Revert optimistic update on failure
+      if (friendRequestRecipient?.id) {
+        setOptimisticPendingIds(prev => {
+          const next = new Set(prev);
+          next.delete(friendRequestRecipient.id);
+          return next;
+        });
+      }
       if (__DEV__) console.error('Error sending friend request:', error);
+    } finally {
+      setDirectActionLoading(null);
     }
   }, [friendRequestRecipient, sendFriendRequest]);
 
@@ -398,7 +429,7 @@ export default function CommunityScreen({ sport = 'pickleball', mode = 'friend',
         onClose={closePanel}
         onAccept={acceptFriendRequest}
         onReject={rejectFriendRequest}
-        onCancel={rejectFriendRequest}
+        onCancel={removeFriend}
       />
     </View>
   );

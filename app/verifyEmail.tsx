@@ -6,7 +6,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { ThemedText } from '@/components/ThemedText';
 import { Colors } from '@/constants/Colors';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { authClient } from '@/lib/auth-client';
 import { toast } from 'sonner-native';
 import { AuthStorage } from '@/src/core/storage';
@@ -35,7 +35,8 @@ const triggerNotification = async (type: Haptics.NotificationFeedbackType) => {
 
 export default function VerifyEmailScreen() {
   const router = useRouter();
-  const { email, clearAll: clearEmailStore, isSessionValid } = useEmailVerificationStore();
+  const { email: urlEmail } = useLocalSearchParams<{ email?: string }>();
+  const { email, clearAll: clearEmailStore, isSessionValid, setEmail } = useEmailVerificationStore();
 
   const [otp, setOtp] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -63,15 +64,25 @@ export default function VerifyEmailScreen() {
     };
   }, []);
 
+  // LI-22: Populate store from URL param when store is empty (e.g., coming from login screen)
+  useEffect(() => {
+    if (!email && urlEmail) {
+      setEmail(urlEmail);
+    }
+  }, [email, urlEmail, setEmail]);
+
   // Validate email from store - redirect if missing or session expired
   useEffect(() => {
+    // Skip validation if URL param will populate the store on next render
+    if (!email && urlEmail) return;
+
     if (!email || !isSessionValid()) {
       toast.error('Session Expired', {
         description: 'Please start the registration process again.',
       });
       router.replace('/register');
     }
-  }, [email, isSessionValid, router]);
+  }, [email, urlEmail, isSessionValid, router]);
 
   // Resend cooldown timer
   useEffect(() => {

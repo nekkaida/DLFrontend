@@ -7,6 +7,7 @@ import {
   View,
   ScrollView,
   Text,
+  TextInput,
   TouchableOpacity,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -53,8 +54,11 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
   onSocialLogin,
 }) => {
   const insets = useSafeAreaInsets();
-  const lastPressTimeRef = useRef<number>(0);
+  const loginPressTimeRef = useRef<number>(0);
+  const forgotPressTimeRef = useRef<number>(0);
+  const signUpPressTimeRef = useRef<number>(0);
   const isMountedRef = useRef<boolean>(true);
+  const passwordInputRef = useRef<TextInput>(null);
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -69,15 +73,17 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
     };
   }, []);
 
-  // Debounced press handler to prevent double-clicks
-  const handleDebouncedPress = useCallback((callback: () => void) => {
-    const now = Date.now();
-    if (now - lastPressTimeRef.current < DEBOUNCE_DELAY) {
-      return;
-    }
-    lastPressTimeRef.current = now;
-    triggerHaptic();
-    callback();
+  // Per-button debounce to prevent double-taps without cross-button interference
+  const makeDebouncedPress = useCallback((ref: React.MutableRefObject<number>) => {
+    return (callback: () => void) => {
+      const now = Date.now();
+      if (now - ref.current < DEBOUNCE_DELAY) {
+        return;
+      }
+      ref.current = now;
+      triggerHaptic();
+      callback();
+    };
   }, []);
 
   const handleLogin = async () => {
@@ -133,12 +139,16 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
     }
 
     if (!isLoading) {
+      let timeoutId: ReturnType<typeof setTimeout> | undefined;
       try {
         setIsLoading(true);
 
-        // Create timeout promise
+        // Create timeout promise with clearable timer
         const timeoutPromise = new Promise<never>((_, reject) => {
-          setTimeout(() => reject(new Error('Request timed out. Please try again.')), LOGIN_TIMEOUT);
+          timeoutId = setTimeout(
+            () => reject(new Error('Request timed out. Please try again.')),
+            LOGIN_TIMEOUT,
+          );
         });
 
         // Race between login and timeout
@@ -160,6 +170,8 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
           });
         }
       } finally {
+        // Clear timeout to prevent memory leak and stale rejection
+        if (timeoutId !== undefined) clearTimeout(timeoutId);
         // Only update state if still mounted
         if (isMountedRef.current) {
           setIsLoading(false);
@@ -294,20 +306,24 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
               {/* Username or Email Input */}
               <InputField
                 label="Username or email"
-                placeholder="yourname@gmail.com"
+                placeholder="username or email"
                 value={email}
                 onChangeText={setEmail}
                 icon="user"
                 keyboardType="email-address"
+                autoCapitalize="none"
                 accessibilityLabel="Username or email input"
                 accessibilityHint="Enter your username or email address to log in"
                 maxLength={MAX_EMAIL_LENGTH}
-                autoComplete="email"
-                textContentType="emailAddress"
+                autoComplete="username"
+                textContentType="username"
+                returnKeyType="next"
+                onSubmitEditing={() => passwordInputRef.current?.focus()}
               />
 
               {/* Password Input */}
               <InputField
+                ref={passwordInputRef}
                 label="Password"
                 placeholder="Enter your password"
                 value={password}
@@ -321,6 +337,8 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                 maxLength={MAX_PASSWORD_LENGTH}
                 autoComplete="password"
                 textContentType="password"
+                returnKeyType="go"
+                onSubmitEditing={() => makeDebouncedPress(loginPressTimeRef)(handleLogin)}
               />
             </View>
 
@@ -331,7 +349,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                 marginBottom: verticalScale(24),
                 opacity: isLoading || isSocialLoading ? 0.5 : 1,
               }}
-              onPress={() => handleDebouncedPress(onForgotPassword)}
+              onPress={() => makeDebouncedPress(forgotPressTimeRef)(onForgotPassword)}
               disabled={isLoading || isSocialLoading}
               accessibilityLabel="Forgot password"
               accessibilityRole="button"
@@ -372,8 +390,8 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                 Sign In
               </Text>
               <TouchableOpacity
-                onPress={() => handleDebouncedPress(handleLogin)}
-                disabled={isLoading}
+                onPress={() => makeDebouncedPress(loginPressTimeRef)(handleLogin)}
+                disabled={isLoading || isSocialLoading}
                 style={{
                   width: scale(56),
                   height: scale(56),
@@ -389,7 +407,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                 accessibilityLabel="Sign in"
                 accessibilityRole="button"
                 accessibilityHint="Submits login credentials"
-                accessibilityState={{ disabled: isLoading }}
+                accessibilityState={{ disabled: isLoading || isSocialLoading }}
               >
                 <LinearGradient
                   colors={[AuthColors.primary, AuthColors.primaryDark]}
@@ -438,11 +456,13 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                 gap: scale(6),
               }}
             >
-              <SocialButton
-                type="apple"
-                onPress={() => handleSocialLogin("apple")}
-                disabled={isLoading || isSocialLoading}
-              />
+              {Platform.OS === 'ios' && (
+                <SocialButton
+                  type="apple"
+                  onPress={() => handleSocialLogin("apple")}
+                  disabled={isLoading || isSocialLoading}
+                />
+              )}
               <SocialButton
                 type="google"
                 onPress={() => handleSocialLogin("google")}
@@ -466,7 +486,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                 color: '#404040',
               }}>Don't have an account yet?</Text>
               <TouchableOpacity
-                onPress={() => handleDebouncedPress(onSignUp)}
+                onPress={() => makeDebouncedPress(signUpPressTimeRef)(onSignUp)}
                 disabled={isLoading || isSocialLoading}
                 style={{
                   paddingTop: verticalScale(1),

@@ -76,8 +76,7 @@ export const AuthStyles = StyleSheet.create({
 
   // Screen Container
   screenContainer: {
-    width: screenWidth,
-    height: screenHeight,
+    flex: 1,
     backgroundColor: AuthColors.white,
     borderRadius: 40,
   },
@@ -423,6 +422,17 @@ export const AuthStyles = StyleSheet.create({
     backgroundColor: AuthColors.white,
     borderWidth: 1,
     borderColor: '#D9D9D9',
+    shadowColor: '#121212',
+    shadowOffset: { width: 0, height: 5 },
+    shadowOpacity: 0.05,
+    shadowRadius: 35,
+    elevation: 5,
+  },
+
+  appleButton: {
+    backgroundColor: AuthColors.black,
+    borderWidth: 1,
+    borderColor: AuthColors.black,
     shadowColor: '#121212',
     shadowOffset: { width: 0, height: 5 },
     shadowOpacity: 0.05,

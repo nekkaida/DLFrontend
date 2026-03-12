@@ -1,17 +1,17 @@
 import { authClient } from "@/lib/auth-client";
 import axiosInstance, { endpoints } from "@/lib/endpoints";
 import { signInWithNativeOAuth } from "@/lib/native-social-auth";
+import { getPostAuthRoute } from "@/lib/post-auth-route";
 import { AuthStorage } from "@/src/core/storage";
 import { LoginScreen } from "@/src/features/auth/screens/LoginScreen";
 import { useLocalSearchParams, useNavigation, useRouter } from "expo-router";
-import React, { useEffect, useState } from "react";
+import React, { useEffect } from "react";
 import { toast } from "sonner-native";
 
 export default function LoginRoute() {
   const router = useRouter();
   const navigation = useNavigation();
   const { from } = useLocalSearchParams<{ from?: string }>();
-  const [isSocialLoading, setIsSocialLoading] = useState(false);
 
   // Conditionally enable gesture navigation:
   // - Allow swipe back when coming from landing page (from=landing)
@@ -25,19 +25,19 @@ export default function LoginRoute() {
 
   const handleLogin = async (emailOrUsername: string, password: string) => {
     try {
-      console.log("Login attempt with:", emailOrUsername);
+      if (__DEV__) console.log("Login attempt with:", emailOrUsername);
 
       const isEmail = emailOrUsername.includes("@");
 
       let result;
       if (isEmail) {
-        console.log("Attempting email login");
+        if (__DEV__) console.log("Attempting email login");
         result = await authClient.signIn.email({
           email: emailOrUsername,
           password: password,
         });
       } else {
-        console.log("Attempting username login");
+        if (__DEV__) console.log("Attempting username login");
         result = await authClient.signIn.username({
           username: emailOrUsername,
           password: password,
@@ -47,23 +47,22 @@ export default function LoginRoute() {
       // console.log("Login result:", result);
 
       if (result.data?.user?.id) {
-        console.log("Login successful, tracking last login...");
+        if (__DEV__) console.log("Login successful, tracking last login...");
 
         // Update Last Login
         try {
-          console.log("📤 Sending trackLogin request");
+          if (__DEV__) console.log("📤 Sending trackLogin request");
           const trackResponse = await axiosInstance.put(
             endpoints.user.trackLogin,
           );
-          console.log(
-            "✅ Last login tracked successfully:",
-            trackResponse.data,
-          );
+          if (__DEV__) console.log("✅ Last login tracked successfully:", trackResponse.data);
         } catch (trackErr: any) {
-          console.error("❌ Failed to track last login:", trackErr.message);
-          if (trackErr.response) {
-            console.error("❌ Response status:", trackErr.response.status);
-            console.error("❌ Response data:", trackErr.response.data);
+          if (__DEV__) {
+            console.error("❌ Failed to track last login:", trackErr.message);
+            if (trackErr.response) {
+              console.error("❌ Response status:", trackErr.response.status);
+              console.error("❌ Response data:", trackErr.response.data);
+            }
           }
         }
 
@@ -71,14 +70,34 @@ export default function LoginRoute() {
         // onSuccess hook, and useSession() will detect the change via $sessionSignal.
         // No need to poll getSession() — navigate immediately.
         await AuthStorage.markLoggedIn();
-        router.replace("/user-dashboard");
+        const nextRoute = getPostAuthRoute({ user: result.data.user as any });
+        router.replace(nextRoute as any);
         return;
       } else {
-        console.error("Login failed:", result.error);
+        if (__DEV__) console.error("Login failed:", result.error);
+        const errorMsg = result.error?.message?.toLowerCase() || "";
+
+        // LI-18: Detect unverified email and offer path to verification
+        if (errorMsg.includes("not verified") || errorMsg.includes("email verification")) {
+          toast.error("Email not verified", {
+            description: "Please check your inbox for the verification email.",
+          });
+          router.push({ pathname: "/verifyEmail", params: { email: emailOrUsername } } as any);
+          return;
+        }
+
+        // LI-11: Detect rate limiting (429) and show specific message
+        if (errorMsg.includes("too many") || (result.error as any)?.status === 429) {
+          toast.error("Too many login attempts", {
+            description: "Please wait a few minutes before trying again.",
+          });
+          return;
+        }
+
         toast.error(result.error?.message || "Login failed. Please try again.");
       }
     } catch (error) {
-      console.error("Login failed:", error);
+      if (__DEV__) console.error("Login failed:", error);
       toast.error("Login failed. Please try again.");
     }
   };
@@ -94,19 +113,10 @@ export default function LoginRoute() {
   const handleSocialLogin = async (
     provider: "google" | "apple",
   ) => {
-    if (isSocialLoading) return;
-
-    try {
-      setIsSocialLoading(true);
-      const result = await signInWithNativeOAuth(provider);
-      if (result) {
-        router.replace(result.nextRoute);
-      }
-    } catch (error: any) {
-      console.error("Social login error:", error);
-      toast.error(error.message || "Social login failed. Please try again.");
-    } finally {
-      setIsSocialLoading(false);
+    // signInWithNativeOAuth handles all errors internally and returns null on failure
+    const result = await signInWithNativeOAuth(provider);
+    if (result) {
+      router.replace(result.nextRoute);
     }
   };
 

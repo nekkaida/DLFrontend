@@ -12,13 +12,13 @@ import { getBackendBaseURL, logNetworkConfig } from "../src/config/network";
 logNetworkConfig();
 
 const baseURL = getBackendBaseURL();
-console.log("🔑 Auth Client baseURL:", baseURL);
+if (__DEV__) console.log("🔑 Auth Client baseURL:", baseURL);
 
 // Custom fetch that adds X-Client-Type header to all auth requests
 const mobileAuthFetch: typeof fetch = (input, init) => {
   const headers = new Headers(init?.headers);
   headers.set("X-Client-Type", "mobile");
-  console.log("🔐 [Auth Fetch] Adding X-Client-Type: mobile header");
+  if (__DEV__) console.log("🔐 [Auth Fetch] Adding X-Client-Type: mobile header");
   return fetch(input, { ...init, headers });
 };
 
