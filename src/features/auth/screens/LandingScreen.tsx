@@ -122,10 +122,7 @@ export const LandingScreen: React.FC<LandingScreenProps> = ({
             </Pressable>
 
             <View style={styles.socialContainer}>
-              {/* L-3: Only show Apple button on iOS */}
-              {Platform.OS === 'ios' && (
-                <SocialButton type="apple" onPress={() => handleSocialPress('apple')} disabled={isSocialLoading} />
-              )}
+              <SocialButton type="apple" onPress={() => handleSocialPress('apple')} disabled={isSocialLoading} />
               <SocialButton type="google" onPress={() => handleSocialPress('google')} disabled={isSocialLoading} />
             </View>
           </View>
