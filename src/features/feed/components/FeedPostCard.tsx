@@ -244,12 +244,13 @@ const styles = StyleSheet.create({
     ...feedTheme.typography.caption,
     color: feedTheme.colors.textPrimary,
   },
-  moreText: {
+moreText: {
     color: feedTheme.colors.textSecondary,
   },
   scorecardContainer: {
     paddingHorizontal: feedTheme.spacing.cardPadding,
     paddingBottom: 10,
+
   },
   scorecardPressed: {
     opacity: 0.7,
