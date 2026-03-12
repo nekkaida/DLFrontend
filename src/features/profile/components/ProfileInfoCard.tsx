@@ -1,8 +1,8 @@
 import { theme } from '@core/theme/theme';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
-import React from 'react';
-import { ActivityIndicator, Image, Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import React, { useState, useRef, useEffect } from 'react';
+import { Animated, ActivityIndicator, Image, Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 import { getProfileSportConfig } from '../utils/profileSportUi';
 
@@ -24,6 +24,9 @@ interface ProfileInfoCardProps {
   onAddFriend?: () => void;
   onChat?: () => void;
   onSportPress?: (sport: string) => void;
+  onRemoveSport?: (sport: string) => void;
+  onAddSport?: () => void;
+  isOwnProfile?: boolean;
   isLoadingChat?: boolean;
 }
 
@@ -45,6 +48,9 @@ export const ProfileInfoCard: React.FC<ProfileInfoCardProps> = ({
   onAddFriend,
   onChat,
   onSportPress,
+  onRemoveSport,
+  onAddSport,
+  isOwnProfile = false,
   isLoadingChat = false,
 }) => {
   const { width } = useWindowDimensions();
@@ -60,6 +66,31 @@ export const ProfileInfoCard: React.FC<ProfileInfoCardProps> = ({
   const cardHorizontalPadding = Math.max(14, Math.min(20, width * 0.045));
   const cardVerticalPadding = Math.max(10, Math.min(16, width * 0.03));
   const sportsGap = Math.max(8, Math.min(12, width * 0.025));
+
+  const [isEditing, setIsEditing] = useState(false);
+  const jiggleAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    let anim: { start: () => void; stop: () => void } | null = null;
+    if (isEditing) {
+      anim = Animated.loop(
+        Animated.sequence([
+          Animated.timing(jiggleAnim, { toValue: 1, duration: 80, useNativeDriver: true }),
+          Animated.timing(jiggleAnim, { toValue: -1, duration: 80, useNativeDriver: true }),
+          Animated.timing(jiggleAnim, { toValue: 0, duration: 80, useNativeDriver: true }),
+        ])
+      );
+      anim.start();
+    } else {
+      jiggleAnim.setValue(0);
+    }
+    return () => { anim?.stop(); };
+  }, [isEditing, jiggleAnim]);
+
+  const jiggleRotate = jiggleAnim.interpolate({
+    inputRange: [-1, 1],
+    outputRange: ['-2deg', '2deg'],
+  });
 
   return (
     <View style={[styles.profileInfoCard, { paddingHorizontal: cardHorizontalPadding, paddingVertical: cardVerticalPadding }]}>
@@ -176,39 +207,90 @@ export const ProfileInfoCard: React.FC<ProfileInfoCardProps> = ({
 
       <View style={styles.sportsHeaderRow}>
         <Text style={[styles.sportsTitle, { fontSize: sportHeaderSize }]}>Sports</Text>
-        <Text style={[styles.sportsEdit, { fontSize: sportHeaderSize }]}>Edit</Text>
+        {isOwnProfile && (
+          <Pressable
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              setIsEditing((e) => !e);
+            }}
+            hitSlop={8}
+          >
+            <Text style={[styles.sportsEdit, { fontSize: sportHeaderSize }]}>
+              {isEditing ? 'Done' : 'Edit'}
+            </Text>
+          </Pressable>
+        )}
       </View>
 
-      <View style={[styles.sportsPills, { gap: sportsGap }] }>
-        {sports.slice(0, 3).map((sport) => {
+      <View style={[styles.sportsPills, { gap: sportsGap }]}>
+        {(isEditing ? sports : sports.slice(0, 3)).map((sport) => {
           const isActive = activeSports.length === 0 || activeSports.includes(sport);
           const config = getProfileSportConfig(sport);
           const iconColor = isActive ? '#FFFFFF' : config.color;
           const Icon = config.Icon;
 
           return (
-            <Pressable
+            <Animated.View
               key={sport}
               style={[
-                styles.sportPill,
-                {
-                  borderColor: config.color,
-                  backgroundColor: isActive ? config.color : '#FFFFFF',
-                }
+                styles.sportPillWrapper,
+                isEditing && { transform: [{ rotate: jiggleRotate }] },
               ]}
-              onPress={() => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                onSportPress?.(sport);
-              }}
             >
-              <Icon width={14} height={14} fill={iconColor} color={iconColor} />
-              <Text style={[styles.sportPillText, { fontSize: pillFontSize, color: iconColor }]}>
-                {sport}
-              </Text>
-            </Pressable>
+              <Pressable
+                style={[
+                  styles.sportPill,
+                  {
+                    borderColor: config.color,
+                    backgroundColor: isActive ? config.color : '#FFFFFF',
+                  },
+                ]}
+                onPress={() => {
+                  if (!isEditing) {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    onSportPress?.(sport);
+                  }
+                }}
+              >
+                <Icon width={14} height={14} fill={iconColor} color={iconColor} />
+                <Text style={[styles.sportPillText, { fontSize: pillFontSize, color: iconColor }]}>
+                  {sport}
+                </Text>
+              </Pressable>
+              {isEditing && (
+                <Pressable
+                  style={styles.sportPillRemoveBtn}
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    onRemoveSport?.(sport);
+                  }}
+                  hitSlop={6}
+                  accessibilityLabel={`Remove ${sport}`}
+                >
+                  <Ionicons name="close-circle" size={18} color="#1f2937" />
+                </Pressable>
+              )}
+            </Animated.View>
           );
         })}
-        {sports.length > 3 && (
+
+        {/* Add Sport pill — edit mode only */}
+        {isEditing && (
+          <Pressable
+            style={styles.addSportPill}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              onAddSport?.();
+            }}
+            accessibilityLabel="Add sport"
+          >
+            <Ionicons name="add" size={14} color={theme.colors.neutral.gray[500]} />
+            <Text style={[styles.addSportText, { fontSize: pillFontSize }]}>Add Sport</Text>
+          </Pressable>
+        )}
+
+        {/* Overflow count — view mode only */}
+        {!isEditing && sports.length > 3 && (
           <Text style={[styles.moreSportsText, { fontSize: pillFontSize }]}>+{sports.length - 3}</Text>
         )}
       </View>
@@ -342,6 +424,34 @@ const styles = StyleSheet.create({
   sportPillText: {
     fontFamily: theme.typography.fontFamily.primary,
     fontWeight: '600' as any,
+  },
+  sportPillWrapper: {
+    position: 'relative',
+  },
+  sportPillRemoveBtn: {
+    position: 'absolute',
+    top: -8,
+    right: -8,
+    zIndex: 10,
+    backgroundColor: '#ffffff',
+    borderRadius: 9,
+  },
+  addSportPill: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    gap: 6,
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: 7,
+    borderRadius: 999,
+    borderWidth: 1.5,
+    borderStyle: 'dashed' as const,
+    borderColor: theme.colors.neutral.gray[300],
+    backgroundColor: 'transparent',
+  },
+  addSportText: {
+    color: theme.colors.neutral.gray[500],
+    fontFamily: theme.typography.fontFamily.primary,
+    fontWeight: '500' as any,
   },
   moreSportsText: {
     color: theme.colors.neutral.gray[500],

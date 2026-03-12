@@ -377,6 +377,21 @@ export default function ProfileScreen() {
     return Math.round((leagueStatsData.wins / leagueStatsData.matchesPlayed) * 100);
   };
 
+  const handleRemoveSport = async (sport: string) => {
+    const currentSports = (userData.sports || [])
+      .filter((s) => s !== 'No sports yet')
+      .map((s) => s.toLowerCase())
+      .filter((s) => s !== sport.toLowerCase());
+
+    try {
+      await axiosInstance.put('/api/player/sports', { sports: currentSports });
+      await fetchProfileData();
+      toast.success(`${sport} removed`);
+    } catch {
+      toast.error('Failed to remove sport');
+    }
+  };
+
   // Get ELO data - use real rating history if available, otherwise show placeholder
   const getEloData = (): GameData[] => {
     if (ratingHistory.length > 0) {
@@ -471,6 +486,9 @@ export default function ProfileScreen() {
               sports={userData.sports || []}
               activeSports={userData.activeSports || []}
               showActionButtons={false}
+              isOwnProfile={true}
+              onAddSport={() => router.push('/edit-sports')}
+              onRemoveSport={handleRemoveSport}
             />
           </Animated.View>
         </View>
@@ -539,6 +557,7 @@ export default function ProfileScreen() {
               skillLevel={userData.skillLevel}
               selfAssessedSkillLevels={userData.selfAssessedSkillLevels}
               activeSport={activeTab}
+              onEdit={() => router.push({ pathname: '/edit-sports', params: { sport: activeTab.toLowerCase() } } as any)}
             />
 
             {/* DMR with Graph */}
