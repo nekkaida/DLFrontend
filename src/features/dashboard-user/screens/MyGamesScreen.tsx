@@ -624,14 +624,14 @@ export default function MyGamesScreen({
             <TouchableOpacity
               style={[
                 localStyles.tab,
-                upcomingPastTab === "UPCOMING" && localStyles.activeTab,
+                upcomingPastTab === "UPCOMING" && { borderBottomColor: sportColors.background },
               ]}
               onPress={() => setUpcomingPastTab("UPCOMING")}
             >
               <Text
                 style={[
                   localStyles.tabText,
-                  upcomingPastTab === "UPCOMING" && localStyles.activeTabText,
+                  upcomingPastTab === "UPCOMING" && { color: sportColors.background, fontWeight: '700' },
                 ]}
               >
                 Upcoming
@@ -640,14 +640,14 @@ export default function MyGamesScreen({
             <TouchableOpacity
               style={[
                 localStyles.tab,
-                upcomingPastTab === "PAST" && localStyles.activeTab,
+                upcomingPastTab === "PAST" && { borderBottomColor: sportColors.background },
               ]}
               onPress={() => setUpcomingPastTab("PAST")}
             >
               <Text
                 style={[
                   localStyles.tabText,
-                  upcomingPastTab === "PAST" && localStyles.activeTabText,
+                  upcomingPastTab === "PAST" && { color: sportColors.background, fontWeight: '700' },
                 ]}
               >
                 Past
@@ -821,29 +821,27 @@ const localStyles = StyleSheet.create({
     flexDirection: "row",
     backgroundColor: "transparent",
     paddingHorizontal: 16,
-    paddingVertical: 8,
     paddingTop: 16,
+    paddingBottom: 0,
     gap: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: "#E5E7EB",
   },
   tab: {
     flex: 1,
-    paddingVertical: 8,
+    paddingVertical: 10,
     alignItems: "center",
-    borderBottomWidth: 2,
+    borderBottomWidth: 3,
     borderBottomColor: "transparent",
   },
   activeTab: {
     borderBottomColor: "#4CAF50",
   },
   tabText: {
-    fontSize: 14,
+    fontSize: 16,
     fontWeight: "500",
     color: "#9CA3AF",
   },
   activeTabText: {
-    fontWeight: "600",
+    fontWeight: "700",
     color: "#1A1C1E",
   },
 });
