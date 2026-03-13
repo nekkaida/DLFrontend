@@ -10,7 +10,6 @@ import {
   ProfileHeaderWithCurve,
   ProfileInfoCard,
   ProfileLeagueStatsCard,
-  ProfilePictureSection,
   ProfileSkillLevelCard,
   ProfileSportsSection,
 } from "@/src/features/profile/components";
@@ -449,23 +448,8 @@ export default function PlayerProfileScreen() {
           showSettings={false}
         />
 
-        {/* Content */}
-        <View style={styles.whiteBackground}>
-          {/* Profile Picture */}
-          <Animated.View
-            style={{
-              opacity: profilePictureEntryOpacity,
-              transform: [{ translateY: profilePictureEntryTranslateY }],
-            }}
-          >
-            <ProfilePictureSection
-              imageUri={profileData?.image}
-              isUploading={false}
-              isEditable={false}
-            />
-          </Animated.View>
-
-          {/* Profile Info */}
+        {/* Top Profile Section — white card with avatar inside */}
+        <View style={styles.profileTopSection}>
           <Animated.View
             style={{
               opacity: infoCardEntryOpacity,
@@ -478,6 +462,9 @@ export default function PlayerProfileScreen() {
               bio={userData.bio}
               location={userData.location}
               gender={userData.gender}
+              imageUri={profileData?.image}
+              isEditableImage={false}
+              friendsCount={0}
               sports={userData.sports || []}
               activeSports={userData.activeSports || []}
               showActionButtons={true}
@@ -486,7 +473,10 @@ export default function PlayerProfileScreen() {
               isLoadingChat={isLoadingChat}
             />
           </Animated.View>
+        </View>
 
+        {/* Content Section */}
+        <View style={styles.whiteBackground}>
           {/* Achievements */}
           <Animated.View
             style={{
@@ -572,17 +562,17 @@ export default function PlayerProfileScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: theme.colors.primary,
+    backgroundColor: '#D5D5D5',
   },
   scrollView: {
     flex: 1,
-    backgroundColor: theme.colors.primary,
+    backgroundColor: '#D5D5D5',
   },
   loadingContainer: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: theme.colors.primary,
+    backgroundColor: '#D5D5D5',
   },
   loadingText: {
     fontSize: 16,
@@ -617,10 +607,16 @@ const styles = StyleSheet.create({
     alignItems: "center",
     zIndex: 100,
   },
-  whiteBackground: {
-    backgroundColor: "#ffffff",
+  profileTopSection: {
+    backgroundColor: '#FFFFFF',
     paddingHorizontal: theme.spacing.lg,
-    paddingBottom: theme.spacing["2xl"],
-    minHeight: "100%",
+    paddingBottom: theme.spacing.md,
+  },
+  whiteBackground: {
+    backgroundColor: '#F6FAFC',
+    paddingHorizontal: theme.spacing.lg,
+    paddingTop: theme.spacing.lg,
+    paddingBottom: theme.spacing['2xl'],
+    minHeight: '100%',
   },
 });
