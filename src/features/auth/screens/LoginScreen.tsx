@@ -456,13 +456,11 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                 gap: scale(6),
               }}
             >
-              {Platform.OS === 'ios' && (
-                <SocialButton
-                  type="apple"
-                  onPress={() => handleSocialLogin("apple")}
-                  disabled={isLoading || isSocialLoading}
-                />
-              )}
+              <SocialButton
+                type="apple"
+                onPress={() => handleSocialLogin("apple")}
+                disabled={isLoading || isSocialLoading}
+              />
               <SocialButton
                 type="google"
                 onPress={() => handleSocialLogin("google")}

@@ -82,7 +82,7 @@ export default function LoginRoute() {
           toast.error("Email not verified", {
             description: "Please check your inbox for the verification email.",
           });
-          router.push({ pathname: "/verifyEmail", params: { email: emailOrUsername } } as any);
+          router.push({ pathname: "/verifyEmail", params: { email: emailOrUsername, source: "login" } } as any);
           return;
         }
 

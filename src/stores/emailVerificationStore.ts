@@ -18,8 +18,9 @@ interface EmailVerificationActions {
   isSessionValid: () => boolean;
 }
 
-// Session validity: 10 minutes (enough time to check email and enter OTP)
-const SESSION_VALIDITY_MS = 10 * 60 * 1000;
+// Session validity: 16 minutes (15min OTP expiry + 1min buffer)
+// VE-2: Aligned with backend emailOTP expiresIn: 900 (15 minutes)
+const SESSION_VALIDITY_MS = 16 * 60 * 1000;
 
 export const useEmailVerificationStore = create<EmailVerificationState & EmailVerificationActions>((set, get) => ({
   email: null,
