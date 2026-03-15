@@ -6,9 +6,9 @@ import {
   Text,
   Pressable,
   Platform,
-  Linking,
   Alert,
 } from 'react-native';
+import * as WebBrowser from 'expo-web-browser';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -16,6 +16,7 @@ import { theme } from '@core/theme/theme';
 import { router } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import Constants from 'expo-constants';
+import { DeuceLogo } from '../../onboarding';
 // Safe haptics wrapper - handles unsupported devices gracefully
 const triggerHaptic = async (style: Haptics.ImpactFeedbackStyle = Haptics.ImpactFeedbackStyle.Light) => {
   try {
@@ -52,26 +53,25 @@ export default function AboutScreen() {
 
   const openExternalURL = useCallback(async (url: string, fallbackMessage: string) => {
     try {
-      const canOpen = await Linking.canOpenURL(url);
-      if (canOpen) {
-        await Linking.openURL(url);
-      } else {
-        Alert.alert('Unable to Open', fallbackMessage);
-      }
+      const result = await WebBrowser.openBrowserAsync(url, {
+        presentationStyle: WebBrowser.WebBrowserPresentationStyle.AUTOMATIC,
+      });
+      if (result.type === 'cancel' || result.type === 'dismiss') return;
     } catch (error) {
       if (__DEV__) console.error('Failed to open URL:', error);
-      Alert.alert('Error', 'Failed to open the link. Please try again.');
+      Alert.alert('Unable to Open', fallbackMessage);
     }
   }, []);
 
   const handleOpenPrivacyPolicy = useCallback(() => {
     triggerHaptic();
-    router.push('/privacyPolicy');
-  }, []);
+    openExternalURL('https://deuceleague.com/privacy-policy', 'Unable to open Terms of Service.');
+  }, [openExternalURL]);
 
+  
   const handleOpenTerms = useCallback(() => {
     triggerHaptic();
-    openExternalURL('https://deuceleague.com/terms', 'Unable to open Terms of Service.');
+    openExternalURL('https://deuceleague.com/terms-of-service', 'Unable to open Terms of Service.');
   }, [openExternalURL]);
 
   const handleOpenWebsite = useCallback(() => {
@@ -134,7 +134,7 @@ export default function AboutScreen() {
           <View style={styles.logoSection}>
             <View style={styles.logoContainer}>
               <View style={styles.logoCircle}>
-                <Ionicons name="tennisball" size={48} color={theme.colors.primary} />
+              <DeuceLogo width={50} height={60} />
               </View>
             </View>
             <Text style={styles.appName}>Deuce League</Text>
