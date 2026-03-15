@@ -66,6 +66,11 @@ export default function MyGamesScreen({
   // Convert to uppercase for getSportColors (expects 'PICKLEBALL', 'TENNIS', 'PADEL')
   const sportType = sport.toUpperCase() as SportType;
   const sportColors = getSportColors(sportType);
+  // Sport-specific dark color for Invites pill (per Figma)
+  const invitesColor =
+    sportType === 'TENNIS' ? '#587A27' :
+    sportType === 'PADEL'  ? '#2E6698' :
+                             '#602E98'; // Pickleball / default
   const filterBottomSheetRef = useRef<FilterBottomSheetRef>(null);
 
   // Entry animation values
@@ -593,25 +598,45 @@ export default function MyGamesScreen({
               isActive={activeTab === "ALL"}
               activeColor="#000000"
               onPress={() => setActiveTab("ALL")}
+              noBorder
+              inactiveTextColor="#86868B"
+              inactiveBackgroundColor="rgba(255, 255, 255, 0.78)"
+              style={{ paddingVertical: 10, paddingHorizontal: 20 }}
+              textStyle={{ fontSize: 18, fontWeight: '700' }}
             />
             <AnimatedFilterChip
               label="League"
               isActive={activeTab === "LEAGUE"}
-              activeColor="#FFA500"
+              activeColor="#F5900A"
               onPress={() => setActiveTab("LEAGUE")}
+              noBorder
+              inactiveTextColor="#86868B"
+              inactiveBackgroundColor="rgba(255, 255, 255, 0.78)"
+              style={{ paddingVertical: 10, paddingHorizontal: 20 }}
+              textStyle={{ fontSize: 18, fontWeight: '700' }}
             />
             <AnimatedFilterChip
               label="Friendly"
               isActive={activeTab === "FRIENDLY"}
-              activeColor="#83CFF9"
+              activeColor="#4DABFE"
               onPress={() => setActiveTab("FRIENDLY")}
+              noBorder
+              inactiveTextColor="#86868B"
+              inactiveBackgroundColor="rgba(255, 255, 255, 0.78)"
+              style={{ paddingVertical: 10, paddingHorizontal: 20 }}
+              textStyle={{ fontSize: 18, fontWeight: '700' }}
             />
             <AnimatedFilterChip
               label="Invites"
               isActive={activeTab === "INVITES"}
-              activeColor="#A04DFE"
+              activeColor={invitesColor}
               onPress={() => setActiveTab("INVITES")}
               badge={totalPendingInvites}
+              noBorder
+              inactiveTextColor="#86868B"
+              inactiveBackgroundColor="rgba(255, 255, 255, 0.78)"
+              style={{ paddingVertical: 10, paddingHorizontal: 20 }}
+              textStyle={{ fontSize: 18, fontWeight: '700' }}
             />
           </View>
         </View>
