@@ -73,12 +73,11 @@ export default function AboutScreen() {
     openExternalURL('https://deuceleague.com/privacy-policy', 'Unable to open Terms of Service.');
   }, [openExternalURL]);
 
-  
    const handleOpenDataCollection = useCallback(() => {
     triggerHaptic();
     setDataCollectionModalVisible(true);
   }, []);
-  
+
   const handleOpenTerms = useCallback(() => {
     triggerHaptic();
     openExternalURL('https://deuceleague.com/terms-of-service', 'Unable to open Terms of Service.');
