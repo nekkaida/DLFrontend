@@ -161,10 +161,10 @@ export default function SettingsScreen() {
         },
         {
           id: 'privacy',
-          title: 'Privacy & Security',
-          subtitle: 'Manage your account security',
+          title: 'Change Password',
+          subtitle: 'Update your account password',
           type: 'navigate',
-          icon: 'shield-outline',
+          icon: 'lock-closed-outline',
           action: () => router.push('/privacyPolicy'),
         },
       ],
@@ -188,14 +188,6 @@ export default function SettingsScreen() {
           type: 'toggle',
           icon: 'time-outline',
           value: settings.matchReminders,
-        },
-        {
-          id: 'locationServices',
-          title: 'Location Services',
-          subtitle: 'Find nearby courts and players',
-          type: 'toggle',
-          icon: 'location-outline',
-          value: settings.locationServices,
         },
         {
           id: 'hapticFeedback',

@@ -3,6 +3,7 @@ import { signInWithApple } from "@/lib/apple-signin";
 import axiosInstance, { endpoints } from "@/lib/endpoints";
 import { applySetCookieHeader } from "@/lib/expo-cookie";
 import { signInWithGoogle } from "@/lib/google-signin";
+import { getPostAuthRoute } from "@/lib/post-auth-route";
 import { AuthStorage } from "@/src/core/storage";
 import * as SecureStore from "expo-secure-store";
 import { Platform } from "react-native";
@@ -49,18 +50,12 @@ export interface NativeOAuthPayload {
 
 export interface NativeOAuthSuccess {
   isNewUser: boolean;
-  nextRoute: "/onboarding/personal-info" | "/user-dashboard";
+  nextRoute: string;
   session: NativeOAuthSession;
   user: NativeOAuthUser;
 }
 
-const getPostAuthRoute = (
-  payload: NativeOAuthPayload,
-): NativeOAuthSuccess["nextRoute"] => {
-  return payload.user.completedOnboarding
-    ? "/user-dashboard"
-    : "/onboarding/personal-info";
-};
+export { getPostAuthRoute } from "./post-auth-route";
 
 const parseCookieState = (rawValue: string | null): NativeOAuthCookieState => {
   if (!rawValue) {
@@ -107,7 +102,9 @@ export const hydrateNativeOAuthSession = (payload: NativeOAuthPayload) => {
 export const bootstrapNativeOAuthSession = async (
   payload: NativeOAuthPayload,
 ) => {
+  // Capture existing state for rollback on failure
   const existingCookieRaw = await SecureStore.getItemAsync(COOKIE_STORAGE_KEY);
+  const existingSessionRaw = await SecureStore.getItemAsync(SESSION_CACHE_KEY);
   const existingCookieState = parseCookieState(existingCookieRaw);
   let nextCookieState: string;
 
@@ -124,20 +121,33 @@ export const bootstrapNativeOAuthSession = async (
     nextCookieState = JSON.stringify(existingCookieState);
   }
 
-  await SecureStore.setItemAsync(
-    COOKIE_STORAGE_KEY,
-    nextCookieState,
-  );
-  await SecureStore.setItemAsync(
-    SESSION_CACHE_KEY,
-    JSON.stringify({
-      user: payload.user,
-      session: payload.session,
-    }),
-  );
-
-  hydrateNativeOAuthSession(payload);
-  await AuthStorage.markLoggedIn();
+  try {
+    await SecureStore.setItemAsync(COOKIE_STORAGE_KEY, nextCookieState);
+    await SecureStore.setItemAsync(
+      SESSION_CACHE_KEY,
+      JSON.stringify({ user: payload.user, session: payload.session }),
+    );
+    hydrateNativeOAuthSession(payload);
+    await AuthStorage.markLoggedIn();
+  } catch (error) {
+    // Rollback: restore previous SecureStore state to avoid partial writes
+    if (__DEV__) console.error("bootstrapNativeOAuthSession failed, rolling back:", error);
+    try {
+      if (existingCookieRaw !== null) {
+        await SecureStore.setItemAsync(COOKIE_STORAGE_KEY, existingCookieRaw);
+      } else {
+        await SecureStore.deleteItemAsync(COOKIE_STORAGE_KEY);
+      }
+      if (existingSessionRaw !== null) {
+        await SecureStore.setItemAsync(SESSION_CACHE_KEY, existingSessionRaw);
+      } else {
+        await SecureStore.deleteItemAsync(SESSION_CACHE_KEY);
+      }
+    } catch (rollbackError) {
+      if (__DEV__) console.error("Rollback also failed:", rollbackError);
+    }
+    throw error;
+  }
 };
 
 export const patchNativeOAuthSessionUser = async (
@@ -227,7 +237,7 @@ const trackSuccessfulLogin = async () => {
   try {
     await axiosInstance.put(endpoints.user.trackLogin);
   } catch (error) {
-    console.error("Failed to track login:", error);
+    if (__DEV__) console.error("Failed to track login:", error);
   }
 };
 
@@ -308,7 +318,7 @@ export const signInWithNativeOAuth = async (
       user: payload.user,
     };
   } catch (error: any) {
-    console.error("Native social auth error:", error);
+    if (__DEV__) console.error("Native social auth error:", error);
     toast.error(
       getErrorMessage(error, "Social login failed. Please try again."),
     );

@@ -1,5 +1,6 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import * as SecureStore from 'expo-secure-store';
+import axiosInstance from '@/lib/endpoints';
 
 export interface Settings {
   notifications: boolean;
@@ -27,6 +28,7 @@ const DEFAULT_SETTINGS: Settings = {
 
 export function useSettings(): UseSettingsReturn {
   const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS);
+  const settingsRef = useRef<Settings>(DEFAULT_SETTINGS);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
 
@@ -35,11 +37,32 @@ export function useSettings(): UseSettingsReturn {
     setLoadError(null);
 
     try {
+      // Load from SecureStore first (fast, always available)
       const stored = await SecureStore.getItemAsync(SETTINGS_KEY);
+      let localSettings: Partial<Settings> = {};
       if (stored) {
-        const parsed = JSON.parse(stored) as Partial<Settings>;
-        setSettings({ ...DEFAULT_SETTINGS, ...parsed });
+        localSettings = JSON.parse(stored) as Partial<Settings>;
       }
+
+      // Try to fetch from backend (may fail if offline)
+      let backendSettings: Partial<Settings> = {};
+      try {
+        const response = await axiosInstance.get('/api/player/settings');
+        const data = response.data?.data || response.data;
+        if (data) {
+          backendSettings = data;
+        }
+      } catch {
+        // Backend unavailable — use local only
+      }
+
+      // Merge: backend takes priority, then local, then defaults
+      const merged = { ...DEFAULT_SETTINGS, ...localSettings, ...backendSettings };
+      settingsRef.current = merged;
+      setSettings(merged);
+
+      // Persist merged result to SecureStore
+      await SecureStore.setItemAsync(SETTINGS_KEY, JSON.stringify(merged));
     } catch (error) {
       if (__DEV__) {
         console.error('Failed to load settings:', error);
@@ -54,19 +77,32 @@ export function useSettings(): UseSettingsReturn {
     key: K,
     value: Settings[K]
   ) => {
+    const previousSettings = settingsRef.current;
+    const newSettings = { ...previousSettings, [key]: value };
+    settingsRef.current = newSettings;
+    setSettings(newSettings);
     try {
-      const newSettings = { ...settings, [key]: value };
-      setSettings(newSettings);
       await SecureStore.setItemAsync(SETTINGS_KEY, JSON.stringify(newSettings));
+
+      // Sync to backend (fire-and-forget — don't block on failure)
+      axiosInstance.put('/api/player/settings', newSettings).catch(() => {});
+
+      // S-3 + S-4: Sync notification-related settings to notification preferences API
+      if (key === 'notifications') {
+        axiosInstance.put('/api/notification-preferences', { pushEnabled: value }).catch(() => {});
+      } else if (key === 'matchReminders') {
+        axiosInstance.put('/api/notification-preferences', { matchReminders: value }).catch(() => {});
+      }
     } catch (error) {
       if (__DEV__) {
         console.error('Failed to save setting:', error);
       }
       // Revert on error
-      setSettings(settings);
+      settingsRef.current = previousSettings;
+      setSettings(previousSettings);
       throw error;
     }
-  }, [settings]);
+  }, []);
 
   const retryLoad = useCallback(async () => {
     await loadSettings();

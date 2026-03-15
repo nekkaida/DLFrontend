@@ -1,5 +1,5 @@
 import React, { useRef, useCallback } from 'react';
-import { View, Text, Image, Pressable, Dimensions, Platform, StyleSheet } from 'react-native';
+import { View, Text, Image, Pressable, Platform, StyleSheet, useWindowDimensions } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -37,6 +37,7 @@ interface LandingScreenProps {
   onGetStarted: () => void;
   onLogin: () => void;
   onSocialLogin?: (provider: 'google' | 'apple') => void;
+  isSocialLoading?: boolean; // L-2: Disable buttons during social login
 }
 
 // Debounce delay in milliseconds
@@ -46,13 +47,16 @@ export const LandingScreen: React.FC<LandingScreenProps> = ({
   onGetStarted,
   onLogin,
   onSocialLogin,
+  isSocialLoading = false,
 }) => {
   const insets = useSafeAreaInsets();
   const lastPressTimeRef = useRef<number>(0);
-  const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
+  // L-5: useWindowDimensions reacts to dimension changes (rotation, split-screen)
+  const { width: screenWidth, height: screenHeight } = useWindowDimensions();
 
   // Debounced press handler to prevent double-clicks
   const handleDebouncedPress = useCallback((callback: () => void) => {
+    if (isSocialLoading) return; // L-2: Block presses during social login
     const now = Date.now();
     if (now - lastPressTimeRef.current < DEBOUNCE_DELAY) {
       return; // Ignore rapid clicks
@@ -60,7 +64,7 @@ export const LandingScreen: React.FC<LandingScreenProps> = ({
     lastPressTimeRef.current = now;
     triggerHaptic();
     callback();
-  }, []);
+  }, [isSocialLoading]);
 
   const handleSocialPress = useCallback((provider: 'google' | 'apple') => {
     handleDebouncedPress(() => onSocialLogin?.(provider));
@@ -100,8 +104,9 @@ export const LandingScreen: React.FC<LandingScreenProps> = ({
         <View style={[styles.bottomContainer, { paddingBottom: Math.max(verticalScale(20), insets.bottom) }]}>
           <View style={styles.topRow}>
             <Pressable
-              style={styles.getStartedButton}
+              style={[styles.getStartedButton, isSocialLoading && styles.disabledButton]}
               onPress={() => handleDebouncedPress(onGetStarted)}
+              disabled={isSocialLoading}
               accessibilityLabel="Get started with registration"
               accessibilityRole="button"
               accessibilityHint="Navigates to the sign up screen"
@@ -117,8 +122,8 @@ export const LandingScreen: React.FC<LandingScreenProps> = ({
             </Pressable>
 
             <View style={styles.socialContainer}>
-              <SocialButton type="apple" onPress={() => handleSocialPress('apple')} />
-              <SocialButton type="google" onPress={() => handleSocialPress('google')} />
+              <SocialButton type="apple" onPress={() => handleSocialPress('apple')} disabled={isSocialLoading} />
+              <SocialButton type="google" onPress={() => handleSocialPress('google')} disabled={isSocialLoading} />
             </View>
           </View>
 
@@ -127,6 +132,7 @@ export const LandingScreen: React.FC<LandingScreenProps> = ({
             <Pressable
               onPress={() => handleDebouncedPress(onLogin)}
               style={styles.loginLinkButton}
+              disabled={isSocialLoading}
               accessibilityLabel="Log in to existing account"
               accessibilityRole="button"
               accessibilityHint="Navigates to the login screen"
@@ -234,6 +240,9 @@ const styles = StyleSheet.create({
     shadowRadius: moderateScale(4),
     elevation: 4,
   },
+  disabledButton: {
+    opacity: 0.5,
+  },
   gradientButton: {
     width: '100%',
     height: '100%',
@@ -288,7 +297,3 @@ const styles = StyleSheet.create({
     color: COLORS.ACCENT,
   },
 });
-
-// Re-export with old name for backwards compatibility during migration
-/** @deprecated Use LandingScreen instead */
-export const LoadingScreen = LandingScreen;

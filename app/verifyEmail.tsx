@@ -6,12 +6,14 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { ThemedText } from '@/components/ThemedText';
 import { Colors } from '@/constants/Colors';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { authClient } from '@/lib/auth-client';
 import { toast } from 'sonner-native';
 import { AuthStorage } from '@/src/core/storage';
 import { useEmailVerificationStore } from '@/src/stores/emailVerificationStore';
 import * as Haptics from 'expo-haptics';
+import { waitForCookie } from '@/src/utils/waitForCookie';
+import { shouldAcceptUrlEmail } from '@/src/utils/verifyEmailGuards';
 
 // Constants
 const RESEND_COOLDOWN = 60;
@@ -35,7 +37,8 @@ const triggerNotification = async (type: Haptics.NotificationFeedbackType) => {
 
 export default function VerifyEmailScreen() {
   const router = useRouter();
-  const { email, clearAll: clearEmailStore, isSessionValid } = useEmailVerificationStore();
+  const { email: urlEmail, source } = useLocalSearchParams<{ email?: string; source?: string }>();
+  const { email, clearAll: clearEmailStore, isSessionValid, setEmail } = useEmailVerificationStore();
 
   const [otp, setOtp] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -63,15 +66,27 @@ export default function VerifyEmailScreen() {
     };
   }, []);
 
+  // LI-22: Populate store from URL param when store is empty (e.g., coming from login screen)
+  // VE-5: Only accept URL param email when accompanied by a valid source (login/register)
+  const urlEmailAccepted = shouldAcceptUrlEmail(urlEmail, source);
+  useEffect(() => {
+    if (!email && urlEmailAccepted && urlEmail) {
+      setEmail(urlEmail);
+    }
+  }, [email, urlEmailAccepted, urlEmail, setEmail]);
+
   // Validate email from store - redirect if missing or session expired
   useEffect(() => {
+    // Skip validation if a valid URL param will populate the store on next render
+    if (!email && urlEmailAccepted) return;
+
     if (!email || !isSessionValid()) {
       toast.error('Session Expired', {
         description: 'Please start the registration process again.',
       });
       router.replace('/register');
     }
-  }, [email, isSessionValid, router]);
+  }, [email, urlEmailAccepted, isSessionValid, router]);
 
   // Resend cooldown timer
   useEffect(() => {
@@ -115,7 +130,8 @@ export default function VerifyEmailScreen() {
       blinkAnimationRef.current?.stop();
       blinkAnimationRef.current = null;
     }
-  }, [isFocused, cursorAnimation]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- cursorAnimation is a stable ref (useRef().current)
+  }, [isFocused]);
 
   const handleOtpChange = (value: string) => {
     // Only allow digits and limit to 6 characters
@@ -148,20 +164,22 @@ export default function VerifyEmailScreen() {
         // Stop animation before navigation
         blinkAnimationRef.current?.stop();
 
-        // After email verification with autoSignInAfterVerification: true,
-        // Better Auth creates a new session. Give the expo client plugin
-        // time to store the session cookie in SecureStore before navigating.
-        // This prevents race conditions where the app tries to authenticate
-        // before the cookie is fully persisted.
-        if (__DEV__) console.log('Email verified, waiting for session to sync...');
+        // VE-3: Poll for session cookie instead of hardcoded 500ms delay.
+        // After autoSignInAfterVerification, the expo plugin writes the session
+        // cookie to SecureStore asynchronously. Poll until it's available.
+        if (__DEV__) console.log('Email verified, waiting for session cookie...');
 
-        // Small delay to allow session cookie to be stored
-        await new Promise(resolve => setTimeout(resolve, 500));
+        const cookieReady = await waitForCookie(
+          () => authClient.getCookie(),
+          { maxWait: 3000, interval: 100 }
+        );
 
-        // Verify the session cookie is available before navigating
-        const cookies = authClient.getCookie();
-        if (__DEV__) {
-          console.log('Session cookie available:', !!cookies);
+        if (__DEV__) console.log('Session cookie available:', cookieReady);
+
+        if (!cookieReady) {
+          toast.error('Session sync failed. Please log in.');
+          router.replace('/login');
+          return;
         }
 
         await AuthStorage.markLoggedIn();
@@ -204,6 +222,8 @@ export default function VerifyEmailScreen() {
       toast.success('A new verification code has been sent to your email.');
       setResendCooldown(RESEND_COOLDOWN);
       setOtp('');
+      // VE-6: Reset session timer so user isn't kicked while waiting for new OTP
+      setEmail(safeEmail);
     } catch (err) {
       if (!isMountedRef.current) return;
       const message = err instanceof Error ? err.message : 'An unknown error occurred.';
@@ -235,7 +255,7 @@ export default function VerifyEmailScreen() {
           <View style={styles.header}>
             <Pressable
               style={styles.backButton}
-              onPress={() => router.back()}
+              onPress={() => router.replace('/login')}
               hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
             >
               <Ionicons name="arrow-back" size={24} color="#6C7278" />
