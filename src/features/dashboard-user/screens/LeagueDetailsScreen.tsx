@@ -1,5 +1,6 @@
 import BackButtonIcon from '@/assets/icons/back-button.svg';
 import LeagueInfoIcon from '@/assets/icons/league-info.svg';
+import { Ionicons } from '@expo/vector-icons';
 import { ManageTeamButton } from '@/features/pairing/components';
 import { useActivePartnership } from '@/features/pairing/hooks';
 import { useSession } from '@/lib/auth-client';
@@ -23,6 +24,7 @@ import { ActivityIndicator, Dimensions, Image, Modal, RefreshControl, ScrollView
 import Animated, {
   Extrapolation,
   interpolate,
+  useAnimatedScrollHandler,
   useAnimatedStyle,
   useSharedValue,
   withSpring
@@ -130,6 +132,36 @@ export default function LeagueDetailsScreen({
 
   // Use custom hook for season selection management
   const { selectedCategoryId, setSelectedCategoryId, selectedSeason, setSelectedSeason } = useSeasonSelection(categories);
+
+  // Sorted categories: Open Singles → User gender Singles → User gender Doubles → Mixed Doubles → Restricted Singles 🔒 → Restricted Doubles 🔒
+  const sortedCategories = React.useMemo(() => {
+    const getCategoryOrder = (category: any): number => {
+      const genderCategory = category.gender_category?.toUpperCase() || category.genderCategory?.toUpperCase();
+      const genderRestriction = category.genderRestriction?.toUpperCase();
+      const categoryGender = genderCategory || genderRestriction;
+      const isDoubles = CategoryService.getEffectiveGameType(category, 'SINGLES') === 'DOUBLES';
+      const g = userGender?.toUpperCase();
+
+      if (categoryGender === 'OPEN' && !isDoubles) return 0;   // Open Singles
+      if (categoryGender === 'OPEN' && isDoubles) return 0.5;  // Open Doubles
+
+      if (g) {
+        const isUserGender =
+          (g === 'MALE' && (categoryGender === 'MALE' || categoryGender === 'MEN')) ||
+          (g === 'FEMALE' && (categoryGender === 'FEMALE' || categoryGender === 'WOMEN'));
+        if (isUserGender && !isDoubles) return 1;  // User's gender Singles
+        if (isUserGender && isDoubles) return 2;   // User's gender Doubles
+        if (categoryGender === 'MIXED' && isDoubles) return 3; // Mixed Doubles
+        if (!isDoubles) return 4;                  // Restricted Singles 🔒
+        return 5;                                  // Restricted Doubles 🔒
+      }
+      if (categoryGender === 'MIXED') return 3;
+      return isDoubles ? 5 : 4;
+    };
+    return [...categories]
+      .filter((category) => Boolean(category?.id))
+      .sort((a, b) => getCategoryOrder(a) - getCategoryOrder(b));
+  }, [categories, userGender]);
 
   // Use custom hook for user partnerships management
   const { partnerships, loading: partnershipsLoading } = useUserPartnerships(userId);
@@ -697,6 +729,13 @@ export default function LeagueDetailsScreen({
     return dateObj.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
   };
 
+  // Short date: "25 Feb" (no year)
+  const formatShortDate = (date: string | Date): string => {
+    const dateObj = typeof date === 'string' ? new Date(date) : date;
+    if (Number.isNaN(dateObj.getTime())) return 'TBD';
+    return dateObj.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+  };
+
   const renderSeasonCard = (season: Season) => {
     const entryFee = formatEntryFee(season.entryFee);
     const userMembership = season.memberships?.find((m: any) => m.userId === userId);
@@ -705,173 +744,237 @@ export default function LeagueDetailsScreen({
 
     console.log(`🔍 Season ${season.name}: userMembership=${!!userMembership}, inRegisteredIds=${userRegisteredSeasonIds.has(season.id)}, isUserRegistered=${isUserRegistered}`);
 
-    const getButtonConfig = () => {
-      // For doubles seasons, check if user needs to complete team registration/payment
-      // Handle both singular and plural category fields
-      const normalizedCategories = normalizeCategoriesFromSeason(season);
-      const isDoublesSeason = normalizedCategories.some(cat =>
-        cat?.name?.toLowerCase().includes('doubles') ||
-        cat?.matchFormat?.toLowerCase().includes('doubles') ||
-        (cat as any)?.game_type === 'DOUBLES'
-      );
-
-      // Check if user can join this season based on gender restrictions
-      const canJoin = normalizedCategories.some(cat => canUserJoinCategory(cat));
-
-      // If doubles season and membership is PENDING (not paid), show Register Team
-      if (isDoublesSeason && userMembership && userMembership.status === 'PENDING') {
-        return {
-          text: 'Register Team',
-          color: '#FEA04D',
-          onPress: () => handleRegisterPress(season)
-        };
-      }
-
-      // If doubles season and membership was REMOVED (player left), they must re-register and pay again
-      if (isDoublesSeason && userMembership && userMembership.status === 'REMOVED') {
-        return {
-          text: 'Join Season',
-          color: '#FEA04D',
-          onPress: () => handleRegisterPress(season)
-        };
-      }
-
-      if (isUserRegistered) {
-        // If we have membership details, check division assignment
-        if (userMembership) {
-          const isUserAssignedToDivision = !!userMembership.divisionId;
-
-          if (!isUserAssignedToDivision) {
-            return {
-              text: 'Awaiting division assignment by admin',
-              color: '#FEA04D',
-              onPress: () => toast.info('Please wait for admin to assign you to a division before viewing the leaderboard.')
-            };
-          }
-
-          return {
-            text: 'View Leaderboard',
-            color: '#FEA04D',
-            onPress: () => handleViewStandingsPress(season)
-          };
-        }
-
-        // User is registered (detected via userRegisteredSeasonIds) but no membership details
-        // Show "Joined" with gray button
-        return {
-          text: 'Joined',
-          color: '#9CA3AF',
-          onPress: () => toast.info('You are registered for this season.')
-        };
-      }
-
-      // Check if registration deadline has passed (for non-registered users only)
-      const isRegistrationOpen = SeasonService.isRegistrationOpen(season);
-      console.log(`🔍 Season ${season.name}: isRegistrationOpen=${isRegistrationOpen}, status=${season.status}, regiDeadline=${season.regiDeadline}`);
-      if (!isRegistrationOpen && season.status === 'ACTIVE') {
-        console.log(`🔍 Season ${season.name}: Showing Registration Closed button`);
-        return {
-          text: 'Registration Closed',
-          color: '#9CA3AF',
-          onPress: () => toast.info('Registration deadline has passed for this season')
-        };
-      }
-
-      if (season.status === 'ACTIVE') {
-        // Check gender restriction - show "View Only" if user cannot join
-        if (!canJoin) {
-          return {
-            text: 'View Only',
-            color: '#B2B2B2',
-            onPress: () => toast.info('This season is restricted to a different gender')
-          };
-        }
-        return {
-          text: 'Join Season',
-          color: '#FEA04D',
-          onPress: () => handleRegisterPress(season)
-        };
-      }
-
-      if (season.status === 'UPCOMING') {
-        // Check gender restriction for waitlist too
-        if (!canJoin) {
-          return {
-            text: 'View Only',
-            color: '#B2B2B2',
-            onPress: () => toast.info('This season is restricted to a different gender')
-          };
-        }
-
-        const waitlistStatus = waitlistStatuses.get(season.id);
-        const isProcessing = isJoiningWaitlist === season.id;
-
-        console.log(`[Waitlist:League] getButtonConfig for ${season.name}:`, {
-          seasonId: season.id,
-          waitlistStatus,
-          isWaitlisted: waitlistStatus?.isWaitlisted,
-          position: waitlistStatus?.position,
-          isProcessing,
-          waitlistStatusesSize: waitlistStatuses.size
-        });
-
-        // Already on waitlist - show leave option
-        if (waitlistStatus?.isWaitlisted) {
-          console.log(`[Waitlist:League] Showing Leave button for ${season.name}`);
-          return {
-            text: `Leave Waitlist (#${waitlistStatus.position})`,
-            color: '#6B7280',
-            onPress: () => handleJoinWaitlistPress(season.id)
-          };
-        }
-
-        // Check if waitlist is full
-        if (waitlistStatus && WaitlistService.isWaitlistFull(waitlistStatus)) {
-          return {
-            text: 'Waitlist Full',
-            color: '#B2B2B2',
-            onPress: () => toast.info('The waitlist is currently full')
-          };
-        }
-
-        console.log(`[Waitlist:League] Showing Join button for ${season.name}`);
-        return {
-          text: isProcessing ? 'Joining...' : 'Join Waitlist',
-          color: '#F2F2F2',
-          onPress: () => handleJoinWaitlistPress(season.id)
-        };
-      }
-
-      return {
-        text: 'View Standings',
-        color: '#B2B2B2',
-        onPress: () => handleViewStandingsPress(season)
-      };
-    };
-
-    const buttonConfig = getButtonConfig();
-
-    // Get category for this season - handle both singular and plural
+    // Get category info
     const normalizedCategories = normalizeCategoriesFromSeason(season);
-
-    // Check if user has partnership for this season
-    const hasPartnership = partnerships.has(season.id);
-    const partnership = partnerships.get(season.id);
-
-    // Determine if this is a doubles season
     const isDoublesSeason = normalizedCategories.some(cat =>
       cat?.name?.toLowerCase().includes('doubles') ||
       cat?.matchFormat?.toLowerCase().includes('doubles') ||
       (cat as any)?.game_type === 'DOUBLES'
     );
+    const canJoin = normalizedCategories.some(cat => canUserJoinCategory(cat));
+    const isRegistrationOpen = SeasonService.isRegistrationOpen(season);
+    console.log(`🔍 Season ${season.name}: isRegistrationOpen=${isRegistrationOpen}, status=${season.status}, regiDeadline=${season.regiDeadline}`);
 
-    // Show manage team button for doubles seasons with active partnership
+    // Check if user has partnership for this season
+    const hasPartnership = partnerships.has(season.id);
+    const partnership = partnerships.get(season.id);
     const showManageTeam = isDoublesSeason && hasPartnership && isUserRegistered;
-    const seasonCategory = normalizedCategories && normalizedCategories.length > 0 
-      ? normalizedCategories[0] 
+    const seasonCategory = normalizedCategories && normalizedCategories.length > 0
+      ? normalizedCategories[0]
       : null;
-    const categoryDisplayName = seasonCategory 
-      ? seasonCategory.name || ''
+    const categoryDisplayName = seasonCategory ? seasonCategory.name || '' : '';
+
+    // ── Bottom action row builder ──────────────────────────────────────────
+    const renderBottomRow = () => {
+      // Doubles-specific overrides first
+      if (isDoublesSeason && userMembership && userMembership.status === 'PENDING') {
+        return (
+          <View style={styles.buttonRow}>
+            <TouchableOpacity
+              style={[styles.viewMatchesButton, { backgroundColor: '#FEA04D' }]}
+              onPress={() => handleRegisterPress(season)}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.registerButtonText}>Register Team</Text>
+            </TouchableOpacity>
+          </View>
+        );
+      }
+      if (isDoublesSeason && userMembership && userMembership.status === 'REMOVED') {
+        return (
+          <View style={styles.buttonRow}>
+            <TouchableOpacity
+              style={[styles.viewMatchesButton, { backgroundColor: '#FEA04D' }]}
+              onPress={() => handleRegisterPress(season)}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.registerButtonText}>Join Season</Text>
+            </TouchableOpacity>
+          </View>
+        );
+      }
+
+      // Registered user
+      if (isUserRegistered) {
+        if (userMembership) {
+          const isAssigned = !!userMembership.divisionId;
+          if (!isAssigned) {
+            // Awaiting division assignment
+            return (
+              <View style={styles.buttonRow}>
+                <View style={styles.divisionPendingPill}>
+                  <Text style={styles.divisionPendingPillText}>⏳ Division assignment pending</Text>
+                </View>
+                <TouchableOpacity
+                  style={styles.helpIconButton}
+                  onPress={() => toast.info("You've registered for this season! You'll be notified once admin assigns you to a division.")}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons name="help-circle-outline" size={22} color="#9CA3AF" />
+                </TouchableOpacity>
+              </View>
+            );
+          }
+          // Fully registered + assigned — View Matches (primary) + View Standings (secondary)
+          return (
+            <View style={styles.buttonRow}>
+              <TouchableOpacity
+                style={styles.viewMatchesButton}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  router.push({
+                    pathname: '/match/all-matches' as any,
+                    params: {
+                      divisionId: userMembership.divisionId,
+                      sportType: (selectedSport || sport).toUpperCase(),
+                      leagueName: league?.name || leagueName,
+                      seasonName: season.name,
+                      gameType: seasonCategory?.matchFormat || (seasonCategory as any)?.game_type || '',
+                      genderCategory: seasonCategory?.genderRestriction || (seasonCategory as any)?.gender_category || '',
+                    },
+                  });
+                }}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.registerButtonText}>View Matches</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => handleViewStandingsPress(season)} activeOpacity={0.7}>
+                <Text style={styles.viewStandingsLink}>View Standings</Text>
+              </TouchableOpacity>
+            </View>
+          );
+        }
+        // Registered via registeredSeasonIds but no membership details
+        return (
+          <View style={styles.buttonRow}>
+            <TouchableOpacity
+              style={[styles.viewMatchesButton, { backgroundColor: '#9CA3AF' }]}
+              onPress={() => toast.info('You are registered for this season.')}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.registerButtonText}>Joined</Text>
+            </TouchableOpacity>
+          </View>
+        );
+      }
+
+      // Not registered — ACTIVE season
+      if (season.status === 'ACTIVE') {
+        if (!isRegistrationOpen) {
+          // Registration closed — View Standings replaces the grey "Registration Closed" button
+          return (
+            <View style={styles.buttonRow}>
+              <TouchableOpacity
+                onPress={() => handleViewStandingsPress(season)}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.viewStandingsLink}>View Standings</Text>
+              </TouchableOpacity>
+              <Text style={styles.registrationClosedText}>Registration{'\n'}closed</Text>
+            </View>
+          );
+        }
+        // Registration open
+        if (!canJoin) {
+          // Gender restricted — show lock pill + View Standings link
+          return (
+            <View style={styles.buttonRow}>
+              <View style={styles.genderRestrictedPill}>
+                <Ionicons name="lock-closed" size={13} color="#86868B" />
+                <Text style={styles.genderRestrictedPillText}>Gender restricted</Text>
+              </View>
+              <TouchableOpacity onPress={() => handleViewStandingsPress(season)} activeOpacity={0.7}>
+                <Text style={styles.viewStandingsLink}>View Standings →</Text>
+              </TouchableOpacity>
+            </View>
+          );
+        }
+        return (
+          <View style={styles.buttonRow}>
+            <TouchableOpacity
+              style={styles.viewMatchesButton}
+              onPress={() => handleRegisterPress(season)}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.registerButtonText}>Join Season</Text>
+            </TouchableOpacity>
+            <Text style={styles.registrationOpenText}>Registration{'\n'}open</Text>
+          </View>
+        );
+      }
+
+      // UPCOMING season
+      if (season.status === 'UPCOMING') {
+        if (!canJoin) {
+          return (
+            <View style={styles.buttonRow}>
+              <TouchableOpacity
+                style={[styles.viewMatchesButton, { backgroundColor: '#B2B2B2' }]}
+                onPress={() => toast.info('This season is restricted to a different gender')}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.registerButtonText}>View Only</Text>
+              </TouchableOpacity>
+            </View>
+          );
+        }
+        const waitlistStatus = waitlistStatuses.get(season.id);
+        const isProcessing = isJoiningWaitlist === season.id;
+        if (waitlistStatus?.isWaitlisted) {
+          return (
+            <View style={styles.buttonRow}>
+              <TouchableOpacity
+                style={[styles.viewMatchesButton, { backgroundColor: '#6B7280' }]}
+                onPress={() => handleJoinWaitlistPress(season.id)}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.registerButtonText}>Leave Waitlist (#{waitlistStatus.position})</Text>
+              </TouchableOpacity>
+            </View>
+          );
+        }
+        if (waitlistStatus && WaitlistService.isWaitlistFull(waitlistStatus)) {
+          return (
+            <View style={styles.buttonRow}>
+              <TouchableOpacity
+                style={[styles.viewMatchesButton, { backgroundColor: '#B2B2B2' }]}
+                onPress={() => toast.info('The waitlist is currently full')}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.registerButtonText}>Waitlist Full</Text>
+              </TouchableOpacity>
+            </View>
+          );
+        }
+        return (
+          <View style={styles.buttonRow}>
+            <TouchableOpacity
+              style={[styles.viewMatchesButton, { backgroundColor: '#F2F2F2' }]}
+              onPress={() => handleJoinWaitlistPress(season.id)}
+              activeOpacity={0.8}
+            >
+              <Text style={[styles.registerButtonText, { color: '#374151' }]}>
+                {isProcessing ? 'Joining...' : 'Join Waitlist'}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        );
+      }
+
+      // FINISHED or default
+      return (
+        <View style={styles.buttonRow}>
+          <TouchableOpacity onPress={() => handleViewStandingsPress(season)} activeOpacity={0.7}>
+            <Text style={styles.viewStandingsLink}>View Standings</Text>
+          </TouchableOpacity>
+        </View>
+      );
+    };
+    // ──────────────────────────────────────────────────────────────────────
+
+    // End-year for the date range
+    const endYear = season.endDate
+      ? new Date(season.endDate).toLocaleDateString('en-GB', { year: 'numeric' })
       : '';
 
     return (
@@ -879,6 +982,11 @@ export default function LeagueDetailsScreen({
         key={season.id}
         onPress={() => {
           Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          // Closed-registration ACTIVE seasons and past seasons → go straight to standings
+          if (!isUserRegistered && !isRegistrationOpen && season.status === 'ACTIVE') {
+            handleViewStandingsPress(season);
+            return;
+          }
           router.push({
             pathname: '/user-dashboard/season-details' as any,
             params: {
@@ -898,129 +1006,134 @@ export default function LeagueDetailsScreen({
           style={styles.seasonCardWrapper}
         >
           <View style={styles.seasonCard}>
+            {/* Header: season name + status pill */}
             <View style={styles.seasonCardHeader}>
-            <Text style={styles.seasonTitle}>{season.name}</Text>
-          {categoryDisplayName && (
-            <LinearGradient
-              colors={getCategoryChipGradientColors(sport)}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-              style={styles.categoryChip}
-            >
-              <Text style={styles.categoryChipText}>{categoryDisplayName}</Text>
-            </LinearGradient>
-          )}
-          </View>
-
-          {/* Date row - moved below header */}
-          {season.startDate && season.endDate && (
-            <View style={styles.dateRow}>
-              <Text style={styles.dateText}>
-                Start date: <Text style={styles.dateTextBold}>{formatSeasonDate(season.startDate)}</Text> End date: <Text style={styles.dateTextBold}>{formatSeasonDate(season.endDate)}</Text>
-              </Text>
-            </View>
-          )}
-
-          <View style={styles.seasonPlayerCountContainer}>
-            <View style={styles.statusCircle} />
-            <Text style={styles.seasonPlayerCount}>
-              {season._count?.memberships || season.registeredUserCount || 0} players
-            </Text>
-          </View>
-          
-          {/* Profile pictures */}
-          {season.memberships && season.memberships.length > 0 && (
-            <TouchableOpacity
-              style={styles.seasonProfilePicturesContainer}
-              onPress={() => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                router.push({
-                  pathname: '/user-dashboard/players-list',
-                  params: {
-                    contextType: 'season',
-                    contextId: season.id,
-                    contextName: season.name,
-                    sport: sport,
-                    totalPlayers: season._count?.memberships || season.registeredUserCount || 0,
-                  }
-                });
-              }}
-              activeOpacity={0.7}
-            >
-              {season.memberships.slice(0, 6).map((membership, index: number) => {
-                if (!membership.user) return null;
+              <Text style={styles.seasonTitle}>{season.name}</Text>
+              {(() => {
+                const now = new Date();
+                let label = 'Registration Open';
+                let dotColor = '#22C55E';
+                let bgColor = '#F0FDF4';
+                let textColor = '#16A34A';
+                let borderColor = '#BBF7D0';
+                if (season.startDate && new Date(season.startDate) <= now) {
+                  label = 'In Progress';
+                  dotColor = '#3B82F6';
+                  bgColor = '#EFF6FF';
+                  textColor = '#3B82F6';
+                  borderColor = '#BFDBFE';
+                } else if (season.regiDeadline && new Date(season.regiDeadline) < now) {
+                  label = 'Registration Closed';
+                  dotColor = '#EF4444';
+                  bgColor = '#FEF2F2';
+                  textColor = '#EF4444';
+                  borderColor = '#FECACA';
+                } else if (season.regiDeadline && new Date(season.regiDeadline) <= new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000)) {
+                  label = 'Closing Soon';
+                  dotColor = '#F59E0B';
+                  bgColor = '#FFFBEB';
+                  textColor = '#D97706';
+                  borderColor = '#FDE68A';
+                }
                 return (
-                  <View key={membership.id} style={[styles.seasonMemberProfilePicture, index > 0 && styles.seasonMemberProfilePictureOverlap]}>
-                    {membership.user.image ? (
-                      <Image
-                        source={{ uri: membership.user.image }}
-                        style={styles.seasonMemberProfileImage}
-                      />
-                    ) : (
-                      <View style={styles.defaultSeasonMemberProfileImage}>
-                        <Text style={styles.defaultSeasonMemberProfileText}>
-                          {membership.user.name?.charAt(0)?.toUpperCase() || 'U'}
-                        </Text>
+                  <View style={[styles.seasonStatusBadge, { backgroundColor: bgColor, borderColor }]}>
+                    <View style={[styles.seasonStatusDot, { backgroundColor: dotColor }]} />
+                    <Text style={[styles.seasonStatusText, { color: textColor }]}>{label}</Text>
+                  </View>
+                );
+              })()}
+            </View>
+
+            {/* Category as plain grey secondary text */}
+            {categoryDisplayName ? (
+              <Text style={styles.categoryPlainText}>{categoryDisplayName}</Text>
+            ) : null}
+
+            {/* Date row: 📅 25 Feb – 30 Apr 2026 */}
+            {season.startDate && season.endDate && (
+              <View style={styles.dateIconRow}>
+                <Text style={styles.dateIconEmoji}>📅</Text>
+                <Text style={styles.dateText}>
+                  {formatShortDate(season.startDate)} – {formatShortDate(season.endDate)} {endYear}
+                </Text>
+              </View>
+            )}
+
+            {/* Registration deadline row: 📋 Registration closes DD Mon (only when still open) */}
+            {season.regiDeadline && isRegistrationOpen && (
+              <View style={styles.dateIconRow}>
+                <Text style={styles.dateIconEmoji}>📋</Text>
+                <Text style={styles.dateText}>
+                  Registration closes {formatShortDate(season.regiDeadline)}
+                </Text>
+              </View>
+            )}
+
+            {/* Players + entry fee on same row */}
+            <View style={styles.playersEntryRow}>
+              {/* Left: avatars + player count */}
+              <TouchableOpacity
+                style={styles.playersLeft}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  router.push({
+                    pathname: '/user-dashboard/players-list',
+                    params: {
+                      contextType: 'season',
+                      contextId: season.id,
+                      contextName: season.name,
+                      sport: sport,
+                      totalPlayers: season._count?.memberships || season.registeredUserCount || 0,
+                    }
+                  });
+                }}
+                activeOpacity={0.7}
+              >
+                {season.memberships && season.memberships.length > 0 && (
+                  <View style={styles.avatarRow}>
+                    {season.memberships.slice(0, 5).map((membership, index: number) => {
+                      if (!membership.user) return null;
+                      return (
+                        <View key={membership.id} style={[styles.seasonMemberProfilePicture, index > 0 && styles.seasonMemberProfilePictureOverlap]}>
+                          {membership.user.image ? (
+                            <Image source={{ uri: membership.user.image }} style={styles.seasonMemberProfileImage} />
+                          ) : (
+                            <View style={styles.defaultSeasonMemberProfileImage}>
+                              <Text style={styles.defaultSeasonMemberProfileText}>
+                                {membership.user.name?.charAt(0)?.toUpperCase() || 'U'}
+                              </Text>
+                            </View>
+                          )}
+                        </View>
+                      );
+                    })}
+                    {season._count?.memberships && season._count.memberships > 5 && (
+                      <View style={[styles.seasonRemainingCount, styles.seasonMemberProfilePictureOverlap]}>
+                        <Text style={styles.seasonRemainingCountText}>+{season._count.memberships - 5}</Text>
                       </View>
                     )}
                   </View>
-                );
-              })}
-              {season._count?.memberships && season._count.memberships > 6 && (
-                <View style={[styles.seasonRemainingCount, styles.seasonMemberProfilePictureOverlap]}>
-                  <Text style={styles.seasonRemainingCountText}>
-                    +{season._count.memberships - 6}
-                  </Text>
-                </View>
-              )}
-            </TouchableOpacity>
-          )}
-
-          {season.regiDeadline && (
-            <View style={styles.seasonDetails}>
-              <View style={styles.detailRow}>
-                <Text style={styles.detailText}>
-                  Last registration: {formatSeasonDate(season.regiDeadline)}
+                )}
+                <Text style={styles.playerCountText}>
+                  • {season._count?.memberships || season.registeredUserCount || 0} player{(season._count?.memberships || season.registeredUserCount || 0) !== 1 ? 's' : ''}
                 </Text>
-              </View>
-            </View>
-          )}
-
-          {season.paymentRequired && entryFee && (
-            <View style={styles.entryFeeContainer}>
-            <Text style={styles.entryFeeText}>
-              Entry fee: <Text style={styles.entryFeeAmount}>RM{entryFee}</Text>
-            </Text>
-            </View>
-          )}
-
-          <View style={styles.buttonRow}>
-            <View style={styles.seasonCardButtons}>
-              <TouchableOpacity
-                style={[
-                  styles.registerButton,
-                  styles.primaryButton,
-                  { backgroundColor: buttonConfig.color }
-                ]}
-                onPress={buttonConfig.onPress}
-                activeOpacity={0.8}
-              >
-                <Text style={styles.registerButtonText}>{buttonConfig.text}</Text>
               </TouchableOpacity>
 
-              {showManageTeam && partnership && (
-                <ManageTeamButton
-                  seasonId={season.id}
-                  partnershipId={partnership.id}
-                />
+              {/* Right: entry fee */}
+              {season.paymentRequired && entryFee && (
+                <Text style={styles.entryFeeInlineText}>RM{entryFee} entry</Text>
               )}
             </View>
-            {season.status === 'ACTIVE' && !isUserRegistered && (
-              <Text style={styles.registrationOpenText}>
-                Registration{'\n'}open
-              </Text>
+
+            {/* Bottom action row */}
+            {renderBottomRow()}
+
+            {/* ManageTeam button (doubles) */}
+            {showManageTeam && partnership && (
+              <View style={{ marginTop: 8 }}>
+                <ManageTeamButton seasonId={season.id} partnershipId={partnership.id} />
+              </View>
             )}
-          </View>
           </View>
         </LinearGradient>
       </TouchableOpacity>
@@ -1041,10 +1154,7 @@ export default function LeagueDetailsScreen({
         key={season.id}
         onPress={() => {
           Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-          router.push({
-            pathname: '/user-dashboard/season-details' as any,
-            params: { seasonId: season.id, seasonName: season.name, leagueId: leagueId, sport: sport }
-          });
+          handleViewStandingsPress(season);
         }}
         activeOpacity={0.9}
       >
@@ -1052,12 +1162,39 @@ export default function LeagueDetailsScreen({
           {/* Header row */}
           <View style={styles.seasonCardHeader}>
             <Text style={styles.seasonTitle}>{season.name}</Text>
-            {categoryDisplayName ? (
-              <View style={styles.pastCategoryChip}>
-                <Text style={styles.pastCategoryChipText}>{categoryDisplayName}</Text>
-              </View>
-            ) : null}
+            {(() => {
+              const now = new Date();
+              let label = 'Finished';
+              let dotColor = '#9CA3AF';
+              let bgColor = '#F3F4F6';
+              let textColor = '#6B7280';
+              let borderColor = '#E5E7EB';
+              if (season.startDate && new Date(season.startDate) > now) {
+                label = 'Registration Open';
+                dotColor = '#22C55E';
+                bgColor = '#F0FDF4';
+                textColor = '#16A34A';
+                borderColor = '#BBF7D0';
+              } else if (season.startDate && new Date(season.startDate) <= now && season.endDate && new Date(season.endDate) > now) {
+                label = 'In Progress';
+                dotColor = '#3B82F6';
+                bgColor = '#EFF6FF';
+                textColor = '#3B82F6';
+                borderColor = '#BFDBFE';
+              }
+              return (
+                <View style={[styles.seasonStatusBadge, { backgroundColor: bgColor, borderColor }]}>
+                  <View style={[styles.seasonStatusDot, { backgroundColor: dotColor }]} />
+                  <Text style={[styles.seasonStatusText, { color: textColor }]}>{label}</Text>
+                </View>
+              );
+            })()}
           </View>
+
+          {/* Category as plain grey secondary text */}
+          {categoryDisplayName ? (
+            <Text style={styles.categoryPlainText}>{categoryDisplayName}</Text>
+          ) : null}
 
           {/* Date range with calendar icon */}
           {dateRange && (
@@ -1321,6 +1458,13 @@ export default function LeagueDetailsScreen({
     };
   });
 
+  const scrollHandler = useAnimatedScrollHandler({
+    onScroll: (event) => {
+      'worklet';
+      scrollY.value = event.contentOffset.y;
+    },
+  });
+
   return (
     <View style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
@@ -1424,6 +1568,11 @@ export default function LeagueDetailsScreen({
                       <Text style={styles.collapsedLeagueName} numberOfLines={1}>
                         {league?.name || leagueName}
                       </Text>
+                      {currentSeasons.length > 0 && (
+                        <Text style={styles.collapsedSeasonName} numberOfLines={1}>
+                          {currentSeasons[0].name}
+                        </Text>
+                      )}
                       <Animated.View
                         style={[
                           styles.collapsedPlayerCountContainer,
@@ -1502,10 +1651,12 @@ export default function LeagueDetailsScreen({
               </LinearGradient>
             </Animated.View>
 
-            <ScrollView
+            <Animated.ScrollView
               style={styles.scrollContainer}
               contentContainerStyle={styles.scrollContent}
               showsVerticalScrollIndicator={true}
+              onScroll={scrollHandler}
+              scrollEventThrottle={16}
               refreshControl={
                 <RefreshControl
                   refreshing={isRefreshing}
@@ -1515,7 +1666,7 @@ export default function LeagueDetailsScreen({
                 />
               }
             >
-            <View style={styles.scrollTopSpacer} />
+            <View style={{ height: HEADER_MAX_HEIGHT }} />
             {/* League Info Card */}
             <Animated.View style={infoCardEntryAnimatedStyle}>
               <View style={styles.leagueInfoCard}>
@@ -1570,12 +1721,13 @@ export default function LeagueDetailsScreen({
               <Animated.View style={categoriesEntryAnimatedStyle}>
                 <View style={styles.categoriesContainer}>
                   <View style={styles.categoryButtons}>
-                    {categories.filter((category) => Boolean(category?.id)).map((category) => {
+                    {sortedCategories.map((category) => {
                       const displayName = CategoryService.getCategoryDisplayName(
                         category,
                         CategoryService.getEffectiveGameType(category, 'SINGLES')
                       );
                       const isSelected = selectedCategoryId === category.id;
+                      const isRestricted = !canUserJoinCategory(category);
 
                       return (
                         <TouchableOpacity
@@ -1592,6 +1744,14 @@ export default function LeagueDetailsScreen({
                           <Text style={[styles.categoryButtonText, isSelected && styles.categoryButtonTextSelected]}>
                             {displayName}
                           </Text>
+                          {isRestricted && (
+                            <Ionicons
+                              name="lock-closed"
+                              size={12}
+                              color={isSelected ? '#FEA04D' : '#9CA3AF'}
+                              style={{ marginLeft: 4 }}
+                            />
+                          )}
                         </TouchableOpacity>
                       );
                     })}
@@ -1638,7 +1798,7 @@ export default function LeagueDetailsScreen({
                 </>
               )}
             </Animated.View>
-            </ScrollView>
+            </Animated.ScrollView>
           </>
         )}
         </View>
@@ -1720,7 +1880,11 @@ const styles = StyleSheet.create({
     height: 20,
   },
   gradientHeaderContainer: {
-    width: '100%',
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 2,
   },
   loadingContainer: {
     flex: 1,
@@ -1821,7 +1985,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'flex-start',
-    marginBottom: 24,
   },
   collapsedPlayerCount: {
     fontSize: isSmallScreen ? 12 : 13,
@@ -2158,6 +2321,30 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#F9F9F9',
   },
+  categoryPlainText: {
+    fontSize: isSmallScreen ? 12 : 13,
+    fontWeight: '500',
+    color: '#86868B',
+    marginBottom: 6,
+  },
+  seasonStatusBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 20,
+    borderWidth: 1,
+    gap: 5,
+  },
+  seasonStatusDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
+  seasonStatusText: {
+    fontSize: isSmallScreen ? 10 : 11,
+    fontWeight: '600',
+  },
   dateRow: {
     marginTop: 8,
     marginBottom: 8,
@@ -2263,8 +2450,9 @@ const styles = StyleSheet.create({
   buttonRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    position: 'relative',
+    justifyContent: 'space-between',
+    marginTop: 12,
+    gap: 8,
   },
   registerButton: {
     borderRadius: 12,
@@ -2302,14 +2490,113 @@ const styles = StyleSheet.create({
     fontWeight: '400',
     fontStyle: 'italic',
     color: '#34C759',
-    textAlign: 'center',
-    position: 'absolute',
-    right: 0,
+    textAlign: 'right',
+  },
+  registrationClosedText: {
+    fontSize: 12,
+    fontWeight: '400',
+    fontStyle: 'italic',
+    color: '#EF4444',
+    textAlign: 'right',
   },
   registerButtonText: {
     fontSize: 14,
     fontWeight: '600',
     color: '#2B2929',
+  },
+  // New season card styles
+  dateIconRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 6,
+  },
+  dateIconEmoji: {
+    fontSize: 13,
+  },
+  playersEntryRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 10,
+    marginBottom: 4,
+  },
+  playersLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    flex: 1,
+  },
+  avatarRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  playerCountText: {
+    fontSize: isSmallScreen ? 12 : 13,
+    color: '#6B7280',
+    fontWeight: '500',
+  },
+  entryFeeInlineText: {
+    fontSize: isSmallScreen ? 12 : 13,
+    color: '#6B7280',
+    fontWeight: '600',
+  },
+  viewMatchesButton: {
+    flex: 1,
+    backgroundColor: '#F09433',
+    borderRadius: 12,
+    paddingVertical: 11,
+    paddingHorizontal: 16,
+    alignItems: 'center',
+  },
+  viewStandingsLink: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#F09433',
+    textAlign: 'right',
+  },
+  genderRestrictedPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F0F0F0',
+    borderRadius: 20,
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    gap: 5,
+  },
+  genderRestrictedPillText: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: '#86868B',
+  },
+  divisionPendingPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFF4E0',
+    borderRadius: 20,
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    borderWidth: 1,
+    borderColor: '#E89A2A',
+    flex: 1,
+  },
+  divisionPendingPillText: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: '#E89A2A',
+  },
+  helpIconButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  collapsedSeasonName: {
+    fontSize: 12,
+    color: 'rgba(255,255,255,0.8)',
+    fontWeight: '400',
+    marginBottom: 2,
   },
   emptyContainer: {
     padding: 24,
