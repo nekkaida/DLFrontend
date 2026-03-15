@@ -7,9 +7,9 @@ import {
   KeyboardAvoidingView,
   Platform,
   ActivityIndicator,
-  Linking,
 } from 'react-native';
 import * as Haptics from 'expo-haptics';
+import * as WebBrowser from 'expo-web-browser';
 import { LinearGradient } from 'expo-linear-gradient';
 import Svg, { G, Path, Defs, ClipPath, Rect } from 'react-native-svg';
 import { toast } from 'sonner-native';
@@ -18,8 +18,6 @@ import {
   SocialButton,
 } from '../components/AuthComponents';
 import { AuthStyles, AuthColors } from '../styles/AuthStyles';
-import { PrivacyPolicyModal } from '../components/PrivacyPolicyModal';
-import { TermsOfServiceModal } from '../components/TermsOfServiceModal';
 import { validatePassword, PasswordStrength } from '../utils/passwordValidation';
 import axiosInstance, { endpoints } from '@/lib/endpoints';
 import {
@@ -536,7 +534,7 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({
                 }}>
                   {'I have read and agree to the '}
                   <Text
-                    onPress={() => Linking.openURL('https://deuceleague.com/terms-of-service')}
+                    onPress={() => WebBrowser.openBrowserAsync('https://deuceleague.com/terms-of-service')}
                     style={{ color: '#4DABFE', fontWeight: '600', textDecorationLine: 'underline' }}
                   >
                     Terms of Service
@@ -580,7 +578,7 @@ export const SignUpScreen: React.FC<SignUpScreenProps> = ({
                 }}>
                   {'I consent to the collection and processing of my personal data as described in the '}
                   <Text
-                    onPress={() => Linking.openURL('https://deuceleague.com/privacy-policy')}
+                    onPress={() => WebBrowser.openBrowserAsync('https://deuceleague.com/privacy-policy')}
                     style={{ color: '#4DABFE', fontWeight: '600', textDecorationLine: 'underline' }}
                   >
                     Privacy Policy

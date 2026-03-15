@@ -16,6 +16,9 @@ interface AnimatedFilterChipProps {
   badge?: number;
   style?: ViewStyle;
   textStyle?: TextStyle;
+  noBorder?: boolean;
+  inactiveTextColor?: string;
+  inactiveBackgroundColor?: string;
 }
 
 // Spring config for snappy, responsive animations
@@ -39,6 +42,9 @@ export function AnimatedFilterChip({
   badge,
   style,
   textStyle,
+  noBorder,
+  inactiveTextColor,
+  inactiveBackgroundColor,
 }: AnimatedFilterChipProps) {
   // Single shared value for active state interpolation
   const progress = useSharedValue(isActive ? 1 : 0);
@@ -53,14 +59,12 @@ export function AnimatedFilterChip({
     const backgroundColor = interpolateColor(
       progress.value,
       [0, 1],
-      ['#FFFFFF', activeColor]
+      [inactiveBackgroundColor || '#FFFFFF', activeColor]
     );
-    const borderColor = activeColor;
 
     return {
       backgroundColor,
-      borderColor,
-      borderWidth: 1,
+      ...(noBorder ? {} : { borderColor: activeColor, borderWidth: 1 }),
       transform: [{ scale: 1 + progress.value * 0.02 }],
     };
   });
@@ -70,7 +74,7 @@ export function AnimatedFilterChip({
     const color = interpolateColor(
       progress.value,
       [0, 1],
-      [activeColor, '#FFFFFF']
+      [inactiveTextColor || activeColor, '#FFFFFF']
     );
     return { color };
   });

@@ -14,6 +14,7 @@ import { useSession } from '@/lib/auth-client';
 import axiosInstance, { endpoints } from '@/lib/endpoints';
 import { socketService } from '@/lib/socket-service';
 import { CancelMatchSheet } from '@/src/features/match/components/CancelMatchSheet';
+import { EditMatchSheet } from '@/src/features/match/components/EditMatchSheet';
 import { MatchCommentsSection } from '@/src/features/match/components/MatchCommentsSection';
 import { MatchResultSheet } from '@/src/features/match/components/MatchResultSheet';
 import { PostMatchShareSheet } from '@/src/features/feed/components';
@@ -125,6 +126,7 @@ export default function JoinMatchScreen() {
   
   const bottomSheetModalRef = useRef<BottomSheetModal>(null);
   const cancelSheetRef = useRef<BottomSheetModal>(null);
+  const editMatchSheetRef = useRef<BottomSheetModal>(null);
   const postMatchShareSheetRef = useRef<BottomSheet>(null);
   const [showSharePrompt, setShowSharePrompt] = useState(false);
 
@@ -794,6 +796,13 @@ export default function JoinMatchScreen() {
   // PENDING participants hold an invitation but haven't confirmed — the slot is still technically open
   const acceptedParticipants = participants.filter((p: any) => p.invitationStatus === 'ACCEPTED');
   const pairSlots = matchType === 'DOUBLES' ? 2 - Math.ceil(acceptedParticipants.length / 2) : 0;
+
+  // True when at least one non-creator participant has accepted or has a pending invitation
+  const hasOpponentJoined = participants.some(
+    (p: any) =>
+      p.userId !== matchData.createdById &&
+      (p.invitationStatus === 'ACCEPTED' || p.invitationStatus === 'PENDING')
+  );
 
   // Check if all slots are filled (ACCEPTED only — matches backend BUG 5 guard)
   const requiredParticipants = matchType === 'DOUBLES' ? 4 : 2;
@@ -1467,6 +1476,11 @@ export default function JoinMatchScreen() {
       toast.error(errorMessage);
       throw error;
     }
+  };
+
+  const handleMatchEdited = () => {
+    editMatchSheetRef.current?.dismiss();
+    setFetchedMatchDetails(null); // triggers a re-fetch of match details
   };
 
   // Check if match can be cancelled (only SCHEDULED matches)
@@ -2262,9 +2276,27 @@ export default function JoinMatchScreen() {
                 );
               }
 
-              // Show the button if user can cancel
-              // This handles: partially-filled matches, before time, AND orphaned expired matches
+              // Show edit + cancel buttons if user can cancel (creator, SCHEDULED, before time)
               if (canCancelMatch()) {
+                const isCreatorLocal = matchData.createdById === session?.user?.id;
+                if (isCreatorLocal && !isMatchTimeReached()) {
+                  return (
+                    <View style={styles.editCancelRow}>
+                      <TouchableOpacity
+                        style={[styles.joinButton, { backgroundColor: '#6366F1', flex: 1 }]}
+                        onPress={() => editMatchSheetRef.current?.present()}
+                      >
+                        <Text style={[styles.joinButtonText, { color: '#FFFFFF' }]}>Edit</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={[styles.joinButton, { backgroundColor: '#EF4444', flex: 1 }]}
+                        onPress={() => cancelSheetRef.current?.present()}
+                      >
+                        <Text style={[styles.joinButtonText, { color: '#FFFFFF' }]}>Cancel</Text>
+                      </TouchableOpacity>
+                    </View>
+                  );
+                }
                 return (
                   <TouchableOpacity
                     style={[styles.joinButton, { backgroundColor: "#EF4444" }]}
@@ -2385,8 +2417,32 @@ export default function JoinMatchScreen() {
           matchId={matchId}
           matchDate={date}
           matchTime={time}
+          hasOpponentJoined={hasOpponentJoined}
           onClose={() => cancelSheetRef.current?.dismiss()}
           onCancel={handleCancelMatch}
+        />
+      </BottomSheetModal>
+
+      {/* Edit Match Sheet Modal */}
+      <BottomSheetModal
+        ref={editMatchSheetRef}
+        snapPoints={['90%']}
+        backdropComponent={renderBackdrop}
+        enablePanDownToClose={true}
+        backgroundStyle={styles.bottomSheetBackground}
+      >
+        <EditMatchSheet
+          matchId={matchId}
+          initialDate={date}
+          initialTime={time}
+          initialLocation={location}
+          initialCourtBooked={courtBooked}
+          initialFee={fee}
+          initialFeeAmount={feeAmount}
+          initialDuration={duration}
+          initialNotes={description}
+          onClose={() => editMatchSheetRef.current?.dismiss()}
+          onSaved={handleMatchEdited}
         />
       </BottomSheetModal>
 

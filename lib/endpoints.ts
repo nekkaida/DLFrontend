@@ -247,6 +247,7 @@ export const endpoints = {
     // authenticated player profile
     getProfile: "/api/player/profile/me",
     updateProfile: "/api/player/profile/me",
+    deleteAccount: "/api/player/profile/me",
     changePassword: "/api/player/profile/password",
     getMatchHistory: "/api/player/profile/matches",
     getAchievements: "/api/player/profile/achievements",

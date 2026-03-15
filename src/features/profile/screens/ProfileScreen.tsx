@@ -8,14 +8,15 @@ import {
   ActivityIndicator,
   Alert,
   Animated,
-  Dimensions,
   Platform,
+  Pressable,
   RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
   View
 } from 'react-native';
+import TorchIcon from '@/assets/icons/profile/torch.svg';
 import { CircularImageCropper } from '../../onboarding/components';
 import {
   MatchHistoryButton,
@@ -24,7 +25,6 @@ import {
   ProfileHeaderWithCurve,
   ProfileInfoCard,
   ProfileLeagueStatsCard,
-  ProfilePictureSection,
   ProfileSkillLevelCard,
   ProfileSportsSection,
   ProfileDMRCard,
@@ -38,8 +38,6 @@ import { ProfileDataTransformer } from '../services/ProfileDataTransformer';
 import { useProfileImageUpload } from '@/src/shared/hooks/useProfileImageUpload';
 import type { GameData } from '../types';
 
-const { width } = Dimensions.get('window');
-
 export default function ProfileScreen() {
   const { data: session } = useSession();
   const [isLoading, setIsLoading] = useState(true);
@@ -48,6 +46,7 @@ export default function ProfileScreen() {
   const [achievements, setAchievements] = useState<any[]>([]);
   const [achievementCounts, setAchievementCounts] = useState<{ completed: number; total: number }>({ completed: 0, total: 0 });
   const [ratingHistory, setRatingHistory] = useState<GameData[]>([]);
+  const [friendsCount, setFriendsCount] = useState(0);
   const [selectedGraphIndex, setSelectedGraphIndex] = useState<number | null>(null);
   const [leagueStatsData, setLeagueStatsData] = useState<{
     wins: number;
@@ -57,8 +56,6 @@ export default function ProfileScreen() {
   const hasInitializedSport = useRef(false);
 
   // Entry animation values
-  const profilePictureEntryOpacity = useRef(new Animated.Value(0)).current;
-  const profilePictureEntryTranslateY = useRef(new Animated.Value(-20)).current;
   const infoCardEntryOpacity = useRef(new Animated.Value(0)).current;
   const infoCardEntryTranslateY = useRef(new Animated.Value(30)).current;
   const achievementsEntryOpacity = useRef(new Animated.Value(0)).current;
@@ -191,6 +188,16 @@ export default function ProfileScreen() {
       console.error('Error fetching achievements:', error);
     }
 
+    // Fetch friends count (same endpoint pattern as Community screen)
+    try {
+      const friendsResponse = await axiosInstance.get('/api/pairing/friends');
+      const friendsData = friendsResponse?.data?.data ?? friendsResponse?.data ?? [];
+      setFriendsCount(Array.isArray(friendsData) ? friendsData.length : 0);
+    } catch (error) {
+      console.error('Error fetching friends:', error);
+      setFriendsCount(0);
+    }
+
     setIsLoading(false);
   }, [session]);
 
@@ -230,21 +237,6 @@ export default function ProfileScreen() {
     if (!isLoading && profileData && !hasPlayedEntryAnimation.current) {
       hasPlayedEntryAnimation.current = true;
       Animated.stagger(80, [
-        // Profile picture slides down
-        Animated.parallel([
-          Animated.spring(profilePictureEntryOpacity, {
-            toValue: 1,
-            tension: 50,
-            friction: 8,
-            useNativeDriver: false,
-          }),
-          Animated.spring(profilePictureEntryTranslateY, {
-            toValue: 0,
-            tension: 50,
-            friction: 8,
-            useNativeDriver: false,
-          }),
-        ]),
         // Info card slides up
         Animated.parallel([
           Animated.spring(infoCardEntryOpacity, {
@@ -295,8 +287,6 @@ export default function ProfileScreen() {
   }, [
     isLoading,
     profileData,
-    profilePictureEntryOpacity,
-    profilePictureEntryTranslateY,
     infoCardEntryOpacity,
     infoCardEntryTranslateY,
     achievementsEntryOpacity,
@@ -387,6 +377,21 @@ export default function ProfileScreen() {
     return Math.round((leagueStatsData.wins / leagueStatsData.matchesPlayed) * 100);
   };
 
+  const handleRemoveSport = async (sport: string) => {
+    const currentSports = (userData.sports || [])
+      .filter((s) => s !== 'No sports yet')
+      .map((s) => s.toLowerCase())
+      .filter((s) => s !== sport.toLowerCase());
+
+    try {
+      await axiosInstance.put('/api/player/sports', { sports: currentSports });
+      await fetchProfileData();
+      toast.success(`${sport} removed`);
+    } catch {
+      toast.error('Failed to remove sport');
+    }
+  };
+
   // Get ELO data - use real rating history if available, otherwise show placeholder
   const getEloData = (): GameData[] => {
     if (ratingHistory.length > 0) {
@@ -458,24 +463,8 @@ export default function ProfileScreen() {
           showSettings={true}
         />
 
-        {/* Content */}
-        <View style={styles.whiteBackground}>
-          {/* Profile Picture */}
-          <Animated.View
-            style={{
-              opacity: profilePictureEntryOpacity,
-              transform: [{ translateY: profilePictureEntryTranslateY }],
-            }}
-          >
-            <ProfilePictureSection
-              imageUri={profileData?.image}
-              isUploading={isUploadingImage}
-              onPickImage={pickImage}
-              isEditable={true}
-            />
-          </Animated.View>
-
-          {/* Profile Info */}
+        {/* Top Profile Section */}
+        <View style={styles.profileTopSection}>
           <Animated.View
             style={{
               opacity: infoCardEntryOpacity,
@@ -487,14 +476,48 @@ export default function ProfileScreen() {
               username={userData.username}
               bio={userData.bio}
               location={userData.location}
+              onFriendsPress={() => navigateTo('/community')}
+              imageUri={profileData?.image}
+              isUploadingImage={isUploadingImage}
+              onPickImage={pickImage}
+              friendsCount={friendsCount}
+              isEditableImage={true}
               gender={userData.gender}
               sports={userData.sports || []}
               activeSports={userData.activeSports || []}
               showActionButtons={false}
+              isOwnProfile={true}
+              onAddSport={() => router.push('/edit-sports')}
+              onRemoveSport={handleRemoveSport}
             />
           </Animated.View>
+        </View>
 
-          {/* Achievements */}
+        {/* White Content Section */}
+        <View style={styles.whiteBackground}>
+
+          {/* Weekly Match Streak — placeholder */}
+          <Animated.View
+            style={{
+              opacity: infoCardEntryOpacity,
+              transform: [{ translateY: infoCardEntryTranslateY }],
+            }}
+          >
+            <View style={styles.streakCard}>
+              <View>
+                <Text style={styles.streakNumber}>1</Text>
+                <Text style={styles.streakLabel}>Weekly Match Streak</Text>
+              </View>
+              <Pressable
+                style={styles.streakEditBtn}
+                onPress={() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)}
+              >
+                <TorchIcon width={24} height={24} fill="#1D1D1F" />
+              </Pressable>
+            </View>
+          </Animated.View>
+
+          {/* Badges */}
           <Animated.View
             style={{
               opacity: achievementsEntryOpacity,
@@ -534,6 +557,7 @@ export default function ProfileScreen() {
               skillLevel={userData.skillLevel}
               selfAssessedSkillLevels={userData.selfAssessedSkillLevels}
               activeSport={activeTab}
+              onEdit={() => router.push({ pathname: '/edit-sports', params: { sport: activeTab.toLowerCase() } } as any)}
             />
 
             {/* DMR with Graph */}
@@ -603,11 +627,11 @@ export default function ProfileScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: theme.colors.primary,
+    backgroundColor: '#D5D5D5',
   },
   scrollView: {
     flex: 1,
-    backgroundColor: theme.colors.primary,
+    backgroundColor: '#D5D5D5',
   },
   loadingContainer: {
     justifyContent: 'center',
@@ -627,9 +651,50 @@ const styles = StyleSheet.create({
     zIndex: 100,
   },
   whiteBackground: {
-    backgroundColor: '#ffffff',
+    backgroundColor: '#F6FAFC',
     paddingHorizontal: theme.spacing.lg,
+    paddingTop: theme.spacing.lg,
     paddingBottom: theme.spacing['2xl'],
     minHeight: '100%',
+  },
+  profileTopSection: {
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: theme.spacing.lg,
+    paddingBottom: theme.spacing.md,
+  },
+  streakCard: {
+    backgroundColor: '#ffffff',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#f1f5f9',
+    paddingVertical: theme.spacing.md,
+    paddingHorizontal: theme.spacing.lg,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: theme.spacing.md,
+    boxShadow: '0px 12px 24px rgba(0, 0, 0, 0.12)',
+  },
+  streakNumber: {
+    fontSize: 28,
+    fontWeight: '700' as any,
+    color: '#111827',
+    fontFamily: theme.typography.fontFamily.primary,
+    letterSpacing: -0.5,
+    lineHeight: 34,
+  },
+  streakLabel: {
+    fontSize: 13,
+    fontWeight: '500' as any,
+    color: theme.colors.neutral.gray[500],
+    fontFamily: theme.typography.fontFamily.primary,
+    marginTop: 2,
+  },
+  streakEditBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });

@@ -44,6 +44,12 @@ interface FetchResponse {
   };
 }
 
+type UsersPayload = {
+  users?: UserApiResponse[];
+  count?: number;
+  success?: boolean;
+};
+
 const { width } = Dimensions.get('window');
 const isSmallScreen = width < 375;
 const isTablet = width > 768;
@@ -94,9 +100,17 @@ export default function NewMessageScreen() {
         `/api/chat/threads/users/available/${session.user.id}`
       );
 
-      const typedResponse = response.data as FetchResponse['data'] | null;
-      if (typedResponse?.users && Array.isArray(typedResponse.users)) {
-        const usersData = typedResponse.users;
+      const rawPayload = response?.data as unknown;
+      const resolvedPayload: UsersPayload | undefined =
+        rawPayload &&
+        typeof rawPayload === 'object' &&
+        'data' in (rawPayload as Record<string, unknown>) &&
+        typeof (rawPayload as { data?: unknown }).data === 'object'
+          ? ((rawPayload as { data?: unknown }).data as UsersPayload)
+          : ((rawPayload as UsersPayload) ?? undefined);
+
+      if (Array.isArray(resolvedPayload?.users)) {
+        const usersData = resolvedPayload.users;
 
         // Transform users to player format
         const usersList: Player[] = usersData.map((item: UserApiResponse) => ({

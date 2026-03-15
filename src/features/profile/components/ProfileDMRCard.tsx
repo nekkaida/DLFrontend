@@ -37,7 +37,10 @@ export const ProfileDMRCard: React.FC<ProfileDMRCardProps> = ({
       <View style={styles.dmrContainer}>
         {/* DMR Label and Ratings */}
         <View style={styles.dmrHeader}>
-          <Text style={styles.skillLabel}>DMR - {activeTab}</Text>
+          <View style={styles.dmrLabelGroup}>
+            <Text style={styles.skillLabel}>DMR</Text>
+            <Text style={styles.dmrSubtitle}>{`DEUCE\nMatch Rating`}</Text>
+          </View>
           <View style={styles.dmrRatingsRow}>
             <View style={styles.dmrItemVertical}>
               <Text style={styles.dmrTypeLabel}>Singles</Text>
@@ -102,6 +105,16 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 1,
   },
+  dmrLabelGroup: {
+    gap: 2,
+  },
+  dmrSubtitle: {
+    color: theme.colors.neutral.gray[400],
+    fontSize: 11,
+    fontFamily: theme.typography.fontFamily.primary,
+    fontWeight: '400' as any,
+    lineHeight: 15,
+  },
   dmrHeader: {
     flexDirection: 'row',
     alignItems: 'flex-start',
@@ -126,24 +139,19 @@ const styles = StyleSheet.create({
     marginBottom: theme.spacing.xs,
   },
   ratingCircleSmall: {
-    width: 70,
-    height: 70,
-    borderRadius: 35,
-    backgroundColor: '#fef7f0',
-    borderWidth: 2,
+    width: 100,
+    height: 100,
+    borderRadius: 65,
+    backgroundColor: '#ffffff',
+    borderWidth: 1,
     borderColor: '#fea04d',
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#fea04d',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.08,
-    shadowRadius: 2,
-    elevation: 1,
   },
   ratingTextSmall: {
-    color: '#111827',
-    fontSize: 14,
-    fontWeight: '700' as any,
+    color: '#000000',
+    fontSize: 20,
+    fontWeight: '800' as any,
     fontFamily: theme.typography.fontFamily.primary,
   },
   dropdownSection: {

@@ -515,6 +515,10 @@ export const styles = StyleSheet.create({
   completedButton: {
     flex: 1,
   },
+  editCancelRow: {
+    flexDirection: 'row',
+    gap: scale(10),
+  },
   shareButton: {
     backgroundColor: '#FEA04D',
     flexDirection: 'row',
