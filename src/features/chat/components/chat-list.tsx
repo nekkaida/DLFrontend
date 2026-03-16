@@ -142,6 +142,7 @@ const ThreadItem = React.memo<{
     <Pressable
       style={({ pressed }) => [
         styles.threadItem,
+        item.unreadCount > 0 && styles.threadItemUnread,
         pressed && styles.threadItemPressed,
       ]}
       onPress={() => onSelect(item)}
@@ -339,6 +340,9 @@ const styles = StyleSheet.create({
   },
   threadItemPressed: {
     backgroundColor: "#F9FAFB",
+  },
+  threadItemUnread: {
+    backgroundColor: "#F6FAFC",
   },
   avatarContainer: {
     position: "relative",

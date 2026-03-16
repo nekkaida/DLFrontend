@@ -1106,45 +1106,47 @@ export default function SeasonDetailsScreen({
               >
                 <View style={styles.seasonInfoContent}>
                   <View style={styles.seasonInfoTextContainer}>
-                    {/* Season name as card title */}
-                    <Text style={styles.seasonCardTitle}>{season?.name || seasonName}</Text>
+                    {/* Season name + status badge on the same row */}
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                      <Text style={styles.seasonCardTitle}>{season?.name || seasonName}</Text>
 
-                    {/* Registration status badge */}
-                    {(() => {
-                      const now = new Date();
-                      let label = 'Registration Open';
-                      let dotColor = '#22C55E';
-                      let bgColor = '#F0FDF4';
-                      let textColor = '#16A34A';
-                      let borderColor = '#BBF7D0';
+                      {/* Registration status badge */}
+                      {(() => {
+                        const now = new Date();
+                        let label = 'Registration Open';
+                        let dotColor = '#22C55E';
+                        let bgColor = '#F0FDF4';
+                        let textColor = '#16A34A';
+                        let borderColor = '#BBF7D0';
 
-                      if (season?.startDate && new Date(season.startDate) <= now) {
-                        label = 'In Progress';
-                        dotColor = '#3B82F6';
-                        bgColor = '#EFF6FF';
-                        textColor = '#3B82F6';
-                        borderColor = '#BFDBFE';
-                      } else if (season?.regiDeadline && new Date(season.regiDeadline) < now) {
-                        label = 'Registration Closed';
-                        dotColor = '#EF4444';
-                        bgColor = '#FEF2F2';
-                        textColor = '#EF4444';
-                        borderColor = '#FECACA';
-                      } else if (season?.regiDeadline && new Date(season.regiDeadline) <= new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000)) {
-                        label = 'Closing Soon';
-                        dotColor = '#F59E0B';
-                        bgColor = '#FFFBEB';
-                        textColor = '#D97706';
-                        borderColor = '#FDE68A';
-                      }
+                        if (season?.startDate && new Date(season.startDate) <= now) {
+                          label = 'In Progress';
+                          dotColor = '#3B82F6';
+                          bgColor = '#EFF6FF';
+                          textColor = '#3B82F6';
+                          borderColor = '#BFDBFE';
+                        } else if (season?.regiDeadline && new Date(season.regiDeadline) < now) {
+                          label = 'Registration Closed';
+                          dotColor = '#EF4444';
+                          bgColor = '#FEF2F2';
+                          textColor = '#EF4444';
+                          borderColor = '#FECACA';
+                        } else if (season?.regiDeadline && new Date(season.regiDeadline) <= new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000)) {
+                          label = 'Closing Soon';
+                          dotColor = '#F59E0B';
+                          bgColor = '#FFFBEB';
+                          textColor = '#D97706';
+                          borderColor = '#FDE68A';
+                        }
 
-                      return (
-                        <View style={[styles.statusBadge, { backgroundColor: bgColor, borderColor, alignSelf: 'flex-start', marginBottom: 10 }]}>
-                          <View style={[styles.statusBadgeDot, { backgroundColor: dotColor }]} />
-                          <Text style={[styles.statusBadgeText, { color: textColor }]}>{label}</Text>
-                        </View>
-                      );
-                    })()}
+                        return (
+                          <View style={[styles.statusBadge, { backgroundColor: bgColor, borderColor }]}>
+                            <View style={[styles.statusBadgeDot, { backgroundColor: dotColor }]} />
+                            <Text style={[styles.statusBadgeText, { color: textColor }]}>{label}</Text>
+                          </View>
+                        );
+                      })()}
+                    </View>
 
                     {/* Players joined */}
                     <Text style={styles.playersJoinedText}>
