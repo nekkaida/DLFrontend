@@ -5,6 +5,7 @@ import { useSession, signOut } from '@/lib/auth-client';
 import axiosInstance from '@/lib/endpoints';
 import { AuthStorage, OnboardingStorage } from '@/src/core/storage';
 import { getIsLogoutInProgress } from '@core/navigation/navigationUtils';
+import { reportSessionLoss } from '@/src/services/crashReporter';
 
 // Only block these specific auth pages after login - NOT the home page
 const BLOCKED_AUTH_PAGES = ['/login', '/register', '/resetPassword', '/verifyEmail'];
@@ -221,6 +222,8 @@ export const NavigationInterceptor: React.FC<NavigationInterceptorProps> = ({ ch
             OnboardingStorage.clearData(),
             OnboardingStorage.clearProgress(),
           ]);
+          // Report session loss before signing out
+          reportSessionLoss('ACCOUNT_DELETED_404', '/' + segments.join('/'));
           // Sign out the user
           await signOut();
           console.log('User signed out and onboarding data cleared - will redirect to login');
@@ -253,6 +256,7 @@ export const NavigationInterceptor: React.FC<NavigationInterceptorProps> = ({ ch
         // The user's local session cookie may still be valid; let the next
         // natural request (page navigation, explicit refresh) re-validate.
         consecutive401Count.current = 0;
+        reportSessionLoss('CONSECUTIVE_401', '/' + segments.join('/'));
         console.warn('NavigationInterceptor: Consecutive 401s — preserving local session');
         return;
       }
