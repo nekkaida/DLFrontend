@@ -68,9 +68,23 @@ export default function LoginRoute() {
 
         // signIn() already stores the cookie synchronously via the expo client's
         // onSuccess hook, and useSession() will detect the change via $sessionSignal.
-        // No need to poll getSession() — navigate immediately.
         await AuthStorage.markLoggedIn();
-        const nextRoute = getPostAuthRoute({ user: result.data.user as any });
+
+        // Fetch the real onboarding status so we navigate directly to the correct
+        // route without any flash (the auth signIn response lacks completedOnboarding).
+        let nextRoute = getPostAuthRoute({ user: result.data.user as any });
+        try {
+          const onboardingRes = await axiosInstance.get(
+            `/api/onboarding/status/${result.data.user.id}?t=${Date.now()}`,
+          );
+          const onboardingData = onboardingRes.data?.data || onboardingRes.data;
+          if (onboardingData?.completedOnboarding) {
+            nextRoute = "/user-dashboard";
+          }
+        } catch {
+          // Non-critical — fall back to the route derived from the session user
+        }
+
         router.replace(nextRoute as any);
         return;
       } else {
