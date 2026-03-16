@@ -1,7 +1,7 @@
 import { signInWithNativeOAuth } from "@/lib/native-social-auth";
 import { LandingScreen, SplashScreen } from "@/src/features/auth";
 import { useRouter } from "expo-router";
-import React, { useRef, useState } from "react";
+import React, { useCallback, useRef, useState } from "react";
 import { Animated } from "react-native";
 import { toast } from "sonner-native";
 
@@ -28,7 +28,7 @@ export default function LandingPage() {
   };
 
   const handleLogin = () => {
-    router.push("/login");
+    router.push({ pathname: "/login", params: { from: "landing" } });
   };
 
   const handleSocialLogin = async (
@@ -40,7 +40,7 @@ export default function LandingPage() {
       setIsSocialLoading(true);
       const result = await signInWithNativeOAuth(provider);
       if (result) {
-        router.replace(result.nextRoute);
+        router.replace(result.nextRoute as any);
       }
     } catch (error: any) {
       console.error("Social login error:", error);
@@ -50,14 +50,15 @@ export default function LandingPage() {
     }
   };
 
-  const handleSplashComplete = () => {
+  // L-4: Memoize to avoid re-creating on every render
+  const handleSplashComplete = useCallback(() => {
     setShowSplash(false);
     Animated.timing(fadeAnim, {
       toValue: 1,
       duration: 500,
       useNativeDriver: true,
     }).start();
-  };
+  }, [fadeAnim]);
 
   if (showSplash) {
     return <SplashScreen onComplete={handleSplashComplete} />;
@@ -69,6 +70,7 @@ export default function LandingPage() {
         onGetStarted={handleGetStarted}
         onLogin={handleLogin}
         onSocialLogin={handleSocialLogin}
+        isSocialLoading={isSocialLoading}
       />
     </Animated.View>
   );

@@ -1,33 +1,32 @@
 /**
  * Deuce League Theme Configuration
- * Based on Figma Design System
  */
 
 export const theme = {
   // Brand Colors
   colors: {
-    primary: '#FE9F4D',  // Main orange color for buttons and branding
+    primary: '#FE9F4D',  
     
     // Sport-specific colors
     sports: {
       pickleball: {
-        primary: '#602E98',
+        primary: '#A04DFE',
         secondary: '#A04DFE',
       },
       tennis: {
-        primary: '#374F35',
-        secondary: '#5D825A',
+        primary: '#A2E047',
+        secondary: '#A2E047',
       },
       padel: {
-        primary: '#7D3C03',
-        secondary: '#A15009',
+        primary: '#4DABFE',
+        secondary: '#4DABFE',
       },
     },
     
     // Neutral colors
     neutral: {
       white: '#FFFFFF',
-      black: '#000000',
+      black: '#1D1D1F',
       gray: {
         50: '#F4F4F4',
         100: '#EDF1F3',

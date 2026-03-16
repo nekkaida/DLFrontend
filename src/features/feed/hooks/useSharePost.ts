@@ -315,7 +315,7 @@ export const useSharePost = (): UseSharePostReturn => {
         // Try to open Instagram Stories with the image
         // Instagram URL scheme for stories: instagram-stories://share
         const instagramStoriesUrl = Platform.select({
-          ios: `instagram-stories://share?source_application=com.deuceleague.app&backgroundImage=${encodeURIComponent(asset.uri)}`,
+          ios: `instagram-stories://share?source_application=com.deucelague.app&backgroundImage=${encodeURIComponent(asset.uri)}`,
           android: `instagram-stories://share`,
         });
 

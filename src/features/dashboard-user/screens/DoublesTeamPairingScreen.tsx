@@ -1,5 +1,5 @@
 import React, { useRef, useEffect } from 'react';
-import { ScrollView, Text, View, StyleSheet, Dimensions, TouchableOpacity, ActivityIndicator, Image, StatusBar, Alert, Animated } from 'react-native';
+import { ScrollView, Text, View, StyleSheet, Dimensions, TouchableOpacity, ActivityIndicator, Image, StatusBar, Alert, Animated, Modal } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
@@ -63,6 +63,7 @@ export default function DoublesTeamPairingScreen({
   const [selectedSport, setSelectedSport] = React.useState<'pickleball' | 'tennis' | 'padel'>('pickleball');
   const [showInvitePartnerSheet, setShowInvitePartnerSheet] = React.useState(false);
   const [showPaymentOptions, setShowPaymentOptions] = React.useState(false);
+  const [pendingPartner, setPendingPartner] = React.useState<Player | null>(null);
 
   // Season invitation/partnership state
   const [invitationStatus, setInvitationStatus] = React.useState<'none' | 'pending_sent' | 'pending_received' | 'accepted' | 'declined' | 'expired'>('none');
@@ -417,8 +418,19 @@ export default function DoublesTeamPairingScreen({
     }, 100);
   };
 
-  const handlePartnerSelected = async (player: Player) => {
-    console.log('🎯 handlePartnerSelected called with player:', player.name, 'userId:', userId, 'seasonId:', seasonId);
+  // Show confirmation overlay before sending the invite
+  const handlePartnerSelected = (player: Player) => {
+    setShowInvitePartnerSheet(false);
+    setPendingPartner(player);
+  };
+
+  // Called when user confirms in the overlay
+  const handleConfirmInvite = async () => {
+    const player = pendingPartner;
+    if (!player) return;
+    setPendingPartner(null);
+
+    console.log('🎯 handleConfirmInvite called with player:', player.name, 'userId:', userId, 'seasonId:', seasonId);
 
     if (!userId || !seasonId) {
       console.log('❌ Missing userId or seasonId, aborting');
@@ -426,67 +438,42 @@ export default function DoublesTeamPairingScreen({
     }
 
     // Check if player is eligible (has selected and completed questionnaire for season sport)
-    const isEligible = !player.questionnaireStatus || 
-                      (player.questionnaireStatus.hasSelectedSport && 
+    const isEligible = !player.questionnaireStatus ||
+                      (player.questionnaireStatus.hasSelectedSport &&
                        player.questionnaireStatus.hasCompletedQuestionnaire);
-    
+
     if (!isEligible) {
       const message = !player.questionnaireStatus?.hasSelectedSport
         ? 'This player needs to complete a questionnaire to join'
         : 'This player has not completed their questionnaire';
-      
-      toast.error('Cannot send invitation', {
-        description: message,
-      });
+      toast.error('Cannot send invitation', { description: message });
       return;
     }
 
     try {
-      console.log('✅ Setting selected partner:', player.name);
       setSelectedPartner(player);
 
-      // Send season invitation
-      const invitationPayload = {
-        recipientId: player.id,
-        seasonId: seasonId,
-        message: null
-      };
-      console.log('📤 Sending invitation with payload:', invitationPayload);
+      const invitationPayload = { recipientId: player.id, seasonId, message: null };
+      const response = await axiosInstance.post('/api/pairing/season/invitation', invitationPayload);
 
-      const response = await axiosInstance.post(
-        '/api/pairing/season/invitation',
-        invitationPayload
-      );
-
-      console.log('✅ Invitation API response:', response);
       const responseData = response?.data || response;
-      
-      // Check if response contains an error
+
       if (response?.data?.error) {
         const errorObj = response.data.error;
         const errorMessage = errorObj?.error || errorObj?.message || 'Failed to send invitation';
-        toast.error('Failed to send invitation', {
-          description: errorMessage,
-        });
+        toast.error('Failed to send invitation', { description: errorMessage });
         setSelectedPartner(null);
         return;
       }
-      
-      if (responseData) {
-        toast.success('Invitation sent!', {
-          description: `Season invitation sent to ${player.name}.`,
-        });
 
-        // Refresh pairing status to show pending state
+      if (responseData) {
+        toast.success('Invitation sent!', { description: `Season invitation sent to ${player.name}.` });
         await checkPairingStatus();
       }
     } catch (error: any) {
       console.error('Error sending season invitation:', error);
-      // Extract error message from response if available
       const errorMessage = error?.data?.error || error?.data?.message || error?.error?.error || error?.message || 'Failed to send invitation';
-      toast.error('Failed to send invitation', {
-        description: errorMessage,
-      });
+      toast.error('Failed to send invitation', { description: errorMessage });
       setSelectedPartner(null);
     }
   };
@@ -1078,6 +1065,47 @@ export default function DoublesTeamPairingScreen({
         onPlayerSelect={handlePartnerSelected}
       />
 
+      {/* Partner invite confirmation overlay */}
+      <Modal
+        transparent
+        animationType="fade"
+        visible={!!pendingPartner}
+        onRequestClose={() => setPendingPartner(null)}
+      >
+        <View style={confirmStyles.backdrop}>
+          <View style={confirmStyles.card}>
+            <Text style={confirmStyles.title}>Partner Request</Text>
+
+            <View style={confirmStyles.playerRow}>
+              {pendingPartner?.image ? (
+                <Image source={{ uri: pendingPartner.image }} style={confirmStyles.avatar} />
+              ) : (
+                <View style={[confirmStyles.avatar, confirmStyles.avatarPlaceholder]}>
+                  <Text style={confirmStyles.avatarInitial}>
+                    {pendingPartner?.name?.charAt(0)?.toUpperCase() ?? '?'}
+                  </Text>
+                </View>
+              )}
+              <Text style={confirmStyles.playerName}>
+                {pendingPartner?.displayUsername ?? pendingPartner?.name}
+              </Text>
+            </View>
+
+            <Text style={confirmStyles.bodyText}>
+              Send a team invite to {pendingPartner?.displayUsername ?? pendingPartner?.name}?
+            </Text>
+
+            <TouchableOpacity style={confirmStyles.primaryButton} onPress={handleConfirmInvite}>
+              <Text style={confirmStyles.primaryButtonText}>Send Invite</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={confirmStyles.secondaryButton} onPress={() => setPendingPartner(null)}>
+              <Text style={confirmStyles.secondaryButtonText}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
       <PaymentOptionsBottomSheet
         visible={showPaymentOptions}
         onClose={handleClosePaymentOptions}
@@ -1506,5 +1534,94 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: '#2B2929',
+  },
+});
+
+const confirmStyles = StyleSheet.create({
+  backdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.50)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 32,
+  },
+  card: {
+    width: '100%',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    paddingVertical: 28,
+    paddingHorizontal: 24,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.15,
+    shadowRadius: 16,
+    elevation: 12,
+  },
+  title: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#111827',
+    marginBottom: 20,
+  },
+  playerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginBottom: 14,
+  },
+  avatar: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+  },
+  avatarPlaceholder: {
+    backgroundColor: '#6de9a0',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  avatarInitial: {
+    color: '#FFFFFF',
+    fontSize: 20,
+    fontWeight: '700',
+  },
+  playerName: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#111827',
+  },
+  bodyText: {
+    fontSize: 14,
+    color: '#666666',
+    textAlign: 'center',
+    lineHeight: 20,
+    marginBottom: 24,
+  },
+  primaryButton: {
+    width: '100%',
+    backgroundColor: '#FFA500',
+    borderRadius: 12,
+    paddingVertical: 14,
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  primaryButtonText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  secondaryButton: {
+    width: '100%',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    paddingVertical: 13,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#D1D5DB',
+  },
+  secondaryButtonText: {
+    fontSize: 15,
+    fontWeight: '500',
+    color: '#6B7280',
   },
 });

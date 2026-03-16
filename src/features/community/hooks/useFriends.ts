@@ -59,11 +59,14 @@ export const useFriends = () => {
         });
         await fetchFriendRequests();
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error sending friend request:', error);
+      const message = error?.response?.data?.message
+        || error?.response?.data?.error
+        || 'Failed to send friend request';
       toast.error('Error', {
         id: `friend-request-error-${recipientId}`,
-        description: 'Failed to send friend request',
+        description: message,
       });
       throw error;
     }

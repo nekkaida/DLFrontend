@@ -12,7 +12,7 @@ import { getBackendBaseURL, logNetworkConfig } from "../src/config/network";
 logNetworkConfig();
 
 const baseURL = getBackendBaseURL();
-console.log("🔑 Auth Client baseURL:", baseURL);
+if (__DEV__) console.log("🔑 Auth Client baseURL:", baseURL);
 
 // Custom fetch that adds X-Client-Type header and session cookie to all auth requests
 const mobileAuthFetch: typeof fetch = async (input, init) => {

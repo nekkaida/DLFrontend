@@ -310,11 +310,11 @@ export const MatchResultSheet: React.FC<MatchResultSheetProps> = ({
     
     if (field === 'games') {
       if (team === 'A') {
-        // Pickleball allows higher scores (15+), Tennis/Padel max 7
-        const maxScore = isTennisOrPadel ? 7 : 99;
+        // Set 3 can go above 7 for match tiebreak (10-point); sets 1 & 2 cap at 7 for tennis/padel
+        const maxScore = (isTennisOrPadel && setIndex !== 2) ? 7 : 99;
         newScores[setIndex].team1Games = Math.min(numValue, maxScore);
       } else {
-        const maxScore = isTennisOrPadel ? 7 : 99;
+        const maxScore = (isTennisOrPadel && setIndex !== 2) ? 7 : 99;
         newScores[setIndex].team2Games = Math.min(numValue, maxScore);
       }
     } else if (field === 'tiebreak') {
@@ -328,30 +328,21 @@ export const MatchResultSheet: React.FC<MatchResultSheetProps> = ({
     setSetScores(newScores);
   };
 
-  // Check if a set/game needs tiebreak input
+  // Check if a set/game needs tiebreak sub-score input
   const needsTiebreak = (setIndex: number): boolean => {
+    // Pickleball has no tiebreak sub-scores — all points go directly in the main score boxes
+    if (isPickleball) return false;
+
     const set = setScores[setIndex];
     const team1 = set.team1Games;
     const team2 = set.team2Games;
 
-    if (isTennisOrPadel) {
-      // Tennis/Padel: Need tiebreak if either team has 7 (meaning 7-6 scenario)
-      return team1 === 7 || team2 === 7;
-    } else {
-      // Pickleball: Check if there's already a clear winner (score >= 15 AND lead by 2+)
-      const team1Won = team1 >= 15 && team1 - team2 >= 2;
-      const team2Won = team2 >= 15 && team2 - team1 >= 2;
+    // Set 3 match-tiebreak mode (score >= 8 signals 10-point match tiebreak):
+    // the main-box scores ARE the final scores, no sub-score overlay needed
+    if (setIndex === 2 && (team1 >= 8 || team2 >= 8)) return false;
 
-      if (team1Won || team2Won) {
-        return false; // Clear winner exists, no tiebreak/extended score needed
-      }
-
-      // Only require extended score input when game is still close (deuce scenario)
-      // Both at 14+, or one at 15+ but not winning by 2
-      return (team1 >= 14 && team2 >= 14) ||
-             (team1 >= 15 && team2 >= 14) ||
-             (team1 >= 14 && team2 >= 15);
-    }
+    // Only 7-6 requires tiebreak sub-scores (7-5, 7-4, etc. are clean wins)
+    return (team1 === 7 && team2 === 6) || (team2 === 7 && team1 === 6);
   };
 
   // Check if a specific set should be disabled
@@ -381,6 +372,14 @@ export const MatchResultSheet: React.FC<MatchResultSheetProps> = ({
     const team2 = set.team2Games;
 
     if (team1 === 0 && team2 === 0) return null;
+
+    // Set 3 match tiebreak: any score >= 8 means they played the 10-point match tiebreak
+    // (first to 10, win by 2). Must evaluate before normal set logic to avoid 7-6 path.
+    if (isTennisOrPadel && setIndex === 2 && (team1 >= 8 || team2 >= 8)) {
+      if (team1 >= 10 && team1 - team2 >= 2) return 'A';
+      if (team2 >= 10 && team2 - team1 >= 2) return 'B';
+      return null;
+    }
 
     if (isTennisOrPadel) {
       // Tennis/Padel scoring
@@ -635,54 +634,38 @@ export const MatchResultSheet: React.FC<MatchResultSheetProps> = ({
     // Skip detailed validation if match is marked incomplete
     // Backend will also skip validation when isUnfinished=true
     if (!matchIncomplete) {
-      // Validate tiebreaks for sets/games that need them
       if (isTennisOrPadel) {
+        // Validate regular-set tiebreak sub-scores (only required at exactly 7-6)
         for (let i = 0; i < playedSets.length; i++) {
-          if (needsTiebreak(i)) {
-            const set = setScores[i];
+          const realSetIndex = playedSets[i].setNumber - 1;
+          if (needsTiebreak(realSetIndex)) {
+            const set = playedSets[i];
             if (!set.team1Tiebreak && !set.team2Tiebreak) {
               Alert.alert(
                 'Missing Tiebreak',
-                `Set ${i + 1} requires a tiebreak score. Please enter the tiebreak points.`
+                `Set ${playedSets[i].setNumber} requires a tiebreak score. Please enter the tiebreak points.`
               );
               return;
             }
           }
         }
-      } else if (isPickleball) {
-        // For Pickleball: If close game (14+ each), require final scores in tiebreak boxes
-        for (let i = 0; i < playedSets.length; i++) {
-          if (needsTiebreak(i)) {
-            const set = setScores[i];
-            if (!set.team1Tiebreak && !set.team2Tiebreak) {
+        // Validate set 3 in match-tiebreak mode (score >= 8 → first to 10, win by 2)
+        const set3 = setScores[2];
+        if (!isSetDisabled(2) && (set3.team1Games > 0 || set3.team2Games > 0)) {
+          if (set3.team1Games >= 8 || set3.team2Games >= 8) {
+            const winner = Math.max(set3.team1Games, set3.team2Games);
+            const loser = Math.min(set3.team1Games, set3.team2Games);
+            if (winner < 10 || winner - loser < 2) {
               Alert.alert(
-                'Missing Final Score',
-                `Game ${i + 1} is a close game. Please enter the final winning scores.`
-              );
-              return;
-            }
-            // Validate win by 2
-            const tb1 = set.team1Tiebreak || 0;
-            const tb2 = set.team2Tiebreak || 0;
-            const winner = Math.max(tb1, tb2);
-            const loser = Math.min(tb1, tb2);
-            if (winner < 15) {
-              Alert.alert(
-                'Invalid Score',
-                `Game ${i + 1}: Winner must have at least 15 points.`
-              );
-              return;
-            }
-            if (winner - loser < 2) {
-              Alert.alert(
-                'Invalid Score',
-                `Game ${i + 1}: Must win by 2 points. Current: ${tb1}-${tb2}`
+                'Invalid Set 3 Score',
+                'Match tiebreak: first to 10 points, win by 2 (e.g. 10-8, 11-9).'
               );
               return;
             }
           }
         }
       }
+      // Pickleball: no tiebreak validation needed — scores go straight in main boxes
     }
 
     try {
@@ -704,19 +687,12 @@ export const MatchResultSheet: React.FC<MatchResultSheetProps> = ({
 
       // Format data based on sport type
       if (isPickleball) {
-        // Pickleball uses gameScores with gameNumber, team1Points, team2Points
-        // For close games (14-14 or higher), use tiebreak scores as final scores
-        submitData.gameScores = playedSets.map((set) => {
-          // If tiebreak scores exist (close game), use them as final scores
-          const hasTiebreak = set.team1Tiebreak !== undefined && set.team2Tiebreak !== undefined &&
-                              (set.team1Tiebreak > 0 || set.team2Tiebreak > 0);
-
-          return {
-            gameNumber: set.setNumber,
-            team1Points: hasTiebreak ? set.team1Tiebreak! : set.team1Games,
-            team2Points: hasTiebreak ? set.team2Tiebreak! : set.team2Games
-          };
-        });
+        // Pickleball: no tiebreak sub-scores — all points go directly in the main score boxes
+        submitData.gameScores = playedSets.map((set) => ({
+          gameNumber: set.setNumber,
+          team1Points: set.team1Games,
+          team2Points: set.team2Games,
+        }));
       } else {
         // Tennis/Padel uses setScores with setNumber, team1Games, team2Games, tiebreaks
         submitData.setScores = playedSets;
@@ -1223,7 +1199,7 @@ export const MatchResultSheet: React.FC<MatchResultSheetProps> = ({
                             setDisabled && styles.friendlyScoreInputDisabled,
                           ]}
                           keyboardType="number-pad"
-                          maxLength={isTennisOrPadel ? 1 : 2}
+                          maxLength={isTennisOrPadel ? (setIdx === 2 ? 2 : 1) : 2}
                           value={setScores[setIdx].team1Games ? String(setScores[setIdx].team1Games) : ''}
                           onChangeText={(value) => updateScore(setIdx, 'A', 'games', value)}
                           editable={!setDisabled}
@@ -1403,7 +1379,7 @@ export const MatchResultSheet: React.FC<MatchResultSheetProps> = ({
                             setDisabled && styles.friendlyScoreInputDisabled,
                           ]}
                           keyboardType="number-pad"
-                          maxLength={isTennisOrPadel ? 1 : 2}
+                          maxLength={isTennisOrPadel ? (setIdx === 2 ? 2 : 1) : 2}
                           value={setScores[setIdx].team2Games ? String(setScores[setIdx].team2Games) : ''}
                           onChangeText={(value) => updateScore(setIdx, 'B', 'games', value)}
                           editable={!setDisabled}
@@ -1461,7 +1437,7 @@ export const MatchResultSheet: React.FC<MatchResultSheetProps> = ({
                               setDisabled && styles.scoreInputDisabled
                             ]}
                             keyboardType="number-pad"
-                            maxLength={isTennisOrPadel ? 1 : 2}
+                            maxLength={isTennisOrPadel ? (setIdx === 2 ? 2 : 1) : 2}
                             value={setScores[setIdx].team1Games ? String(setScores[setIdx].team1Games) : ''}
                             onChangeText={(value) => updateScore(setIdx, 'A', 'games', value)}
                             editable={!setDisabled}
@@ -1501,7 +1477,7 @@ export const MatchResultSheet: React.FC<MatchResultSheetProps> = ({
                               setDisabled && styles.scoreInputDisabled
                             ]}
                             keyboardType="number-pad"
-                            maxLength={isTennisOrPadel ? 1 : 2}
+                            maxLength={isTennisOrPadel ? (setIdx === 2 ? 2 : 1) : 2}
                             value={setScores[setIdx].team2Games ? String(setScores[setIdx].team2Games) : ''}
                             onChangeText={(value) => updateScore(setIdx, 'B', 'games', value)}
                             editable={!setDisabled}
@@ -1825,7 +1801,7 @@ export const MatchResultSheet: React.FC<MatchResultSheetProps> = ({
                       (!isCaptain || mode !== 'submit' || setDisabled) && styles.scoreInputDisabled
                     ]}
                     keyboardType="number-pad"
-                    maxLength={isTennisOrPadel ? 1 : 2}
+                    maxLength={isTennisOrPadel ? (setIdx === 2 ? 2 : 1) : 2}
                     value={setScores[setIdx].team1Games ? String(setScores[setIdx].team1Games) : ''}
                     onChangeText={(value) => updateScore(setIdx, 'A', 'games', value)}
                     editable={isCaptain && mode === 'submit' && !setDisabled}
@@ -1920,7 +1896,7 @@ export const MatchResultSheet: React.FC<MatchResultSheetProps> = ({
                       (!isCaptain || mode !== 'submit' || setDisabled) && styles.scoreInputDisabled
                     ]}
                     keyboardType="number-pad"
-                    maxLength={isTennisOrPadel ? 1 : 2}
+                    maxLength={isTennisOrPadel ? (setIdx === 2 ? 2 : 1) : 2}
                     value={setScores[setIdx].team2Games ? String(setScores[setIdx].team2Games) : ''}
                     onChangeText={(value) => updateScore(setIdx, 'B', 'games', value)}
                     editable={isCaptain && mode === 'submit' && !setDisabled}

@@ -7,8 +7,9 @@ import { useSession } from '@/lib/auth-client';
 import axiosInstance from '@/lib/endpoints';
 import { Ionicons } from '@expo/vector-icons';
 import { format } from 'date-fns';
-import { router, useLocalSearchParams } from 'expo-router';
-import React, { useEffect, useRef, useState } from 'react';
+import { router, useLocalSearchParams, useFocusEffect } from 'expo-router';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
+import { useCreateMatchStore } from '@/features/chat/stores/CreateMatchStore';
 import {
   ActivityIndicator,
   Animated,
@@ -63,6 +64,73 @@ export default function AllMatchesScreen() {
   const paramSeasonEndDate = params.seasonEndDate as string | undefined;
 
   const sportColors = getSportColors(sportType);
+
+  const { pendingMatchData, clearPendingMatch } = useCreateMatchStore();
+
+  // Skip first focus (handled by useEffect), re-fetch + handle pending match on re-focus
+  const isFirstFocusRef = useRef(true);
+  useFocusEffect(
+    useCallback(() => {
+      if (!divisionId) return;
+      if (isFirstFocusRef.current) {
+        isFirstFocusRef.current = false;
+        return;
+      }
+      const run = async () => {
+        if (pendingMatchData) {
+          clearPendingMatch();
+          try {
+            const startTime = pendingMatchData.time.includes(' - ')
+              ? pendingMatchData.time.split(' - ')[0].trim()
+              : pendingMatchData.time.trim();
+            const [timePart, period] = startTime.split(' ');
+            let [hours, minutes] = timePart.split(':');
+            if (hours === '12') {
+              hours = period?.toUpperCase() === 'AM' ? '00' : '12';
+            } else {
+              hours = period?.toUpperCase() === 'PM'
+                ? String(parseInt(hours, 10) + 12)
+                : hours.padStart(2, '0');
+            }
+            const dateTimeString = `${pendingMatchData.date}T${hours}:${minutes}:00`;
+            const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+            await axiosInstance.post('/api/match/create', {
+              divisionId,
+              matchType: pendingMatchData.numberOfPlayers === 4 ? 'DOUBLES' : 'SINGLES',
+              format: 'STANDARD',
+              matchDate: dateTimeString,
+              deviceTimezone: timezone,
+              location: pendingMatchData.location || 'TBD',
+              notes: pendingMatchData.description,
+              duration: pendingMatchData.duration || 2,
+              courtBooked: pendingMatchData.courtBooked || false,
+              fee: pendingMatchData.fee || 'FREE',
+              feeAmount: pendingMatchData.fee !== 'FREE'
+                ? parseFloat(pendingMatchData.feeAmount || '0')
+                : undefined,
+            });
+          } catch (err) {
+            console.error('❌ Error creating match from FAB:', err);
+          }
+        }
+        fetchMatches();
+      };
+      run();
+    }, [pendingMatchData, divisionId, clearPendingMatch])
+  );
+
+  const handleCreateMatchFAB = () => {
+    router.push({
+      pathname: '/match/create-match',
+      params: {
+        leagueName,
+        season: seasonName,
+        division: gameType || genderCategory || 'Division',
+        sportType: sportType || 'PICKLEBALL',
+        divisionId: divisionId || '',
+      },
+    });
+  };
 
   // Get sport-specific icon
   const getSportIcon = () => {
@@ -512,6 +580,15 @@ export default function AllMatchesScreen() {
         sportColors={sportColors}
       />
 
+      {/* Create Match FAB */}
+      <TouchableOpacity
+        style={[styles.fab, { backgroundColor: sportColors.buttonColor }]}
+        onPress={handleCreateMatchFAB}
+        activeOpacity={0.8}
+      >
+        <SportIcon width={28} height={28} fill="#FFFFFF" />
+      </TouchableOpacity>
+
       {/* Sort Modal */}
       <Modal
         visible={showSortModal}
@@ -753,5 +830,20 @@ const styles = StyleSheet.create({
   sortOptionTextActive: {
     color: '#FEA04D',
     fontWeight: '600',
+  },
+  fab: {
+    position: 'absolute',
+    bottom: 32,
+    right: 20,
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 8,
   },
 });

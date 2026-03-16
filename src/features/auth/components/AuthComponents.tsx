@@ -133,12 +133,15 @@ interface InputFieldProps {
     | "username"
     | "password"
     | "newPassword";
+  autoCapitalize?: "none" | "sentences" | "words" | "characters";
+  returnKeyType?: "done" | "go" | "next" | "search" | "send" | "default";
+  onSubmitEditing?: () => void;
   // Validation props
   validationStatus?: "idle" | "checking" | "available" | "taken";
   validationError?: string;
 }
 
-export const InputField: React.FC<InputFieldProps> = ({
+export const InputField = React.forwardRef<TextInput, InputFieldProps>(({
   label,
   placeholder,
   value,
@@ -154,9 +157,12 @@ export const InputField: React.FC<InputFieldProps> = ({
   maxLength,
   autoComplete,
   textContentType,
+  autoCapitalize,
+  returnKeyType,
+  onSubmitEditing,
   validationStatus = "idle",
   validationError,
-}) => {
+}, ref) => {
   const [isFocused, setIsFocused] = useState(false);
 
   const getIcon = () => {
@@ -231,6 +237,7 @@ export const InputField: React.FC<InputFieldProps> = ({
       >
         {icon && <View style={AuthStyles.inputIcon}>{getIcon()}</View>}
         <TextInput
+          ref={ref}
           style={AuthStyles.inputText}
           placeholder={placeholder}
           placeholderTextColor={AuthColors.gray[300]}
@@ -243,6 +250,9 @@ export const InputField: React.FC<InputFieldProps> = ({
           maxLength={maxLength}
           autoComplete={autoComplete}
           textContentType={textContentType}
+          autoCapitalize={autoCapitalize}
+          returnKeyType={returnKeyType}
+          onSubmitEditing={onSubmitEditing}
           onFocus={() => {
             setIsFocused(true);
             triggerHaptic();
@@ -251,9 +261,10 @@ export const InputField: React.FC<InputFieldProps> = ({
             setIsFocused(false);
           }}
         />
-        {getValidationIcon() && (
-          <View style={{ marginRight: 8 }}>{getValidationIcon()}</View>
-        )}
+        {(() => {
+          const validationIcon = getValidationIcon();
+          return validationIcon ? <View style={{ marginRight: 8 }}>{validationIcon}</View> : null;
+        })()}
         {showEyeIcon && (
           <TouchableOpacity
             onPress={() => {
@@ -289,7 +300,7 @@ export const InputField: React.FC<InputFieldProps> = ({
       )}
     </View>
   );
-};
+});
 
 // Phone Input Field
 interface PhoneInputProps {
@@ -454,7 +465,13 @@ export const SocialButton: React.FC<SocialButtonProps> = ({
   const lastPressRef = useRef<number>(0);
 
   const getButtonStyle = () => {
-    return AuthStyles.googleButton;
+    switch (type) {
+      case 'apple':
+        return AuthStyles.appleButton;
+      case 'google':
+      default:
+        return AuthStyles.googleButton;
+    }
   };
 
   const getIcon = () => {
@@ -466,7 +483,7 @@ export const SocialButton: React.FC<SocialButtonProps> = ({
           <Ionicons
             name="logo-apple"
             size={moderateScale(20)}
-            color={AuthColors.black}
+            color={AuthColors.white}
           />
         );
     }

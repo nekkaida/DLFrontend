@@ -527,7 +527,7 @@ export default function EditProfileScreen() {
     email: 254,
     phoneNumber: 20,
     location: 100,
-    bio: 500,
+    bio: 250,
     profilePicture: 2000,
     dateOfBirth: 10,
   };
@@ -872,7 +872,7 @@ export default function EditProfileScreen() {
                       onFocus={() => setFocusedField('bio')}
                       onBlur={() => setFocusedField(null)}
                     />
-                    <Text style={styles.charCounter}>{formData.bio.length}/500</Text>
+                    <Text style={styles.charCounter}>{formData.bio.length}/250</Text>
                   </View>
                 </View>
               </View>

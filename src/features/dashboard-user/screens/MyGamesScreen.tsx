@@ -66,6 +66,11 @@ export default function MyGamesScreen({
   // Convert to uppercase for getSportColors (expects 'PICKLEBALL', 'TENNIS', 'PADEL')
   const sportType = sport.toUpperCase() as SportType;
   const sportColors = getSportColors(sportType);
+  // Sport-specific dark color for Invites pill (per Figma)
+  const invitesColor =
+    sportType === 'TENNIS' ? '#587A27' :
+    sportType === 'PADEL'  ? '#2E6698' :
+                             '#602E98'; // Pickleball / default
   const filterBottomSheetRef = useRef<FilterBottomSheetRef>(null);
 
   // Entry animation values
@@ -593,25 +598,45 @@ export default function MyGamesScreen({
               isActive={activeTab === "ALL"}
               activeColor="#000000"
               onPress={() => setActiveTab("ALL")}
+              noBorder
+              inactiveTextColor="#86868B"
+              inactiveBackgroundColor="rgba(255, 255, 255, 0.78)"
+              style={{ paddingVertical: 10, paddingHorizontal: 20 }}
+              textStyle={{ fontSize: 18, fontWeight: '700' }}
             />
             <AnimatedFilterChip
               label="League"
               isActive={activeTab === "LEAGUE"}
-              activeColor="#FFA500"
+              activeColor="#F5900A"
               onPress={() => setActiveTab("LEAGUE")}
+              noBorder
+              inactiveTextColor="#86868B"
+              inactiveBackgroundColor="rgba(255, 255, 255, 0.78)"
+              style={{ paddingVertical: 10, paddingHorizontal: 20 }}
+              textStyle={{ fontSize: 18, fontWeight: '700' }}
             />
             <AnimatedFilterChip
               label="Friendly"
               isActive={activeTab === "FRIENDLY"}
-              activeColor="#83CFF9"
+              activeColor="#4DABFE"
               onPress={() => setActiveTab("FRIENDLY")}
+              noBorder
+              inactiveTextColor="#86868B"
+              inactiveBackgroundColor="rgba(255, 255, 255, 0.78)"
+              style={{ paddingVertical: 10, paddingHorizontal: 20 }}
+              textStyle={{ fontSize: 18, fontWeight: '700' }}
             />
             <AnimatedFilterChip
               label="Invites"
               isActive={activeTab === "INVITES"}
-              activeColor="#A04DFE"
+              activeColor={invitesColor}
               onPress={() => setActiveTab("INVITES")}
               badge={totalPendingInvites}
+              noBorder
+              inactiveTextColor="#86868B"
+              inactiveBackgroundColor="rgba(255, 255, 255, 0.78)"
+              style={{ paddingVertical: 10, paddingHorizontal: 20 }}
+              textStyle={{ fontSize: 18, fontWeight: '700' }}
             />
           </View>
         </View>
@@ -624,14 +649,14 @@ export default function MyGamesScreen({
             <TouchableOpacity
               style={[
                 localStyles.tab,
-                upcomingPastTab === "UPCOMING" && localStyles.activeTab,
+                upcomingPastTab === "UPCOMING" && { borderBottomColor: sportColors.background },
               ]}
               onPress={() => setUpcomingPastTab("UPCOMING")}
             >
               <Text
                 style={[
                   localStyles.tabText,
-                  upcomingPastTab === "UPCOMING" && localStyles.activeTabText,
+                  upcomingPastTab === "UPCOMING" && { color: sportColors.background, fontWeight: '700' },
                 ]}
               >
                 Upcoming
@@ -640,14 +665,14 @@ export default function MyGamesScreen({
             <TouchableOpacity
               style={[
                 localStyles.tab,
-                upcomingPastTab === "PAST" && localStyles.activeTab,
+                upcomingPastTab === "PAST" && { borderBottomColor: sportColors.background },
               ]}
               onPress={() => setUpcomingPastTab("PAST")}
             >
               <Text
                 style={[
                   localStyles.tabText,
-                  upcomingPastTab === "PAST" && localStyles.activeTabText,
+                  upcomingPastTab === "PAST" && { color: sportColors.background, fontWeight: '700' },
                 ]}
               >
                 Past
@@ -821,29 +846,27 @@ const localStyles = StyleSheet.create({
     flexDirection: "row",
     backgroundColor: "transparent",
     paddingHorizontal: 16,
-    paddingVertical: 8,
     paddingTop: 16,
+    paddingBottom: 0,
     gap: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: "#E5E7EB",
   },
   tab: {
     flex: 1,
-    paddingVertical: 8,
+    paddingVertical: 10,
     alignItems: "center",
-    borderBottomWidth: 2,
+    borderBottomWidth: 3,
     borderBottomColor: "transparent",
   },
   activeTab: {
     borderBottomColor: "#4CAF50",
   },
   tabText: {
-    fontSize: 14,
+    fontSize: 16,
     fontWeight: "500",
     color: "#9CA3AF",
   },
   activeTabText: {
-    fontWeight: "600",
+    fontWeight: "700",
     color: "#1A1C1E",
   },
 });

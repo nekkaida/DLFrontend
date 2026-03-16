@@ -158,79 +158,70 @@ export const MatchInfoModal: React.FC<MatchInfoModalProps> = memo(({
         {/* Players */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Players</Text>
-          <View style={styles.playersContainer}>
-            {/* Creator (first player) */}
-            <View style={styles.playerItem}>
-              {creatorImage ? (
-                <Image source={{ uri: creatorImage }} style={styles.playerAvatar} />
-              ) : (
-                <View style={styles.playerAvatarPlaceholder}>
-                  <Text style={styles.playerAvatarText}>
-                    {creatorName?.charAt(0).toUpperCase() || '?'}
-                  </Text>
-                </View>
-              )}
-              <Text style={styles.playerName} numberOfLines={1}>
-                {creatorName || 'Unknown'}
-              </Text>
-            </View>
-            {/* Other participants (excluding creator by userId to avoid duplicates) */}
-            {matchData.participants
-              ?.filter(p => {
-                // Filter out declined participants
-                if (p.invitationStatus && p.invitationStatus !== 'ACCEPTED' && p.invitationStatus !== 'PENDING') {
-                  return false;
-                }
-                // Filter out the creator (they're already shown above)
-                const participantUserId = p.user?.id || p.userId || p.id;
-                if (creatorId && participantUserId === creatorId) {
-                  return false;
-                }
-                return true;
-              })
-              .map((participant, index) => {
-                // Handle both API format (has user object) and chat format (just userId)
-                const userName = participant.user?.name || (isLoading ? 'Loading...' : 'Player');
-                const userImage = participant.user?.image;
-                const userInitial = userName.charAt(0).toUpperCase();
-
-                return (
-                  <View key={participant.user?.id || participant.userId || index} style={styles.playerItem}>
-                    {userImage ? (
-                      <Image source={{ uri: userImage }} style={styles.playerAvatar} />
-                    ) : (
-                      <View style={styles.playerAvatarPlaceholder}>
-                        <Text style={styles.playerAvatarText}>
-                          {userInitial}
-                        </Text>
-                      </View>
-                    )}
-                    <Text style={styles.playerName} numberOfLines={1}>
-                      {userName}
-                    </Text>
+          {(() => {
+            const isDoubles = matchData.matchType === 'DOUBLES' || matchData.numberOfPlayers === '4';
+            const activeParticipants = matchData.participants?.filter(
+              p => !p.invitationStatus || p.invitationStatus === 'ACCEPTED' || p.invitationStatus === 'PENDING'
+            ) || [];
+            const otherParticipants = activeParticipants.filter(p => {
+              const pid = p.user?.id || p.userId || p.id;
+              return !(creatorId && pid === creatorId);
+            });
+            // All players in order: creator first, then others
+            const allPlayers: Array<{ key: string; name: string; image?: string }> = [
+              { key: 'creator', name: creatorName || 'Unknown', image: creatorImage ?? undefined },
+              ...otherParticipants.map((p, i) => ({
+                key: p.user?.id || p.userId || p.id || String(i),
+                name: p.user?.name || (isLoading ? 'Loading...' : 'Player'),
+                image: p.user?.image,
+              })),
+            ];
+            const maxSlots = isDoubles ? 4 : 2;
+            const renderPlayer = (name: string, image: string | undefined, key: string) => (
+              <View key={key} style={styles.playerItem}>
+                {image ? (
+                  <Image source={{ uri: image }} style={styles.playerAvatar} />
+                ) : (
+                  <View style={styles.playerAvatarPlaceholder}>
+                    <Text style={styles.playerAvatarText}>{name.charAt(0).toUpperCase() || '?'}</Text>
                   </View>
-                );
-              })}
-            {/* Empty slots */}
-            {(() => {
-              // Count active participants (including creator who is shown separately)
-              const activeParticipants = matchData.participants?.filter(
-                p => !p.invitationStatus || p.invitationStatus === 'ACCEPTED' || p.invitationStatus === 'PENDING'
-              ) || [];
-              // Use at least 1 for creator if no participants
-              const filledSlots = Math.max(activeParticipants.length, 1);
-              const maxSlots = matchData.matchType === 'DOUBLES' || matchData.numberOfPlayers === '4' ? 4 : 2;
-              const emptySlots = Math.max(0, maxSlots - filledSlots);
-              return Array.from({ length: emptySlots }).map((_, idx) => (
-                <View key={`empty-${idx}`} style={styles.playerItem}>
-                  <View style={styles.emptyPlayerSlot}>
-                    <Ionicons name="person-outline" size={20} color="#9CA3AF" />
-                  </View>
-                  <Text style={styles.emptySlotText}>Open slot</Text>
+                )}
+                <Text style={styles.playerName} numberOfLines={1}>{name}</Text>
+              </View>
+            );
+            const renderEmpty = (key: string) => (
+              <View key={key} style={styles.playerItem}>
+                <View style={styles.emptyPlayerSlot}>
+                  <Ionicons name="person-outline" size={20} color="#9CA3AF" />
                 </View>
-              ));
-            })()}
-          </View>
+                <Text style={styles.emptySlotText}>Open slot</Text>
+              </View>
+            );
+            if (isDoubles) {
+              const team1 = allPlayers.slice(0, 2);
+              const team2 = allPlayers.slice(2, 4);
+              return (
+                <View style={styles.teamsContainer}>
+                  <View style={styles.teamGroup}>
+                    {team1.map(p => renderPlayer(p.name, p.image, p.key))}
+                    {Array.from({ length: Math.max(0, 2 - team1.length) }).map((_, i) => renderEmpty(`t1-${i}`))}
+                  </View>
+                  <View style={styles.teamDivider} />
+                  <View style={styles.teamGroup}>
+                    {team2.map(p => renderPlayer(p.name, p.image, p.key))}
+                    {Array.from({ length: Math.max(0, 2 - team2.length) }).map((_, i) => renderEmpty(`t2-${i}`))}
+                  </View>
+                </View>
+              );
+            }
+            const emptySlots = Math.max(0, maxSlots - allPlayers.length);
+            return (
+              <View style={styles.playersContainer}>
+                {allPlayers.map(p => renderPlayer(p.name, p.image, p.key))}
+                {Array.from({ length: emptySlots }).map((_, i) => renderEmpty(`empty-${i}`))}
+              </View>
+            );
+          })()}
         </View>
 
         {/* Date & Time */}
@@ -393,6 +384,20 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     letterSpacing: 0.5,
     marginBottom: 8,
+  },
+  teamsContainer: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+  },
+  teamGroup: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  teamDivider: {
+    width: 1,
+    alignSelf: 'stretch',
+    backgroundColor: '#E2E2E2',
+    marginHorizontal: 8,
   },
   playersContainer: {
     flexDirection: 'row',

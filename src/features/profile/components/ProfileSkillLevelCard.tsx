@@ -1,5 +1,6 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { theme } from '@core/theme/theme';
 
 // Map backend skill level enum values to display labels
@@ -16,12 +17,14 @@ interface ProfileSkillLevelCardProps {
   skillLevel: string;
   selfAssessedSkillLevels?: Record<string, string>;
   activeSport?: string;
+  onEdit?: () => void;
 }
 
 export const ProfileSkillLevelCard: React.FC<ProfileSkillLevelCardProps> = ({
   skillLevel,
   selfAssessedSkillLevels,
   activeSport,
+  onEdit,
 }) => {
   // Get the self-assessed skill level for the active sport
   const getSportSkillLevel = (): string => {
@@ -42,8 +45,20 @@ export const ProfileSkillLevelCard: React.FC<ProfileSkillLevelCardProps> = ({
   return (
     <View style={styles.skillLevelSection}>
       <View style={styles.skillContainer}>
-        <Text style={styles.skillLabel}>Skill Level</Text>
-        <Text style={styles.skillValue}>{displaySkillLevel}</Text>
+        <Text style={styles.skillLabel}>Self Rating</Text>
+        <View style={styles.skillValueRow}>
+          <Text style={styles.skillValue}>{displaySkillLevel}</Text>
+          {onEdit && (
+            <TouchableOpacity
+              onPress={onEdit}
+              hitSlop={8}
+              style={styles.editButton}
+              accessibilityLabel="Edit skill level"
+            >
+              <Ionicons name="create-outline" size={18} color={theme.colors.neutral.gray[800]} />
+            </TouchableOpacity>
+          )}
+        </View>
       </View>
     </View>
   );
@@ -53,6 +68,7 @@ const styles = StyleSheet.create({
   skillLevelSection: {
     marginTop: theme.spacing.lg,
     marginBottom: theme.spacing.sm,
+    
   },
   skillContainer: {
     backgroundColor: '#ffffff',
@@ -61,14 +77,9 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#f1f5f9',
     flexDirection: 'row',
-    justifyContent: 'center',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    gap: theme.spacing.xl * 3,
-    shadowColor: theme.colors.neutral.black,
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.03,
-    shadowRadius: 4,
-    elevation: 1,
+    boxShadow: '0px 12px 24px rgba(0, 0, 0, 0.12)',
   },
   skillLabel: {
     fontSize: 16,
@@ -76,10 +87,18 @@ const styles = StyleSheet.create({
     color: theme.colors.neutral.gray[700],
     fontFamily: theme.typography.fontFamily.primary,
   },
+  skillValueRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
   skillValue: {
-    fontSize: 16,
-    fontWeight: '500' as any,
+    fontSize: 18,
+    fontWeight: '700' as any,
     color: theme.colors.neutral.gray[700],
     fontFamily: theme.typography.fontFamily.primary,
+  },
+  editButton: {
+    padding: 2,
   },
 });

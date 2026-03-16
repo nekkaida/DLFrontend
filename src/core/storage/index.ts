@@ -171,33 +171,6 @@ export const OnboardingStorage = {
 };
 
 /**
- * Landing page storage methods
- * @deprecated Use AuthStorage instead
- */
-export const LandingStorage = {
-  /**
-   * @deprecated Use AuthStorage.hasEverLoggedIn() instead
-   */
-  async hasSeenLanding(): Promise<boolean> {
-    return storageService.exists(STORAGE_KEYS.HAS_SEEN_LANDING);
-  },
-
-  /**
-   * @deprecated Use AuthStorage.markLoggedIn() instead
-   */
-  async markLandingSeen(): Promise<void> {
-    return storageService.save(STORAGE_KEYS.HAS_SEEN_LANDING, true);
-  },
-
-  /**
-   * @deprecated No longer needed - hasEverLoggedIn persists forever
-   */
-  async clearLandingSeen(): Promise<void> {
-    return storageService.remove(STORAGE_KEYS.HAS_SEEN_LANDING);
-  },
-};
-
-/**
  * Auth-related storage methods
  * Tracks whether user has ever logged in (persists across logout)
  */

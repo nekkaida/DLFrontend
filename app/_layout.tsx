@@ -17,6 +17,9 @@ import 'react-native-reanimated';
 import { Toaster } from 'sonner-native';
 import { usePushNotifications } from '@/src/hooks/usePushNotifications';
 import { configureGoogleSignIn } from '@/lib/google-signin';
+import { ErrorBoundary } from '@shared/components/layout';
+import { reportRenderError, reportJSError } from '@/src/services/crashReporter';
+import { ErrorUtils } from 'react-native';
 
 // Configure Google Sign-In at app startup
 configureGoogleSignIn();
@@ -87,6 +90,17 @@ export default function RootLayout() {
     };
   }, [session?.user?.id]);
 
+  // Set up global JS error handler for crash reporting
+  useEffect(() => {
+    if (!__DEV__) {
+      const defaultHandler = ErrorUtils.getGlobalHandler();
+      ErrorUtils.setGlobalHandler((error: Error, isFatal?: boolean) => {
+        reportJSError(error, isFatal ?? false);
+        defaultHandler(error, isFatal);
+      });
+    }
+  }, []);
+
   if (!loaded) {
     // Async font loading only occurs in development.
     return null;
@@ -98,6 +112,7 @@ export default function RootLayout() {
         <KeyboardProvider>
         <BottomSheetModalProvider>
           <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+            <ErrorBoundary onError={reportRenderError}>
             <NavigationInterceptor>
             <Stack
             screenOptions={{
@@ -210,6 +225,7 @@ export default function RootLayout() {
         />
         </Stack>
             </NavigationInterceptor>
+            </ErrorBoundary>
             <StatusBar style="auto" />
             <Toaster />
           </ThemeProvider>
