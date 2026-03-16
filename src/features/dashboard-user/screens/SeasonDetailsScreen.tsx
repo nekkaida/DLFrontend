@@ -1,4 +1,5 @@
 import BackButtonIcon from '@/assets/icons/back-button.svg';
+import { Ionicons } from '@expo/vector-icons';
 import { ManageTeamButton } from '@/features/pairing/components';
 import { useSession } from '@/lib/auth-client';
 import axiosInstance from '@/lib/endpoints';
@@ -38,8 +39,8 @@ const isTablet = width > 768;
 
 // Module-level constants so Reanimated worklets capture stable values
 // (avoids jitter caused by recaptured closures on every render)
-const HEADER_MAX_HEIGHT = isSmallScreen ? 210 : isTablet ? 240 : 220;
-const HEADER_MIN_HEIGHT = 80;
+const HEADER_MAX_HEIGHT = isSmallScreen ? 190 : isTablet ? 230 : 210;
+const HEADER_MIN_HEIGHT = 62;
 const HEADER_SCROLL_DISTANCE = HEADER_MAX_HEIGHT - HEADER_MIN_HEIGHT;
 const COLLAPSE_START_THRESHOLD = 40;
 const COLLAPSE_END_THRESHOLD = COLLAPSE_START_THRESHOLD + HEADER_SCROLL_DISTANCE;
@@ -346,6 +347,40 @@ export default function SeasonDetailsScreen({
     if (!date) return undefined;
     if (typeof date === 'string') return date;
     return Number.isNaN(date.getTime()) ? undefined : date.toISOString();
+  };
+
+  const handleJoinMatchPress = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+
+    if (!season) {
+      toast.info('Season data not available');
+      return;
+    }
+
+    const membership = season.memberships?.find((m: any) => m.userId === userId);
+    const divisionId = membership?.divisionId;
+
+    if (!divisionId) {
+      toast.info('You are not yet assigned to a division.');
+      return;
+    }
+
+    const categories = getNormalizedCategories(season);
+    const category = categories?.[0];
+
+    router.push({
+      pathname: '/match/all-matches' as any,
+      params: {
+        divisionId,
+        sportType: selectedSport?.toUpperCase() || sport?.toUpperCase() || 'PICKLEBALL',
+        leagueName: league?.name || '',
+        seasonName: season.name || seasonName,
+        gameType: category?.gameType || '',
+        genderCategory: category?.genderCategory || '',
+        seasonStartDate: dateToParamString(season.startDate),
+        seasonEndDate: dateToParamString(season.endDate),
+      },
+    });
   };
 
   const handleViewStandingsPress = () => {
@@ -664,9 +699,9 @@ export default function SeasonDetailsScreen({
       }
       
       return {
-        text: 'View Leaderboard',
+        text: 'Join a Match',
         color: '#FEA04D',
-        onPress: handleViewStandingsPress,
+        onPress: handleJoinMatchPress,
         disabled: false
       };
     }
@@ -926,6 +961,8 @@ export default function SeasonDetailsScreen({
           </View>
         ) : (
           <>
+
+          {/* Banner Section */}
             <Animated.View
               style={[
                 styles.gradientHeaderContainer,
@@ -938,7 +975,7 @@ export default function SeasonDetailsScreen({
                 colors={getHeaderGradientColors(sport)}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 0 }}
-                style={[styles.seasonHeaderGradient, { flex: 1 }]}
+                style={[styles.seasonHeaderGradient, { flex: 1, paddingTop: isSmallScreen ? 10 : isTablet ? 16 : 12 }]}
               >
                 <View style={styles.seasonHeaderContent}>
                   <View style={styles.topRow}>
@@ -953,14 +990,6 @@ export default function SeasonDetailsScreen({
                         <BackButtonIcon width={12} height={19} />
                       </TouchableOpacity>
                     </View>
-                    <Animated.View
-                      style={[
-                        styles.leagueNameContainer,
-                        leagueNameAnimatedStyle,
-                      ]}
-                    >
-                      <Text style={styles.leagueName} numberOfLines={2}>{league?.name || 'League'}</Text>
-                    </Animated.View>
                     {/* Collapsed header content */}
                     <Animated.View
                       style={[
@@ -968,53 +997,43 @@ export default function SeasonDetailsScreen({
                         collapsedSeasonNameAnimatedStyle,
                       ]}
                     >
-                      <Text style={styles.collapsedSeasonName} numberOfLines={1}>
-                        {(() => {
-                          const categories = getNormalizedCategories(season);
-                          const categoryName = categories?.[0]?.name;
-                          return categoryName ? `${categoryName} | ` : '';
-                        })()}
-                        <Text style={styles.collapsedSeasonNameHighlight}>{season?.name || seasonName}</Text>
-                      </Text>
-                      <Animated.View
-                        style={[
-                          styles.collapsedPlayerCountContainer,
-                          collapsedPlayerCountAnimatedStyle,
-                        ]}
-                      >
-                        <View style={styles.statusCircle} />
-                        <Text style={styles.collapsedPlayerCount}>
-                          {`${season?._count?.memberships || season?.memberships?.length || 0} players`}
-                        </Text>
-                      </Animated.View>
-                    </Animated.View>
-                  </View>
-                  <Animated.View
-                    style={[
-                      styles.bannerContainer,
-                      bannerContainerAnimatedStyle,
-                    ]}
-                  >
-                    <View style={styles.pillsRow}>
-                      {/* Category pill chip — semi-transparent dark */}
-                      <View style={styles.categoryPillChip}>
-                        <Text style={styles.categoryPillText} numberOfLines={1}>
+                      <View style={styles.collapsedTitleRow}>
+                        <Text style={styles.collapsedCategoryName} numberOfLines={1}>
                           {(() => {
                             const categories = getNormalizedCategories(season);
                             return categories?.[0]?.name || '';
                           })()}
                         </Text>
-                      </View>
-                      {/* Season trophy pill — top-right */}
-                      <View style={styles.trophyPillChip}>
-                        <Text style={styles.trophyPillText}>
-                          {'\uD83C\uDFC6 '}{(season?.name || seasonName)?.replace(/season\s*/i, 'S')}
+                        <Text style={styles.collapsedSeasonLabel}>
+                          {season?.name || seasonName}
                         </Text>
                       </View>
-                    </View>
-                    <View style={styles.playerCountContainer}>
+                      <Text style={styles.collapsedLeagueSubtitle} numberOfLines={1}>
+                        {league?.name || ''}
+                      </Text>
+                    </Animated.View>
+                  </View>
+                  <Animated.View
+                    style={[
+                      styles.expandedBannerContainer,
+                      bannerContainerAnimatedStyle,
+                    ]}
+                  >
+                    <Text style={styles.expandedCategoryTitle} numberOfLines={2}>
+                      {(() => {
+                        const categories = getNormalizedCategories(season);
+                        return categories?.[0]?.name || '';
+                      })()}
+                    </Text>
+                    <Text style={styles.expandedLeagueName} numberOfLines={1}>
+                      {league?.name || ''}
+                    </Text>
+                    <View style={styles.expandedSeasonPlayerRow}>
+                      <Text style={styles.expandedSeasonLabel}>
+                        {season?.name || seasonName}
+                      </Text>
                       <View style={styles.statusCircle} />
-                      <Text style={styles.playerCount}>
+                      <Text style={styles.expandedPlayerCount}>
                         {`${season?._count?.memberships || season?.memberships?.length || 0} players`}
                       </Text>
                     </View>
@@ -1046,9 +1065,11 @@ export default function SeasonDetailsScreen({
                               />
                             ) : (
                               <View style={styles.defaultMemberProfileImage}>
-                                <Text style={styles.defaultMemberProfileText}>
-                                  {membership.user?.name?.charAt(0)?.toUpperCase() || 'U'}
-                                </Text>
+                                <Ionicons
+                                  name="person"
+                                  size={20}
+                                  color={getHeaderGradientColors(sport)[0]}
+                                />
                               </View>
                             )}
                           </View>
@@ -1085,41 +1106,73 @@ export default function SeasonDetailsScreen({
               >
                 <View style={styles.seasonInfoContent}>
                   <View style={styles.seasonInfoTextContainer}>
-                    <Text style={styles.seasonInfoTitle}>Season Details</Text>
-                    <View style={styles.detailRow}>
-                      <Text style={styles.detailLabel}>Players Registered: </Text>
-                      <Text style={styles.detailValue}>{season?._count?.memberships || season?.memberships?.length || 0}</Text>
+                    {/* Season name as card title */}
+                    <Text style={styles.seasonCardTitle}>{season?.name || seasonName}</Text>
+
+                    {/* Registration status badge */}
+                    {(() => {
+                      const now = new Date();
+                      let label = 'Registration Open';
+                      let dotColor = '#22C55E';
+                      let bgColor = '#F0FDF4';
+                      let textColor = '#16A34A';
+                      let borderColor = '#BBF7D0';
+
+                      if (season?.startDate && new Date(season.startDate) <= now) {
+                        label = 'In Progress';
+                        dotColor = '#3B82F6';
+                        bgColor = '#EFF6FF';
+                        textColor = '#3B82F6';
+                        borderColor = '#BFDBFE';
+                      } else if (season?.regiDeadline && new Date(season.regiDeadline) < now) {
+                        label = 'Registration Closed';
+                        dotColor = '#EF4444';
+                        bgColor = '#FEF2F2';
+                        textColor = '#EF4444';
+                        borderColor = '#FECACA';
+                      } else if (season?.regiDeadline && new Date(season.regiDeadline) <= new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000)) {
+                        label = 'Closing Soon';
+                        dotColor = '#F59E0B';
+                        bgColor = '#FFFBEB';
+                        textColor = '#D97706';
+                        borderColor = '#FDE68A';
+                      }
+
+                      return (
+                        <View style={[styles.statusBadge, { backgroundColor: bgColor, borderColor, alignSelf: 'flex-start', marginBottom: 10 }]}>
+                          <View style={[styles.statusBadgeDot, { backgroundColor: dotColor }]} />
+                          <Text style={[styles.statusBadgeText, { color: textColor }]}>{label}</Text>
+                        </View>
+                      );
+                    })()}
+
+                    {/* Players joined */}
+                    <Text style={styles.playersJoinedText}>
+                      {season?._count?.memberships || season?.memberships?.length || 0} players joined
+                    </Text>
+
+                    {/* Stacked detail rows */}
+                    <View style={styles.stackedDetailRow}>
+                      <Text style={styles.detailLabel}>Entry fee</Text>
+                      <Text style={styles.detailValue}>
+                        {season?.paymentRequired && formattedEntryFee ? `RM${formattedEntryFee}` : 'Free'}
+                      </Text>
                     </View>
 
-                    {season?.startDate && (
-                      <View style={styles.detailRow}>
-                        <Text style={styles.detailLabel}>Start date: </Text>
-                        <Text style={styles.detailValue}>{formatSeasonDate(season.startDate)}</Text>
-                      </View>
-                    )}
+                    <View style={styles.stackedDetailRow}>
+                      <Text style={styles.detailLabel}>Registration closes</Text>
+                      <Text style={styles.detailValue}>{season?.regiDeadline ? formatSeasonDate(season.regiDeadline) : '???'}</Text>
+                    </View>
 
-                    {season?.endDate && (
-                      <View style={styles.detailRow}>
-                        <Text style={styles.detailLabel}>End date: </Text>
-                        <Text style={styles.detailValue}>{formatSeasonDate(season.endDate)}</Text>
-                      </View>
-                    )}
+                    <View style={styles.stackedDetailRow}>
+                      <Text style={styles.detailLabel}>Start</Text>
+                      <Text style={styles.detailValue}>{season?.startDate ? formatSeasonDate(season.startDate) : '???'}</Text>
+                    </View>
 
-                    {season?.regiDeadline && (
-                      <View style={styles.detailRow}>
-                        <Text style={styles.detailLabel}>Last registration: </Text>
-                        <Text style={styles.detailValue}>{formatSeasonDate(season.regiDeadline)}</Text>
-                      </View>
-                    )}
-
-                    {season?.paymentRequired && formattedEntryFee && (
-                      <View style={styles.detailRow}>
-                        <Text style={styles.detailLabel}>Entry fee: </Text>
-                        <Text style={styles.detailValue}>
-                          RM{formattedEntryFee}
-                        </Text>
-                      </View>
-                    )}
+                    <View style={[styles.stackedDetailRow, { marginBottom: 0 }]}>
+                      <Text style={styles.detailLabel}>End</Text>
+                      <Text style={styles.detailValue}>{season?.endDate ? formatSeasonDate(season.endDate) : '???'}</Text>
+                    </View>
                   </View>
                 </View>
               </Animated.View>
@@ -1133,7 +1186,7 @@ export default function SeasonDetailsScreen({
                 <View style={styles.howItWorksContent}>
                   <Text style={styles.howItWorksTitle}>How <Text style={styles.howItWorksTitleItalic}>DEUCE</Text> League Works?</Text>
                   <Text style={styles.howItWorksDescription}>
-                    Friendly yet competitive, our Flex League gives every player real match play – on your schedule, at your pace.
+                    DEUCE runs on a Flex League format — you play on your schedule, at your pace. Friendly competition, but every match counts.
                   </Text>
                   <Text style={[styles.howItWorksSubheadingGradient, { color: getSubheadingTextColor(selectedSport) }]}>
                     Here's how it goes:
@@ -1142,9 +1195,8 @@ export default function SeasonDetailsScreen({
                   <View style={styles.infoItem}>
                     <InfoIcon1 width={43} height={43} />
                     <View style={styles.infoItemTextContainer}>
-                      <Text style={styles.infoItemTitle}>You're in Control</Text>
-                      <Text style={styles.infoItemDescription}>Players are responsible for scheduling their own matches and booking courts.
-                        Coordinate with opponents easily through in-app chat.</Text>
+                      <Text style={styles.infoItemTitle}>Flexible Scheduling</Text>
+                      <Text style={styles.infoItemDescription}>Arrange matches and book courts at a time and place that suits both players. Coordinate with your opponent through in-app chat.</Text>
                     </View>
                   </View>
 
@@ -1152,7 +1204,7 @@ export default function SeasonDetailsScreen({
                     <InfoIcon2 width={43} height={43} />
                     <View style={styles.infoItemTextContainer}>
                       <Text style={styles.infoItemTitle}>Court Fees</Text>
-                      <Text style={styles.infoItemDescription}>Court rental fees aren't included in registration – just split the cost for each match with your opponent.</Text>
+                      <Text style={styles.infoItemDescription}>Court rental is not included in your Season Entry Fee. Split the cost with your opponent each time you play.</Text>
                     </View>
                   </View>
 
@@ -1160,7 +1212,7 @@ export default function SeasonDetailsScreen({
                     <InfoIcon3 width={43} height={43} />
                     <View style={styles.infoItemTextContainer}>
                       <Text style={styles.infoItemTitle}>Fair Play</Text>
-                      <Text style={styles.infoItemDescription}>All matches are self-umpired. We count on you to keep things respectful, fair, and fun for everyone.</Text>
+                      <Text style={styles.infoItemDescription}>Matches are self-umpired. Keep it respectful, fair and fun — that's what the league runs on.</Text>
                     </View>
                   </View>
 
@@ -1168,7 +1220,7 @@ export default function SeasonDetailsScreen({
                     <InfoIcon4 width={43} height={43} />
                     <View style={styles.infoItemTextContainer}>
                       <Text style={styles.infoItemTitle}>League Goal</Text>
-                      <Text style={styles.infoItemDescription}>The season lasts 8 weeks – aim to play at least 7 matches to stay in the race for the top spot.</Text>
+                      <Text style={styles.infoItemDescription}>The season runs for ~8 weeks. Play at least 6 matches to stay competitive for the top spot.</Text>
                     </View>
                   </View>
 
@@ -1176,7 +1228,7 @@ export default function SeasonDetailsScreen({
                     <InfoIcon5 width={43} height={43} />
                     <View style={styles.infoItemTextContainer}>
                       <Text style={styles.infoItemTitle}>Track Your Progress</Text>
-                      <Text style={styles.infoItemDescription}>Your <Text style={styles.infoItemDescriptionItalic}>DEUCE</Text> Match Rating (DMR) updates in real time as you report scores. A performance chart helps you track your DMR journey.</Text>
+                      <Text style={styles.infoItemDescription}>Your <Text style={styles.infoItemDescriptionItalic}>DEUCE</Text> Match Rating (DMR) updates live as you submit scores. Watch your progress on your performance chart.</Text>
                     </View>
                   </View>
 
@@ -1184,14 +1236,12 @@ export default function SeasonDetailsScreen({
                     <InfoIcon6 width={43} height={43} />
                     <View style={styles.infoItemTextContainer}>
                       <Text style={styles.infoItemTitle}>Prizes for Winners</Text>
-                      <Text style={styles.infoItemDescription}>Bragging rights are great – but league champions also earn prizes.</Text>
+                      <Text style={styles.infoItemDescription}>Top of the leaderboard? League champions take home prizes, not just bragging rights.</Text>
                     </View>
                   </View>
 
-                  <View style={styles.infoItem}>
-                    <View style={styles.infoItemTextContainer}>
-                      <Text style={styles.endTitle}>Ready to hit the Court?</Text>
-                    </View>
+                  <View style={{ alignItems: 'center', marginTop: 4 }}>
+                    <Text style={styles.endTitle}>Ready to hit the court?</Text>
                   </View>
                 </View>
               </Animated.View>
@@ -1210,7 +1260,7 @@ export default function SeasonDetailsScreen({
             buttonEntryAnimatedStyle,
           ]}
         >
-          <View style={styles.stickyButtonRow}>
+          <View style={styles.stickyButtonColumn}>
             {/* Primary action button */}
             <TouchableOpacity
               style={[
@@ -1297,7 +1347,7 @@ const styles = StyleSheet.create({
     paddingBottom: 100,
   },
   scrollTopSpacer: {
-    height: HEADER_MAX_HEIGHT + 12,
+    height: HEADER_MAX_HEIGHT + 20,
   },
   gradientHeaderContainer: {
     width: '100%',
@@ -1355,7 +1405,8 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   seasonHeaderGradient: {
-    borderRadius: 0,
+    borderBottomLeftRadius: 20,
+    borderBottomRightRadius: 20,
     padding: 20,
     paddingTop: 24,
     paddingBottom: 16,
@@ -1381,112 +1432,60 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  leagueNameContainer: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingRight: 52, // Offset to balance the back button width + gap
-  },
   collapsedHeaderContent: {
     position: 'absolute',
     left: 52,
     right: 0,
-    alignItems: 'flex-start',
     top: 0,
-    bottom: 20,
+    bottom: 0,
     paddingLeft: 12,
-  },
-  collapsedSeasonName: {
-    fontSize: isSmallScreen ? 14 : 16,
-    fontWeight: '600',
-    color: '#FDFDFD',
-    textAlign: 'left',
-  },
-  collapsedSeasonNameHighlight: {
-    fontSize: isSmallScreen ? 14 : 16,
-    fontWeight: '600',
-    color: '#FEA04D',
-  },
-  collapsedPlayerCountContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'flex-start',
-  },
-  collapsedPlayerCount: {
-    fontSize: isSmallScreen ? 12 : 13,
-    color: '#FDFDFD',
-    fontWeight: '600',
-  },
-  bannerContainer: {
-    alignItems: 'center',
-    width: '100%',
-  },
-  nameBanner: {
-    backgroundColor: '#331850',
-    paddingVertical: 8,
-    paddingHorizontal: 20,
-    borderRadius: 0,
-    width: width,
-    marginHorizontal: -20,
-    marginBottom: 20,
-    alignItems: 'center',
-  },
-  pillsRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    width: '100%',
-    marginBottom: 14,
-    gap: 8,
-  },
-  categoryPillChip: {
-    backgroundColor: 'rgba(0, 0, 0, 0.30)',
-    borderRadius: 20,
-    paddingHorizontal: 14,
-    paddingVertical: 5,
-    maxWidth: '60%',
-  },
-  categoryPillText: {
-    color: '#FFFFFF',
-    fontSize: isSmallScreen ? 12 : 13,
-    fontWeight: '600',
-  },
-  trophyPillChip: {
-    backgroundColor: 'rgba(255, 255, 255, 0.20)',
-    borderRadius: 20,
-    paddingHorizontal: 12,
-    paddingVertical: 5,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.40)',
-  },
-  trophyPillText: {
-    color: '#FFFFFF',
-    fontSize: isSmallScreen ? 12 : 13,
-    fontWeight: '700',
-  },
-  leagueName: {
-    fontSize: isSmallScreen ? 18 : isTablet ? 22 : 20,
-    fontWeight: '700',
-    color: '#FDFDFD',
-    textAlign: 'center',
-  },
-  seasonName: {
-    fontSize: isSmallScreen ? 14 : isTablet ? 16 : 15,
-    fontWeight: '600',
-    color: '#FEA04D',
-    textAlign: 'center',
-  },
-  seasonNameHighlight: {
-    fontSize: isSmallScreen ? 14 : isTablet ? 16 : 15,
-    fontWeight: '600',
-    color: '#FEA04D',
-    textAlign: 'center',
-  },
-  playerCountContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
     justifyContent: 'center',
+  },
+  collapsedTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 2,
+  },
+  collapsedCategoryName: {
+    fontSize: isSmallScreen ? 14 : 16,
+    fontWeight: '700',
+    color: '#FDFDFD',
+    flex: 1,
+  },
+  collapsedSeasonLabel: {
+    fontSize: isSmallScreen ? 12 : 13,
+    color: '#FDFDFD',
+    fontWeight: '600',
+  },
+  collapsedLeagueSubtitle: {
+    fontSize: isSmallScreen ? 11 : 12,
+    color: 'rgba(255, 255, 255, 0.75)',
+  },
+  expandedBannerContainer: {
+    width: '100%',
+  },
+  expandedCategoryTitle: {
+    fontSize: isSmallScreen ? 20 : isTablet ? 26 : 22,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    marginBottom: 4,
+  },
+  expandedLeagueName: {
+    fontSize: isSmallScreen ? 13 : 14,
+    color: 'rgba(255, 255, 255, 0.85)',
+    marginBottom: 10,
+  },
+  expandedSeasonPlayerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
     marginBottom: 12,
+  },
+  expandedSeasonLabel: {
+    fontSize: isSmallScreen ? 13 : 14,
+    color: '#FFFFFF',
+    fontWeight: '600',
+    marginRight: 8,
   },
   statusCircle: {
     width: 8,
@@ -1495,16 +1494,15 @@ const styles = StyleSheet.create({
     backgroundColor: '#6EC531',
     marginRight: 8,
   },
-  playerCount: {
+  expandedPlayerCount: {
     fontSize: isSmallScreen ? 13 : 14,
-    color: '#FDFDFD',
+    color: '#FFFFFF',
     fontWeight: '600',
-    textAlign: 'center',
   },
   profilePicturesContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: 'flex-start',
     flexWrap: 'wrap',
     overflow: 'visible',
     paddingBottom: 8,
@@ -1533,8 +1531,8 @@ const styles = StyleSheet.create({
     height: 48,
     borderRadius: 24,
     backgroundColor: '#6de9a0',
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: 'flex-start',
+    alignItems: 'flex-start',
   },
   defaultHeaderAvatarText: {
     color: '#FFFFFF',
@@ -1547,14 +1545,6 @@ const styles = StyleSheet.create({
     height: 36,
     borderRadius: 18,
     overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.25,
-    shadowRadius: 3,
-    elevation: 4,
   },
   memberProfilePictureOverlap: {
     marginLeft: -10,
@@ -1568,14 +1558,9 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: '#6de9a0',
+    backgroundColor: '#FFFFFF',
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  defaultMemberProfileText: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    fontWeight: 'bold',
   },
   remainingCount: {
     width: 36,
@@ -1621,11 +1606,59 @@ const styles = StyleSheet.create({
   },
   detailLabel: {
     fontSize: isSmallScreen ? 13 : 14,
-    color: '#747477',
+    color: '#1D1D1F',
+    fontWeight: '600',
   },
   detailValue: {
     fontSize: isSmallScreen ? 13 : 14,
     color: '#1A1C1E',
+    fontWeight: '600',
+  },
+  seasonCardTitle: {
+    fontSize: isSmallScreen ? 20 : 22,
+    fontWeight: '700',
+    color: '#1A1C1E',
+    marginBottom: 10,
+  },
+  playersJoinedText: {
+    fontSize: isSmallScreen ? 13 : 14,
+    color: '#747477',
+    marginTop: 10,
+    marginBottom: 14,
+  },
+  cardDivider: {
+    height: 1,
+    backgroundColor: '#E5E7EB',
+    marginVertical: 14,
+  },
+  stackedDetailRow: {
+    flexDirection: 'column',
+    paddingTop: 5,
+    marginBottom: 14,
+  },
+  detailTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+    gap: 8,
+  },
+  statusBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 20,
+    borderWidth: 1,
+    gap: 6,
+  },
+  statusBadgeDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 3.5,
+  },
+  statusBadgeText: {
+    fontSize: isSmallScreen ? 11 : 12,
     fontWeight: '600',
   },
   howItWorksCard: {
@@ -1705,7 +1738,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     fontSize: isSmallScreen ? 13 : 14,
     color: '#FEA04D',
-    textAlign: 'center',
+    textAlign: 'left',
   },
   endButton: {
     backgroundColor: '#FEA04D',
@@ -1763,6 +1796,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  stickyButtonColumn: {
+    flexDirection: 'column',
+    gap: 10,
+  },
   stickyButton: {
     flex: 1,
     borderRadius: 12,
@@ -1786,12 +1823,12 @@ const styles = StyleSheet.create({
     backgroundColor: '#B2B2B2',
   },
   stickyButtonText: {
-    fontSize: 17,
+    fontSize: 19,
     fontWeight: '700',
     color: '#FFFFFF',
   },
   stickyButtonSecondaryText: {
-    fontSize: 17,
+    fontSize: 19,
     fontWeight: '700',
     color: '#FEA04D',
   },

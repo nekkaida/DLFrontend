@@ -25,6 +25,7 @@ import { authClient } from '@/lib/auth-client';
 import { usePushNotifications } from '@/src/hooks/usePushNotifications';
 import { navigateAndClearStack, setLogoutInProgress } from '@core/navigation';
 import { useSettings } from '../hooks/useSettings';
+import DeleteAccountModal from '../components/DeleteAccountModal';
 
 const triggerHaptic = async (style: Haptics.ImpactFeedbackStyle = Haptics.ImpactFeedbackStyle.Light) => {
   try {
@@ -70,6 +71,7 @@ export default function SettingsScreen() {
   const { cleanup: cleanupPushNotifications } = usePushNotifications();
   const { settings, isLoading, loadError, updateSetting, retryLoad } = useSettings();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [isDeleteModalVisible, setIsDeleteModalVisible] = useState(false);
 
   // Timeout wrapper to prevent async operations from hanging indefinitely
   const withTimeout = useCallback(<T,>(promise: Promise<T>, ms: number, fallbackMessage: string): Promise<T | null> => {
@@ -189,14 +191,6 @@ export default function SettingsScreen() {
           icon: 'time-outline',
           value: settings.matchReminders,
         },
-        {
-          id: 'hapticFeedback',
-          title: 'Haptic Feedback',
-          subtitle: 'Feel vibrations for interactions',
-          type: 'toggle',
-          icon: 'phone-portrait-outline',
-          value: settings.hapticFeedback,
-        },
       ],
     },
     {
@@ -240,6 +234,15 @@ export default function SettingsScreen() {
           type: 'action',
           icon: 'log-out-outline',
           action: handleLogout,
+          iconColor: theme.colors.semantic?.error || '#EF4444',
+        },
+        {
+          id: 'delete_account',
+          title: 'Delete Account',
+          subtitle: 'Permanently delete your account and data',
+          type: 'action',
+          icon: 'trash-outline',
+          action: () => setIsDeleteModalVisible(true),
           iconColor: theme.colors.semantic?.error || '#EF4444',
         },
       ],
@@ -424,6 +427,10 @@ export default function SettingsScreen() {
           </View>
         </ScrollView>
       </SafeAreaView>
+      <DeleteAccountModal
+        visible={isDeleteModalVisible}
+        onClose={() => setIsDeleteModalVisible(false)}
+      />
     </View>
   );
 }

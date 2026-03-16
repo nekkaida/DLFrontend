@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, Pressable, StyleSheet } from 'react-native';
 import { theme } from '@core/theme/theme';
+import { getProfileSportConfig } from '../utils/profileSportUi';
 
 interface ProfileSportsSectionProps {
   sports: string[];
@@ -18,23 +19,36 @@ export const ProfileSportsSection: React.FC<ProfileSportsSectionProps> = ({
       <View style={styles.sportsHeader}>
         <Text style={styles.sectionTitle}>Sports</Text>
         <View style={styles.tabs}>
-          {sports?.map((sport) => (
-            <Pressable
-              key={sport}
-              style={[
-                styles.tab,
-                activeTab === sport && styles.tabActive
-              ]}
-              onPress={() => onTabPress(sport)}
-            >
-              <Text style={[
-                styles.tabText,
-                activeTab === sport && styles.tabTextActive
-              ]}>
-                {sport}
-              </Text>
-            </Pressable>
-          ))}
+          {sports?.map((sport) => {
+            const config = getProfileSportConfig(sport);
+            const isActive = activeTab === sport;
+            const iconColor = isActive ? '#FFFFFF' : config.color;
+            const Icon = config.Icon;
+
+            return (
+              <Pressable
+                key={sport}
+                style={[
+                  styles.tab,
+                  {
+                    borderColor: config.color,
+                    backgroundColor: isActive ? config.color : '#FFFFFF',
+                  },
+                ]}
+                onPress={() => onTabPress(sport)}
+              >
+                <Icon width={16} height={16} fill={iconColor} color={iconColor} />
+                <Text
+                  style={[
+                    styles.tabText,
+                    { color: isActive ? '#FFFFFF' : config.color },
+                  ]}
+                >
+                  {sport}
+                </Text>
+              </Pressable>
+            );
+          })}
         </View>
       </View>
     </View>
@@ -47,9 +61,7 @@ const styles = StyleSheet.create({
     marginBottom: theme.spacing.md,
   },
   sportsHeader: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    gap: theme.spacing.xl,
+    gap: theme.spacing.sm,
   },
   sectionTitle: {
     fontSize: 18,
@@ -59,27 +71,21 @@ const styles = StyleSheet.create({
   },
   tabs: {
     flexDirection: 'row',
-    gap: theme.spacing.lg,
-    marginLeft: theme.spacing.md,
+    flexWrap: 'wrap',
+    gap: theme.spacing.sm,
   },
   tab: {
-    paddingVertical: theme.spacing.xs,
-    paddingHorizontal: theme.spacing.sm,
-    position: 'relative',
-    borderRadius: theme.borderRadius.sm,
-  },
-  tabActive: {
-    borderBottomWidth: 2,
-    borderBottomColor: theme.colors.primary,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    borderRadius: 999,
+    borderWidth: 1,
   },
   tabText: {
-    color: '#9ca3af',
     fontSize: 14,
     fontFamily: theme.typography.fontFamily.primary,
-    fontWeight: '500' as any,
-  },
-  tabTextActive: {
-    color: theme.colors.primary,
     fontWeight: '600' as any,
   },
 });

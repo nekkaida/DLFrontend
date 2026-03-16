@@ -411,6 +411,17 @@ export const NavigationInterceptor: React.FC<NavigationInterceptorProps> = ({ ch
       return;
     }
 
+    // Redirect completed users away from onboarding pages.
+    // This handles the race condition where login.tsx routes to an onboarding page because
+    // the auth signIn response doesn't include completedOnboarding/onboardingStep fields.
+    // Once checkOnboardingStatus() resolves, this block fires and corrects the route.
+    const isOnboardingRoute = currentRoute.startsWith('/onboarding/');
+    if (isOnboardingRoute && session?.user && !isCheckingOnboarding && onboardingStatus?.completedOnboarding) {
+      console.log('NavigationInterceptor: User already completed onboarding, redirecting to dashboard');
+      setTimeout(() => router.replace('/user-dashboard'), 100);
+      return;
+    }
+
     // Block access to protected routes if onboarding is incomplete
     const protectedRoutes = ['/user-dashboard', '/profile', '/edit-profile', '/settings', '/match-history'];
     const isProtectedRoute = protectedRoutes.some(route => currentRoute.startsWith(route));

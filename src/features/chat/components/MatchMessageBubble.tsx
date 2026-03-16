@@ -8,13 +8,17 @@ import { chatLogger } from '@/utils/logger';
 import { Ionicons } from '@expo/vector-icons';
 import { format } from 'date-fns';
 import { router } from 'expo-router';
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import Animated, { Layout } from 'react-native-reanimated';
 import { toast } from 'sonner-native';
 import { Message } from '../types';
 import { MatchInfoModal } from './MatchInfoModal';
 import { useChatStore } from '../stores/ChatStore';
+import { BottomSheetModal } from '@gorhom/bottom-sheet';
+import { EditMatchSheet } from '@/src/features/match/components/EditMatchSheet';
+import { CancelMatchSheet } from '@/src/features/match/components/CancelMatchSheet';
+import axiosInstance, { endpoints } from '@/lib/endpoints';
 
 // Smooth layout transition for when messages are added/removed
 const layoutTransition = Layout.duration(150);
@@ -68,6 +72,12 @@ export const MatchMessageBubble: React.FC<MatchMessageBubbleProps> = ({
   const [isDeclining, setIsDeclining] = useState(false);
   const [enrichedMatchData, setEnrichedMatchData] = useState<any>(null);
   const [isFetchingMatchDetails, setIsFetchingMatchDetails] = useState(false);
+  const [isCancelled, setIsCancelled] = useState((matchData as any).status === 'CANCELLED');
+  const [hasOpponentJoinedLive, setHasOpponentJoinedLive] = useState<boolean | null>(null);
+  const [isOpeningCancel, setIsOpeningCancel] = useState(false);
+
+  const editSheetRef = useRef<BottomSheetModal>(null);
+  const cancelSheetRef = useRef<BottomSheetModal>(null);
   // Get the most up-to-date request status from multiple sources
   const getLatestRequestStatus = useCallback(() => {
     // Priority: latestMessage from store > message prop matchData
@@ -89,6 +99,13 @@ export const MatchMessageBubble: React.FC<MatchMessageBubbleProps> = ({
       setRequestStatus(status);
     }
   }, [matchData?.requestStatus, latestMessage.matchData?.requestStatus, message.matchData?.requestStatus, getLatestRequestStatus, requestStatus]);
+
+  // Sync isCancelled when store delivers fresh matchData (e.g. after loadMessages on chat reload)
+  useEffect(() => {
+    if ((matchData as any).status === 'CANCELLED' && !isCancelled) {
+      setIsCancelled(true);
+    }
+  }, [(matchData as any).status]);
 
   // Also sync hasJoined state if user is in participants
   useEffect(() => {
@@ -221,6 +238,110 @@ export const MatchMessageBubble: React.FC<MatchMessageBubbleProps> = ({
   // Check if current user is the one who posted the match
   const isMatchPoster = currentUserId === senderId;
 
+  // Compute whether any non-creator participant has joined (ACCEPTED or PENDING)
+  const hasOpponentJoined = React.useMemo(() => {
+    if (!matchData.participants || matchData.participants.length === 0) return false;
+    const creatorId = senderId;
+    return (matchData.participants as MatchParticipant[]).some(
+      (p) =>
+        p.userId !== creatorId &&
+        p.id !== creatorId &&
+        (p.invitationStatus === 'ACCEPTED' || p.invitationStatus === 'PENDING' || !p.invitationStatus)
+    );
+  }, [matchData.participants, senderId]);
+
+  // Open cancel sheet — fetch live participant data first so hasOpponentJoined is accurate
+  const handleOpenCancelSheet = async () => {
+    const effectiveMatchId = matchData.matchId || (matchData as any).id;
+    if (!effectiveMatchId) return;
+
+    setIsOpeningCancel(true);
+    try {
+      const response = await authenticatedFetch(`/api/match/${effectiveMatchId}`);
+      if (response.ok) {
+        const result = await response.json();
+        const match = result.match || result.data || result;
+        const participants: MatchParticipant[] = match.participants || [];
+        const creatorId = senderId;
+        const opponentJoined = participants.some(
+          (p) =>
+            p.userId !== creatorId &&
+            p.id !== creatorId &&
+            (p.invitationStatus === 'ACCEPTED' || p.invitationStatus === 'PENDING' || !p.invitationStatus)
+        );
+        setHasOpponentJoinedLive(opponentJoined);
+      } else {
+        // Fallback to stale data
+        setHasOpponentJoinedLive(hasOpponentJoined);
+      }
+    } catch {
+      setHasOpponentJoinedLive(hasOpponentJoined);
+    } finally {
+      setIsOpeningCancel(false);
+      cancelSheetRef.current?.present();
+    }
+  };
+
+  // Handle cancel match from the bubble
+  const handleCancelFromBubble = async (data: { reason: string; comment?: string }) => {
+    const effectiveMatchId = matchData.matchId || (matchData as any).id;
+    if (!effectiveMatchId) {
+      toast.error('Unable to cancel match');
+      return;
+    }
+    try {
+      await axiosInstance.post(endpoints.match.cancel(effectiveMatchId), {
+        reason: data.reason,
+        comment: data.comment,
+      });
+      toast.success('Match cancelled');
+      setIsCancelled(true);
+      cancelSheetRef.current?.dismiss();
+      // Update the message in the store to reflect cancellation
+      const updatedMatchData = { ...matchData, status: 'CANCELLED' } as Message['matchData'];
+      updateMessage(latestMessage.id, { matchData: updatedMatchData });
+      // Refresh thread list so ChatScreen shows updated state
+      if (currentUserId) {
+        useChatStore.getState().loadThreads(currentUserId);
+      }
+    } catch (error: any) {
+      const msg = error.response?.data?.error || error.response?.data?.message || error.message || 'Failed to cancel match';
+      toast.error(msg);
+      throw error;
+    }
+  };
+
+  // Handle match edited from the bubble
+  const handleMatchEditedFromBubble = async () => {
+    editSheetRef.current?.dismiss();
+    // Refetch the updated match data and update the message in the store
+    const effectiveMatchId = matchData.matchId || (matchData as any).id;
+    if (!effectiveMatchId) return;
+    try {
+      const response = await authenticatedFetch(`/api/match/${effectiveMatchId}`);
+      if (response.ok) {
+        const result = await response.json();
+        const match = result.match || result.data || result;
+        // Update the message matchData with the new values
+        const updatedMatchData = {
+          ...matchData,
+          date: match.matchDate || matchData.date,
+          time: match.time || matchData.time,
+          location: match.location || matchData.location,
+          courtBooked: match.courtBooked ?? matchData.courtBooked,
+          fee: match.fee || matchData.fee,
+          feeAmount: match.feeAmount ?? (matchData as any).feeAmount,
+          duration: match.duration || matchData.duration,
+          notes: match.notes || (matchData as any).notes,
+        } as Message['matchData'];
+        updateMessage(latestMessage.id, { matchData: updatedMatchData });
+        setEnrichedMatchData(match);
+      }
+    } catch (err) {
+      chatLogger.error('Error refreshing match after edit:', err);
+    }
+  };
+
   // Handle decline request
   const handleDeclineRequest = async () => {
     const effectiveMatchId = matchData.matchId || (matchData as any).id;
@@ -294,72 +415,77 @@ export const MatchMessageBubble: React.FC<MatchMessageBubbleProps> = ({
     return status === 'COMPLETED' || status === 'FINISHED';
   }, [(matchData as any).status]);
 
-  // Check if match is full (all slots taken)
+  // Check if match is full (all slots taken) — uses live enrichedMatchData when available so
+  // the bubble reflects the server state without a user action.
   const isMatchFull = React.useMemo(() => {
     const maxSlots = matchData.matchType === 'DOUBLES' || matchData.numberOfPlayers === '4' ? 4 : 2;
-    const participants = matchData.participants as MatchParticipant[] || [];
-    const acceptedParticipants = participants.filter(
+    const rawParticipants = (enrichedMatchData?.participants || matchData.participants) as MatchParticipant[] || [];
+    const acceptedParticipants = rawParticipants.filter(
       (p) => p.invitationStatus === 'ACCEPTED' || !p.invitationStatus
     );
     return acceptedParticipants.length >= maxSlots;
-  }, [matchData.matchType, matchData.numberOfPlayers, matchData.participants]);
+  }, [matchData.matchType, matchData.numberOfPlayers, matchData.participants, enrichedMatchData]);
 
-  // Check if user has already played against the match creator in this division
+  // On mount: fetch live match details once to hydrate enrichedMatchData (gives fresh
+  // participant list for isMatchFull) and to check already-played status.
   useEffect(() => {
-    const checkAlreadyPlayed = async () => {
-      const effectiveMatchId = matchData.matchId || (matchData as any).id;
-      // Skip if user is the match poster, already in match, or no matchId
-      if (!currentUserId || !effectiveMatchId || isMatchPoster || isUserInMatch) {
-        return;
-      }
+    const effectiveMatchId = matchData.matchId || (matchData as any).id;
+    if (!currentUserId || !effectiveMatchId) return;
 
+    const runMountChecks = async () => {
       try {
-        // First fetch match details to get divisionId and creatorId
         const matchResponse = await authenticatedFetch(`/api/match/${effectiveMatchId}`);
-
         if (!matchResponse.ok) return;
 
         const matchResult = await matchResponse.json();
         const match = matchResult.match || matchResult.data || matchResult;
+
+        // Hydrate enrichedMatchData so isMatchFull uses live participant count
+        setEnrichedMatchData(match);
+
+        // Already-played check only relevant for non-poster, non-participant viewers
+        if (isMatchPoster || isUserInMatch) return;
+
         const divisionId = match.divisionId || match.division?.id;
         const creatorId = match.createdById;
-
         if (!divisionId || !creatorId) return;
 
-        // Check if user has played against creator in this division
-        // We check completed matches where both users participated on opposite teams
+        // Fetch completed matches in this division for the current user
         const historyResponse = await authenticatedFetch(
           `/api/match?divisionId=${divisionId}&userId=${currentUserId}&status=COMPLETED`
         );
-
         if (!historyResponse.ok) return;
 
         const historyResult = await historyResponse.json();
         const rawMatches = historyResult.matches ?? historyResult.data ?? [];
         const matches = Array.isArray(rawMatches) ? rawMatches : [];
 
-        // Check if any completed match has both current user and creator on opposite teams
         interface MatchHistory {
           participants?: MatchParticipant[];
         }
         const hasPlayed = (matches as MatchHistory[]).some((m: MatchHistory) => {
           const participants = m.participants || [];
-          const currentUserParticipant = participants.find((p: MatchParticipant) => p.userId === currentUserId);
-          const creatorParticipant = participants.find((p: MatchParticipant) => p.userId === creatorId);
-
-          // Both must be in the match and on different teams
-          return currentUserParticipant && creatorParticipant &&
-                 currentUserParticipant.team !== creatorParticipant.team;
+          const currentUserP = participants.find((p: MatchParticipant) => p.userId === currentUserId);
+          const creatorP = participants.find((p: MatchParticipant) => p.userId === creatorId);
+          if (!currentUserP || !creatorP) return false;
+          // Singles: teams are null — presence in opposite roles means they played.
+          // Doubles: teams must be different strings.
+          if (currentUserP.team && creatorP.team) {
+            return currentUserP.team !== creatorP.team;
+          }
+          // If team info is absent, being in the same completed match means they played.
+          return true;
         });
 
         setHasAlreadyPlayed(hasPlayed);
       } catch (error) {
-        chatLogger.error('Error checking if already played:', error);
+        chatLogger.error('Error during mount match checks:', error);
       }
     };
 
-    checkAlreadyPlayed();
-  }, [currentUserId, matchData.matchId, isMatchPoster, isUserInMatch]);
+    runMountChecks();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentUserId, matchData.matchId, (matchData as any).id]);
   
   // Display name logic - always show first name
   const displayName = firstName;
@@ -720,7 +846,36 @@ export const MatchMessageBubble: React.FC<MatchMessageBubbleProps> = ({
           >
             <Text style={styles.infoButtonText}>Info</Text>
           </TouchableOpacity>
-          {isFriendlyRequest && isRequestRecipient && currentRequestStatus === 'PENDING' && !isExpired && !hasJoined && !isUserInMatch ? (
+
+          {/* Match poster: show Edit + Cancel buttons, Cancelled badge, or nothing based on status */}
+          {isMatchPoster && (isCancelled || (matchData as any).status === 'CANCELLED') ? (
+            // Match was cancelled — show a disabled grey badge so poster knows
+            <View style={styles.cancelledBadge}>
+              <Ionicons name="close-circle" size={13} color="#6B7280" />
+              <Text style={styles.cancelledBadgeText}>Cancelled</Text>
+            </View>
+          ) : isMatchPoster && !isMatchCompleted ? (
+            <>
+              <TouchableOpacity
+                style={styles.editButton}
+                activeOpacity={0.7}
+                onPress={() => editSheetRef.current?.present()}
+              >
+                <Ionicons name="create-outline" size={14} color="#6366F1" />
+                <Text style={styles.editButtonText}>Edit</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.cancelBubbleButton}
+                activeOpacity={0.7}
+                disabled={isOpeningCancel}
+                onPress={handleOpenCancelSheet}
+              >
+                <Text style={styles.cancelBubbleButtonText}>
+                  {isOpeningCancel ? '...' : 'Cancel'}
+                </Text>
+              </TouchableOpacity>
+            </>
+          ) : isFriendlyRequest && isRequestRecipient && currentRequestStatus === 'PENDING' && !isExpired && !hasJoined && !isUserInMatch ? (
             // Friendly request: Show Decline and Join buttons (only if not joined yet)
             <>
               <TouchableOpacity
@@ -748,28 +903,29 @@ export const MatchMessageBubble: React.FC<MatchMessageBubbleProps> = ({
               </TouchableOpacity>
             </>
           ) : hasAlreadyPlayed ? (
-            // Show "Played" badge when teams have already played this season
-            <View style={styles.playedBadge}>
-              <Ionicons name="checkmark-circle" size={12} color="#059669" />
-              <Text style={styles.playedBadgeText}>Played</Text>
+            // Show disabled grey button when teams have already played this season
+            <View style={styles.alreadyPlayedButton}>
+              <Ionicons name="checkmark-circle" size={13} color="#9CA3AF" />
+              <Text style={styles.alreadyPlayedButtonText}>Already Played</Text>
             </View>
           ) : (
             <TouchableOpacity
               style={[
                 styles.joinButton,
                 {
-                  backgroundColor: (isUserInMatch || isMatchCompleted || isMatchFull || (isFriendlyRequest && (isExpired || currentRequestStatus === 'DECLINED' || currentRequestStatus === 'EXPIRED')))
+                  backgroundColor: (isUserInMatch || isMatchCompleted || isMatchFull || isCancelled || (matchData as any).status === 'CANCELLED' || (isFriendlyRequest && (isExpired || currentRequestStatus === 'DECLINED' || currentRequestStatus === 'EXPIRED')))
                     ? '#9CA3AF'
                     : sportColors.buttonColor
                 }
               ]}
-              activeOpacity={(isUserInMatch || isMatchCompleted || isMatchFull || (isFriendlyRequest && (isExpired || currentRequestStatus === 'DECLINED' || currentRequestStatus === 'EXPIRED'))) ? 1 : 0.8}
-              disabled={isUserInMatch || isFetchingPartner || isMatchCompleted || isMatchFull || (isFriendlyRequest && (isExpired || currentRequestStatus === 'DECLINED' || currentRequestStatus === 'EXPIRED'))}
+              activeOpacity={(isUserInMatch || isMatchCompleted || isMatchFull || isCancelled || (matchData as any).status === 'CANCELLED' || (isFriendlyRequest && (isExpired || currentRequestStatus === 'DECLINED' || currentRequestStatus === 'EXPIRED'))) ? 1 : 0.8}
+              disabled={isUserInMatch || isFetchingPartner || isMatchCompleted || isMatchFull || isCancelled || (matchData as any).status === 'CANCELLED' || (isFriendlyRequest && (isExpired || currentRequestStatus === 'DECLINED' || currentRequestStatus === 'EXPIRED'))}
               onPress={handleOpenJoinMatch}
             >
               <Text style={styles.joinButtonText}>
                 {isFetchingPartner ? 'Loading...'
                   : isMatchCompleted ? 'Completed'
+                  : (isCancelled || (matchData as any).status === 'CANCELLED') ? 'Cancelled'
                   : isUserInMatch ? 'Joined'
                   : isMatchFull ? 'Match Full'
                   : (isFriendlyRequest && (isExpired || currentRequestStatus === 'DECLINED' || currentRequestStatus === 'EXPIRED'))
@@ -799,6 +955,47 @@ export const MatchMessageBubble: React.FC<MatchMessageBubbleProps> = ({
         formattedEndTime={formattedEndTime}
         isLoading={isFetchingMatchDetails}
       />
+
+      {/* Edit Match Sheet */}
+      <BottomSheetModal
+        ref={editSheetRef}
+        snapPoints={['90%']}
+        enablePanDownToClose={true}
+        backgroundStyle={{ backgroundColor: '#FFFFFF', borderTopLeftRadius: 20, borderTopRightRadius: 20 }}
+      >
+        <EditMatchSheet
+          matchId={(matchData.matchId || (matchData as any).id) ?? ''}
+          initialDate={formatDisplayDate(matchData.date)}
+          initialTime={formattedStartTime}
+          initialLocation={matchData.location || ''}
+          initialCourtBooked={!!matchData.courtBooked}
+          initialFee={(matchData.fee as string) || 'FREE'}
+          initialFeeAmount={String((matchData as any).feeAmount || '')}
+          initialDuration={String(matchData.duration || '2')}
+          initialNotes={(matchData as any).notes || matchData.description || ''}
+          onClose={() => editSheetRef.current?.dismiss()}
+          onSaved={handleMatchEditedFromBubble}
+        />
+      </BottomSheetModal>
+
+      {/* Cancel Match Sheet */}
+      <BottomSheetModal
+        ref={cancelSheetRef}
+        snapPoints={['75%', '90%']}
+        enablePanDownToClose={true}
+        backgroundStyle={{ backgroundColor: '#FFFFFF', borderTopLeftRadius: 20, borderTopRightRadius: 20 }}
+      >
+        <CancelMatchSheet
+          matchId={(matchData.matchId || (matchData as any).id) ?? ''}
+          matchDate={formatDisplayDate(matchData.date)}
+          matchTime={formattedStartTime}
+          hasOpponentJoined={hasOpponentJoinedLive ?? hasOpponentJoined}
+          isFriendly={isFriendly}
+          isHost={isMatchPoster}
+          onClose={() => cancelSheetRef.current?.dismiss()}
+          onCancel={handleCancelFromBubble}
+        />
+      </BottomSheetModal>
     </Animated.View>
   );
 };
@@ -970,6 +1167,52 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#602E98',
   },
+  editButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#C7D2FE',
+    backgroundColor: '#EEF2FF',
+    gap: 4,
+  },
+  editButtonText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#6366F1',
+  },
+  cancelBubbleButton: {
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#FECACA',
+    backgroundColor: '#FEF2F2',
+    alignItems: 'center',
+  },
+  cancelBubbleButtonText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#DC2626',
+  },
+  cancelledBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderRadius: 16,
+    backgroundColor: '#F3F4F6',
+    borderWidth: 1,
+    borderColor: '#D1D5DB',
+    gap: 4,
+  },
+  cancelledBadgeText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#6B7280',
+  },
   joinButton: {
     paddingVertical: 10,
     paddingHorizontal: 14,
@@ -996,6 +1239,22 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
     color: '#059669',
+  },
+  alreadyPlayedButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderRadius: 16,
+    backgroundColor: '#F3F4F6',
+    borderWidth: 1,
+    borderColor: '#D1D5DB',
+    gap: 5,
+  },
+  alreadyPlayedButtonText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#9CA3AF',
   },
   expirationBadge: {
     flexDirection: 'row',

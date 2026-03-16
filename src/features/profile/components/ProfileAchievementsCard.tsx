@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, Pressable, StyleSheet } from 'react-native';
+import { View, Text, Pressable, ScrollView, StyleSheet, useWindowDimensions } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { useRouter } from 'expo-router';
@@ -30,11 +30,16 @@ export const ProfileAchievementsCard: React.FC<ProfileAchievementsCardProps> = (
   onPress,
 }) => {
   const router = useRouter();
-  const hasAchievements = achievements && achievements.length > 0;
+  const { width } = useWindowDimensions();
 
-  // Show the 3 most impressive unlocked achievements (highest tier, then points)
+  // Badge dimensions derived from screen width for responsiveness
+  // ~13% of screen width per badge, ~3.5% gap — gives ~4.5 visible badges at rest
+  const BADGE_SIZE = Math.round(width * 0.13);
+  const BADGE_GAP = Math.round(width * 0.035);
+
+  // Sort completed achievements by tier then points and show them all
   const tierRank: Record<string, number> = { PLATINUM: 4, GOLD: 3, SILVER: 2, BRONZE: 1, NONE: 0 };
-  const recentAchievements = hasAchievements
+  const unlockedBadges = achievements && achievements.length > 0
     ? [...achievements]
         .filter((a) => a.isCompleted || a.unlockedAt)
         .sort((a, b) => {
@@ -42,10 +47,11 @@ export const ProfileAchievementsCard: React.FC<ProfileAchievementsCardProps> = (
           if (tierDiff !== 0) return tierDiff;
           return (b.points ?? 0) - (a.points ?? 0);
         })
-        .slice(0, 3)
     : [];
 
-  const handlePress = () => {
+  const displayCount = completedCount ?? unlockedBadges.length;
+
+  const handleViewAll = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     if (onPress) {
       onPress();
@@ -56,144 +62,114 @@ export const ProfileAchievementsCard: React.FC<ProfileAchievementsCardProps> = (
 
   return (
     <View style={styles.section}>
-      <View style={styles.sectionHeader}>
-        <Text style={styles.sectionTitle}>Achievements</Text>
-        {completedCount !== undefined && totalCount !== undefined && totalCount > 0 && (
-          <Text style={styles.countBadge}>
-            {completedCount}/{totalCount}
-          </Text>
-        )}
+      {/* Header row: badge count + trophy | View all */}
+      <View style={styles.header}>
+        <View style={styles.headerLeft}>
+          <Text style={styles.badgeCount}>{displayCount}</Text>
+          <Text style={styles.badgesLabel}>Badges</Text>
+        </View>
+        <Pressable onPress={handleViewAll} hitSlop={8}>
+          <Text style={styles.viewAllText}>View all</Text>
+        </Pressable>
       </View>
-      <Pressable
-        style={styles.achievementContainer}
-        onPress={handlePress}
-      >
-        <View style={styles.achievementsContent}>
-          {recentAchievements.length > 0 ? (
-            recentAchievements.map((achievement) => (
-              <View key={achievement.id} style={styles.achievementItem}>
+
+      {/* Horizontal badge scroll — 4 full + 5th half-visible */}
+      {unlockedBadges.length > 0 ? (
+        <View style={styles.scrollClip}>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={[styles.badgeRow, { gap: BADGE_GAP, paddingRight: BADGE_SIZE }]}
+            scrollEventThrottle={16}
+          >
+            {unlockedBadges.map((badge) => (
+              <Pressable
+                key={badge.id}
+                style={{ width: BADGE_SIZE, height: BADGE_SIZE, alignItems: 'center', justifyContent: 'center' }}
+                onPress={handleViewAll}
+              >
                 <AchievementBadge
-                  icon={achievement.icon}
-                  tier={achievement.tier || 'BRONZE'}
-                  size="sm"
+                  icon={badge.icon}
+                  tier={badge.tier || 'BRONZE'}
+                  size="md"
                   isLocked={false}
                 />
-                <View style={styles.achievementTextContainer}>
-                  <Text style={styles.achievementText} numberOfLines={2}>
-                    {achievement.title}
-                  </Text>
-                  {achievement.unlockedAt && (() => {
-                    try {
-                      const year = new Date(achievement.unlockedAt).getFullYear();
-                      return isNaN(year) ? null : (
-                        <Text style={styles.achievementYear}>({year})</Text>
-                      );
-                    } catch {
-                      return null;
-                    }
-                  })()}
-                </View>
-              </View>
-            ))
-          ) : (
-            <View style={styles.noAchievementsContainer}>
-              <Ionicons name="trophy-outline" size={32} color={theme.colors.neutral.gray[400]} />
-              <Text style={styles.noAchievementsText}>No achievements yet</Text>
-              <Text style={styles.noAchievementsSubtext}>Play matches to earn achievements</Text>
-            </View>
-          )}
+              </Pressable>
+            ))}
+          </ScrollView>
         </View>
-        <Ionicons name="chevron-forward" size={20} color={theme.colors.primary} style={styles.achievementChevron} />
-      </Pressable>
+      ) : (
+        <View style={styles.emptyContainer}>
+          <Ionicons name="trophy-outline" size={28} color={theme.colors.neutral.gray[300]} />
+          <Text style={styles.emptyText}>No badges yet — play matches to earn them</Text>
+        </View>
+      )}
     </View>
   );
 };
 
 const styles = StyleSheet.create({
   section: {
-    marginTop: theme.spacing.xl,
-    marginBottom: theme.spacing.md,
+    marginTop: theme.spacing.lg,
+    marginBottom: theme.spacing.sm,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    paddingHorizontal: theme.spacing.lg,
+    paddingVertical: theme.spacing.md,
+    boxShadow: '0px 12px 24px rgba(0, 0, 0, 0.10)',
   },
-  sectionHeader: {
+  header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: theme.spacing.md,
   },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: '700' as any,
-    color: '#111827',
+  headerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  badgeCount: {
+    fontSize: 28,
+    fontWeight: '800' as any,
+    color: '#1D1D1F',
     fontFamily: theme.typography.fontFamily.primary,
     letterSpacing: -0.3,
   },
-  countBadge: {
-    fontSize: theme.typography.fontSize.sm,
+  badgesLabel: {
+    fontSize: 18,
+    fontWeight: '200' as any,
+    color: '#1D1D1F',
+    fontFamily: theme.typography.fontFamily.primary,
+    letterSpacing: -0.3,
+  },
+  trophyIcon: {
+    marginLeft: 2,
+  },
+  viewAllText: {
+    fontSize: 14,
     fontWeight: '600' as any,
     color: theme.colors.primary,
     fontFamily: theme.typography.fontFamily.primary,
   },
-  achievementContainer: {
-    backgroundColor: '#ffffff',
-    padding: theme.spacing.md,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: '#f1f5f9',
+  // Full-width clip — overflow hidden so the 5th badge appears half-visible
+  scrollClip: {
+    width: '100%',
+    overflow: 'hidden',
+  },
+  badgeRow: {
+    flexDirection: 'row',
+  },
+  emptyContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    shadowColor: theme.colors.neutral.black,
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.03,
-    shadowRadius: 4,
-    elevation: 1,
+    gap: theme.spacing.sm,
+    paddingVertical: theme.spacing.md,
   },
-  achievementsContent: {
-    flex: 1,
-    flexDirection: 'row',
-    gap: theme.spacing.lg,
-  },
-  achievementItem: {
-    flexDirection: 'column',
-    alignItems: 'center',
-    flex: 1,
-  },
-  achievementTextContainer: {
-    marginTop: theme.spacing.xs,
-    alignItems: 'center',
-  },
-  achievementText: {
-    fontSize: theme.typography.fontSize.sm,
-    color: theme.colors.neutral.gray[600],
-    fontFamily: theme.typography.fontFamily.primary,
-    textAlign: 'center',
-  },
-  achievementYear: {
-    fontSize: theme.typography.fontSize.xs,
-    color: theme.colors.neutral.gray[400],
-    fontFamily: theme.typography.fontFamily.primary,
-  },
-  achievementChevron: {
-    marginLeft: theme.spacing.sm,
-  },
-  noAchievementsContainer: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: theme.spacing.lg,
-  },
-  noAchievementsText: {
-    fontSize: theme.typography.fontSize.base,
-    color: theme.colors.neutral.gray[600],
-    fontFamily: theme.typography.fontFamily.primary,
-    fontWeight: '500' as const,
-    marginTop: theme.spacing.sm,
-  },
-  noAchievementsSubtext: {
+  emptyText: {
     fontSize: theme.typography.fontSize.sm,
     color: theme.colors.neutral.gray[400],
     fontFamily: theme.typography.fontFamily.primary,
-    textAlign: 'center',
-    marginTop: theme.spacing.xs,
+    flex: 1,
   },
 });
