@@ -31,9 +31,9 @@ WebBrowser.maybeCompleteAuthSession();
 export default function RootLayout() {
   const colorScheme = useColorScheme();
   const { data: session } = useSession();
-  const [loaded] = useFonts({
-    SpaceMono: require('../assets/fonts/SpaceMono-Regular.ttf'),
-  });
+  // Font loading disabled - SpaceMono not used in the app
+  // If you need custom fonts, add them to app.json under expo.fonts instead
+  const loaded = true;
 
   // Initialize push notifications (auto-registers when user is authenticated)
   usePushNotifications();
