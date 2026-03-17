@@ -19,7 +19,13 @@ import { usePushNotifications } from '@/src/hooks/usePushNotifications';
 import { configureGoogleSignIn } from '@/lib/google-signin';
 import { ErrorBoundary } from '@shared/components/layout';
 import { reportRenderError, reportJSError } from '@/src/services/crashReporter';
-import { ErrorUtils } from 'react-native';
+
+// ErrorUtils is a React Native runtime global (like __DEV__), not an exported module.
+// Importing it from 'react-native' compiles but is undefined at runtime → crashes production.
+declare const ErrorUtils: {
+  getGlobalHandler: () => (error: Error, isFatal?: boolean) => void;
+  setGlobalHandler: (handler: (error: Error, isFatal?: boolean) => void) => void;
+};
 
 // Configure Google Sign-In at app startup
 configureGoogleSignIn();
