@@ -90,6 +90,7 @@ export const ChatThreadScreen: React.FC<ChatThreadScreenProps> = ({ threadId, da
   const messageInputRef = useRef<MessageInputRef>(null);
   // Refs to prevent memory leaks and race conditions
   const isMountedRef = useRef(true);
+  const isCreatingMatchRef = useRef(false); // Guard against duplicate match creation
   const replyFocusTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const actionBarFocusTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const insets = useSafeAreaInsets();
@@ -241,10 +242,15 @@ export const ChatThreadScreen: React.FC<ChatThreadScreenProps> = ({ threadId, da
   }, [messages, threadId]);
 
   // Handle pending match data when returning from create-match page
+  // Guard: isCreatingMatchRef prevents re-entry when async operations
+  // cause re-renders that re-trigger this effect before completion
   useEffect(() => {
-    if (pendingMatchData && currentThread) {
-      handleCreateMatch(pendingMatchData);
+    if (pendingMatchData && currentThread && !isCreatingMatchRef.current) {
+      isCreatingMatchRef.current = true;
       clearPendingMatch();
+      handleCreateMatch(pendingMatchData).finally(() => {
+        isCreatingMatchRef.current = false;
+      });
     }
   }, [pendingMatchData, currentThread]);
 
