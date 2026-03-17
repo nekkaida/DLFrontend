@@ -129,42 +129,54 @@ export const MatchDetailModal: React.FC<MatchDetailModalProps> = ({
         {match.participants && match.participants.length > 0 && (
           <View style={styles.modalSection}>
             <Text style={styles.sectionTitle}>Players</Text>
-            <View style={styles.playersContainer}>
-              {match.participants
-                .filter(p => p.invitationStatus === 'ACCEPTED')
-                .map((participant) => (
-                  <View key={participant.user.id} style={styles.playerItem}>
-                    {participant.user.image ? (
-                      <Image source={{ uri: participant.user.image }} style={styles.playerAvatar} />
-                    ) : (
-                      <View style={styles.playerAvatarPlaceholder}>
-                        <Text style={styles.playerAvatarText}>
-                          {participant.user.name?.charAt(0).toUpperCase() || '?'}
-                        </Text>
-                      </View>
-                    )}
-                    <Text style={styles.playerName} numberOfLines={1}>
-                      {participant.user.name}
-                    </Text>
-                  </View>
-                ))}
-              {/* Show empty slots */}
-              {(() => {
-                const acceptedCount = match.participants.filter(
-                  p => p.invitationStatus === 'ACCEPTED'
-                ).length;
-                const maxSlots = match.matchType === 'DOUBLES' ? 4 : 2;
-                const emptySlots = maxSlots - acceptedCount;
-                return Array.from({ length: emptySlots }).map((_, idx) => (
-                  <View key={`empty-${idx}`} style={styles.playerItem}>
-                    <View style={styles.emptyPlayerSlot}>
-                      <Ionicons name="person-outline" size={moderateScale(20)} color="#9CA3AF" />
+            {(() => {
+              const accepted = match.participants.filter(p => p.invitationStatus === 'ACCEPTED');
+              const isDoubles = match.matchType === 'DOUBLES';
+              const renderPlayer = (p: typeof accepted[0], key: string | number) => (
+                <View key={key} style={styles.playerItem}>
+                  {p.user.image ? (
+                    <Image source={{ uri: p.user.image }} style={styles.playerAvatar} />
+                  ) : (
+                    <View style={styles.playerAvatarPlaceholder}>
+                      <Text style={styles.playerAvatarText}>{p.user.name?.charAt(0).toUpperCase() || '?'}</Text>
                     </View>
-                    <Text style={styles.emptySlotText}>Open slot</Text>
+                  )}
+                  <Text style={styles.playerName} numberOfLines={1}>{p.user.name}</Text>
+                </View>
+              );
+              const renderEmpty = (key: string | number) => (
+                <View key={key} style={styles.playerItem}>
+                  <View style={styles.emptyPlayerSlot}>
+                    <Ionicons name="person-outline" size={moderateScale(20)} color="#9CA3AF" />
                   </View>
-                ));
-              })()}
-            </View>
+                  <Text style={styles.emptySlotText}>Open slot</Text>
+                </View>
+              );
+              if (isDoubles) {
+                const team1 = accepted.slice(0, 2);
+                const team2 = accepted.slice(2, 4);
+                return (
+                  <View style={styles.teamsContainer}>
+                    <View style={styles.teamGroup}>
+                      {team1.map(p => renderPlayer(p, p.user.id))}
+                      {Array.from({ length: Math.max(0, 2 - team1.length) }).map((_, i) => renderEmpty(`t1-${i}`))}
+                    </View>
+                    <View style={styles.teamDivider} />
+                    <View style={styles.teamGroup}>
+                      {team2.map(p => renderPlayer(p, p.user.id))}
+                      {Array.from({ length: Math.max(0, 2 - team2.length) }).map((_, i) => renderEmpty(`t2-${i}`))}
+                    </View>
+                  </View>
+                );
+              }
+              const emptySlots = Math.max(0, 2 - accepted.length);
+              return (
+                <View style={styles.playersContainer}>
+                  {accepted.map(p => renderPlayer(p, p.user.id))}
+                  {Array.from({ length: emptySlots }).map((_, i) => renderEmpty(`empty-${i}`))}
+                </View>
+              );
+            })()}
           </View>
         )}
 
@@ -350,6 +362,20 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     letterSpacing: 0.5,
     marginBottom: verticalScale(8),
+  },
+  teamsContainer: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+  },
+  teamGroup: {
+    flexDirection: 'row',
+    gap: scale(12),
+  },
+  teamDivider: {
+    width: 1,
+    alignSelf: 'stretch',
+    backgroundColor: '#E2E2E2',
+    marginHorizontal: scale(8),
   },
   playersContainer: {
     flexDirection: 'row',

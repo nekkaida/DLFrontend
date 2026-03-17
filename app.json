@@ -7,7 +7,7 @@
     "icon": "./assets/images/dl-logo.png",
     "scheme": "deuceleague",
     "userInterfaceStyle": "automatic",
-    "newArchEnabled": true,
+    "newArchEnabled": false,
     "ios": {
       "supportsTablet": true,
       "usesAppleSignIn": true,
@@ -33,7 +33,7 @@
       "blockedPermissions": [
         "android.permission.READ_MEDIA_VIDEO",
         "android.permission.READ_MEDIA_AUDIO"
-      ],
+      ]
     },
     "web": {
       "bundler": "metro",
@@ -60,6 +60,16 @@
           "locationWhenInUsePermission": "Allow Deuce League to use your location to find nearby courts and leagues."
         }
       ],
+      [
+        "expo-media-library",
+        {
+          "photosPermission": "Allow Deuce League to access your photos so you can upload profile pictures, submit dispute proof, and save shared images.",
+          "savePhotosPermission": "Allow Deuce League to save shared images to your photo library.",
+          "granularPermissions": [
+            "photo"
+          ]
+        }
+      ],
       "expo-video",
       [
         "@react-native-google-signin/google-signin",
@@ -67,7 +77,10 @@
           "iosUrlScheme": "com.googleusercontent.apps.1049126820486-s6dpimmdmcgkcar6ju3c1turdlr05hpt"
         }
       ],
-      "expo-apple-authentication"
+      "expo-apple-authentication",
+      "@react-native-community/datetimepicker",
+      "expo-secure-store",
+      "expo-web-browser"
     ],
     "experiments": {
       "typedRoutes": true

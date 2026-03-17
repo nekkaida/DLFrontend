@@ -5,7 +5,6 @@ import { useChatStore } from '@/src/features/chat/stores/ChatStore';
 import { NavigationInterceptor } from '@core/navigation/NavigationInterceptor';
 import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
-import { useFonts } from 'expo-font';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import * as WebBrowser from 'expo-web-browser';
@@ -27,22 +26,38 @@ declare const ErrorUtils: {
   setGlobalHandler: (handler: (error: Error, isFatal?: boolean) => void) => void;
 };
 
-// Configure Google Sign-In at app startup
-configureGoogleSignIn();
-
-// Clean up any stale OAuth sessions from previous app launches
-// This MUST be called before any OAuth flow to prevent invalid state errors
-WebBrowser.maybeCompleteAuthSession();
+// IMPORTANT: Do NOT call configureGoogleSignIn() or maybeCompleteAuthSession() synchronously
+// at module load time. This causes a crash on iOS when the native modules throw exceptions
+// during initialization - Hermes' GC gets corrupted when TurboModule tries to convert
+// NSException to JS error. These are now called inside useEffect in RootLayout.
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
   const { data: session } = useSession();
-  const [loaded] = useFonts({
-    SpaceMono: require('../assets/fonts/SpaceMono-Regular.ttf'),
-  });
+  // Font loading disabled - SpaceMono not used in the app
+  // If you need custom fonts, add them to app.json under expo.fonts instead
+  const loaded = true;
 
   // Initialize push notifications (auto-registers when user is authenticated)
   usePushNotifications();
+
+  // Initialize Google Sign-In and clean up OAuth sessions AFTER React has mounted
+  // This prevents Hermes GC crashes when native modules throw exceptions during module load
+  useEffect(() => {
+    try {
+      configureGoogleSignIn();
+    } catch (error) {
+      // Non-fatal - Google Sign-In will just not work, but app won't crash
+      console.warn('Failed to configure Google Sign-In:', error);
+    }
+
+    try {
+      WebBrowser.maybeCompleteAuthSession();
+    } catch (error) {
+      // Non-fatal - stale OAuth sessions may remain, but app won't crash
+      console.warn('Failed to complete auth session:', error);
+    }
+  }, []);
 
   // Initialize socket connection and load threads when user is authenticated
   useEffect(() => {
@@ -98,7 +113,7 @@ export default function RootLayout() {
 
   // Set up global JS error handler for crash reporting
   useEffect(() => {
-    if (!__DEV__) {
+    if (!__DEV__ && typeof ErrorUtils !== 'undefined') {
       const defaultHandler = ErrorUtils.getGlobalHandler();
       ErrorUtils.setGlobalHandler((error: Error, isFatal?: boolean) => {
         reportJSError(error, isFatal ?? false);

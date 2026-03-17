@@ -11,17 +11,24 @@ const WEB_CLIENT_ID = '1049126820486-5amoljjhl97lodkul5jhp669k40jl6av.apps.googl
 const isExpoGo = Constants.executionEnvironment === 'storeClient';
 
 // Lazy import to avoid crash in Expo Go
+// Wrapped in try-catch to prevent crash if native module throws during require
 let GoogleSignin: any;
 let isErrorWithCode: any;
 let isSuccessResponse: any;
 let statusCodes: any;
+let googleSignInLoadError: Error | null = null;
 
 if (!isExpoGo) {
-  const googleSignIn = require('@react-native-google-signin/google-signin');
-  GoogleSignin = googleSignIn.GoogleSignin;
-  isErrorWithCode = googleSignIn.isErrorWithCode;
-  isSuccessResponse = googleSignIn.isSuccessResponse;
-  statusCodes = googleSignIn.statusCodes;
+  try {
+    const googleSignIn = require('@react-native-google-signin/google-signin');
+    GoogleSignin = googleSignIn.GoogleSignin;
+    isErrorWithCode = googleSignIn.isErrorWithCode;
+    isSuccessResponse = googleSignIn.isSuccessResponse;
+    statusCodes = googleSignIn.statusCodes;
+  } catch (error) {
+    googleSignInLoadError = error as Error;
+    console.warn('Failed to load Google Sign-In module:', error);
+  }
 }
 
 // Configure Google Sign-In (call once at app startup)
@@ -30,10 +37,18 @@ export const configureGoogleSignIn = () => {
     console.log('⚠️ Google Sign-In not available in Expo Go');
     return;
   }
-  GoogleSignin.configure({
-    iosClientId: IOS_CLIENT_ID,
-    webClientId: WEB_CLIENT_ID, // Required for Android ID token
-  });
+  if (googleSignInLoadError || !GoogleSignin) {
+    console.warn('⚠️ Google Sign-In module failed to load:', googleSignInLoadError?.message);
+    return;
+  }
+  try {
+    GoogleSignin.configure({
+      iosClientId: IOS_CLIENT_ID,
+      webClientId: WEB_CLIENT_ID, // Required for Android ID token
+    });
+  } catch (error) {
+    console.warn('⚠️ Failed to configure Google Sign-In:', error);
+  }
 };
 
 export interface GoogleSignInResult {
@@ -55,6 +70,14 @@ export const signInWithGoogle = async (): Promise<GoogleSignInResult> => {
     return {
       success: false,
       error: 'Google Sign-In requires a development build. Not available in Expo Go.',
+    };
+  }
+
+  // Return error if module failed to load
+  if (googleSignInLoadError || !GoogleSignin) {
+    return {
+      success: false,
+      error: `Google Sign-In module unavailable: ${googleSignInLoadError?.message || 'Unknown error'}`,
     };
   }
 

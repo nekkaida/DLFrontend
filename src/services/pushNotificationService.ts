@@ -4,16 +4,28 @@ import * as Device from 'expo-device';
 import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
 
-// Configure notification handler
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldPlaySound: true,
-    shouldSetBadge: true,
-    shouldShowBanner: true,
-    shouldShowList: true,
-  }),
-});
+// NOTE: Notification handler is configured lazily in initialize() to avoid
+// calling native modules at module load time, which can crash Hermes on iOS
+// when the native module throws an exception during early app startup.
+let isNotificationHandlerConfigured = false;
+
+function ensureNotificationHandlerConfigured(): void {
+  if (isNotificationHandlerConfigured) return;
+  try {
+    Notifications.setNotificationHandler({
+      handleNotification: async () => ({
+        shouldShowAlert: true,
+        shouldPlaySound: true,
+        shouldSetBadge: true,
+        shouldShowBanner: true,
+        shouldShowList: true,
+      }),
+    });
+    isNotificationHandlerConfigured = true;
+  } catch (error) {
+    console.warn('Failed to configure notification handler:', error);
+  }
+}
 
 export interface PushTokenRegistration {
   token: string;
@@ -28,6 +40,9 @@ class PushNotificationService {
    * Register for push notifications and get Expo push token
    */
   async registerForPushNotifications(): Promise<string | null> {
+    // Configure notification handler lazily (avoids crash at module load)
+    ensureNotificationHandlerConfigured();
+
     // Check if running on physical device
     if (!Device.isDevice) {
       console.log('Push notifications require a physical device');

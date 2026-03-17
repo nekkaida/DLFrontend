@@ -2,8 +2,17 @@ import { getBackendBaseURL } from "@/src/config/network";
 import axios, { AxiosError } from "axios";
 import { authClient } from "./auth-client";
 
+// Wrap in try-catch to prevent crash if getBackendBaseURL fails during module load
+let baseURL: string;
+try {
+  baseURL = getBackendBaseURL();
+} catch (e) {
+  console.warn("Failed to get backend URL for axios, using fallback:", e);
+  baseURL = "https://staging.appdevelopers.my";
+}
+
 const axiosInstance = axios.create({
-  baseURL: getBackendBaseURL(),
+  baseURL,
   withCredentials: false,
 });
 

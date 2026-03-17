@@ -5,10 +5,17 @@ import { Platform } from 'react-native';
 const isExpoGo = Constants.executionEnvironment === 'storeClient';
 
 // Lazy import to avoid crash in Expo Go
+// Wrapped in try-catch to prevent crash if native module throws during require
 let AppleAuthentication: any;
+let appleAuthLoadError: Error | null = null;
 
 if (!isExpoGo && Platform.OS === 'ios') {
-  AppleAuthentication = require('expo-apple-authentication');
+  try {
+    AppleAuthentication = require('expo-apple-authentication');
+  } catch (error) {
+    appleAuthLoadError = error as Error;
+    console.warn('Failed to load Apple Authentication module:', error);
+  }
 }
 
 export interface AppleSignInResult {
@@ -29,6 +36,9 @@ export interface AppleSignInResult {
 // Check if Apple Sign-In is available on this device
 export const isAppleSignInAvailable = async (): Promise<boolean> => {
   if (isExpoGo || Platform.OS !== 'ios') {
+    return false;
+  }
+  if (appleAuthLoadError || !AppleAuthentication) {
     return false;
   }
   try {
@@ -53,6 +63,14 @@ export const signInWithApple = async (): Promise<AppleSignInResult> => {
     return {
       success: false,
       error: 'Apple Sign-In requires a development build. Not available in Expo Go.',
+    };
+  }
+
+  // Return error if module failed to load
+  if (appleAuthLoadError || !AppleAuthentication) {
+    return {
+      success: false,
+      error: `Apple Sign-In module unavailable: ${appleAuthLoadError?.message || 'Unknown error'}`,
     };
   }
 
