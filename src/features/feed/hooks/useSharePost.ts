@@ -12,6 +12,7 @@ import { toast } from "sonner-native";
 // Deep link configuration
 const WEB_BASE_URL = "https://deuceleague.com";
 const APP_SCHEME = "deuceleague";
+const MEDIA_LIBRARY_PERMISSIONS: MediaLibrary.GranularPermission[] = ["photo"];
 
 /**
  * Opens the device Settings app for this application.
@@ -187,13 +188,16 @@ export const useSharePost = (): UseSharePostReturn => {
 
         // Check permission status first (won't ask if already granted)
         const { status: existingStatus } =
-          await MediaLibrary.getPermissionsAsync();
+          await MediaLibrary.getPermissionsAsync(false, MEDIA_LIBRARY_PERMISSIONS);
 
         let finalStatus = existingStatus;
 
         // Only request if not already granted
         if (existingStatus !== "granted") {
-          const { status } = await MediaLibrary.requestPermissionsAsync();
+          const { status } = await MediaLibrary.requestPermissionsAsync(
+            false,
+            MEDIA_LIBRARY_PERMISSIONS,
+          );
           finalStatus = status;
         }
 
@@ -271,13 +275,16 @@ export const useSharePost = (): UseSharePostReturn => {
 
         // Check permission status first (won't ask if already granted)
         const { status: existingStatus } =
-          await MediaLibrary.getPermissionsAsync();
+          await MediaLibrary.getPermissionsAsync(false, MEDIA_LIBRARY_PERMISSIONS);
 
         let finalStatus = existingStatus;
 
         // Only request if not already granted
         if (existingStatus !== "granted") {
-          const { status } = await MediaLibrary.requestPermissionsAsync();
+          const { status } = await MediaLibrary.requestPermissionsAsync(
+            false,
+            MEDIA_LIBRARY_PERMISSIONS,
+          );
           finalStatus = status;
         }
 
