@@ -19,7 +19,12 @@ import { usePushNotifications } from '@/src/hooks/usePushNotifications';
 import { configureGoogleSignIn } from '@/lib/google-signin';
 import { ErrorBoundary } from '@shared/components/layout';
 import { reportRenderError, reportJSError } from '@/src/services/crashReporter';
-import { ErrorUtils } from 'react-native';
+
+// ErrorUtils is a React Native global, not an exported module
+declare const ErrorUtils: {
+  getGlobalHandler: () => (error: Error, isFatal?: boolean) => void;
+  setGlobalHandler: (handler: (error: Error, isFatal?: boolean) => void) => void;
+};
 
 // Configure Google Sign-In at app startup
 configureGoogleSignIn();
@@ -92,7 +97,7 @@ export default function RootLayout() {
 
   // Set up global JS error handler for crash reporting
   useEffect(() => {
-    if (!__DEV__) {
+    if (!__DEV__ && typeof ErrorUtils !== 'undefined') {
       const defaultHandler = ErrorUtils.getGlobalHandler();
       ErrorUtils.setGlobalHandler((error: Error, isFatal?: boolean) => {
         reportJSError(error, isFatal ?? false);
