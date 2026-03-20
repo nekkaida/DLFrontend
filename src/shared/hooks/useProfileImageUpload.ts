@@ -3,8 +3,9 @@ import { authClient } from '@/lib/auth-client';
 import * as FileSystem from 'expo-file-system/legacy';
 import { manipulateAsync, SaveFormat } from 'expo-image-manipulator';
 import * as ImagePicker from 'expo-image-picker';
+import ExpoImageCropTool from 'expo-image-crop-tool';
 import { useCallback, useState } from 'react';
-import { Alert, Image } from 'react-native';
+import { Alert } from 'react-native';
 import { toast } from 'sonner-native';
 
 interface UseProfileImageUploadOptions {
@@ -19,17 +20,13 @@ interface UseProfileImageUploadReturn {
   originalLocalImage: string | null;
   isUploadingImage: boolean;
   isPickerActive: boolean;
-  showCropper: boolean;
-  selectedImageUri: string | null;
 
   // Actions
   setProfileImage: (uri: string | null) => void;
   uploadProfileImage: (imageUri: string, retryCount?: number) => Promise<string | null>;
   pickImageFromLibrary: () => Promise<void>;
   openCamera: () => Promise<void>;
-  handleCropComplete: (croppedUri: string) => Promise<void>;
-  handleCropCancel: () => void;
-  handleEditImage: () => void;
+  handleEditImage: () => Promise<void>;
   resetState: () => void;
 }
 
@@ -42,12 +39,12 @@ const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024;
  * Used by ProfilePictureScreen (onboarding), ProfileScreen, and edit-profile.
  *
  * Features:
- * - CircularImageCropper integration
+ * - Native circular cropper via expo-image-crop-tool
  * - EXIF orientation normalization via expo-image-manipulator
  * - FormData multipart upload with MIME type detection
  * - Platform-specific URI handling (iOS file:// prefix removal)
  * - Retry logic with exponential backoff (2 retries)
- * - 500x500 PNG output from cropper
+ * - 500x500 JPEG output
  */
 export function useProfileImageUpload(options: UseProfileImageUploadOptions = {}): UseProfileImageUploadReturn {
   const { userId, onUploadSuccess, onUploadError } = options;
@@ -57,33 +54,48 @@ export function useProfileImageUpload(options: UseProfileImageUploadOptions = {}
   const [originalLocalImage, setOriginalLocalImage] = useState<string | null>(null);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [isPickerActive, setIsPickerActive] = useState(false);
-  const [showCropper, setShowCropper] = useState(false);
-  const [selectedImageUri, setSelectedImageUri] = useState<string | null>(null);
 
   /**
-   * Normalize image orientation using EXIF data.
-   * This ensures the displayed image matches what will be cropped.
+   * Open native circular cropper, resize to 500x500, and upload.
+   * Returns the uploaded URL on success, null on cancellation/failure.
    */
-  const normalizeImageOrientation = useCallback(async (imageUri: string): Promise<string> => {
+  const cropAndUpload = useCallback(async (imageUri: string): Promise<string | null> => {
     try {
-      return new Promise((resolve) => {
-        Image.getSize(imageUri, async () => {
-          // Use manipulateAsync with no operations to normalize EXIF orientation
-          const normalized = await manipulateAsync(
-            imageUri,
-            [], // No operations, just normalize
-            { compress: 1.0, format: SaveFormat.JPEG }
-          );
-
-          resolve(normalized.uri);
-        }, () => {
-          resolve(imageUri);
-        });
+      // Open native cropper with circular mask
+      const cropResult = await ExpoImageCropTool.openCropperAsync({
+        imageUri,
+        shape: 'circle',
+        aspectRatio: 1,
+        format: 'jpeg',
+        compressImageQuality: 0.9,
       });
-    } catch {
-      return imageUri;
+
+      // Resize to 500x500 for consistent profile pictures
+      let finalUri = cropResult.path;
+      try {
+        const resized = await manipulateAsync(
+          cropResult.path,
+          [{ resize: { width: 500, height: 500 } }],
+          { compress: 0.9, format: SaveFormat.JPEG }
+        );
+        finalUri = resized.uri;
+      } catch (resizeError) {
+        console.warn('[useProfileImageUpload] Resize failed, using cropped image as-is:', resizeError);
+      }
+
+      // Upload
+      const url = await uploadProfileImage(finalUri);
+      return url;
+    } catch (error: any) {
+      // User cancelled the cropper — not an error
+      if (error?.message?.includes('cancel') || error?.code === 'ERR_CANCELED') {
+        return null;
+      }
+      console.error('[useProfileImageUpload] Crop failed:', error);
+      toast.error('Failed to crop image. Please try again.');
+      return null;
     }
-  }, []);
+  }, [uploadProfileImage]);
 
   /**
    * Upload profile image to backend with retry logic.
@@ -128,7 +140,6 @@ export function useProfileImageUpload(options: UseProfileImageUploadOptions = {}
       console.log('[useProfileImageUpload] Cookie length:', decodedCookies.length);
 
       // Use expo-file-system uploadAsync which has native-level support
-      // This bypasses all JavaScript networking limitations with cookies
       const backendUrl = getBackendBaseURL();
       const uploadResult = await FileSystem.uploadAsync(
         `${backendUrl}/api/player/profile/upload-image`,
@@ -145,7 +156,6 @@ export function useProfileImageUpload(options: UseProfileImageUploadOptions = {}
       );
 
       console.log('[useProfileImageUpload] Upload response status:', uploadResult.status);
-      console.log('[useProfileImageUpload] Upload response body:', uploadResult.body);
 
       if (uploadResult.status < 200 || uploadResult.status >= 300) {
         try {
@@ -158,13 +168,9 @@ export function useProfileImageUpload(options: UseProfileImageUploadOptions = {}
       }
 
       const result = JSON.parse(uploadResult.body);
-      console.log('[useProfileImageUpload] Upload result:', result);
 
-      // Backend returns: { success: true, data: { user: {...}, imageUrl: "url" }, message: "..." }
       let imageUrl: string | null = null;
-
       if (result?.success && result?.data) {
-        // Backend structure: result.data.imageUrl
         imageUrl = result.data.imageUrl || null;
       }
 
@@ -184,16 +190,10 @@ export function useProfileImageUpload(options: UseProfileImageUploadOptions = {}
     } catch (error: any) {
       const errorMessage = error.message || 'Upload failed';
       console.error('[useProfileImageUpload] Upload error:', errorMessage);
-      console.error('[useProfileImageUpload] Error details:', {
-        message: errorMessage,
-        imageUri,
-        retryCount,
-      });
 
       // Retry logic for network errors
       if (retryCount < MAX_RETRIES && error.message?.includes('Network')) {
         console.log('[useProfileImageUpload] Retrying due to network error...');
-        // Wait a bit before retrying (exponential backoff)
         await new Promise(resolve => setTimeout(resolve, 1000 * (retryCount + 1)));
         setIsUploadingImage(false);
         return uploadProfileImage(imageUri, retryCount + 1);
@@ -211,14 +211,13 @@ export function useProfileImageUpload(options: UseProfileImageUploadOptions = {}
   }, [userId, onUploadSuccess, onUploadError]);
 
   /**
-   * Open image library picker with built-in square crop.
+   * Open image library picker, then native circular cropper, then upload.
    */
   const pickImageFromLibrary = useCallback(async () => {
-    if (isPickerActive) return; // Prevent multiple pickers
+    if (isPickerActive) return;
     setIsPickerActive(true);
 
     try {
-      // Request permission
       const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
 
       if (permissionResult.granted === false) {
@@ -230,17 +229,25 @@ export function useProfileImageUpload(options: UseProfileImageUploadOptions = {}
         return;
       }
 
+      // No native editing — we use expo-image-crop-tool instead
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ['images'],
-        allowsEditing: true, // Enable native editing with square crop
-        aspect: [1, 1], // Square aspect ratio for circular display
+        allowsEditing: false,
         quality: 1.0,
       });
 
       if (!result.canceled && result.assets[0]) {
-        // Check file size before processing
         const asset = result.assets[0];
-        if (asset.fileSize && asset.fileSize > MAX_FILE_SIZE_BYTES) {
+
+        // Check file size — fileSize may be undefined on Android, fall back to FileSystem
+        let size = asset.fileSize;
+        if (!size) {
+          try {
+            const info = await FileSystem.getInfoAsync(asset.uri);
+            if (info.exists && 'size' in info) size = info.size;
+          } catch { /* ignore — proceed without size check */ }
+        }
+        if (size && size > MAX_FILE_SIZE_BYTES) {
           Alert.alert(
             'Image Too Large',
             `Please select an image smaller than ${MAX_FILE_SIZE_MB}MB.`,
@@ -249,17 +256,17 @@ export function useProfileImageUpload(options: UseProfileImageUploadOptions = {}
           return;
         }
 
-        // Normalize EXIF rotation BEFORE showing cropper
-        // This ensures the displayed image matches what will be cropped
+        // Normalize EXIF rotation
         const normalized = await manipulateAsync(
           asset.uri,
           [],
           { compress: 1, format: SaveFormat.JPEG }
         );
 
-        setOriginalLocalImage(normalized.uri); // Save original for re-cropping
-        setSelectedImageUri(normalized.uri);
-        setShowCropper(true);
+        setOriginalLocalImage(normalized.uri);
+
+        // Open native circular cropper → resize → upload
+        await cropAndUpload(normalized.uri);
       }
     } catch {
       toast.error('Error', {
@@ -268,13 +275,13 @@ export function useProfileImageUpload(options: UseProfileImageUploadOptions = {}
     } finally {
       setIsPickerActive(false);
     }
-  }, [isPickerActive]);
+  }, [isPickerActive, cropAndUpload]);
 
   /**
-   * Open camera to take photo with built-in square crop.
+   * Open camera to take photo, then native circular cropper, then upload.
    */
   const openCamera = useCallback(async () => {
-    if (isPickerActive) return; // Prevent multiple pickers
+    if (isPickerActive) return;
     setIsPickerActive(true);
 
     try {
@@ -289,17 +296,25 @@ export function useProfileImageUpload(options: UseProfileImageUploadOptions = {}
         return;
       }
 
+      // No native editing — we use expo-image-crop-tool instead
       const result = await ImagePicker.launchCameraAsync({
         mediaTypes: ['images'],
-        allowsEditing: true, // Enable native editing with square crop
-        aspect: [1, 1], // Square aspect ratio for circular display
+        allowsEditing: false,
         quality: 1.0,
       });
 
       if (!result.canceled && result.assets[0]) {
-        // Check file size before processing
         const asset = result.assets[0];
-        if (asset.fileSize && asset.fileSize > MAX_FILE_SIZE_BYTES) {
+
+        // Check file size — fileSize may be undefined on Android, fall back to FileSystem
+        let size = asset.fileSize;
+        if (!size) {
+          try {
+            const info = await FileSystem.getInfoAsync(asset.uri);
+            if (info.exists && 'size' in info) size = info.size;
+          } catch { /* ignore — proceed without size check */ }
+        }
+        if (size && size > MAX_FILE_SIZE_BYTES) {
           Alert.alert(
             'Image Too Large',
             `Please select an image smaller than ${MAX_FILE_SIZE_MB}MB.`,
@@ -308,17 +323,17 @@ export function useProfileImageUpload(options: UseProfileImageUploadOptions = {}
           return;
         }
 
-        // Normalize EXIF rotation BEFORE showing cropper
-        // This ensures the displayed image matches what will be cropped
+        // Normalize EXIF rotation
         const normalized = await manipulateAsync(
           asset.uri,
           [],
           { compress: 1, format: SaveFormat.JPEG }
         );
 
-        setOriginalLocalImage(normalized.uri); // Save original for re-cropping
-        setSelectedImageUri(normalized.uri);
-        setShowCropper(true);
+        setOriginalLocalImage(normalized.uri);
+
+        // Open native circular cropper → resize → upload
+        await cropAndUpload(normalized.uri);
       }
     } catch {
       toast.error('Error', {
@@ -327,55 +342,27 @@ export function useProfileImageUpload(options: UseProfileImageUploadOptions = {}
     } finally {
       setIsPickerActive(false);
     }
-  }, [isPickerActive]);
+  }, [isPickerActive, cropAndUpload]);
 
   /**
-   * Handle crop completion - resize and upload the cropped image.
+   * Handle edit button (pen icon) — reopen native cropper with original image.
    */
-  const handleCropComplete = useCallback(async (croppedUri: string) => {
-    console.log('[useProfileImageUpload] handleCropComplete called with URI:', croppedUri);
-    setShowCropper(false);
-    setSelectedImageUri(null);
-    
-    // Resize to 500x500 for consistent profile pictures
+  const handleEditImage = useCallback(async () => {
+    if (!profileImage || isPickerActive) return;
+    setIsPickerActive(true);
+
     try {
-      const resized = await manipulateAsync(
-        croppedUri,
-        [{ resize: { width: 500, height: 500 } }],
-        { compress: 0.9, format: SaveFormat.JPEG }
-      );
-      await uploadProfileImage(resized.uri);
-    } catch (error) {
-      console.error('[useProfileImageUpload] Error resizing image:', error);
-      // Fallback to uploading original cropped image
-      await uploadProfileImage(croppedUri);
+      if (originalLocalImage) {
+        await cropAndUpload(originalLocalImage);
+      } else {
+        toast.info('Replace Image', {
+          description: 'To change your photo, please upload or take a new one.',
+        });
+      }
+    } finally {
+      setIsPickerActive(false);
     }
-  }, [uploadProfileImage]);
-
-  /**
-   * Handle crop cancellation.
-   */
-  const handleCropCancel = useCallback(() => {
-    setShowCropper(false);
-    setSelectedImageUri(null);
-  }, []);
-
-  /**
-   * Handle edit button click - reopen cropper with original image.
-   */
-  const handleEditImage = useCallback(() => {
-    if (!profileImage) return;
-
-    // Use the original local image for re-cropping, not the uploaded URL
-    if (originalLocalImage) {
-      setSelectedImageUri(originalLocalImage);
-      setShowCropper(true);
-    } else {
-      toast.info('Replace Image', {
-        description: 'To change your photo, please upload or take a new one.',
-      });
-    }
-  }, [profileImage, originalLocalImage]);
+  }, [profileImage, originalLocalImage, cropAndUpload, isPickerActive]);
 
   /**
    * Reset all state to initial values.
@@ -384,26 +371,17 @@ export function useProfileImageUpload(options: UseProfileImageUploadOptions = {}
     setProfileImage(null);
     setOriginalLocalImage(null);
     setIsUploadingImage(false);
-    setShowCropper(false);
-    setSelectedImageUri(null);
   }, []);
 
   return {
-    // State
     profileImage,
     originalLocalImage,
     isUploadingImage,
     isPickerActive,
-    showCropper,
-    selectedImageUri,
-
-    // Actions
     setProfileImage,
     uploadProfileImage,
     pickImageFromLibrary,
     openCamera,
-    handleCropComplete,
-    handleCropCancel,
     handleEditImage,
     resetState,
   };
