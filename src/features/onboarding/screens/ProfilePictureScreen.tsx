@@ -13,7 +13,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Svg, Path, G, Circle, Rect, Defs, ClipPath } from 'react-native-svg';
-import { CircularImageCropper } from '../components';
+// CircularImageCropper removed — replaced by native expo-image-crop-tool in useProfileImageUpload
 import { LinearGradient } from 'expo-linear-gradient';
 import { toast } from 'sonner-native';
 import { useSession } from '@/lib/auth-client';
@@ -59,13 +59,9 @@ const ProfilePictureScreen = () => {
   const {
     profileImage,
     isUploadingImage,
-    showCropper,
-    selectedImageUri,
     setProfileImage,
     pickImageFromLibrary,
     openCamera,
-    handleCropComplete,
-    handleCropCancel,
     handleEditImage,
   } = useProfileImageUpload({
     userId: session?.user?.id,
@@ -101,13 +97,6 @@ const ProfilePictureScreen = () => {
     setIsSkipSelected(false);
     await openCamera();
   }, [openCamera]);
-
-  // Custom crop complete handler for onboarding (handles skip state)
-  // Using useCallback to ensure stable reference and proper dependency tracking
-  const onCropComplete = useCallback(async (croppedUri: string) => {
-    setIsSkipSelected(false);
-    await handleCropComplete(croppedUri);
-  }, [handleCropComplete]);
 
   const handleComplete = async () => {
     try {
@@ -328,15 +317,6 @@ const ProfilePictureScreen = () => {
         </View>
       </ScrollView>
 
-      {/* Circular Image Cropper Modal */}
-      {selectedImageUri && (
-        <CircularImageCropper
-          visible={showCropper}
-          imageUri={selectedImageUri}
-          onCropComplete={onCropComplete}
-          onCancel={handleCropCancel}
-        />
-      )}
     </SafeAreaView>
   );
 };
