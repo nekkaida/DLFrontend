@@ -28,9 +28,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
 import { toast } from 'sonner-native';
 
-// Import shared profile image upload hook and CircularImageCropper
+// Import shared profile image upload hook
 import { useProfileImageUpload } from '@/src/shared/hooks/useProfileImageUpload';
-import { CircularImageCropper } from '@/src/features/onboarding/components';
 
 // Constants
 const DEBOUNCE_DELAY = 500;
@@ -135,13 +134,9 @@ export default function EditProfileScreen() {
   // Use shared profile image upload hook
   const {
     isUploadingImage,
-    showCropper,
-    selectedImageUri,
     setProfileImage,
     pickImageFromLibrary,
     openCamera,
-    handleCropComplete,
-    handleCropCancel,
   } = useProfileImageUpload({
     userId: session?.user?.id,
     onUploadSuccess: (imageUrl) => {
@@ -884,15 +879,6 @@ export default function EditProfileScreen() {
         </Animated.View>
       </SafeAreaView>
 
-      {/* Circular Image Cropper Modal */}
-      {selectedImageUri && (
-        <CircularImageCropper
-          visible={showCropper}
-          imageUri={selectedImageUri}
-          onCropComplete={handleCropComplete}
-          onCancel={handleCropCancel}
-        />
-      )}
     </View>
   );
 }
