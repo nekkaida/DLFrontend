@@ -261,7 +261,11 @@ export const ChatThreadScreen: React.FC<ChatThreadScreenProps> = ({ threadId, da
   }, [currentThread, user?.id, sendMessage, replyingTo, setReplyingTo]);
 
   const handleBackToThreads = useCallback(() => {
-    router.back();
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.replace('/user-dashboard' as any);
+    }
   }, []);
 
   const handleMatch = useCallback(() => {
