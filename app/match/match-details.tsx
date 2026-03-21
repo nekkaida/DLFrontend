@@ -1574,8 +1574,8 @@ export default function JoinMatchScreen() {
       return 'view';
     }
 
-    // If match is COMPLETED, everyone sees view mode
-    if (status === 'COMPLETED' || status === 'FINISHED') {
+    // If match is COMPLETED or WALKOVER_PENDING, everyone sees view mode
+    if (status === 'COMPLETED' || status === 'FINISHED' || status === 'WALKOVER_PENDING') {
       return 'view';
     }
 
@@ -2387,6 +2387,9 @@ export default function JoinMatchScreen() {
             reason: matchData.walkoverReason || '',
             defaultingPlayerName: matchData.walkover?.defaultingPlayer?.name || 'Opponent',
             reasonDetail: matchData.walkover?.walkoverReasonDetail,
+            reportedById: matchData.walkover?.reportedBy || matchData.walkoverRecordedById,
+            isDisputed: matchData.walkover?.isDisputed || false,
+            disputeExpiresAt: matchData.walkover?.disputeExpiresAt,
           } : undefined}
           matchComments={comments}
           currentUserId={session?.user?.id}
@@ -2398,6 +2401,15 @@ export default function JoinMatchScreen() {
           onConfirm={handleConfirmResult}
           onDispute={handleOpenDisputeSheet}
           onWalkover={handleWalkover}
+          onDisputeWalkover={async (reason: string) => {
+            try {
+              await axiosInstance.post(endpoints.match.disputeWalkover(matchId), { reason });
+              toast.success('Walkover disputed. An admin will review this match.');
+              fetchMatchData();
+            } catch (error: any) {
+              toast.error(error?.response?.data?.message || error?.message || 'Failed to dispute walkover');
+            }
+          }}
           onExpandSheet={handleExpandSheet}
           onCollapseSheet={handleCollapseSheet}
         />
