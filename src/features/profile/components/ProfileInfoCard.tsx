@@ -56,8 +56,14 @@ export const ProfileInfoCard: React.FC<ProfileInfoCardProps> = ({
   const { width } = useWindowDimensions();
   const avatarSize = Math.max(84, Math.min(108, width * 0.25));
   const rightColumnWidth = avatarSize + 12;
-  const nameSize = Math.max(28, Math.min(40, width * 0.09));
-  const usernameSize = Math.max(14, Math.min(18, width * 0.042));
+  const baseNameSize = Math.max(22, Math.min(30, width * 0.075));
+  const nameSize = name.length > 18 ? Math.max(18, baseNameSize - 6)
+    : name.length > 12 ? Math.max(20, baseNameSize - 3)
+    : baseNameSize;
+  const baseUsernameSize = Math.max(13, Math.min(16, width * 0.038));
+  const usernameSize = username.length > 22 ? Math.max(11, baseUsernameSize - 3)
+    : username.length > 16 ? Math.max(12, baseUsernameSize - 1)
+    : baseUsernameSize;
   const bioSize = Math.max(13, Math.min(15, width * 0.036));
   const locationSize = Math.max(12, Math.min(15, width * 0.036));
   const pillFontSize = Math.max(11, Math.min(13, width * 0.031));
