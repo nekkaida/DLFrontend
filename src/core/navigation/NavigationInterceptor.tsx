@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { useRouter, useSegments, Href } from 'expo-router';
+import { useRouter, useSegments, Href, useGlobalSearchParams } from 'expo-router';
 import { BackHandler } from 'react-native';
 import { useSession, signOut } from '@/lib/auth-client';
 import axiosInstance from '@/lib/endpoints';
@@ -102,6 +102,8 @@ export const NavigationInterceptor: React.FC<NavigationInterceptorProps> = ({ ch
   const router = useRouter();
   const segments = useSegments();
   const { data: session, isPending } = useSession();
+  const globalParams = useGlobalSearchParams();
+  const isFromDashboard = globalParams?.fromDashboard === 'true';
   const navigationStack = useRef<string[]>([]);
   const isNavigating = useRef(false);
   const isCleaningUpSession = useRef(false); // Guards against 401 retry loops during session cleanup
@@ -415,8 +417,9 @@ export const NavigationInterceptor: React.FC<NavigationInterceptorProps> = ({ ch
     // This handles the race condition where login.tsx routes to an onboarding page because
     // the auth signIn response doesn't include completedOnboarding/onboardingStep fields.
     // Once checkOnboardingStatus() resolves, this block fires and corrects the route.
+    // Exception: allow fromDashboard=true so users can add a new sport's DMR from the profile.
     const isOnboardingRoute = currentRoute.startsWith('/onboarding/');
-    if (isOnboardingRoute && session?.user && !isCheckingOnboarding && onboardingStatus?.completedOnboarding) {
+    if (isOnboardingRoute && session?.user && !isCheckingOnboarding && onboardingStatus?.completedOnboarding && !isFromDashboard) {
       console.log('NavigationInterceptor: User already completed onboarding, redirecting to dashboard');
       setTimeout(() => router.replace('/user-dashboard'), 100);
       return;

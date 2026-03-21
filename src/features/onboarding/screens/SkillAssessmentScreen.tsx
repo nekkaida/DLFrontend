@@ -175,6 +175,13 @@ const SkillAssessmentScreen = () => {
 
   // Navigation helpers
   const proceedToNext = useCallback(async () => {
+    // When launched from the dashboard (adding a new sport's DMR), skip the onboarding
+    // multi-sport loop and go straight back to the dashboard after assessment.
+    if (fromDashboard === 'true') {
+      router.replace('/user-dashboard');
+      return;
+    }
+
     if (currentSportIndex < selectedSports.length - 1) {
       const nextSport = selectedSports[currentSportIndex + 1];
       router.push(`/onboarding/skill-assessment?sport=${nextSport}&sportIndex=${currentSportIndex + 1}`);
@@ -193,7 +200,7 @@ const SkillAssessmentScreen = () => {
       }
       router.replace('/user-dashboard');
     }
-  }, [currentSportIndex, selectedSports, session.data?.user?.id]);
+  }, [fromDashboard, currentSportIndex, selectedSports, session.data?.user?.id]);
 
   // Backend save helper
   const saveToBackend = useCallback(async (sportName: string, responses: any) => {
