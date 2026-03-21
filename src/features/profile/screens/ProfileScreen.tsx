@@ -406,8 +406,8 @@ export default function ProfileScreen() {
     return [{
       date: 'Current Rating',
       time: '',
-      rating: currentRating || 1400,
-      ratingBefore: currentRating || 1400,
+      rating: currentRating || 0,
+      ratingBefore: currentRating || 0,
       opponent: 'No matches played',
       result: 'W' as const,
       score: '-',
@@ -505,7 +505,7 @@ export default function ProfileScreen() {
           >
             <View style={styles.streakCard}>
               <View>
-                <Text style={styles.streakNumber}>1</Text>
+                <Text style={styles.streakNumber}>0</Text>
                 <Text style={styles.streakLabel}>Weekly Match Streak</Text>
               </View>
               <Pressable
@@ -575,6 +575,8 @@ export default function ProfileScreen() {
               selectedMatch={selectedMatch}
               selectedGraphIndex={selectedGraphIndex}
               profileData={profileData}
+              isOwnProfile={true}
+              onGetDMR={() => router.push(`/onboarding/skill-assessment?sport=${activeTab.toLowerCase()}&sportIndex=0&fromDashboard=true` as any)}
             />
 
             {/* Match History Button */}

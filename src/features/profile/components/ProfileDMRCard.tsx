@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { theme } from '@core/theme/theme';
 import { InlineDropdown } from './InlineDropdown';
@@ -18,6 +18,8 @@ interface ProfileDMRCardProps {
   selectedMatch: any | null;
   selectedGraphIndex?: number | null;
   profileData: any;
+  isOwnProfile?: boolean;
+  onGetDMR?: () => void;
 }
 
 export const ProfileDMRCard: React.FC<ProfileDMRCardProps> = ({
@@ -31,7 +33,14 @@ export const ProfileDMRCard: React.FC<ProfileDMRCardProps> = ({
   selectedMatch,
   selectedGraphIndex,
   profileData,
+  isOwnProfile = false,
+  onGetDMR,
 }) => {
+  const sport = activeTab || 'pickleball';
+  const singlesRating = getRatingForType(sport, 'singles');
+  const doublesRating = getRatingForType(sport, 'doubles');
+  const hasNoRating = singlesRating === 0 && doublesRating === 0;
+
   return (
     <View style={styles.skillLevelSection}>
       <View style={styles.dmrContainer}>
@@ -46,7 +55,7 @@ export const ProfileDMRCard: React.FC<ProfileDMRCardProps> = ({
               <Text style={styles.dmrTypeLabel}>Singles</Text>
               <View style={styles.ratingCircleSmall}>
                 <Text style={styles.ratingTextSmall}>
-                  {getRatingForType(activeTab || 'pickleball', 'singles') || 'N/A'}
+                  {singlesRating || '-'}
                 </Text>
               </View>
             </View>
@@ -54,34 +63,54 @@ export const ProfileDMRCard: React.FC<ProfileDMRCardProps> = ({
               <Text style={styles.dmrTypeLabel}>Doubles</Text>
               <View style={styles.ratingCircleSmall}>
                 <Text style={styles.ratingTextSmall}>
-                  {getRatingForType(activeTab || 'pickleball', 'doubles') || 'N/A'}
+                  {doublesRating || '-'}
                 </Text>
               </View>
             </View>
           </View>
         </View>
 
-        {/* Dropdown above graph */}
-        <View style={styles.dropdownSection}>
-          <InlineDropdown
-            options={gameTypeOptions}
-            selectedValue={selectedGameType}
-            onSelect={(value) => {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              onGameTypeSelect(value);
-            }}
-          />
-        </View>
+        {/* No-DMR state for own profile: show button to start questionnaire */}
+        {isOwnProfile && hasNoRating ? (
+          <>
+            <TouchableOpacity
+              style={styles.getDmrButton}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                onGetDMR?.();
+              }}
+            >
+              <Text style={styles.getDmrButtonText}>Get your DMR rating  ›</Text>
+            </TouchableOpacity>
+            <Text style={styles.getDmrSubtext}>
+              Complete the skill questionnaire to unlock your rating.
+            </Text>
+          </>
+        ) : (
+          <>
+            {/* Dropdown above graph */}
+            <View style={styles.dropdownSection}>
+              <InlineDropdown
+                options={gameTypeOptions}
+                selectedValue={selectedGameType}
+                onSelect={(value) => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  onGameTypeSelect(value);
+                }}
+              />
+            </View>
 
-        {/* Match Details Box */}
-        <MatchDetailsBox match={selectedMatch} profileData={profileData} />
+            {/* Match Details Box */}
+            <MatchDetailsBox match={selectedMatch} profileData={profileData} />
 
-        {/* ELO Progress Graph */}
-        <EloProgressGraph
-          data={eloData}
-          onPointPress={onPointPress}
-          selectedIndex={selectedGraphIndex ?? undefined}
-        />
+            {/* ELO Progress Graph */}
+            <EloProgressGraph
+              data={eloData}
+              onPointPress={onPointPress}
+              selectedIndex={selectedGraphIndex ?? undefined}
+            />
+          </>
+        )}
       </View>
     </View>
   );
@@ -104,6 +133,31 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.03,
     shadowRadius: 4,
     elevation: 1,
+  },
+  getDmrButton: {
+    borderWidth: 1.5,
+    borderColor: '#fea04d',
+    borderRadius: 24,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: theme.spacing.md,
+    marginBottom: theme.spacing.sm,
+  },
+  getDmrButtonText: {
+    color: '#fea04d',
+    fontSize: 15,
+    fontWeight: '600' as any,
+    fontFamily: theme.typography.fontFamily.primary,
+  },
+  getDmrSubtext: {
+    color: theme.colors.neutral.gray[500],
+    fontSize: 13,
+    fontFamily: theme.typography.fontFamily.primary,
+    textAlign: 'center',
+    lineHeight: 18,
+    marginBottom: theme.spacing.md,
   },
   dmrLabelGroup: {
     gap: 2,

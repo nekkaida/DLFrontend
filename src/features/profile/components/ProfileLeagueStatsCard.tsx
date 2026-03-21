@@ -98,7 +98,12 @@ export const ProfileLeagueStatsCard: React.FC<ProfileLeagueStatsCardProps> = ({
           />
         </View>
 
-        {/* Win Rate Circle Chart with animation */}
+        {/* Win Rate Circle Chart with animation – show placeholder when no data */}
+        {wins === 0 && losses === 0 ? (
+          <View style={styles.emptyContainer}>
+            <Text style={styles.emptyText}>There's nothing to see here</Text>
+          </View>
+        ) : (
         <Animated.View
           style={[
             styles.winRateContainer,
@@ -127,6 +132,7 @@ export const ProfileLeagueStatsCard: React.FC<ProfileLeagueStatsCardProps> = ({
             </View>
           </Animated.View>
         </Animated.View>
+        )}
       </View>
     </View>
   );
@@ -185,5 +191,16 @@ const styles = StyleSheet.create({
     fontSize: theme.typography.fontSize.sm,
     color: theme.colors.neutral.gray[700],
     fontFamily: theme.typography.fontFamily.primary,
+  },
+  emptyContainer: {
+    paddingVertical: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  emptyText: {
+    fontSize: 14,
+    color: theme.colors.neutral.gray[400],
+    fontFamily: theme.typography.fontFamily.primary,
+    fontStyle: 'italic',
   },
 });

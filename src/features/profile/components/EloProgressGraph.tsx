@@ -186,6 +186,19 @@ export const EloProgressGraph: React.FC<EloProgressGraphProps> = ({
     onPointPress(point, index);
   };
 
+  // When there is no meaningful data to display, show a placeholder
+  const showEmptyPlaceholder =
+    sortedData.length === 0 ||
+    (sortedData.length === 1 && sortedData[0].rating === 0);
+
+  if (showEmptyPlaceholder) {
+    return (
+      <View style={styles.emptyContainer}>
+        <Text style={styles.emptyText}>There's nothing to see here</Text>
+      </View>
+    );
+  }
+
   return (
     <Animated.View
       entering={FadeIn.duration(400)}
@@ -470,5 +483,17 @@ const styles = StyleSheet.create({
     fontSize: 10,
     color: theme.colors.neutral.gray[400],
     fontFamily: theme.typography.fontFamily.primary,
+  },
+  emptyContainer: {
+    height: 100,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: theme.spacing.sm,
+  },
+  emptyText: {
+    fontSize: 14,
+    color: theme.colors.neutral.gray[400],
+    fontFamily: theme.typography.fontFamily.primary,
+    fontStyle: 'italic',
   },
 });

@@ -16,7 +16,7 @@ import {
 import { useProfileHandlers } from "@/src/features/profile/hooks/useProfileHandlers";
 import { useProfileState } from "@/src/features/profile/hooks/useProfileState";
 import { ProfileDataTransformer } from "@/src/features/profile/services/ProfileDataTransformer";
-import type { UserData } from "@/src/features/profile/types";
+import type { GameData, UserData } from "@/src/features/profile/types";
 import { theme } from "@core/theme/theme";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
@@ -46,6 +46,7 @@ export default function PlayerProfileScreen() {
   const [hasError, setHasError] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [isLoadingChat, setIsLoadingChat] = useState(false);
+  const [ratingHistory, setRatingHistory] = useState<GameData[]>([]);
   const [leagueStatsData, setLeagueStatsData] = useState<{
     wins: number;
     losses: number;
@@ -144,6 +145,39 @@ export default function PlayerProfileScreen() {
     await fetchPlayerProfile();
     setRefreshing(false);
   }, [fetchPlayerProfile]);
+
+  // Fetch rating history for this player to power the DMR graph
+  const fetchPlayerRatingHistory = useCallback(async (gameType: 'singles' | 'doubles', sport: string) => {
+    try {
+      if (!id) return;
+      const sportParam = sport.toUpperCase();
+      const response = await axiosInstance.get(
+        `/api/ratings/${id}/history?gameType=${gameType.toUpperCase()}&sport=${sportParam}&limit=20`
+      );
+      let historyData: any[] = [];
+      if (response?.data?.data && Array.isArray(response.data.data)) {
+        historyData = response.data.data;
+      } else if (Array.isArray(response?.data)) {
+        historyData = response.data;
+      }
+      if (historyData.length > 0) {
+        const playerName = profileData?.name || 'Player';
+        const transformedData = ProfileDataTransformer.transformRatingHistoryToGameData(historyData, playerName);
+        setRatingHistory(transformedData);
+      } else {
+        setRatingHistory([]);
+      }
+    } catch {
+      setRatingHistory([]);
+    }
+  }, [id, profileData?.name]);
+
+  // Fetch rating history when game type, sport, or profile data changes
+  useEffect(() => {
+    if (profileData && selectedGameType && activeTab) {
+      fetchPlayerRatingHistory(selectedGameType.toLowerCase() as 'singles' | 'doubles', activeTab);
+    }
+  }, [selectedGameType, activeTab, profileData, fetchPlayerRatingHistory]);
 
   const handleAddFriend = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -338,22 +372,23 @@ export default function PlayerProfileScreen() {
     );
   };
 
-  // Create ELO data based on actual rating values only
-  const createEloData = () => {
+  // Build ELO data from real rating history when available, else show single current-rating point
+  const getEloData = (): GameData[] => {
+    if (ratingHistory.length > 0) {
+      return ratingHistory;
+    }
     const currentSport = activeTab || userData.sports?.[0] || "pickleball";
     const currentGameType = selectedGameType.toLowerCase();
     const currentRating = getRatingForType(
       currentSport,
       currentGameType as "singles" | "doubles",
     );
-
-    // Return single point with current rating if no matches played
     return [
       {
         date: "Current Rating",
         time: "",
-        rating: currentRating || 1400, // Use actual rating or default
-        ratingBefore: currentRating || 1400,
+        rating: currentRating || 0,
+        ratingBefore: currentRating || 0,
         opponent: "No matches played",
         result: "W" as const,
         score: "-",
@@ -371,7 +406,7 @@ export default function PlayerProfileScreen() {
     ];
   };
 
-  const mockEloData = createEloData();
+  const eloData = getEloData();
 
   // Auto-select first available sport when profile data loads
   useEffect(() => {
@@ -517,10 +552,11 @@ export default function PlayerProfileScreen() {
               gameTypeOptions={gameTypeOptions}
               onGameTypeSelect={handleGameTypeSelect}
               getRatingForType={getRatingForType}
-              eloData={mockEloData}
+              eloData={eloData}
               onPointPress={handleGamePointPress}
               selectedMatch={selectedMatch}
               profileData={profileData}
+              isOwnProfile={false}
             />
 
             {/* Match History Button */}
