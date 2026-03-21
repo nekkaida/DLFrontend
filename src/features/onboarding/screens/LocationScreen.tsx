@@ -8,8 +8,8 @@ import {
   SafeAreaView,
   Platform,
   ScrollView,
+  FlatList,
   ActivityIndicator,
-  Animated,
   KeyboardAvoidingView,
   Linking,
   Alert,
@@ -96,7 +96,6 @@ const LocationScreen = () => {
   } | null>(null);
   const textInputRef = useRef<TextInput>(null);
   const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const fadeAnim = useRef(new Animated.Value(0)).current;
 
   // Check location permission status and auto-fetch location on mount
   useEffect(() => {
@@ -249,6 +248,8 @@ const LocationScreen = () => {
       return;
     }
 
+    // Show spinner immediately so the dropdown is visible while debouncing
+    setIsSearchingLocations(true);
     searchTimeoutRef.current = setTimeout(() => {
       searchLocations(query);
     }, 1500); // 1.5 second delay (not autocomplete)
@@ -527,23 +528,6 @@ const LocationScreen = () => {
     };
   }, []);
 
-  // Animate suggestions container
-  useEffect(() => {
-    if (showSuggestions && locationSuggestions.length > 0) {
-      Animated.timing(fadeAnim, {
-        toValue: 1,
-        duration: 200,
-        useNativeDriver: true,
-      }).start();
-    } else {
-      Animated.timing(fadeAnim, {
-        toValue: 0,
-        duration: 150,
-        useNativeDriver: true,
-      }).start();
-    }
-  }, [showSuggestions, locationSuggestions.length]);
-
   // Clear input function
   const clearInput = () => {
     setLocation('');
@@ -739,49 +723,41 @@ const LocationScreen = () => {
             </View>
           </View>
         </View>
-        {/* Suggestions appear directly below input */}
-        {showSuggestions && !useCurrentLocation && (
-          <Animated.View 
-            style={[
-              styles.suggestionsContainer,
-              { opacity: fadeAnim }
-            ]}
-          >
-            <ScrollView
-              style={styles.suggestionsList}
-              showsVerticalScrollIndicator={true} // Show scroll indicator so users know list is scrollable
-              keyboardShouldPersistTaps="handled"
-              nestedScrollEnabled={true} // Enable nested scrolling for better behavior
-            >
-              {isSearchingLocations && (
-                <View style={styles.suggestionItem}>
-                  <ActivityIndicator size="small" color="#FE9F4D" />
-                  <Text style={styles.suggestionText}>Searching locations...</Text>
-                </View>
-              )}
-              {!isSearchingLocations && locationSuggestions.length > 0 && locationSuggestions.map((item, index) => {
-                return (
+        {/* Suggestions dropdown */}
+        {showSuggestions && !useCurrentLocation && (isSearchingLocations || locationSuggestions.length > 0 || location.trim().length >= 3) && (
+          <View style={styles.suggestionsContainer}>
+            {isSearchingLocations ? (
+              <View style={styles.suggestionsLoadingRow}>
+                <ActivityIndicator size="small" color="#FE9F4D" />
+                <Text style={[styles.suggestionText, { marginLeft: 10, color: '#6B7280' }]}>Searching locations...</Text>
+              </View>
+            ) : locationSuggestions.length > 0 ? (
+              <FlatList
+                data={locationSuggestions}
+                keyExtractor={(item, index) => `${item.id}-${index}`}
+                keyboardShouldPersistTaps="handled"
+                style={styles.suggestionsList}
+                showsVerticalScrollIndicator={false}
+                renderItem={({ item, index }) => (
                   <TouchableOpacity
-                    key={`${item.id}-${index}`}
                     style={[
                       styles.suggestionItem,
-                      index === locationSuggestions.length - 1 && styles.suggestionItemLast
+                      index === locationSuggestions.length - 1 && styles.suggestionItemLast,
                     ]}
                     onPress={() => selectLocation(item)}
                     activeOpacity={0.7}
                   >
                     <Text style={styles.suggestionText}>{item.formatted_address}</Text>
                   </TouchableOpacity>
-                );
-              })}
-              {!isSearchingLocations && locationSuggestions.length === 0 && location.trim().length >= 2 && (
-                <View style={styles.suggestionItem}>
-                  <Text style={styles.noResultsText}>No locations found</Text>
-                  <Text style={styles.noResultsSubtext}>Try a different search term</Text>
-                </View>
-              )}
-            </ScrollView>
-          </Animated.View>
+                )}
+              />
+            ) : (
+              <View style={styles.suggestionItem}>
+                <Text style={styles.noResultsText}>No locations found</Text>
+                <Text style={styles.noResultsSubtext}>Try a different search term</Text>
+              </View>
+            )}
+          </View>
         )}
 
       </View>
@@ -919,23 +895,26 @@ const styles = StyleSheet.create({
     marginRight: 4,
   },
   suggestionsContainer: {
-    backgroundColor: 'rgba(22, 94, 153, 0.05)',
-    borderLeftWidth: 1,
-    borderRightWidth: 1,
-    borderBottomWidth: 1,
-    borderTopWidth: 0,
-    borderColor: '#BABABA',
-    borderBottomLeftRadius: 10,
-    borderBottomRightRadius: 10,
-    maxHeight: 450, // Increased to accommodate scrollable list
-    marginTop: 0,
-    marginLeft: suggestionsMargin,
-    marginRight: suggestionsMargin,
-    // Remove overflow: 'hidden' to allow scrolling
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+    borderRadius: 12,
+    maxHeight: 320,
+    marginTop: 6,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.10,
+    shadowRadius: 8,
+    elevation: 6,
   },
   suggestionsList: {
-    maxHeight: 400, // Scrollable area for results (up to ~10-12 items visible)
-    flexGrow: 0, // Prevent expanding beyond maxHeight
+    maxHeight: 320,
+  },
+  suggestionsLoadingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 14,
   },
   suggestionItem: {
     paddingHorizontal: 28,

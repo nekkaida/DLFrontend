@@ -40,6 +40,8 @@ export const ProfileDMRCard: React.FC<ProfileDMRCardProps> = ({
   const singlesRating = getRatingForType(sport, 'singles');
   const doublesRating = getRatingForType(sport, 'doubles');
   const hasNoRating = singlesRating === 0 && doublesRating === 0;
+  // No real match history: eloData is only the questionnaire-based fallback point
+  const hasNoMatchData = eloData.length === 0 || (eloData.length === 1 && eloData[0]?.date === 'Current Rating');
 
   return (
     <View style={styles.skillLevelSection}>
@@ -100,15 +102,24 @@ export const ProfileDMRCard: React.FC<ProfileDMRCardProps> = ({
               />
             </View>
 
-            {/* Match Details Box */}
-            <MatchDetailsBox match={selectedMatch} profileData={profileData} />
+            {/* Match Details / Graph — placeholder when no matches played yet */}
+            {hasNoMatchData ? (
+              <View style={styles.noMatchDataContainer}>
+                <Text style={styles.noMatchDataText}>There's nothing to see here</Text>
+              </View>
+            ) : (
+              <>
+                {/* Match Details Box */}
+                <MatchDetailsBox match={selectedMatch} profileData={profileData} />
 
-            {/* ELO Progress Graph */}
-            <EloProgressGraph
-              data={eloData}
-              onPointPress={onPointPress}
-              selectedIndex={selectedGraphIndex ?? undefined}
-            />
+                {/* ELO Progress Graph */}
+                <EloProgressGraph
+                  data={eloData}
+                  onPointPress={onPointPress}
+                  selectedIndex={selectedGraphIndex ?? undefined}
+                />
+              </>
+            )}
           </>
         )}
       </View>
@@ -207,6 +218,17 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: '800' as any,
     fontFamily: theme.typography.fontFamily.primary,
+  },
+  noMatchDataContainer: {
+    paddingVertical: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  noMatchDataText: {
+    color: theme.colors.neutral.gray[400],
+    fontSize: 14,
+    fontFamily: theme.typography.fontFamily.primary,
+    fontWeight: '500' as any,
   },
   dropdownSection: {
     marginBottom: theme.spacing.md,
