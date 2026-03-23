@@ -123,6 +123,8 @@ export const MatchResultSheet: React.FC<MatchResultSheetProps> = ({
   const [defaultingTeam, setDefaultingTeam] = useState<'A' | 'B' | null>(null);
   const [walkoverReason, setWalkoverReason] = useState<WalkoverReason | null>(null);
   const [walkoverDetail, setWalkoverDetail] = useState('');
+  const [showDisputeInput, setShowDisputeInput] = useState(false);
+  const [disputeText, setDisputeText] = useState('');
 
   // Separate players by team
   // First try to filter by team property, then fallback to splitting the array
@@ -941,29 +943,54 @@ export const MatchResultSheet: React.FC<MatchResultSheetProps> = ({
                         <Text style={[styles.walkoverViewReasonLabel, { marginTop: 12, color: '#6B7280' }]}>
                           If you believe this was submitted in error, you may submit a dispute within 24 hours.
                         </Text>
-                        <TouchableOpacity
-                          style={[styles.confirmButton, { marginTop: 16, backgroundColor: '#EF4444' }]}
-                          onPress={() => {
-                            Alert.prompt(
-                              'Dispute Walkover',
-                              'Please explain why you believe this walkover was submitted in error.',
-                              [
-                                { text: 'Cancel', style: 'cancel' },
-                                {
-                                  text: 'Submit Dispute',
-                                  onPress: (text) => {
-                                    if (text?.trim()) {
-                                      onDisputeWalkover?.(text.trim());
-                                    }
-                                  },
-                                },
-                              ],
-                              'plain-text'
-                            );
-                          }}
-                        >
-                          <Text style={styles.confirmButtonText}>Submit Dispute</Text>
-                        </TouchableOpacity>
+                        {!showDisputeInput ? (
+                          <TouchableOpacity
+                            style={[styles.confirmButton, { marginTop: 16, backgroundColor: '#EF4444' }]}
+                            onPress={() => setShowDisputeInput(true)}
+                          >
+                            <Text style={styles.confirmButtonText}>Submit Dispute</Text>
+                          </TouchableOpacity>
+                        ) : (
+                          <View style={{ marginTop: 12 }}>
+                            <BottomSheetTextInput
+                              style={{
+                                backgroundColor: '#F9FAFB',
+                                borderRadius: 10,
+                                borderWidth: 1,
+                                borderColor: '#E5E7EB',
+                                padding: 12,
+                                fontSize: 14,
+                                color: '#111827',
+                                minHeight: 80,
+                                textAlignVertical: 'top',
+                              }}
+                              placeholder="Explain why this walkover was submitted in error..."
+                              placeholderTextColor="#9CA3AF"
+                              multiline
+                              value={disputeText}
+                              onChangeText={setDisputeText}
+                            />
+                            <View style={{ flexDirection: 'row', gap: 8, marginTop: 10 }}>
+                              <TouchableOpacity
+                                style={[styles.confirmButton, { flex: 1, backgroundColor: '#F3F4F6' }]}
+                                onPress={() => { setShowDisputeInput(false); setDisputeText(''); }}
+                              >
+                                <Text style={[styles.confirmButtonText, { color: '#374151' }]}>Cancel</Text>
+                              </TouchableOpacity>
+                              <TouchableOpacity
+                                style={[styles.confirmButton, { flex: 1.5, backgroundColor: '#EF4444', opacity: disputeText.trim().length < 10 ? 0.5 : 1 }]}
+                                disabled={disputeText.trim().length < 10}
+                                onPress={() => {
+                                  onDisputeWalkover?.(disputeText.trim());
+                                  setShowDisputeInput(false);
+                                  setDisputeText('');
+                                }}
+                              >
+                                <Text style={styles.confirmButtonText}>Submit</Text>
+                              </TouchableOpacity>
+                            </View>
+                          </View>
+                        )}
                       </>
                     ) : walkoverInfo.isDisputed ? (
                       <Text style={[styles.walkoverViewReasonLabel, { marginTop: 12, color: '#F59E0B' }]}>
