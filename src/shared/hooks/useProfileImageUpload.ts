@@ -3,8 +3,15 @@ import { authClient } from '@/lib/auth-client';
 import * as FileSystem from 'expo-file-system/legacy';
 import { manipulateAsync, SaveFormat } from 'expo-image-manipulator';
 import * as ImagePicker from 'expo-image-picker';
-import ExpoImageCropTool from 'expo-image-crop-tool';
 import { useCallback, useState } from 'react';
+
+// Lazy-load native cropper — unavailable in Expo Go, works in dev builds
+let ExpoImageCropTool: any = null;
+try {
+  ExpoImageCropTool = require('expo-image-crop-tool').default;
+} catch {
+  // Native module not available (Expo Go) — will fall back to expo-image-picker editing
+}
 import { Alert } from 'react-native';
 import { toast } from 'sonner-native';
 
@@ -59,28 +66,35 @@ export function useProfileImageUpload(options: UseProfileImageUploadOptions = {}
    * Open native circular cropper, resize to 500x500, and upload.
    * Returns the uploaded URL on success, null on cancellation/failure.
    */
+  const hasNativeCropper = !!ExpoImageCropTool;
+
   const cropAndUpload = useCallback(async (imageUri: string): Promise<string | null> => {
     try {
-      // Open native cropper with circular mask
-      const cropResult = await ExpoImageCropTool.openCropperAsync({
-        imageUri,
-        shape: 'circle',
-        aspectRatio: 1,
-        format: 'jpeg',
-        compressImageQuality: 0.9,
-      });
+      let finalUri = imageUri;
+
+      if (ExpoImageCropTool) {
+        // Open native cropper with circular mask (dev build)
+        const cropResult = await ExpoImageCropTool.openCropperAsync({
+          imageUri,
+          shape: 'circle',
+          aspectRatio: 1,
+          format: 'jpeg',
+          compressImageQuality: 0.9,
+        });
+        finalUri = cropResult.path;
+      }
+      // If no native cropper (Expo Go), image was already edited by picker's allowsEditing
 
       // Resize to 500x500 for consistent profile pictures
-      let finalUri = cropResult.path;
       try {
         const resized = await manipulateAsync(
-          cropResult.path,
+          finalUri,
           [{ resize: { width: 500, height: 500 } }],
           { compress: 0.9, format: SaveFormat.JPEG }
         );
         finalUri = resized.uri;
       } catch (resizeError) {
-        console.warn('[useProfileImageUpload] Resize failed, using cropped image as-is:', resizeError);
+        console.warn('[useProfileImageUpload] Resize failed, using image as-is:', resizeError);
       }
 
       // Upload
@@ -229,10 +243,11 @@ export function useProfileImageUpload(options: UseProfileImageUploadOptions = {}
         return;
       }
 
-      // No native editing — we use expo-image-crop-tool instead
+      // Use native cropper if available, otherwise fall back to picker's built-in crop
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ['images'],
-        allowsEditing: false,
+        allowsEditing: !hasNativeCropper,
+        aspect: hasNativeCropper ? undefined : [1, 1],
         quality: 1.0,
       });
 
@@ -296,10 +311,11 @@ export function useProfileImageUpload(options: UseProfileImageUploadOptions = {}
         return;
       }
 
-      // No native editing — we use expo-image-crop-tool instead
+      // Use native cropper if available, otherwise fall back to picker's built-in crop
       const result = await ImagePicker.launchCameraAsync({
         mediaTypes: ['images'],
-        allowsEditing: false,
+        allowsEditing: !hasNativeCropper,
+        aspect: hasNativeCropper ? undefined : [1, 1],
         quality: 1.0,
       });
 
