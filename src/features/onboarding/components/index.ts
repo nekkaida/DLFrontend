@@ -11,7 +11,6 @@ export { default as SportButton } from './SportButton';
 export { default as DeuceLogo } from './DeuceLogo';
 export { default as BackButton } from './BackButton';
 export { default as ConfirmButton } from './ConfirmButton';
-export { default as CircularImageCropper } from './CircularImageCropper';
 export { default as ProgressIndicator } from './ProgressIndicator';
 export { default as SkillLevelModal } from './SkillLevelModal';
 

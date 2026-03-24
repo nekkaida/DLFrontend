@@ -43,19 +43,6 @@ import { useCreateMatchStore } from './stores/CreateMatchStore';
 
 import { filterOutAdmins, isAdminUser, Message, Thread, User } from './types';
 
-// Match participant interface
-interface MatchParticipant {
-  id: string;
-  playerId: string;
-  matchId: string;
-  invitationStatus: 'PENDING' | 'ACCEPTED' | 'DECLINED';
-  player?: {
-    id: string;
-    name?: string;
-    username?: string;
-  };
-}
-
 // Breakpoint constants for responsive design
 const BREAKPOINTS = {
   SMALL: 375,
@@ -90,6 +77,7 @@ export const ChatThreadScreen: React.FC<ChatThreadScreenProps> = ({ threadId, da
   const messageInputRef = useRef<MessageInputRef>(null);
   // Refs to prevent memory leaks and race conditions
   const isMountedRef = useRef(true);
+  const isCreatingMatchRef = useRef(false); // Guard against duplicate match creation
   const replyFocusTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const actionBarFocusTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const insets = useSafeAreaInsets();
@@ -241,10 +229,15 @@ export const ChatThreadScreen: React.FC<ChatThreadScreenProps> = ({ threadId, da
   }, [messages, threadId]);
 
   // Handle pending match data when returning from create-match page
+  // Guard: isCreatingMatchRef prevents re-entry when async operations
+  // cause re-renders that re-trigger this effect before completion
   useEffect(() => {
-    if (pendingMatchData && currentThread) {
-      handleCreateMatch(pendingMatchData);
+    if (pendingMatchData && currentThread && !isCreatingMatchRef.current) {
+      isCreatingMatchRef.current = true;
       clearPendingMatch();
+      handleCreateMatch(pendingMatchData).finally(() => {
+        isCreatingMatchRef.current = false;
+      });
     }
   }, [pendingMatchData, currentThread]);
 
@@ -470,56 +463,8 @@ export const ChatThreadScreen: React.FC<ChatThreadScreenProps> = ({ threadId, da
         throw new Error(matchResponse.data?.error || 'Failed to create match');
       }
 
-      const matchResult = matchResponse.data?.data ?? matchResponse.data;
-      // console.log('Match created successfully:', { matchId: matchResult.id });
-
-      // Filter participants to only include ACCEPTED (not PENDING invitations)
-      const acceptedParticipants = (matchResult.participants as MatchParticipant[] || []).filter(
-        (p: MatchParticipant) => p.invitationStatus === 'ACCEPTED'
-      );
-
-      chatLogger.debug('Filtered participants:', {
-        total: matchResult.participants?.length,
-        accepted: acceptedParticipants.length,
-      });
-
-      // Send a message to the thread with match data for UI display
-      const messageContent = `📅 Match scheduled for ${matchData.date} at ${matchData.time}`;
-      const messagePayload = {
-        senderId: user.id,
-        content: messageContent,
-        messageType: 'MATCH',
-        matchId: matchResult.id,
-        matchData: {
-          matchId: matchResult.id,
-          matchType: matchResult.matchType || divisionGameType || (String(matchData.numberOfPlayers) === '4' ? 'DOUBLES' : 'SINGLES'),
-          isFriendly: false,
-          date: matchData.date,
-          time: matchData.time,
-          duration: matchData.duration || 2,
-          numberOfPlayers: matchData.numberOfPlayers,
-          location: matchData.location || 'TBD',
-          fee: matchData.fee || 'FREE',
-          feeAmount: matchData.feeAmount || '0.00',
-          description: matchData.description,
-          sportType: currentThread.sportType || 'PICKLEBALL',
-          leagueName: currentThread.name || 'Match',
-          courtBooked: matchData.courtBooked || false,
-          status: 'SCHEDULED',
-          participants: acceptedParticipants,
-        },
-      };
-
-      const messageResponse = await axiosInstance.post(
-        `/api/chat/threads/${currentThread.id}/messages`,
-        messagePayload
-      );
-
-      if (!messageResponse.data?.success && !messageResponse.data?.data) {
-        throw new Error(messageResponse.data?.error || 'Failed to send match message');
-      }
-
-      chatLogger.debug('Match message sent to thread');
+      // Match message is now auto-posted to chat by the backend (matchInvitationController)
+      // This ensures ALL match creation paths (chat, matches page, etc.) post to chat
       toast.success('Match created successfully!');
     } catch (error) {
       chatLogger.error('Error creating match:', error);

@@ -345,6 +345,7 @@ export const endpoints = {
     submitResult: (id: string) => `/api/match/${id}/result`,
     confirmResult: (id: string) => `/api/match/${id}/confirm`,
     submitWalkover: (id: string) => `/api/match/${id}/walkover`,
+    disputeWalkover: (id: string) => `/api/match/${id}/walkover/dispute`,
     getDivisionResults: (divisionId: string) => `/api/match/division/${divisionId}/results`,
     
     // Cancel/Reschedule

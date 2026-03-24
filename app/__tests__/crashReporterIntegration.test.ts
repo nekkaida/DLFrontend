@@ -21,8 +21,9 @@ describe('Crash reporter integration in root layout', () => {
     expect(boundaryIdx).toBeLessThan(interceptorIdx);
   });
 
-  it('should set up ErrorUtils global handler', () => {
-    expect(layoutCode).toMatch(/ErrorUtils/);
+  it('should declare ErrorUtils as global (NOT import from react-native)', () => {
+    expect(layoutCode).toMatch(/declare const ErrorUtils/);
+    expect(layoutCode).not.toMatch(/import.*ErrorUtils.*from.*react-native/);
   });
 
   it('should pass onError to ErrorBoundary', () => {

@@ -55,7 +55,11 @@ export interface MatchResultSheetProps {
     reason: string;
     defaultingPlayerName: string;
     reasonDetail?: string;
+    reportedById?: string;
+    isDisputed?: boolean;
+    disputeExpiresAt?: string;
   };
+  onDisputeWalkover?: (reason: string) => Promise<void>;
   existingComments?: ExistingComment[]; // Game summary comments from other players
   // Match comments (for review mode)
   matchComments?: MatchComment[];

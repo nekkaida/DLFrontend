@@ -49,20 +49,16 @@ jest.mock('../../../../config/network', () => ({
 jest.mock('../../../../shared/hooks/useProfileImageUpload', () => ({
   useProfileImageUpload: () => ({
     profileImage: null,
+    originalLocalImage: null,
     isUploadingImage: false,
-    showCropper: false,
-    selectedImageUri: null,
+    isPickerActive: false,
     setProfileImage: jest.fn(),
+    uploadProfileImage: jest.fn(),
     pickImageFromLibrary: jest.fn(),
     openCamera: jest.fn(),
-    handleCropComplete: jest.fn(),
-    handleCropCancel: jest.fn(),
     handleEditImage: jest.fn(),
+    resetState: jest.fn(),
   }),
-}));
-
-jest.mock('../../components', () => ({
-  CircularImageCropper: () => null,
 }));
 
 // Mock SVG icons
