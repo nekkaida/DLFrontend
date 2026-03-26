@@ -90,5 +90,3 @@ app/archive/
 *.backup
 
 package-lock.json
-
-google-services.json
