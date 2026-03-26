@@ -368,12 +368,28 @@ export function useProfileImageUpload(options: UseProfileImageUploadOptions = {}
     setIsPickerActive(true);
 
     try {
-      if (originalLocalImage) {
+      if (originalLocalImage && ExpoImageCropTool) {
+        // Dev build: re-open native cropper with original image
         await cropAndUpload(originalLocalImage);
       } else {
-        toast.info('Replace Image', {
-          description: 'To change your photo, please upload or take a new one.',
+        // Expo Go or no original: re-open picker with editing enabled
+        const result = await ImagePicker.launchImageLibraryAsync({
+          mediaTypes: ['images'],
+          allowsEditing: true,
+          aspect: [1, 1],
+          quality: 1.0,
         });
+
+        if (!result.canceled && result.assets[0]) {
+          const asset = result.assets[0];
+          const normalized = await manipulateAsync(
+            asset.uri,
+            [],
+            { compress: 1, format: SaveFormat.JPEG }
+          );
+          setOriginalLocalImage(normalized.uri);
+          await cropAndUpload(normalized.uri);
+        }
       }
     } finally {
       setIsPickerActive(false);
