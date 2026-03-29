@@ -17,7 +17,7 @@ import {
   View
 } from 'react-native';
 import TorchIcon from '@/assets/icons/profile/torch.svg';
-import { CircularImageCropper } from '../../onboarding/components';
+// CircularImageCropper removed — replaced by native expo-image-crop-tool in useProfileImageUpload
 import {
   MatchHistoryButton,
   PlayerDivisionStandings,
@@ -67,12 +67,8 @@ export default function ProfileScreen() {
   // Use shared profile image upload hook
   const {
     isUploadingImage,
-    showCropper,
-    selectedImageUri,
     pickImageFromLibrary,
     openCamera,
-    handleCropComplete,
-    handleCropCancel,
   } = useProfileImageUpload({
     userId: session?.user?.id,
     onUploadSuccess: (imageUrl) => {
@@ -611,16 +607,6 @@ export default function ProfileScreen() {
           </Animated.View>
         </View>
       </ScrollView>
-
-      {/* Image Cropper Modal */}
-      {selectedImageUri && (
-        <CircularImageCropper
-          visible={showCropper}
-          imageUri={selectedImageUri}
-          onCropComplete={handleCropComplete}
-          onCancel={handleCropCancel}
-        />
-      )}
 
     </View>
   );

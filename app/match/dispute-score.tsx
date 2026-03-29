@@ -63,8 +63,32 @@ export default function DisputeScorePage() {
   const [selectedCategory, setSelectedCategory] = useState<DisputeCategory | null>(null);
   const [disputeReason, setDisputeReason] = useState('');
   const [screenshots, setScreenshots] = useState<ScreenshotAsset[]>([]);
-  const [correctTeam1Score, setCorrectTeam1Score] = useState('');
-  const [correctTeam2Score, setCorrectTeam2Score] = useState('');
+  // Per-set game scores: [['6','3'], ['6','2'], ['','']]
+  const [setScores, setSetScores] = useState<[string, string][]>([['', ''], ['', ''], ['', '']]);
+
+  const isTennisOrPadel = sportType?.toLowerCase() === 'tennis' || sportType?.toLowerCase() === 'padel';
+
+  const updateSetScore = (setIdx: number, teamIdx: 0 | 1, value: string) => {
+    const newScores = [...setScores] as [string, string][];
+    newScores[setIdx] = [...newScores[setIdx]] as [string, string];
+    newScores[setIdx][teamIdx] = value.replace(/[^0-9]/g, '');
+    setSetScores(newScores);
+  };
+
+  const getSetTally = () => {
+    let team1Sets = 0;
+    let team2Sets = 0;
+    for (const [s1, s2] of setScores) {
+      const g1 = parseInt(s1) || 0;
+      const g2 = parseInt(s2) || 0;
+      if (g1 === 0 && g2 === 0) continue;
+      if (g1 > g2) team1Sets++;
+      else if (g2 > g1) team2Sets++;
+    }
+    return { team1Sets, team2Sets };
+  };
+
+  const hasAnyScores = setScores.some(([s1, s2]) => s1 !== '' || s2 !== '');
 
   // Separate players by team
   const teamAPlayers = players.filter(p => p.team === 'TEAM_A');
@@ -161,17 +185,29 @@ export default function DisputeScorePage() {
       const disputeData: {
         disputeReason: string;
         disputeCategory: DisputeCategory;
-        disputerScore?: { team1Score: number; team2Score: number };
+        disputerScore?: {
+          team1Score: number;
+          team2Score: number;
+          setScores?: { setNumber: number; team1Games: number; team2Games: number }[];
+        };
         evidenceUrl?: string;
       } = {
         disputeReason: disputeReason.trim(),
         disputeCategory: selectedCategory,
       };
 
-      if (selectedCategory === 'WRONG_SCORE' && correctTeam1Score && correctTeam2Score) {
+      if (selectedCategory === 'WRONG_SCORE' && hasAnyScores) {
+        const { team1Sets, team2Sets } = getSetTally();
         disputeData.disputerScore = {
-          team1Score: parseInt(correctTeam1Score) || 0,
-          team2Score: parseInt(correctTeam2Score) || 0,
+          team1Score: team1Sets,
+          team2Score: team2Sets,
+          setScores: setScores
+            .map(([s1, s2], idx) => ({
+              setNumber: idx + 1,
+              team1Games: parseInt(s1) || 0,
+              team2Games: parseInt(s2) || 0,
+            }))
+            .filter((s) => s.team1Games > 0 || s.team2Games > 0),
         };
       }
 
@@ -303,31 +339,49 @@ export default function DisputeScorePage() {
             </View>
           )}
 
-          {/* Corrected Score (only for WRONG_SCORE) */}
+          {/* Corrected Score — per-set game scores (only for WRONG_SCORE) */}
           {selectedCategory === 'WRONG_SCORE' && (
             <View style={styles.inputSection}>
-              <Text style={styles.inputLabel}>Correct score:</Text>
-              <View style={styles.scoreInputRow}>
-                <TextInput
-                  style={styles.scoreInput}
-                  keyboardType="number-pad"
-                  placeholder="0"
-                  placeholderTextColor="#9CA3AF"
-                  value={correctTeam1Score}
-                  onChangeText={setCorrectTeam1Score}
-                  maxLength={1}
-                />
-                <Text style={styles.scoreDash}>-</Text>
-                <TextInput
-                  style={styles.scoreInput}
-                  keyboardType="number-pad"
-                  placeholder="0"
-                  placeholderTextColor="#9CA3AF"
-                  value={correctTeam2Score}
-                  onChangeText={setCorrectTeam2Score}
-                  maxLength={1}
-                />
-              </View>
+              <Text style={styles.inputLabel}>
+                Correct score {isTennisOrPadel ? '(games per set)' : '(points per game)'}:
+              </Text>
+              {[0, 1, 2].map((setIdx) => (
+                <View key={setIdx} style={styles.setRow}>
+                  <Text style={styles.setLabel}>
+                    {isTennisOrPadel ? `Set ${setIdx + 1}` : `Game ${setIdx + 1}`}
+                    {setIdx === 2 ? ' (optional)' : ''}
+                  </Text>
+                  <View style={styles.scoreInputRow}>
+                    <TextInput
+                      style={styles.scoreInput}
+                      keyboardType="number-pad"
+                      placeholder="0"
+                      placeholderTextColor="#9CA3AF"
+                      value={setScores[setIdx][0]}
+                      onChangeText={(v) => updateSetScore(setIdx, 0, v)}
+                      maxLength={2}
+                    />
+                    <Text style={styles.scoreDash}>-</Text>
+                    <TextInput
+                      style={styles.scoreInput}
+                      keyboardType="number-pad"
+                      placeholder="0"
+                      placeholderTextColor="#9CA3AF"
+                      value={setScores[setIdx][1]}
+                      onChangeText={(v) => updateSetScore(setIdx, 1, v)}
+                      maxLength={2}
+                    />
+                  </View>
+                </View>
+              ))}
+              {hasAnyScores && (
+                <View style={styles.setTallyRow}>
+                  <Text style={styles.setTallyLabel}>Sets:</Text>
+                  <Text style={styles.setTallyScore}>
+                    {getSetTally().team1Sets} - {getSetTally().team2Sets}
+                  </Text>
+                </View>
+              )}
             </View>
           )}
 
@@ -558,6 +612,15 @@ const styles = StyleSheet.create({
     fontWeight: '400',
     color: '#9CA3AF',
   },
+  setRow: {
+    marginBottom: verticalScale(10),
+  },
+  setLabel: {
+    fontSize: moderateScale(12),
+    fontWeight: '500',
+    color: '#6B7280',
+    marginBottom: verticalScale(6),
+  },
   scoreInputRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -565,21 +628,41 @@ const styles = StyleSheet.create({
     gap: scale(12),
   },
   scoreInput: {
-    width: scale(60),
-    height: verticalScale(60),
-    borderRadius: moderateScale(12),
+    width: scale(56),
+    height: verticalScale(48),
+    borderRadius: moderateScale(10),
     backgroundColor: '#F9FAFB',
     borderWidth: 2,
     borderColor: '#E5E7EB',
-    fontSize: moderateScale(24),
+    fontSize: moderateScale(20),
     fontWeight: '700',
     textAlign: 'center',
     color: '#111827',
   },
   scoreDash: {
-    fontSize: moderateScale(24),
+    fontSize: moderateScale(20),
     fontWeight: '600',
     color: '#9CA3AF',
+  },
+  setTallyRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: scale(8),
+    marginTop: verticalScale(8),
+    paddingTop: verticalScale(8),
+    borderTopWidth: 1,
+    borderTopColor: '#E5E7EB',
+  },
+  setTallyLabel: {
+    fontSize: moderateScale(14),
+    fontWeight: '600',
+    color: '#6B7280',
+  },
+  setTallyScore: {
+    fontSize: moderateScale(18),
+    fontWeight: '800',
+    color: '#111827',
   },
   textArea: {
     backgroundColor: '#F9FAFB',

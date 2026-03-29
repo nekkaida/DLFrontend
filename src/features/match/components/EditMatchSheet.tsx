@@ -135,7 +135,7 @@ export const EditMatchSheet: React.FC<EditMatchSheetProps> = ({
         courtBooked,
         fee,
         feeAmount: fee !== 'FREE' ? parseFloat(feeAmount || '0') : 0,
-        duration: parseInt(duration) || 2,
+        duration: parseFloat(duration) || 2,
         notes: notes.trim() || undefined,
       };
 

@@ -20,7 +20,6 @@ export {
   DeuceLogo,
   BackButton,
   ConfirmButton,
-  CircularImageCropper,
   OptionButton,
   NumberInput,
   QuestionContainer,

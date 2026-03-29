@@ -47,6 +47,7 @@ export const MatchResultSheet: React.FC<MatchResultSheetProps> = ({
   onConfirm,
   onDispute,
   onWalkover,
+  onDisputeWalkover,
   onExpandSheet,
   onCollapseSheet,
 }) => {
@@ -122,6 +123,8 @@ export const MatchResultSheet: React.FC<MatchResultSheetProps> = ({
   const [defaultingTeam, setDefaultingTeam] = useState<'A' | 'B' | null>(null);
   const [walkoverReason, setWalkoverReason] = useState<WalkoverReason | null>(null);
   const [walkoverDetail, setWalkoverDetail] = useState('');
+  const [showDisputeInput, setShowDisputeInput] = useState(false);
+  const [disputeText, setDisputeText] = useState('');
 
   // Separate players by team
   // First try to filter by team property, then fallback to splitting the array
@@ -895,25 +898,114 @@ export const MatchResultSheet: React.FC<MatchResultSheetProps> = ({
               <Ionicons name="flag-outline" size={48} color="#F59E0B" />
             </View>
             <Text style={styles.walkoverViewTitle}>Match Walkover</Text>
-            <Text style={styles.walkoverViewPlayerName}>
-              {walkoverInfo.defaultingPlayerName}
-            </Text>
-            <Text style={styles.walkoverViewDidntPlay}>didn't play</Text>
-            <View style={styles.walkoverViewReasonContainer}>
-              <Ionicons name="information-circle-outline" size={16} color="#6B7280" />
-              <Text style={styles.walkoverViewReasonLabel}>
-                Reason: {(() => {
-                  switch (walkoverInfo.reason) {
-                    case 'NO_SHOW': return 'No Show';
-                    case 'LATE_CANCELLATION': return 'Late Cancellation';
-                    case 'INJURY': return 'Injury';
-                    case 'PERSONAL_EMERGENCY': return 'Personal Emergency';
-                    case 'OTHER': return 'Other';
-                    default: return walkoverInfo.reason || 'Unknown';
-                  }
-                })()}
-              </Text>
-            </View>
+
+            {(() => {
+              const reasonLabel = (() => {
+                switch (walkoverInfo.reason) {
+                  case 'NO_SHOW': return 'No Show';
+                  case 'LATE_CANCELLATION': return 'Late Cancellation';
+                  case 'INJURY': return 'Injury';
+                  case 'PERSONAL_EMERGENCY': return 'Personal Emergency';
+                  case 'OTHER': return 'Other';
+                  default: return walkoverInfo.reason || 'Unknown';
+                }
+              })();
+
+              const isReporter = walkoverInfo.reportedById === currentUserId;
+              const isDisputeExpired = walkoverInfo.disputeExpiresAt
+                ? new Date() > new Date(walkoverInfo.disputeExpiresAt)
+                : true;
+
+              if (isReporter) {
+                // REPORTER VIEW
+                return (
+                  <>
+                    <Text style={styles.walkoverViewReasonLabel}>
+                      You have reported this match as a walkover due to your opponent's {reasonLabel}.
+                    </Text>
+                    <Text style={[styles.walkoverViewReasonLabel, { marginTop: 12, color: '#6B7280' }]}>
+                      Your opponent has been notified and may dispute this report within 24 hours.
+                    </Text>
+                    <Text style={[styles.walkoverViewReasonLabel, { marginTop: 8, color: '#6B7280' }]}>
+                      If no dispute is submitted, the walkover result will stand.
+                    </Text>
+                  </>
+                );
+              } else {
+                // OPPONENT (DEFAULTING PLAYER) VIEW
+                return (
+                  <>
+                    <Text style={styles.walkoverViewReasonLabel}>
+                      Your opponent has submitted this match as a walkover due to your {reasonLabel}.
+                    </Text>
+                    {!walkoverInfo.isDisputed && !isDisputeExpired ? (
+                      <>
+                        <Text style={[styles.walkoverViewReasonLabel, { marginTop: 12, color: '#6B7280' }]}>
+                          If you believe this was submitted in error, you may submit a dispute within 24 hours.
+                        </Text>
+                        {!showDisputeInput ? (
+                          <TouchableOpacity
+                            style={[styles.confirmButton, { marginTop: 16, backgroundColor: '#EF4444' }]}
+                            onPress={() => setShowDisputeInput(true)}
+                          >
+                            <Text style={styles.confirmButtonText}>Submit Dispute</Text>
+                          </TouchableOpacity>
+                        ) : (
+                          <View style={{ marginTop: 12 }}>
+                            <BottomSheetTextInput
+                              style={{
+                                backgroundColor: '#F9FAFB',
+                                borderRadius: 10,
+                                borderWidth: 1,
+                                borderColor: '#E5E7EB',
+                                padding: 12,
+                                fontSize: 14,
+                                color: '#111827',
+                                minHeight: 80,
+                                textAlignVertical: 'top',
+                              }}
+                              placeholder="Explain why this walkover was submitted in error..."
+                              placeholderTextColor="#9CA3AF"
+                              multiline
+                              value={disputeText}
+                              onChangeText={setDisputeText}
+                            />
+                            <View style={{ flexDirection: 'row', gap: 8, marginTop: 10 }}>
+                              <TouchableOpacity
+                                style={[styles.confirmButton, { flex: 1, backgroundColor: '#F3F4F6' }]}
+                                onPress={() => { setShowDisputeInput(false); setDisputeText(''); }}
+                              >
+                                <Text style={[styles.confirmButtonText, { color: '#374151' }]}>Cancel</Text>
+                              </TouchableOpacity>
+                              <TouchableOpacity
+                                style={[styles.confirmButton, { flex: 1.5, backgroundColor: '#EF4444', opacity: disputeText.trim().length < 10 ? 0.5 : 1 }]}
+                                disabled={disputeText.trim().length < 10}
+                                onPress={() => {
+                                  onDisputeWalkover?.(disputeText.trim());
+                                  setShowDisputeInput(false);
+                                  setDisputeText('');
+                                }}
+                              >
+                                <Text style={styles.confirmButtonText}>Submit</Text>
+                              </TouchableOpacity>
+                            </View>
+                          </View>
+                        )}
+                      </>
+                    ) : walkoverInfo.isDisputed ? (
+                      <Text style={[styles.walkoverViewReasonLabel, { marginTop: 12, color: '#F59E0B' }]}>
+                        You have disputed this walkover. An admin will review this match.
+                      </Text>
+                    ) : (
+                      <Text style={[styles.walkoverViewReasonLabel, { marginTop: 12, color: '#6B7280' }]}>
+                        The 24-hour dispute window has expired. The walkover result stands.
+                      </Text>
+                    )}
+                  </>
+                );
+              }
+            })()}
+
             {walkoverInfo.reasonDetail && (
               <Text style={styles.walkoverViewReasonDetail}>
                 "{walkoverInfo.reasonDetail}"
@@ -1559,7 +1651,14 @@ export const MatchResultSheet: React.FC<MatchResultSheetProps> = ({
                 <Text style={styles.singlesWalkoverName} numberOfLines={1}>
                   {(defaultingTeam === 'A' ? teamAPlayers[0] : teamBPlayers[0])?.name}
                 </Text>
-                <Text style={styles.singlesWalkoverLabel}>didn't show up</Text>
+                <Text style={styles.singlesWalkoverLabel}>
+                  {walkoverReason === 'NO_SHOW' ? 'no show'
+                    : walkoverReason === 'INJURY' ? 'injury'
+                    : walkoverReason === 'LATE_CANCELLATION' ? 'late cancellation'
+                    : walkoverReason === 'PERSONAL_EMERGENCY' ? 'personal emergency'
+                    : walkoverReason === 'OTHER' ? 'walkover'
+                    : 'didn\'t show up'}
+                </Text>
               </View>
             )}
 
