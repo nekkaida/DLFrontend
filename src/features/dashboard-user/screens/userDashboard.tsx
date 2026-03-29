@@ -667,7 +667,6 @@ export default function DashboardScreen() {
                       <Text style={styles.sectionTitle}>
                         Other leagues near you
                       </Text>
-                      <Text style={styles.arrowText}>→</Text>
                     </View>
 
                     {/* Search field */}
@@ -817,7 +816,6 @@ export default function DashboardScreen() {
                       <Text style={styles.sectionTitle}>
                         Other leagues near you
                       </Text>
-                      <Text style={styles.arrowText}>→</Text>
                     </View>
 
                     {/* Search field */}
