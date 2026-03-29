@@ -413,8 +413,8 @@ const styles = StyleSheet.create({
   },
   avatar: {
     width: scale(48),
-    height: verticalScale(48),
-    borderRadius: moderateScale(24),
+    height: scale(48),
+    borderRadius: scale(24),
   },
   defaultAvatar: {
     backgroundColor: '#6de9a0',
