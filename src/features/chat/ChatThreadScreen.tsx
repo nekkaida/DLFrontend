@@ -632,6 +632,15 @@ export const ChatThreadScreen: React.FC<ChatThreadScreenProps> = ({ threadId, da
     return isAdminUser(otherParticipant as User);
   }, [otherParticipant]);
 
+  // Check if other participant is a deleted user (disable messaging)
+  const isOtherParticipantDeleted = useMemo(() => {
+    if (!otherParticipant) return false;
+    return (
+      otherParticipant.name?.toLowerCase().includes('deleted') ||
+      otherParticipant.username?.toLowerCase().startsWith('deleted_')
+    );
+  }, [otherParticipant]);
+
   // Memoize participant preview text for group chats (excluding admins)
   const participantPreview = useMemo(() => {
     if (!currentThread || currentThread.type !== 'group') return '';
@@ -996,6 +1005,7 @@ export const ChatThreadScreen: React.FC<ChatThreadScreenProps> = ({ threadId, da
               onCancelReply={handleCancelReply}
               sportType={displayThread.sportType}
               isGroupChat={displayThread.type === 'group'}
+              disabled={isOtherParticipantDeleted}
             />
           </View>
         </KeyboardAvoidingView>

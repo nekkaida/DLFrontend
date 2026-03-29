@@ -33,6 +33,7 @@ interface MessageInputProps {
   onCancelReply?: () => void;
   sportType?: 'PICKLEBALL' | 'TENNIS' | 'PADEL' | null;
   isGroupChat?: boolean;
+  disabled?: boolean;
 }
 
 // Ref type for exposing focus method
@@ -50,6 +51,7 @@ export const MessageInput = React.forwardRef<MessageInputRef, MessageInputProps>
   onCancelReply,
   sportType,
   isGroupChat = false,
+  disabled = false,
 }, ref) => {
   const [message, setMessage] = useState('');
   const [isTyping, setIsTyping] = useState(false);
@@ -242,7 +244,7 @@ export const MessageInput = React.forwardRef<MessageInputRef, MessageInputProps>
   return (
     <View style={[styles.container, { paddingBottom: bottomPadding }]}>
       {/* Reply Preview Bar - Animated for smooth appearance */}
-      {replyingTo && (
+      {replyingTo && !disabled && (
         <Animated.View
           entering={FadeInDown.duration(200)}
           exiting={FadeOutDown.duration(150)}
@@ -273,7 +275,7 @@ export const MessageInput = React.forwardRef<MessageInputRef, MessageInputProps>
         </Animated.View>
       )}
       
-      <View style={styles.inputContainer}>
+      <View style={[styles.inputContainer, disabled && { opacity: 0.5 }]}>
         {/* Match button */}
         <Pressable
           style={({ pressed }) => [styles.attachmentButton, pressed && { opacity: 0.7 }]}
@@ -300,11 +302,12 @@ export const MessageInput = React.forwardRef<MessageInputRef, MessageInputProps>
               style={styles.textInput}
               value={message}
               onChangeText={handleTextChange}
-              placeholder={placeholder}
+              placeholder={disabled ? 'Messaging unavailable' : placeholder}
               placeholderTextColor="#9CA3AF"
               multiline
               maxLength={1000}
               textAlignVertical="center"
+              editable={!disabled}
               accessibilityLabel="Type your message"
               accessibilityHint="Enter text to send a message"
             />
@@ -318,10 +321,10 @@ export const MessageInput = React.forwardRef<MessageInputRef, MessageInputProps>
             pressed && { opacity: 0.7 }
           ]}
           onPress={handleSend}
-          disabled={!message.trim()}
+          disabled={!message.trim() || disabled}
           accessibilityLabel="Send message"
           accessibilityRole="button"
-          accessibilityState={{ disabled: !message.trim() }}
+          accessibilityState={{ disabled: !message.trim() || disabled }}
           accessibilityHint="Send your typed message"
         >
           <Ionicons
