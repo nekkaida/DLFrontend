@@ -55,6 +55,11 @@ export const PlayerInfoModal: React.FC<PlayerInfoModalProps> = ({
       return;
     }
 
+    // Block messaging deleted users
+    if (player.name?.toLowerCase().includes('deleted')) {
+      return;
+    }
+
     try {
       setIsLoadingChat(true);
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -68,9 +73,12 @@ export const PlayerInfoModal: React.FC<PlayerInfoModalProps> = ({
         thread.participants.some(p => p.id === currentUser.id)
       );
 
+      let targetThreadId: string;
+
       if (existingThread) {
         console.log('Found existing thread:', existingThread.id);
         setCurrentThread(existingThread);
+        targetThreadId = existingThread.id;
       } else {
         console.log('No existing thread, creating new one');
         const newThread = await ChatService.createThread(
@@ -82,13 +90,14 @@ export const PlayerInfoModal: React.FC<PlayerInfoModalProps> = ({
         console.log('Created new thread:', newThread.id);
         await loadThreads(currentUser.id);
         setCurrentThread(newThread);
+        targetThreadId = newThread.id;
       }
       
       onClose();
       
       router.push({
-        pathname: '/user-dashboard',
-        params: { view: 'chat' }
+        pathname: '/chat/[threadId]',
+        params: { threadId: targetThreadId },
       });
       
     } catch (error) {

@@ -196,6 +196,12 @@ export default function PlayerProfileScreen() {
       return;
     }
 
+    // Block messaging deleted users
+    if (profileData?.name?.toLowerCase().includes("deleted")) {
+      toast.error("User not found");
+      return;
+    }
+
     try {
       setIsLoadingChat(true);
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -207,9 +213,11 @@ export default function PlayerProfileScreen() {
           thread.participants.some((p) => p.id === session.user.id),
       );
 
+      let targetThreadId: string;
+
       if (existingThread) {
-        // console.log('PlayerProfile: Found existing thread:', existingThread.id);
         setCurrentThread(existingThread);
+        targetThreadId = existingThread.id;
       } else {
         console.log("PlayerProfile: No existing thread, creating new one");
         const newThread = await ChatService.createThread(
@@ -221,12 +229,13 @@ export default function PlayerProfileScreen() {
         console.log("PlayerProfile: Created new thread:", newThread.id);
         await loadThreads(session.user.id);
         setCurrentThread(newThread);
+        targetThreadId = newThread.id;
       }
 
-      // Navigate to dashboard with chat view
+      // Navigate directly to the chat thread
       router.push({
-        pathname: "/user-dashboard",
-        params: { view: "chat" },
+        pathname: "/chat/[threadId]",
+        params: { threadId: targetThreadId },
       });
     } catch (error) {
       console.error("PlayerProfile: Error handling chat:", error);
