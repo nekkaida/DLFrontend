@@ -130,10 +130,8 @@ export default function LeagueDetailsScreen({
     isCategoryVisibleToUser
   );
 
-  // Use custom hook for season selection management
-  const { selectedCategoryId, setSelectedCategoryId, selectedSeason, setSelectedSeason } = useSeasonSelection(categories);
-
   // Sorted categories: Open Singles → User gender Singles → User gender Doubles → Mixed Doubles → Restricted Singles 🔒 → Restricted Doubles 🔒
+  // Computed BEFORE useSeasonSelection so the hook uses the sorted order for the default pill selection
   const sortedCategories = React.useMemo(() => {
     const getCategoryOrder = (category: any): number => {
       const genderCategory = category.gender_category?.toUpperCase() || category.genderCategory?.toUpperCase();
@@ -162,6 +160,9 @@ export default function LeagueDetailsScreen({
       .filter((category) => Boolean(category?.id))
       .sort((a, b) => getCategoryOrder(a) - getCategoryOrder(b));
   }, [categories, userGender]);
+
+  // Use custom hook for season selection management (pass sortedCategories so default pill = Open Singles)
+  const { selectedCategoryId, setSelectedCategoryId, selectedSeason, setSelectedSeason } = useSeasonSelection(sortedCategories);
 
   // Use custom hook for user partnerships management
   const { partnerships, loading: partnershipsLoading } = useUserPartnerships(userId);
