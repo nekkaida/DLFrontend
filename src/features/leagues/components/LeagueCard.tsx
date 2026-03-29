@@ -251,7 +251,7 @@ export function LeagueCard({ league, onJoinPress, variant = 'regular', size = 'c
           </View>
           {/* Season badge */}
           <View style={styles.seasonBadge}>
-            <TrophyIcon width={12} height={12} fill="#FFFFFF" />
+            <TrophyIcon width={12} height={12} color="#0e0d0d" />
             <Text style={styles.seasonBadgeText}>S{currentSeasonNumber}</Text>
           </View>
         </View>
@@ -426,7 +426,7 @@ export function ActiveLeagueCard({ league, onViewStandings, sport = 'pickleball'
               {league.name}
             </Text>
             <View style={styles.seasonBadge}>
-              <TrophyIcon width={12} height={12} fill="#FFFFFF" />
+              <TrophyIcon width={12} height={12} color="#0f0f0f" />
               <Text style={styles.seasonBadgeText}>S{seasonNumber}</Text>
             </View>
           </View>
@@ -644,6 +644,7 @@ const styles = StyleSheet.create({
   },
   gridItem: {
     width: GRID_ITEM_WIDTH,
+    height: GRID_ITEM_WIDTH,
     marginBottom: 12,
   },
   gridContainer: {
@@ -877,6 +878,8 @@ const styles = StyleSheet.create({
   regularCardContent: {
     paddingHorizontal: isSmallScreen ? 14 : isTablet ? 18 : 16,
     paddingVertical: isSmallScreen ? 10 : isTablet ? 14 : 12,
+    flex: 1,
+    justifyContent: 'space-between',
   },
   regularCardContentLarge: {
     paddingHorizontal: isSmallScreen ? 16 : isTablet ? 22 : 20,
