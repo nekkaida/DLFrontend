@@ -3,7 +3,8 @@
 import { getSportColors, SportType } from "@/constants/SportsColor";
 import { MatchResult, SportColors } from "@/features/standings/types";
 import { Ionicons } from "@expo/vector-icons";
-import BottomSheet, {
+import {
+  BottomSheetModal,
   BottomSheetBackdrop,
   BottomSheetView,
 } from "@gorhom/bottom-sheet";
@@ -37,7 +38,7 @@ const PREVIEW_WIDTH = SCREEN_WIDTH * 0.6; // 50% of screen width
 const PREVIEW_HEIGHT = PREVIEW_WIDTH * (16 / 9); // Maintain 9:16 aspect ratio
 
 interface ShareOptionsSheetProps {
-  bottomSheetRef: React.RefObject<BottomSheet | null>;
+  bottomSheetRef: React.RefObject<BottomSheetModal | null>;
   onClose: () => void;
   onShareImage: (style: ShareStyle) => void;
   onSaveImage: (style: ShareStyle) => void;
@@ -209,12 +210,11 @@ export const ShareOptionsSheet: React.FC<ShareOptionsSheetProps> = ({
       {/* Preview — always mounted when match exists; opacity driven by sheet animation */}
       {renderPreview()}
 
-      <BottomSheet
+      <BottomSheetModal
         ref={bottomSheetRef}
-        index={-1}
         snapPoints={["40%"]}
         enablePanDownToClose
-        onClose={onClose}
+        onDismiss={onClose}
         animatedIndex={sheetAnimatedIndex}
         backdropComponent={renderBackdrop}
       >
@@ -408,7 +408,7 @@ export const ShareOptionsSheet: React.FC<ShareOptionsSheetProps> = ({
           )}
         </TouchableOpacity> */}
       </BottomSheetView>
-    </BottomSheet>
+    </BottomSheetModal>
     </>
   );
 };

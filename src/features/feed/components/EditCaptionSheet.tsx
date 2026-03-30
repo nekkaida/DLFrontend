@@ -5,13 +5,10 @@ import {
   View,
   Text,
   StyleSheet,
-  TextInput,
   TouchableOpacity,
-  KeyboardAvoidingView,
-  Platform,
   ActivityIndicator,
 } from 'react-native';
-import BottomSheet, { BottomSheetBackdrop, BottomSheetView } from '@gorhom/bottom-sheet';
+import { BottomSheetModal, BottomSheetBackdrop, BottomSheetTextInput, BottomSheetView } from '@gorhom/bottom-sheet';
 import { feedTheme } from '../theme';
 
 const MAX_CAPTION_LENGTH = 500;
@@ -19,7 +16,7 @@ const MAX_CAPTION_LENGTH = 500;
 interface EditCaptionSheetProps {
   postId: string | null;
   initialCaption: string;
-  bottomSheetRef: React.RefObject<BottomSheet | null>;
+  bottomSheetRef: React.RefObject<BottomSheetModal | null>;
   onClose: () => void;
   onSave: (postId: string, newCaption: string) => void;
   isSaving?: boolean;
@@ -52,7 +49,7 @@ export const EditCaptionSheet: React.FC<EditCaptionSheetProps> = ({
 
   const handleCancel = useCallback(() => {
     setCaption(initialCaption);
-    bottomSheetRef.current?.close();
+    bottomSheetRef.current?.dismiss();
   }, [initialCaption, bottomSheetRef]);
 
   const renderBackdrop = useCallback(
@@ -68,30 +65,29 @@ export const EditCaptionSheet: React.FC<EditCaptionSheetProps> = ({
   );
 
   return (
-    <BottomSheet
+    <BottomSheetModal
       ref={bottomSheetRef}
-      index={-1}
-      snapPoints={['50%']}
+      snapPoints={['60%']}
       enablePanDownToClose
-      onClose={onClose}
+      onDismiss={onClose}
       backdropComponent={renderBackdrop}
+      keyboardBehavior="interactive"
+      keyboardBlurBehavior="restore"
+      android_keyboardInputMode="adjustResize"
     >
       <BottomSheetView style={styles.container}>
         <Text style={styles.title}>Edit Caption</Text>
 
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          style={styles.keyboardAvoid}
-        >
+        <View style={styles.keyboardAvoid}>
           <View style={styles.inputContainer}>
-            <TextInput
+            <BottomSheetTextInput
               style={styles.input}
               placeholder="Add a caption..."
               placeholderTextColor={feedTheme.colors.textTertiary}
               value={caption}
               onChangeText={setCaption}
               multiline
-              maxLength={MAX_CAPTION_LENGTH + 50} // Allow slight overflow to show error
+              maxLength={MAX_CAPTION_LENGTH + 50}
               textAlignVertical="top"
               editable={!isSaving}
             />
@@ -131,9 +127,9 @@ export const EditCaptionSheet: React.FC<EditCaptionSheetProps> = ({
               )}
             </TouchableOpacity>
           </View>
-        </KeyboardAvoidingView>
+        </View>
       </BottomSheetView>
-    </BottomSheet>
+    </BottomSheetModal>
   );
 };
 
