@@ -6,7 +6,6 @@ export { EditCaptionSheet } from "./EditCaptionSheet";
 export { FeedHeader } from "./FeedHeader";
 export { FeedPostCard } from "./FeedPostCard";
 export { FriendsList } from "./FriendsList";
-export { LikersSheet } from "./LikersSheet";
 export { PostMatchShareSheet } from "./PostMatchShareSheet";
 export { PostOptionsSheet } from "./PostOptionsSheet";
 export {

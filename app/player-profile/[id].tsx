@@ -51,6 +51,9 @@ export default function PlayerProfileScreen() {
   const [isFriend, setIsFriend] = useState(false);
   const [friendshipId, setFriendshipId] = useState<string | null>(null);
   const [isPendingRequest, setIsPendingRequest] = useState(false);
+  const [showAddFriendConfirm, setShowAddFriendConfirm] = useState(false);
+  const [showUnfriendConfirm, setShowUnfriendConfirm] = useState(false);
+  const [isFriendActionLoading, setIsFriendActionLoading] = useState(false);
   const [ratingHistory, setRatingHistory] = useState<GameData[]>([]);
   const [leagueStatsData, setLeagueStatsData] = useState<{
     wins: number;
@@ -184,31 +187,45 @@ export default function PlayerProfileScreen() {
     }
   }, [selectedGameType, activeTab, profileData, fetchPlayerRatingHistory]);
 
-  const handleAddFriend = async () => {
+  const handleAddFriend = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     if (!session?.user?.id || !id) return;
-
-    if (isFriend && friendshipId) {
-      // Unfriend
-      try {
-        await axiosInstance.delete(`/api/pairing/friendship/${friendshipId}`);
-        setIsFriend(false);
-        setFriendshipId(null);
-        toast.success('Friend removed');
-      } catch (err: any) {
-        const msg = err?.response?.data?.message || 'Failed to remove friend';
-        toast.error('Error', { description: msg });
-      }
+    if (isFriend) {
+      setShowUnfriendConfirm(true);
     } else if (!isPendingRequest) {
-      // Send friend request
-      try {
-        await axiosInstance.post('/api/pairing/friendship/request', { recipientId: id });
-        setIsPendingRequest(true);
-        toast.success('Success', { description: 'Friend request sent!' });
-      } catch (err: any) {
-        const msg = err?.response?.data?.message || 'Failed to send friend request';
-        toast.error('Error', { description: msg });
-      }
+      setShowAddFriendConfirm(true);
+    }
+  };
+
+  const confirmSendFriendRequest = async () => {
+    setIsFriendActionLoading(true);
+    try {
+      await axiosInstance.post('/api/pairing/friendship/request', { recipientId: id });
+      setIsPendingRequest(true);
+      setShowAddFriendConfirm(false);
+      toast.success('Success', { description: 'Friend request sent!' });
+    } catch (err: any) {
+      const msg = err?.response?.data?.message || 'Failed to send friend request';
+      toast.error('Error', { description: msg });
+    } finally {
+      setIsFriendActionLoading(false);
+    }
+  };
+
+  const confirmUnfriend = async () => {
+    if (!friendshipId) return;
+    setIsFriendActionLoading(true);
+    try {
+      await axiosInstance.delete(`/api/pairing/friendship/${friendshipId}`);
+      setIsFriend(false);
+      setFriendshipId(null);
+      setShowUnfriendConfirm(false);
+      toast.success('Friend removed');
+    } catch (err: any) {
+      const msg = err?.response?.data?.message || 'Failed to remove friend';
+      toast.error('Error', { description: msg });
+    } finally {
+      setIsFriendActionLoading(false);
     }
   };
 
@@ -671,6 +688,74 @@ export default function PlayerProfileScreen() {
         </View>
       </ScrollView>
 
+      {/* Add Friend Confirmation */}
+      <Modal
+        visible={showAddFriendConfirm}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowAddFriendConfirm(false)}
+      >
+        <Pressable style={styles.confirmOverlay} onPress={() => setShowAddFriendConfirm(false)}>
+          <Pressable style={styles.confirmSheet} onPress={(e) => e.stopPropagation()}>
+            <Text style={styles.confirmTitle}>Add Friend</Text>
+            <Text style={styles.confirmMessage}>
+              Send a friend request to {profileData?.name || 'this player'}?
+            </Text>
+            <View style={styles.confirmButtons}>
+              <Pressable
+                style={styles.confirmCancelButton}
+                onPress={() => setShowAddFriendConfirm(false)}
+              >
+                <Text style={styles.confirmCancelText}>Cancel</Text>
+              </Pressable>
+              <Pressable
+                style={[styles.confirmActionButton, isFriendActionLoading && { opacity: 0.6 }]}
+                onPress={confirmSendFriendRequest}
+                disabled={isFriendActionLoading}
+              >
+                <Text style={styles.confirmActionText}>
+                  {isFriendActionLoading ? 'Sending…' : 'Send Request'}
+                </Text>
+              </Pressable>
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
+
+      {/* Unfriend Confirmation */}
+      <Modal
+        visible={showUnfriendConfirm}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowUnfriendConfirm(false)}
+      >
+        <Pressable style={styles.confirmOverlay} onPress={() => setShowUnfriendConfirm(false)}>
+          <Pressable style={styles.confirmSheet} onPress={(e) => e.stopPropagation()}>
+            <Text style={styles.confirmTitle}>Remove Friend</Text>
+            <Text style={styles.confirmMessage}>
+              Remove {profileData?.name || 'this player'} from your friends?
+            </Text>
+            <View style={styles.confirmButtons}>
+              <Pressable
+                style={styles.confirmCancelButton}
+                onPress={() => setShowUnfriendConfirm(false)}
+              >
+                <Text style={styles.confirmCancelText}>Cancel</Text>
+              </Pressable>
+              <Pressable
+                style={[styles.confirmDestructiveButton, isFriendActionLoading && { opacity: 0.6 }]}
+                onPress={confirmUnfriend}
+                disabled={isFriendActionLoading}
+              >
+                <Text style={styles.confirmActionText}>
+                  {isFriendActionLoading ? 'Removing…' : 'Remove'}
+                </Text>
+              </Pressable>
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
+
       {/* Player Options Menu */}
       <Modal
         visible={showPlayerMenu}
@@ -805,5 +890,77 @@ const styles = StyleSheet.create({
   menuDivider: {
     height: 1,
     backgroundColor: '#f1f5f9',
+  },
+  confirmOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 32,
+  },
+  confirmSheet: {
+    backgroundColor: '#ffffff',
+    borderRadius: 20,
+    paddingHorizontal: 24,
+    paddingTop: 28,
+    paddingBottom: 24,
+    width: '100%',
+  },
+  confirmTitle: {
+    fontSize: 17,
+    fontWeight: '700' as const,
+    color: '#111827',
+    fontFamily: theme.typography.fontFamily.primary,
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  confirmMessage: {
+    fontSize: 14,
+    color: '#6b7280',
+    fontFamily: theme.typography.fontFamily.primary,
+    textAlign: 'center',
+    lineHeight: 20,
+    marginBottom: 24,
+  },
+  confirmButtons: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  confirmCancelButton: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 90,
+    borderWidth: 1,
+    borderColor: '#d1d5db',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  confirmCancelText: {
+    fontSize: 15,
+    fontWeight: '600' as const,
+    color: '#374151',
+    fontFamily: theme.typography.fontFamily.primary,
+  },
+  confirmActionButton: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 90,
+    backgroundColor: '#f97316',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  confirmDestructiveButton: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 90,
+    backgroundColor: '#ef4444',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  confirmActionText: {
+    fontSize: 15,
+    fontWeight: '600' as const,
+    color: '#ffffff',
+    fontFamily: theme.typography.fontFamily.primary,
   },
 });
