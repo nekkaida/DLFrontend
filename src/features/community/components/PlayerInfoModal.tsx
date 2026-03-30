@@ -1,5 +1,6 @@
 import { useSession } from '@/lib/auth-client';
 import { Ionicons } from '@expo/vector-icons';
+import ChatBubbleIcon from '@/assets/icons/profile/chat-bubble.svg';
 import * as Haptics from 'expo-haptics';
 import { router } from 'expo-router';
 import React, { useState } from 'react';
@@ -55,6 +56,11 @@ export const PlayerInfoModal: React.FC<PlayerInfoModalProps> = ({
       return;
     }
 
+    // Block messaging deleted users
+    if (player.name?.toLowerCase().includes('deleted')) {
+      return;
+    }
+
     try {
       setIsLoadingChat(true);
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -68,9 +74,12 @@ export const PlayerInfoModal: React.FC<PlayerInfoModalProps> = ({
         thread.participants.some(p => p.id === currentUser.id)
       );
 
+      let targetThreadId: string;
+
       if (existingThread) {
         console.log('Found existing thread:', existingThread.id);
         setCurrentThread(existingThread);
+        targetThreadId = existingThread.id;
       } else {
         console.log('No existing thread, creating new one');
         const newThread = await ChatService.createThread(
@@ -82,13 +91,14 @@ export const PlayerInfoModal: React.FC<PlayerInfoModalProps> = ({
         console.log('Created new thread:', newThread.id);
         await loadThreads(currentUser.id);
         setCurrentThread(newThread);
+        targetThreadId = newThread.id;
       }
       
       onClose();
       
       router.push({
-        pathname: '/user-dashboard',
-        params: { view: 'chat' }
+        pathname: '/chat/[threadId]',
+        params: { threadId: targetThreadId },
       });
       
     } catch (error) {
@@ -147,7 +157,7 @@ export const PlayerInfoModal: React.FC<PlayerInfoModalProps> = ({
               {isLoadingChat ? (
                 <ActivityIndicator size="small" color="#FEA04D" />
               ) : (
-                <Ionicons name="chatbubble" size={20} color="#FEA04D" />
+                <ChatBubbleIcon width={20} height={20} fill="#FEA04D" />
               )}
               <Text style={styles.actionButtonText}>Chat</Text>
             </TouchableOpacity>

@@ -3,7 +3,7 @@
 import { getSportColors, SportType } from "@/constants/SportsColor";
 import { useSession } from "@/lib/auth-client";
 import { Ionicons } from "@expo/vector-icons";
-import BottomSheet from "@gorhom/bottom-sheet";
+import { BottomSheetModal } from "@gorhom/bottom-sheet";
 import { router } from "expo-router";
 import React, {
   useCallback,
@@ -27,7 +27,6 @@ import {
   FeedHeader,
   FeedPostCard,
   FriendsList,
-  LikersSheet,
   PostOptionsSheet,
   ScorecardCaptureWrapper,
   ShareOptionsSheet,
@@ -50,13 +49,13 @@ export default function FeedScreen({ sport = "default" }: FeedScreenProps) {
 
   // Existing state
   const [selectedPostId, setSelectedPostId] = useState<string | null>(null);
-  const commentsSheetRef = useRef<BottomSheet>(null);
-  const sportFilterRef = useRef<BottomSheet>(null);
+  const commentsSheetRef = useRef<BottomSheetModal>(null);
+  const sportFilterRef = useRef<BottomSheetModal>(null);
   const [selectedLikerPostId, setSelectedLikerPostId] = useState<string | null>(
     null,
   );
   const [selectedLikerCount, setSelectedLikerCount] = useState(0);
-  const likersSheetRef = useRef<BottomSheet>(null);
+
 
   // Post options state
   const [selectedOptionsPostId, setSelectedOptionsPostId] = useState<
@@ -64,16 +63,16 @@ export default function FeedScreen({ sport = "default" }: FeedScreenProps) {
   >(null);
   const [selectedOptionsPost, setSelectedOptionsPost] =
     useState<FeedPost | null>(null);
-  const postOptionsRef = useRef<BottomSheet>(null);
+  const postOptionsRef = useRef<BottomSheetModal>(null);
 
   // Edit caption state
   const [editingPostId, setEditingPostId] = useState<string | null>(null);
   const [editingCaption, setEditingCaption] = useState<string>("");
-  const editCaptionRef = useRef<BottomSheet>(null);
+  const editCaptionRef = useRef<BottomSheetModal>(null);
 
   // Share state
   const [sharePostId, setSharePostId] = useState<string | null>(null);
-  const shareSheetRef = useRef<BottomSheet>(null);
+  const shareSheetRef = useRef<BottomSheetModal>(null);
   const shareCaptureRef = useRef<ScorecardCaptureRef>(null);
   const {
     captureAndShare,
@@ -121,12 +120,12 @@ export default function FeedScreen({ sport = "default" }: FeedScreenProps) {
   }, []);
 
   const handleFilterPress = useCallback(() => {
-    sportFilterRef.current?.snapToIndex(0);
+    sportFilterRef.current?.present();
   }, []);
 
   const handleSportSelect = useCallback((sportValue: string | undefined) => {
     setSelectedSportFilter(sportValue);
-    sportFilterRef.current?.close();
+    sportFilterRef.current?.dismiss();
   }, []);
 
   const handleCloseFilter = useCallback(() => {
@@ -218,7 +217,7 @@ export default function FeedScreen({ sport = "default" }: FeedScreenProps) {
 
   const handleCommentPress = useCallback((postId: string) => {
     setSelectedPostId(postId);
-    commentsSheetRef.current?.snapToIndex(0);
+    commentsSheetRef.current?.present();
   }, []);
 
   const handleCommentCountChange = useCallback(
@@ -247,7 +246,6 @@ export default function FeedScreen({ sport = "default" }: FeedScreenProps) {
     (postId: string, likeCount: number) => {
       setSelectedLikerPostId(postId);
       setSelectedLikerCount(likeCount);
-      likersSheetRef.current?.snapToIndex(0);
     },
     [],
   );
@@ -260,7 +258,7 @@ export default function FeedScreen({ sport = "default" }: FeedScreenProps) {
   const handleOptionsPress = useCallback((post: FeedPost) => {
     setSelectedOptionsPostId(post.id);
     setSelectedOptionsPost(post);
-    postOptionsRef.current?.snapToIndex(0);
+    postOptionsRef.current?.present();
   }, []);
 
   const handleCloseOptions = useCallback(() => {
@@ -272,7 +270,7 @@ export default function FeedScreen({ sport = "default" }: FeedScreenProps) {
     if (selectedOptionsPost) {
       setEditingPostId(selectedOptionsPost.id);
       setEditingCaption(selectedOptionsPost.caption || "");
-      postOptionsRef.current?.close();
+      postOptionsRef.current?.dismiss();
 
       // Clear any existing timeout before setting new one
       if (editTimeoutRef.current) {
@@ -282,7 +280,7 @@ export default function FeedScreen({ sport = "default" }: FeedScreenProps) {
       // Small delay to allow options sheet to close before opening edit sheet
       editTimeoutRef.current = setTimeout(() => {
         if (isMountedRef.current) {
-          editCaptionRef.current?.snapToIndex(0);
+          editCaptionRef.current?.present();
         }
         editTimeoutRef.current = null;
       }, 100);
@@ -299,7 +297,7 @@ export default function FeedScreen({ sport = "default" }: FeedScreenProps) {
       if (success && isMountedRef.current) {
         // Remove the deleted post from local state
         removePostLocally(selectedOptionsPostId);
-        postOptionsRef.current?.close();
+        postOptionsRef.current?.dismiss();
       }
     } finally {
       isDeletingRef.current = false;
@@ -321,7 +319,7 @@ export default function FeedScreen({ sport = "default" }: FeedScreenProps) {
         const success = await editCaption(postId, newCaption);
         if (success && isMountedRef.current) {
           updatePostLocally(postId, { caption: newCaption });
-          editCaptionRef.current?.close();
+          editCaptionRef.current?.dismiss();
         }
       } finally {
         isSavingRef.current = false;
@@ -333,7 +331,7 @@ export default function FeedScreen({ sport = "default" }: FeedScreenProps) {
   // Share handlers
   const handleSharePress = useCallback((post: FeedPost) => {
     setSharePostId(post.id);
-    shareSheetRef.current?.snapToIndex(0);
+    shareSheetRef.current?.present();
   }, []);
 
   const handleShareImage = useCallback(
@@ -629,15 +627,6 @@ export default function FeedScreen({ sport = "default" }: FeedScreenProps) {
         selectedSport={selectedSportFilter}
         onSelect={handleSportSelect}
         onClose={handleCloseFilter}
-      />
-
-      {/* Likers Bottom Sheet */}
-      <LikersSheet
-        postId={selectedLikerPostId}
-        likeCount={selectedLikerCount}
-        bottomSheetRef={likersSheetRef}
-        onClose={handleCloseLikers}
-        onUserPress={handleAuthorPress}
       />
 
       {/* Post Options Bottom Sheet */}

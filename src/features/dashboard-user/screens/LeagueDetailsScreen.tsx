@@ -1,5 +1,7 @@
 import BackButtonIcon from '@/assets/icons/back-button.svg';
 import LeagueInfoIcon from '@/assets/icons/league-info.svg';
+import CalendarIcon from '@/assets/icons/season-details/calendar.svg';
+import CalendarMinusIcon from '@/assets/icons/season-details/calendar-minus.svg';
 import { Ionicons } from '@expo/vector-icons';
 import { ManageTeamButton } from '@/features/pairing/components';
 import { useActivePartnership } from '@/features/pairing/hooks';
@@ -130,10 +132,8 @@ export default function LeagueDetailsScreen({
     isCategoryVisibleToUser
   );
 
-  // Use custom hook for season selection management
-  const { selectedCategoryId, setSelectedCategoryId, selectedSeason, setSelectedSeason } = useSeasonSelection(categories);
-
   // Sorted categories: Open Singles → User gender Singles → User gender Doubles → Mixed Doubles → Restricted Singles 🔒 → Restricted Doubles 🔒
+  // Computed BEFORE useSeasonSelection so the hook uses the sorted order for the default pill selection
   const sortedCategories = React.useMemo(() => {
     const getCategoryOrder = (category: any): number => {
       const genderCategory = category.gender_category?.toUpperCase() || category.genderCategory?.toUpperCase();
@@ -162,6 +162,9 @@ export default function LeagueDetailsScreen({
       .filter((category) => Boolean(category?.id))
       .sort((a, b) => getCategoryOrder(a) - getCategoryOrder(b));
   }, [categories, userGender]);
+
+  // Use custom hook for season selection management (pass sortedCategories so default pill = Open Singles)
+  const { selectedCategoryId, setSelectedCategoryId, selectedSeason, setSelectedSeason } = useSeasonSelection(sortedCategories);
 
   // Use custom hook for user partnerships management
   const { partnerships, loading: partnershipsLoading } = useUserPartnerships(userId);
@@ -1052,7 +1055,7 @@ export default function LeagueDetailsScreen({
             {/* Date row: 📅 25 Feb – 30 Apr 2026 */}
             {season.startDate && season.endDate && (
               <View style={styles.dateIconRow}>
-                <Text style={styles.dateIconEmoji}>📅</Text>
+                <CalendarIcon width={16} height={16} />
                 <Text style={styles.dateText}>
                   {formatShortDate(season.startDate)} – {formatShortDate(season.endDate)} {endYear}
                 </Text>
@@ -1062,7 +1065,7 @@ export default function LeagueDetailsScreen({
             {/* Registration deadline row: 📋 Registration closes DD Mon (only when still open) */}
             {season.regiDeadline && isRegistrationOpen && (
               <View style={styles.dateIconRow}>
-                <Text style={styles.dateIconEmoji}>📋</Text>
+                <CalendarMinusIcon width={16} height={16} />
                 <Text style={styles.dateText}>
                   Registration closes {formatShortDate(season.regiDeadline)}
                 </Text>

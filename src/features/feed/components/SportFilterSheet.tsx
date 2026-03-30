@@ -2,7 +2,7 @@
 
 import React, { useCallback } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import BottomSheet, { BottomSheetBackdrop, BottomSheetView } from '@gorhom/bottom-sheet';
+import { BottomSheetModal, BottomSheetBackdrop, BottomSheetView } from '@gorhom/bottom-sheet';
 import { Ionicons } from '@expo/vector-icons';
 import { feedTheme } from '../theme';
 
@@ -14,7 +14,7 @@ const SPORT_OPTIONS = [
 ] as const;
 
 interface SportFilterSheetProps {
-  bottomSheetRef: React.RefObject<BottomSheet | null>;
+  bottomSheetRef: React.RefObject<BottomSheetModal | null>;
   selectedSport?: string;
   onSelect: (sport: string | undefined) => void;
   onClose: () => void;
@@ -39,12 +39,12 @@ export const SportFilterSheet: React.FC<SportFilterSheetProps> = ({
   );
 
   return (
-    <BottomSheet
+    <BottomSheetModal
       ref={bottomSheetRef}
-      index={-1}
       enableDynamicSizing
       enablePanDownToClose
-      onClose={onClose}
+      enableOverDrag={false}
+      onDismiss={onClose}
       backdropComponent={renderBackdrop}
     >
       <BottomSheetView style={styles.container}>
@@ -84,14 +84,14 @@ export const SportFilterSheet: React.FC<SportFilterSheetProps> = ({
           </TouchableOpacity>
         ))}
       </BottomSheetView>
-    </BottomSheet>
+    </BottomSheetModal>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     paddingHorizontal: feedTheme.spacing.screenPadding,
-    paddingBottom: 100,
+    paddingBottom: 32,
     paddingTop: 8,
   },
   title: {

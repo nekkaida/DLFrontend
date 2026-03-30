@@ -7,7 +7,7 @@
     "icon": "./assets/images/dl-logo.png",
     "scheme": "deuceleague",
     "userInterfaceStyle": "automatic",
-    "newArchEnabled": false,
+    "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
       "usesAppleSignIn": true,

@@ -16,7 +16,7 @@ import {
 import { useProfileHandlers } from "@/src/features/profile/hooks/useProfileHandlers";
 import { useProfileState } from "@/src/features/profile/hooks/useProfileState";
 import { ProfileDataTransformer } from "@/src/features/profile/services/ProfileDataTransformer";
-import type { UserData } from "@/src/features/profile/types";
+import type { GameData, UserData } from "@/src/features/profile/types";
 import { theme } from "@core/theme/theme";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
@@ -26,6 +26,7 @@ import {
   ActivityIndicator,
   Animated,
   Dimensions,
+  Modal,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -46,6 +47,14 @@ export default function PlayerProfileScreen() {
   const [hasError, setHasError] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [isLoadingChat, setIsLoadingChat] = useState(false);
+  const [showPlayerMenu, setShowPlayerMenu] = useState(false);
+  const [isFriend, setIsFriend] = useState(false);
+  const [friendshipId, setFriendshipId] = useState<string | null>(null);
+  const [isPendingRequest, setIsPendingRequest] = useState(false);
+  const [showAddFriendConfirm, setShowAddFriendConfirm] = useState(false);
+  const [showUnfriendConfirm, setShowUnfriendConfirm] = useState(false);
+  const [isFriendActionLoading, setIsFriendActionLoading] = useState(false);
+  const [ratingHistory, setRatingHistory] = useState<GameData[]>([]);
   const [leagueStatsData, setLeagueStatsData] = useState<{
     wins: number;
     losses: number;
@@ -145,10 +154,91 @@ export default function PlayerProfileScreen() {
     setRefreshing(false);
   }, [fetchPlayerProfile]);
 
+  // Fetch rating history for this player to power the DMR graph
+  const fetchPlayerRatingHistory = useCallback(async (gameType: 'singles' | 'doubles', sport: string) => {
+    try {
+      if (!id) return;
+      const sportParam = sport.toUpperCase();
+      const response = await axiosInstance.get(
+        `/api/ratings/${id}/history?gameType=${gameType.toUpperCase()}&sport=${sportParam}&limit=20`
+      );
+      let historyData: any[] = [];
+      if (response?.data?.data && Array.isArray(response.data.data)) {
+        historyData = response.data.data;
+      } else if (Array.isArray(response?.data)) {
+        historyData = response.data;
+      }
+      if (historyData.length > 0) {
+        const playerName = profileData?.name || 'Player';
+        const transformedData = ProfileDataTransformer.transformRatingHistoryToGameData(historyData, playerName);
+        setRatingHistory(transformedData);
+      } else {
+        setRatingHistory([]);
+      }
+    } catch {
+      setRatingHistory([]);
+    }
+  }, [id, profileData?.name]);
+
+  // Fetch rating history when game type, sport, or profile data changes
+  useEffect(() => {
+    if (profileData && selectedGameType && activeTab) {
+      fetchPlayerRatingHistory(selectedGameType.toLowerCase() as 'singles' | 'doubles', activeTab);
+    }
+  }, [selectedGameType, activeTab, profileData, fetchPlayerRatingHistory]);
+
   const handleAddFriend = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    console.log("Add friend:", profileData?.name);
-    toast("Add friend feature coming soon!");
+    if (!session?.user?.id || !id) return;
+    if (isFriend) {
+      setShowUnfriendConfirm(true);
+    } else if (!isPendingRequest) {
+      setShowAddFriendConfirm(true);
+    }
+  };
+
+  const confirmSendFriendRequest = async () => {
+    setIsFriendActionLoading(true);
+    try {
+      await axiosInstance.post('/api/pairing/friendship/request', { recipientId: id });
+      setIsPendingRequest(true);
+      setShowAddFriendConfirm(false);
+      toast.success('Success', { description: 'Friend request sent!' });
+    } catch (err: any) {
+      const msg = err?.response?.data?.message || 'Failed to send friend request';
+      toast.error('Error', { description: msg });
+    } finally {
+      setIsFriendActionLoading(false);
+    }
+  };
+
+  const confirmUnfriend = async () => {
+    if (!friendshipId) return;
+    setIsFriendActionLoading(true);
+    try {
+      await axiosInstance.delete(`/api/pairing/friendship/${friendshipId}`);
+      setIsFriend(false);
+      setFriendshipId(null);
+      setShowUnfriendConfirm(false);
+      toast.success('Friend removed');
+    } catch (err: any) {
+      const msg = err?.response?.data?.message || 'Failed to remove friend';
+      toast.error('Error', { description: msg });
+    } finally {
+      setIsFriendActionLoading(false);
+    }
+  };
+
+  // TODO: Implement in v2
+  const handleReportUser = () => {
+    setShowPlayerMenu(false);
+    toast("Report User — coming in v2");
+  };
+
+  // TODO: Implement in v2
+  const handleBlockUser = () => {
+    setShowPlayerMenu(false);
+    toast("Block User — coming in v2");
   };
 
   const handleChat = async () => {
@@ -159,6 +249,12 @@ export default function PlayerProfileScreen() {
       toast.error("Error", {
         description: "Unable to start chat. Please try again.",
       });
+      return;
+    }
+
+    // Block messaging deleted users
+    if (profileData?.name?.toLowerCase().includes("deleted")) {
+      toast.error("User not found");
       return;
     }
 
@@ -173,9 +269,11 @@ export default function PlayerProfileScreen() {
           thread.participants.some((p) => p.id === session.user.id),
       );
 
+      let targetThreadId: string;
+
       if (existingThread) {
-        // console.log('PlayerProfile: Found existing thread:', existingThread.id);
         setCurrentThread(existingThread);
+        targetThreadId = existingThread.id;
       } else {
         console.log("PlayerProfile: No existing thread, creating new one");
         const newThread = await ChatService.createThread(
@@ -187,12 +285,13 @@ export default function PlayerProfileScreen() {
         console.log("PlayerProfile: Created new thread:", newThread.id);
         await loadThreads(session.user.id);
         setCurrentThread(newThread);
+        targetThreadId = newThread.id;
       }
 
-      // Navigate to dashboard with chat view
+      // Navigate directly to the chat thread
       router.push({
-        pathname: "/user-dashboard",
-        params: { view: "chat" },
+        pathname: "/chat/[threadId]",
+        params: { threadId: targetThreadId },
       });
     } catch (error) {
       console.error("PlayerProfile: Error handling chat:", error);
@@ -217,6 +316,34 @@ export default function PlayerProfileScreen() {
       abortController.abort();
     };
   }, [session?.user?.id, id, fetchPlayerProfile]);
+
+  // Check if the viewed player is already a friend
+  useEffect(() => {
+    if (!session?.user?.id || !id) return;
+    axiosInstance.get('/api/pairing/friends')
+      .then((res) => {
+        const friends: any[] = res?.data?.data ?? res?.data ?? [];
+        const match = Array.isArray(friends)
+          ? friends.find((f) => f.friend?.id === id)
+          : null;
+        if (match) {
+          setIsFriend(true);
+          setFriendshipId(match.friendshipId ?? null);
+        } else {
+          setIsFriend(false);
+          setFriendshipId(null);
+        }
+      })
+      .catch(() => { setIsFriend(false); setFriendshipId(null); });
+
+    axiosInstance.get('/api/pairing/friendship/requests')
+      .then((res) => {
+        const data = res?.data?.data ?? res?.data ?? {};
+        const sent: any[] = data.sent ?? [];
+        setIsPendingRequest(sent.some((r) => r.recipientId === id));
+      })
+      .catch(() => setIsPendingRequest(false));
+  }, [session?.user?.id, id]);
 
   // Entry animation effect (matching ProfileScreen.tsx pattern)
   useEffect(() => {
@@ -338,22 +465,23 @@ export default function PlayerProfileScreen() {
     );
   };
 
-  // Create ELO data based on actual rating values only
-  const createEloData = () => {
+  // Build ELO data from real rating history when available, else show single current-rating point
+  const getEloData = (): GameData[] => {
+    if (ratingHistory.length > 0) {
+      return ratingHistory;
+    }
     const currentSport = activeTab || userData.sports?.[0] || "pickleball";
     const currentGameType = selectedGameType.toLowerCase();
     const currentRating = getRatingForType(
       currentSport,
       currentGameType as "singles" | "doubles",
     );
-
-    // Return single point with current rating if no matches played
     return [
       {
         date: "Current Rating",
         time: "",
-        rating: currentRating || 1400, // Use actual rating or default
-        ratingBefore: currentRating || 1400,
+        rating: currentRating || 0,
+        ratingBefore: currentRating || 0,
         opponent: "No matches played",
         result: "W" as const,
         score: "-",
@@ -371,7 +499,7 @@ export default function PlayerProfileScreen() {
     ];
   };
 
-  const mockEloData = createEloData();
+  const eloData = getEloData();
 
   // Auto-select first available sport when profile data loads
   useEffect(() => {
@@ -446,6 +574,7 @@ export default function PlayerProfileScreen() {
         <ProfileHeaderWithCurve
           onBack={() => router.back()}
           showSettings={false}
+          onMenuPress={() => setShowPlayerMenu(true)}
         />
 
         {/* Top Profile Section — white card with avatar inside */}
@@ -468,6 +597,8 @@ export default function PlayerProfileScreen() {
               sports={userData.sports || []}
               activeSports={userData.activeSports || []}
               showActionButtons={true}
+              isFriend={isFriend}
+              isPendingRequest={isPendingRequest}
               onAddFriend={handleAddFriend}
               onChat={handleChat}
               isLoadingChat={isLoadingChat}
@@ -517,10 +648,11 @@ export default function PlayerProfileScreen() {
               gameTypeOptions={gameTypeOptions}
               onGameTypeSelect={handleGameTypeSelect}
               getRatingForType={getRatingForType}
-              eloData={mockEloData}
+              eloData={eloData}
               onPointPress={handleGamePointPress}
               selectedMatch={selectedMatch}
               profileData={profileData}
+              isOwnProfile={false}
             />
 
             {/* Match History Button */}
@@ -555,6 +687,117 @@ export default function PlayerProfileScreen() {
           </Animated.View>
         </View>
       </ScrollView>
+
+      {/* Add Friend Confirmation */}
+      <Modal
+        visible={showAddFriendConfirm}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowAddFriendConfirm(false)}
+      >
+        <Pressable style={styles.confirmOverlay} onPress={() => setShowAddFriendConfirm(false)}>
+          <Pressable style={styles.confirmSheet} onPress={(e) => e.stopPropagation()}>
+            <Text style={styles.confirmTitle}>Add Friend</Text>
+            <Text style={styles.confirmMessage}>
+              Send a friend request to {profileData?.name || 'this player'}?
+            </Text>
+            <View style={styles.confirmButtons}>
+              <Pressable
+                style={styles.confirmCancelButton}
+                onPress={() => setShowAddFriendConfirm(false)}
+              >
+                <Text style={styles.confirmCancelText}>Cancel</Text>
+              </Pressable>
+              <Pressable
+                style={[styles.confirmActionButton, isFriendActionLoading && { opacity: 0.6 }]}
+                onPress={confirmSendFriendRequest}
+                disabled={isFriendActionLoading}
+              >
+                <Text style={styles.confirmActionText}>
+                  {isFriendActionLoading ? 'Sending…' : 'Send Request'}
+                </Text>
+              </Pressable>
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
+
+      {/* Unfriend Confirmation */}
+      <Modal
+        visible={showUnfriendConfirm}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowUnfriendConfirm(false)}
+      >
+        <Pressable style={styles.confirmOverlay} onPress={() => setShowUnfriendConfirm(false)}>
+          <Pressable style={styles.confirmSheet} onPress={(e) => e.stopPropagation()}>
+            <Text style={styles.confirmTitle}>Remove Friend</Text>
+            <Text style={styles.confirmMessage}>
+              Remove {profileData?.name || 'this player'} from your friends?
+            </Text>
+            <View style={styles.confirmButtons}>
+              <Pressable
+                style={styles.confirmCancelButton}
+                onPress={() => setShowUnfriendConfirm(false)}
+              >
+                <Text style={styles.confirmCancelText}>Cancel</Text>
+              </Pressable>
+              <Pressable
+                style={[styles.confirmDestructiveButton, isFriendActionLoading && { opacity: 0.6 }]}
+                onPress={confirmUnfriend}
+                disabled={isFriendActionLoading}
+              >
+                <Text style={styles.confirmActionText}>
+                  {isFriendActionLoading ? 'Removing…' : 'Remove'}
+                </Text>
+              </Pressable>
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
+
+      {/* Player Options Menu */}
+      <Modal
+        visible={showPlayerMenu}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowPlayerMenu(false)}
+      >
+        <Pressable style={styles.menuOverlay} onPress={() => setShowPlayerMenu(false)}>
+          <Pressable style={styles.menuSheet} onPress={(e) => e.stopPropagation()}>
+            <Pressable
+              style={styles.menuItem}
+              onPress={() => {
+                setShowPlayerMenu(false);
+                handleAddFriend();
+              }}
+            >
+              <Ionicons
+                name={isFriend ? 'person-remove-outline' : 'person-add-outline'}
+                size={20}
+                color={isFriend ? '#ef4444' : '#1f2937'}
+              />
+              <Text style={[styles.menuItemText, isFriend && { color: '#ef4444' }]}>
+                {isFriend ? 'Unfriend' : isPendingRequest ? 'Request Sent' : 'Add friend'}
+              </Text>
+            </Pressable>
+
+            <View style={styles.menuDivider} />
+
+            <Pressable style={styles.menuItem} onPress={handleReportUser}>
+              <Ionicons name="flag-outline" size={20} color="#f97316" />
+              <Text style={[styles.menuItemText, { color: '#f97316' }]}>Report User</Text>
+            </Pressable>
+
+            <View style={styles.menuDivider} />
+
+            <Pressable style={styles.menuItem} onPress={handleBlockUser}>
+              <Ionicons name="ban-outline" size={20} color="#ef4444" />
+              <Text style={[styles.menuItemText, { color: '#ef4444' }]}>Block</Text>
+            </Pressable>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </View>
   );
 }
@@ -618,5 +861,106 @@ const styles = StyleSheet.create({
     paddingTop: theme.spacing.lg,
     paddingBottom: theme.spacing['2xl'],
     minHeight: '100%',
+  },
+  menuOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    justifyContent: 'flex-end',
+  },
+  menuSheet: {
+    backgroundColor: '#ffffff',
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+    paddingVertical: 8,
+    paddingBottom: 32,
+    paddingHorizontal: 16,
+  },
+  menuItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 16,
+    gap: 14,
+  },
+  menuItemText: {
+    fontSize: 16,
+    fontFamily: theme.typography.fontFamily.primary,
+    fontWeight: '500' as const,
+    color: '#1f2937',
+  },
+  menuDivider: {
+    height: 1,
+    backgroundColor: '#f1f5f9',
+  },
+  confirmOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 32,
+  },
+  confirmSheet: {
+    backgroundColor: '#ffffff',
+    borderRadius: 20,
+    paddingHorizontal: 24,
+    paddingTop: 28,
+    paddingBottom: 24,
+    width: '100%',
+  },
+  confirmTitle: {
+    fontSize: 17,
+    fontWeight: '700' as const,
+    color: '#111827',
+    fontFamily: theme.typography.fontFamily.primary,
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  confirmMessage: {
+    fontSize: 14,
+    color: '#6b7280',
+    fontFamily: theme.typography.fontFamily.primary,
+    textAlign: 'center',
+    lineHeight: 20,
+    marginBottom: 24,
+  },
+  confirmButtons: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  confirmCancelButton: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 90,
+    borderWidth: 1,
+    borderColor: '#d1d5db',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  confirmCancelText: {
+    fontSize: 15,
+    fontWeight: '600' as const,
+    color: '#374151',
+    fontFamily: theme.typography.fontFamily.primary,
+  },
+  confirmActionButton: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 90,
+    backgroundColor: '#f97316',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  confirmDestructiveButton: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 90,
+    backgroundColor: '#ef4444',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  confirmActionText: {
+    fontSize: 15,
+    fontWeight: '600' as const,
+    color: '#ffffff',
+    fontFamily: theme.typography.fontFamily.primary,
   },
 });

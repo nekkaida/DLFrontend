@@ -284,12 +284,15 @@ export const FriendlyScreen: React.FC<FriendlyScreenProps> = ({ sport }) => {
       });
     }
 
-    // Sort by date (soonest first)
-    filtered.sort((a, b) => {
-      const dateA = new Date(a.scheduledTime || a.matchDate || 0);
-      const dateB = new Date(b.scheduledTime || b.matchDate || 0);
-      return dateA.getTime() - dateB.getTime();
-    });
+    // Future matches first (ascending), then past matches (most recent first)
+    const nowMs = Date.now();
+    const futureMatches = filtered
+      .filter(m => new Date(m.scheduledTime || m.matchDate || 0).getTime() >= nowMs)
+      .sort((a, b) => new Date(a.scheduledTime || a.matchDate || 0).getTime() - new Date(b.scheduledTime || b.matchDate || 0).getTime());
+    const pastMatches = filtered
+      .filter(m => new Date(m.scheduledTime || m.matchDate || 0).getTime() < nowMs)
+      .sort((a, b) => new Date(b.scheduledTime || b.matchDate || 0).getTime() - new Date(a.scheduledTime || a.matchDate || 0).getTime());
+    filtered = [...futureMatches, ...pastMatches];
 
     return filtered;
   }, [matches, filters]);

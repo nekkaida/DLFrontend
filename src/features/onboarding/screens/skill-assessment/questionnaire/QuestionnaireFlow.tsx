@@ -146,6 +146,10 @@ export const QuestionnaireFlow: React.FC<QuestionnaireFlowProps> = ({
       const currentCarouselIndex = carouselRef.current.getCurrentIndex();
       if (currentCarouselIndex !== currentVisibleIndex) {
         console.log(`Syncing carousel: ${currentCarouselIndex} -> ${currentVisibleIndex}`);
+        // Mark as programmatic so handleSnapToItem doesn't call onBack/onNext again.
+        // Without this, onSnapToItem fires before React re-renders carouselDisplayIndex,
+        // causing a cascade of onBack() calls all the way back to Q1 (Android race condition).
+        isProgrammaticNav.current = true;
         carouselRef.current.scrollTo({ index: currentVisibleIndex, animated: true });
         // Also sync our tracked index
         setCarouselDisplayIndex(currentVisibleIndex);
