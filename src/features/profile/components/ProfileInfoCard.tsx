@@ -2,6 +2,7 @@ import { theme } from '@core/theme/theme';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import React, { useState, useRef, useEffect } from 'react';
+import ChatBubbleIcon from '@/assets/icons/profile/chat-bubble.svg';
 import { Animated, ActivityIndicator, Image, Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 import { getProfileSportConfig } from '../utils/profileSportUi';
@@ -21,8 +22,11 @@ interface ProfileInfoCardProps {
   sports?: string[];
   activeSports?: string[];
   showActionButtons?: boolean;
+  isFriend?: boolean;
+  isPendingRequest?: boolean;
   onAddFriend?: () => void;
   onChat?: () => void;
+  onShare?: () => void;
   onSportPress?: (sport: string) => void;
   onRemoveSport?: (sport: string) => void;
   onAddSport?: () => void;
@@ -45,8 +49,11 @@ export const ProfileInfoCard: React.FC<ProfileInfoCardProps> = ({
   sports = [],
   activeSports = [],
   showActionButtons = false,
+  isFriend = false,
+  isPendingRequest = false,
   onAddFriend,
   onChat,
+  onShare,
   onSportPress,
   onRemoveSport,
   onAddSport,
@@ -56,13 +63,15 @@ export const ProfileInfoCard: React.FC<ProfileInfoCardProps> = ({
   const { width } = useWindowDimensions();
   const avatarSize = Math.max(84, Math.min(108, width * 0.25));
   const rightColumnWidth = avatarSize + 12;
-  const baseNameSize = Math.max(22, Math.min(30, width * 0.075));
-  const nameSize = name.length > 18 ? Math.max(18, baseNameSize - 6)
-    : name.length > 12 ? Math.max(20, baseNameSize - 3)
+  const baseNameSize = Math.max(18, Math.min(24, width * 0.06));
+  const nameSize = name.length > 18 ? Math.max(15, baseNameSize - 6)
+    : name.length > 12 ? Math.max(16, baseNameSize - 3)
+    : name.length > 6 ? Math.max(17, baseNameSize - 1)
     : baseNameSize;
-  const baseUsernameSize = Math.max(13, Math.min(16, width * 0.038));
-  const usernameSize = username.length > 22 ? Math.max(11, baseUsernameSize - 3)
-    : username.length > 16 ? Math.max(12, baseUsernameSize - 1)
+  const baseUsernameSize = Math.max(11, Math.min(14, width * 0.034));
+  const usernameSize = username.length > 24 ? Math.max(9, baseUsernameSize - 3)
+    : username.length > 18 ? Math.max(10, baseUsernameSize - 2)
+    : username.length > 14 ? Math.max(11, baseUsernameSize - 1)
     : baseUsernameSize;
   const bioSize = Math.max(13, Math.min(15, width * 0.036));
   const locationSize = Math.max(12, Math.min(15, width * 0.036));
@@ -115,39 +124,6 @@ export const ProfileInfoCard: React.FC<ProfileInfoCardProps> = ({
                 />
               )}
             </View>
-            {showActionButtons && (
-              <View style={styles.actionIconsRow}>
-                {onAddFriend && (
-                  <Pressable
-                    style={[styles.actionIcon, styles.addFriendIcon]}
-                    onPress={() => {
-                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                      onAddFriend();
-                    }}
-                  >
-                    <Ionicons name="person-add" size={14} color="#20659d" />
-                  </Pressable>
-                )}
-                {onChat && (
-                  <Pressable
-                    style={styles.actionIcon}
-                    onPress={() => {
-                      if (!isLoadingChat) {
-                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                        onChat();
-                      }
-                    }}
-                    disabled={isLoadingChat}
-                  >
-                    {isLoadingChat ? (
-                      <ActivityIndicator size="small" color={theme.colors.neutral.gray[600]} />
-                    ) : (
-                      <Ionicons name="chatbubble" size={14} color={theme.colors.neutral.gray[600]} />
-                    )}
-                  </Pressable>
-                )}
-              </View>
-            )}
           </View>
 
           <Pressable
@@ -169,6 +145,70 @@ export const ProfileInfoCard: React.FC<ProfileInfoCardProps> = ({
             <Ionicons name="location-sharp" size={14} color="#9ca3af" />
             <Text style={[styles.locationText, { fontSize: locationSize }]}>{location}</Text>
           </View>
+
+          {/* Action Buttons */}
+          {showActionButtons && (
+            <View style={styles.actionButtonsRow}>
+              {onAddFriend && (
+                isFriend ? (
+                  <Pressable
+                    style={styles.friendButton}
+                    onPress={() => {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                      onAddFriend();
+                    }}
+                  >
+                    <Ionicons name="checkmark" size={14} color="#f97316" />
+                    <Text style={styles.friendButtonText}>Friend</Text>
+                  </Pressable>
+                ) : isPendingRequest ? (
+                  <Pressable style={styles.pendingButton} disabled>
+                    <Text style={styles.pendingButtonText}>Pending</Text>
+                  </Pressable>
+                ) : (
+                  <Pressable
+                    style={styles.addFriendButton}
+                    onPress={() => {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                      onAddFriend();
+                    }}
+                  >
+                    <Text style={styles.addFriendButtonText}>Add friend</Text>
+                  </Pressable>
+                )
+              )}
+              {onChat && (
+                <Pressable
+                  style={styles.circleActionButton}
+                  onPress={() => {
+                    if (!isLoadingChat) {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                      onChat();
+                    }
+                  }}
+                  disabled={isLoadingChat}
+                >
+                  {isLoadingChat ? (
+                    <ActivityIndicator size="small" color="#6b7280" />
+                  ) : (
+                    <ChatBubbleIcon width={18} height={18} fill="#6b7280" />
+                  )}
+                </Pressable>
+              )}
+              {/* Future Implementation */}
+              {/* {onShare && (
+                <Pressable
+                  style={styles.circleActionButton}
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    onShare();
+                  }}
+                >
+                  <Ionicons name="share-outline" size={18} color="#6b7280" />
+                </Pressable>
+              )} */}
+            </View>
+          )}
         </View>
 
         <View style={[styles.rightColumn, { width: rightColumnWidth }]}>
@@ -207,7 +247,7 @@ export const ProfileInfoCard: React.FC<ProfileInfoCardProps> = ({
             )} */}
           </Pressable>
 
-          <Text style={[styles.username, { fontSize: usernameSize }]}>@{username}</Text>
+          <Text style={[styles.username, { fontSize: usernameSize }]} numberOfLines={1} ellipsizeMode="tail">@{username}</Text>
         </View>
       </View>
 
@@ -342,20 +382,65 @@ const styles = StyleSheet.create({
   genderIcon: {
     marginLeft: theme.spacing.xs,
   },
-  actionIconsRow: {
+  actionButtonsRow: {
     flexDirection: 'row',
-    gap: theme.spacing.sm,
+    alignItems: 'center',
+    gap: 10,
+    marginTop: theme.spacing.md,
   },
-  actionIcon: {
-    padding: theme.spacing.sm,
-    borderRadius: 8,
-    backgroundColor: '#f8fafc',
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
+  addFriendButton: {
+    width: 100,
+    backgroundColor: '#f97316',
+    borderRadius: 90,
+    paddingVertical: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  addFriendIcon: {
-    borderColor: '#20659d',
-    backgroundColor: '#f0f8ff',
+  addFriendButtonText: {
+    color: '#ffffff',
+    fontWeight: '600' as any,
+    fontFamily: theme.typography.fontFamily.primary,
+    fontSize: 14,
+  },
+  friendButton: {
+    width: 100,
+    backgroundColor: '#ffffff',
+    borderRadius: 90,
+    borderWidth: 1.5,
+    borderColor: '#f97316',
+    paddingVertical: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+  },
+  friendButtonText: {
+    color: '#f97316',
+    fontWeight: '600' as any,
+    fontFamily: theme.typography.fontFamily.primary,
+    fontSize: 14,
+  },
+  pendingButton: {
+    width: 100,
+    backgroundColor: '#f3f4f6',
+    borderRadius: 90,
+    paddingVertical: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  pendingButtonText: {
+    color: '#9ca3af',
+    fontWeight: '600' as any,
+    fontFamily: theme.typography.fontFamily.primary,
+    fontSize: 14,
+  },
+  circleActionButton: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: '#EBF3FB',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   username: {
     color: '#9ca3af',
