@@ -17,7 +17,6 @@ import {
   View
 } from 'react-native';
 import TorchIcon from '@/assets/icons/profile/torch.svg';
-// CircularImageCropper removed — replaced by native expo-image-crop-tool in useProfileImageUpload
 import {
   MatchHistoryButton,
   PlayerDivisionStandings,

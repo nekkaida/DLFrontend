@@ -26,6 +26,7 @@ import {
   ActivityIndicator,
   Animated,
   Dimensions,
+  Modal,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -46,6 +47,10 @@ export default function PlayerProfileScreen() {
   const [hasError, setHasError] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [isLoadingChat, setIsLoadingChat] = useState(false);
+  const [showPlayerMenu, setShowPlayerMenu] = useState(false);
+  const [isFriend, setIsFriend] = useState(false);
+  const [friendshipId, setFriendshipId] = useState<string | null>(null);
+  const [isPendingRequest, setIsPendingRequest] = useState(false);
   const [ratingHistory, setRatingHistory] = useState<GameData[]>([]);
   const [leagueStatsData, setLeagueStatsData] = useState<{
     wins: number;
@@ -179,10 +184,44 @@ export default function PlayerProfileScreen() {
     }
   }, [selectedGameType, activeTab, profileData, fetchPlayerRatingHistory]);
 
-  const handleAddFriend = () => {
+  const handleAddFriend = async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    console.log("Add friend:", profileData?.name);
-    toast("Add friend feature coming soon!");
+    if (!session?.user?.id || !id) return;
+
+    if (isFriend && friendshipId) {
+      // Unfriend
+      try {
+        await axiosInstance.delete(`/api/pairing/friendship/${friendshipId}`);
+        setIsFriend(false);
+        setFriendshipId(null);
+        toast.success('Friend removed');
+      } catch (err: any) {
+        const msg = err?.response?.data?.message || 'Failed to remove friend';
+        toast.error('Error', { description: msg });
+      }
+    } else if (!isPendingRequest) {
+      // Send friend request
+      try {
+        await axiosInstance.post('/api/pairing/friendship/request', { recipientId: id });
+        setIsPendingRequest(true);
+        toast.success('Success', { description: 'Friend request sent!' });
+      } catch (err: any) {
+        const msg = err?.response?.data?.message || 'Failed to send friend request';
+        toast.error('Error', { description: msg });
+      }
+    }
+  };
+
+  // TODO: Implement in v2
+  const handleReportUser = () => {
+    setShowPlayerMenu(false);
+    toast("Report User — coming in v2");
+  };
+
+  // TODO: Implement in v2
+  const handleBlockUser = () => {
+    setShowPlayerMenu(false);
+    toast("Block User — coming in v2");
   };
 
   const handleChat = async () => {
@@ -260,6 +299,34 @@ export default function PlayerProfileScreen() {
       abortController.abort();
     };
   }, [session?.user?.id, id, fetchPlayerProfile]);
+
+  // Check if the viewed player is already a friend
+  useEffect(() => {
+    if (!session?.user?.id || !id) return;
+    axiosInstance.get('/api/pairing/friends')
+      .then((res) => {
+        const friends: any[] = res?.data?.data ?? res?.data ?? [];
+        const match = Array.isArray(friends)
+          ? friends.find((f) => f.friend?.id === id)
+          : null;
+        if (match) {
+          setIsFriend(true);
+          setFriendshipId(match.friendshipId ?? null);
+        } else {
+          setIsFriend(false);
+          setFriendshipId(null);
+        }
+      })
+      .catch(() => { setIsFriend(false); setFriendshipId(null); });
+
+    axiosInstance.get('/api/pairing/friendship/requests')
+      .then((res) => {
+        const data = res?.data?.data ?? res?.data ?? {};
+        const sent: any[] = data.sent ?? [];
+        setIsPendingRequest(sent.some((r) => r.recipientId === id));
+      })
+      .catch(() => setIsPendingRequest(false));
+  }, [session?.user?.id, id]);
 
   // Entry animation effect (matching ProfileScreen.tsx pattern)
   useEffect(() => {
@@ -490,6 +557,7 @@ export default function PlayerProfileScreen() {
         <ProfileHeaderWithCurve
           onBack={() => router.back()}
           showSettings={false}
+          onMenuPress={() => setShowPlayerMenu(true)}
         />
 
         {/* Top Profile Section — white card with avatar inside */}
@@ -512,6 +580,8 @@ export default function PlayerProfileScreen() {
               sports={userData.sports || []}
               activeSports={userData.activeSports || []}
               showActionButtons={true}
+              isFriend={isFriend}
+              isPendingRequest={isPendingRequest}
               onAddFriend={handleAddFriend}
               onChat={handleChat}
               isLoadingChat={isLoadingChat}
@@ -600,6 +670,49 @@ export default function PlayerProfileScreen() {
           </Animated.View>
         </View>
       </ScrollView>
+
+      {/* Player Options Menu */}
+      <Modal
+        visible={showPlayerMenu}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowPlayerMenu(false)}
+      >
+        <Pressable style={styles.menuOverlay} onPress={() => setShowPlayerMenu(false)}>
+          <Pressable style={styles.menuSheet} onPress={(e) => e.stopPropagation()}>
+            <Pressable
+              style={styles.menuItem}
+              onPress={() => {
+                setShowPlayerMenu(false);
+                handleAddFriend();
+              }}
+            >
+              <Ionicons
+                name={isFriend ? 'person-remove-outline' : 'person-add-outline'}
+                size={20}
+                color={isFriend ? '#ef4444' : '#1f2937'}
+              />
+              <Text style={[styles.menuItemText, isFriend && { color: '#ef4444' }]}>
+                {isFriend ? 'Unfriend' : isPendingRequest ? 'Request Sent' : 'Add friend'}
+              </Text>
+            </Pressable>
+
+            <View style={styles.menuDivider} />
+
+            <Pressable style={styles.menuItem} onPress={handleReportUser}>
+              <Ionicons name="flag-outline" size={20} color="#f97316" />
+              <Text style={[styles.menuItemText, { color: '#f97316' }]}>Report User</Text>
+            </Pressable>
+
+            <View style={styles.menuDivider} />
+
+            <Pressable style={styles.menuItem} onPress={handleBlockUser}>
+              <Ionicons name="ban-outline" size={20} color="#ef4444" />
+              <Text style={[styles.menuItemText, { color: '#ef4444' }]}>Block</Text>
+            </Pressable>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </View>
   );
 }
@@ -663,5 +776,34 @@ const styles = StyleSheet.create({
     paddingTop: theme.spacing.lg,
     paddingBottom: theme.spacing['2xl'],
     minHeight: '100%',
+  },
+  menuOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    justifyContent: 'flex-end',
+  },
+  menuSheet: {
+    backgroundColor: '#ffffff',
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+    paddingVertical: 8,
+    paddingBottom: 32,
+    paddingHorizontal: 16,
+  },
+  menuItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 16,
+    gap: 14,
+  },
+  menuItemText: {
+    fontSize: 16,
+    fontFamily: theme.typography.fontFamily.primary,
+    fontWeight: '500' as const,
+    color: '#1f2937',
+  },
+  menuDivider: {
+    height: 1,
+    backgroundColor: '#f1f5f9',
   },
 });

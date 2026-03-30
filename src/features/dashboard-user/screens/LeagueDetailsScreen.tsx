@@ -1,5 +1,7 @@
 import BackButtonIcon from '@/assets/icons/back-button.svg';
 import LeagueInfoIcon from '@/assets/icons/league-info.svg';
+import CalendarIcon from '@/assets/icons/season-details/calendar.svg';
+import CalendarMinusIcon from '@/assets/icons/season-details/calendar-minus.svg';
 import { Ionicons } from '@expo/vector-icons';
 import { ManageTeamButton } from '@/features/pairing/components';
 import { useActivePartnership } from '@/features/pairing/hooks';
@@ -1053,7 +1055,7 @@ export default function LeagueDetailsScreen({
             {/* Date row: 📅 25 Feb – 30 Apr 2026 */}
             {season.startDate && season.endDate && (
               <View style={styles.dateIconRow}>
-                <Text style={styles.dateIconEmoji}>📅</Text>
+                <CalendarIcon width={16} height={16} />
                 <Text style={styles.dateText}>
                   {formatShortDate(season.startDate)} – {formatShortDate(season.endDate)} {endYear}
                 </Text>
@@ -1063,7 +1065,7 @@ export default function LeagueDetailsScreen({
             {/* Registration deadline row: 📋 Registration closes DD Mon (only when still open) */}
             {season.regiDeadline && isRegistrationOpen && (
               <View style={styles.dateIconRow}>
-                <Text style={styles.dateIconEmoji}>📋</Text>
+                <CalendarMinusIcon width={16} height={16} />
                 <Text style={styles.dateText}>
                   Registration closes {formatShortDate(season.regiDeadline)}
                 </Text>

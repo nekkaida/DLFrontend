@@ -1,5 +1,6 @@
 import { useSession } from '@/lib/auth-client';
 import { Ionicons } from '@expo/vector-icons';
+import ChatBubbleIcon from '@/assets/icons/profile/chat-bubble.svg';
 import * as Haptics from 'expo-haptics';
 import { router } from 'expo-router';
 import React, { useState } from 'react';
@@ -156,7 +157,7 @@ export const PlayerInfoModal: React.FC<PlayerInfoModalProps> = ({
               {isLoadingChat ? (
                 <ActivityIndicator size="small" color="#FEA04D" />
               ) : (
-                <Ionicons name="chatbubble" size={20} color="#FEA04D" />
+                <ChatBubbleIcon width={20} height={20} fill="#FEA04D" />
               )}
               <Text style={styles.actionButtonText}>Chat</Text>
             </TouchableOpacity>
