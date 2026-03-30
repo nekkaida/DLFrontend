@@ -397,13 +397,16 @@ export default function DashboardScreen() {
           </TouchableOpacity>
 
           {/* Center: DeuceLogo */}
-          <View style={{ flex: 1, alignItems: "center", marginLeft: 50 }}>
+          {/* Revert back to margin 50 when the FAQ is ready */}
+          <View style={{ flex: 1, alignItems: "center", marginLeft: 10 }}>
             <DeuceLogo width={40} height={40} />
           </View>
 
           {/* Right: ? button and NotificationBell */}
           <View style={{ flexDirection: "row", alignItems: "center" }}>
-            <TouchableOpacity
+         
+            {/* Commented out for this version */}
+            {/* <TouchableOpacity
               style={{ marginRight: 10 }}
               onPress={() => {
                 // TODO: Implement help/FAQ modal or navigation
@@ -412,7 +415,7 @@ export default function DashboardScreen() {
               accessibilityLabel="Help"
             >
               <Ionicons name="help-circle-outline" size={36} color="#222" />
-            </TouchableOpacity>
+            </TouchableOpacity> */}
             <NotificationBell unreadCount={unreadCount} />
           </View>
         </View>
@@ -534,7 +537,7 @@ export default function DashboardScreen() {
           </TouchableOpacity>
 
           {/* Center: DeuceLogo */}
-          <View style={{ flex: 1, alignItems: "center", marginLeft: 50 }}>
+          <View style={{ flex: 1, alignItems: "center", marginLeft: 40 }}>
             {/* <DeuceLogo width={40} height={40} /> */}
           <SportSwitcher
             currentSport={selectedSport}
@@ -545,7 +548,8 @@ export default function DashboardScreen() {
 
           {/* Right: ? button and NotificationBell */}
           <View style={{ flexDirection: "row", alignItems: "center" }}>
-            <TouchableOpacity
+            {/* Commented out for this version */}
+            {/* <TouchableOpacity
               style={{ marginRight: 20 }}
               onPress={() => {
                 // TODO: Implement help/FAQ modal or navigation
@@ -554,7 +558,8 @@ export default function DashboardScreen() {
               accessibilityLabel="Help"
             >
               <Ionicons name="help-circle-outline" size={26} color="#222" />
-            </TouchableOpacity>
+            </TouchableOpacity> */}
+
             <NotificationBell unreadCount={unreadCount} />
           </View>
         </View>
