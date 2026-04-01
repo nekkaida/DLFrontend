@@ -308,7 +308,7 @@ export const ChatThreadScreen: React.FC<ChatThreadScreenProps> = ({ threadId, da
           division: currentThread.metadata?.divisionName || 'Division I',
           sportType: currentThread.sportType || 'PICKLEBALL',
           divisionId: currentThread.metadata?.divisionId || '',
-          gameType: currentThread.division?.gameType || '',
+          gameType: currentThread.division?.gameType || currentThread.metadata?.gameType || '',
           seasonId: currentThread.metadata?.seasonId || currentThread.division?.season?.id || '',
           threadId: currentThread.id,
         },
