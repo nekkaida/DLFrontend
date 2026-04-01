@@ -450,6 +450,19 @@ export default function JoinMatchScreen() {
             walkoverReason: match.walkoverReason || null,
             walkover: match.walkover || null,
           });
+
+          // #040: Update participants from API (overrides stale URL params)
+          if (match.participants && match.participants.length > 0) {
+            const normalized = match.participants.map((p: any) => ({
+              userId: p.userId,
+              name: p.user?.name || p.name || 'Unknown Player',
+              image: p.user?.image || p.image || null,
+              role: p.role,
+              team: p.team,
+              invitationStatus: p.invitationStatus,
+            }));
+            setParticipantsWithDetails(normalized);
+          }
         }
       } catch (error) {
         if (__DEV__) console.error('Error fetching match data:', error);
@@ -474,8 +487,16 @@ export default function JoinMatchScreen() {
       // If this is our match, refresh participant details
       if (data.matchId === matchId) {
         if (data.participants) {
-          // Update participants with new data
-          fetchParticipantDetails();
+          // #040: Normalize and update participants directly from socket data
+          const normalized = data.participants.map((p: any) => ({
+            userId: p.userId,
+            name: p.user?.name || p.name || 'Unknown Player',
+            image: p.user?.image || p.image || null,
+            role: p.role,
+            team: p.team,
+            invitationStatus: p.invitationStatus,
+          }));
+          setParticipantsWithDetails(normalized);
           toast.success('Match updated - new player joined!');
         }
       }
