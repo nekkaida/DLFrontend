@@ -1,7 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
 import Slider from '@react-native-community/slider';
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
-import React, { useState, useMemo, useCallback, memo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, memo } from 'react';
+import axiosInstance from '@/lib/endpoints';
 import {
   Modal,
   Platform,
@@ -37,6 +38,7 @@ interface LeagueInfo {
   sportType: 'PICKLEBALL' | 'TENNIS' | 'PADEL';
   divisionId?: string;
   gameType?: 'SINGLES' | 'DOUBLES';
+  seasonId?: string;
 }
 
 interface CreateMatchScreenProps {
@@ -89,6 +91,39 @@ export const CreateMatchScreen: React.FC<CreateMatchScreenProps> = memo(({
   const [currentWeekStart, setCurrentWeekStart] = useState<Date>(startOfWeek(new Date(), { weekStartsOn: 1 }));
   const [isMonthView, setIsMonthView] = useState(false);
   const [currentMonth, setCurrentMonth] = useState<Date>(startOfMonth(new Date()));
+
+  // #037 BUG 1: Fetch partner info for doubles leagues
+  const [partnerName, setPartnerName] = useState<string | null>(null);
+  const [partnerLoading, setPartnerLoading] = useState(false);
+  const isDoublesLeague = isLeagueMatch && leagueInfo?.gameType === 'DOUBLES';
+
+  useEffect(() => {
+    if (!isDoublesLeague || !leagueInfo?.seasonId) return;
+
+    const fetchPartner = async () => {
+      setPartnerLoading(true);
+      try {
+        const response = await axiosInstance.get(
+          `/api/pairing/partnership/active/${leagueInfo.seasonId}`
+        );
+        const partnership = response.data?.data;
+        if (partnership) {
+          // Show the partner's name (the other person in the partnership)
+          const partnerUser = partnership.captain?.name || partnership.partner?.name;
+          const captainName = partnership.captain?.name;
+          const partnerMemberName = partnership.partner?.name;
+          // If we're the captain, show partner name. If we're the partner, show captain name.
+          setPartnerName(partnerMemberName || captainName || 'Partner');
+        }
+      } catch {
+        // No partnership — will be caught by handleCreateMatch later
+      } finally {
+        setPartnerLoading(false);
+      }
+    };
+
+    fetchPartner();
+  }, [isDoublesLeague, leagueInfo?.seasonId]);
 
   // Memoized sport-specific colors
   const sportColors = useMemo(() => {
@@ -553,6 +588,25 @@ export const CreateMatchScreen: React.FC<CreateMatchScreenProps> = memo(({
                   <Ionicons name="add" size={moderateScale(20)} color="#BABABA" />
                 </TouchableOpacity>
               </View>
+            </View>
+          </View>
+          )}
+
+          {/* #037 BUG 1: Show partner info for doubles league matches */}
+          {isDoublesLeague && (
+          <View style={styles.section}>
+            <Text style={styles.sectionLabel}>Doubles Partner</Text>
+            <View style={styles.playerCountRow}>
+              <Ionicons name="people" size={moderateScale(22)} color={sportColors.background} />
+              <Text style={[styles.playerCountText, { flex: 1, marginLeft: moderateScale(12) }]}>
+                {partnerLoading ? 'Loading...' : partnerName ? `Playing with ${partnerName}` : 'No partner found — pair up first'}
+              </Text>
+              {partnerName && (
+                <Ionicons name="checkmark-circle" size={moderateScale(20)} color="#22C55E" />
+              )}
+              {!partnerName && !partnerLoading && (
+                <Ionicons name="alert-circle" size={moderateScale(20)} color="#EF4444" />
+              )}
             </View>
           </View>
           )}
