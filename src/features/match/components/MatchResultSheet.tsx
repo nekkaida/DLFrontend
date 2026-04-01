@@ -1284,21 +1284,37 @@ export const MatchResultSheet: React.FC<MatchResultSheetProps> = ({
                   <View style={styles.friendlyScoresColumn}>
                     {[0, 1, 2].map((setIdx) => {
                       const setDisabled = isSetDisabled(setIdx);
+                      const showTiebreak = needsTiebreak(setIdx);
                       return (
-                        <BottomSheetTextInput
-                          key={`T1-${setIdx}`}
-                          style={[
-                            styles.friendlyScoreInput,
-                            setDisabled && styles.friendlyScoreInputDisabled,
-                          ]}
-                          keyboardType="number-pad"
-                          maxLength={isTennisOrPadel ? (setIdx === 2 ? 2 : 1) : 2}
-                          value={setScores[setIdx].team1Games ? String(setScores[setIdx].team1Games) : ''}
-                          onChangeText={(value) => updateScore(setIdx, 'A', 'games', value)}
-                          editable={!setDisabled}
-                          placeholder=""
-                          placeholderTextColor="#D1D5DB"
-                        />
+                        <View key={`T1-${setIdx}`} style={styles.scoreInputWrapper}>
+                          <BottomSheetTextInput
+                            style={[
+                              styles.friendlyScoreInput,
+                              setDisabled && styles.friendlyScoreInputDisabled,
+                            ]}
+                            keyboardType="number-pad"
+                            maxLength={isTennisOrPadel ? (setIdx === 2 ? 2 : 1) : 2}
+                            value={setScores[setIdx].team1Games ? String(setScores[setIdx].team1Games) : ''}
+                            onChangeText={(value) => updateScore(setIdx, 'A', 'games', value)}
+                            editable={!setDisabled}
+                            placeholder=""
+                            placeholderTextColor="#D1D5DB"
+                          />
+                          {showTiebreak && (
+                            <View style={styles.tiebreakOverlay}>
+                              <BottomSheetTextInput
+                                style={styles.tiebreakOverlayInput}
+                                keyboardType="number-pad"
+                                maxLength={2}
+                                value={setScores[setIdx].team1Tiebreak ? String(setScores[setIdx].team1Tiebreak) : ''}
+                                onChangeText={(value) => updateScore(setIdx, 'A', 'tiebreak', value)}
+                                editable={!setDisabled}
+                                placeholder=""
+                                placeholderTextColor="#9CA3AF"
+                              />
+                            </View>
+                          )}
+                        </View>
                       );
                     })}
                   </View>
@@ -1464,21 +1480,37 @@ export const MatchResultSheet: React.FC<MatchResultSheetProps> = ({
                   <View style={styles.friendlyScoresColumn}>
                     {[0, 1, 2].map((setIdx) => {
                       const setDisabled = isSetDisabled(setIdx);
+                      const showTiebreak = needsTiebreak(setIdx);
                       return (
-                        <BottomSheetTextInput
-                          key={`T2-${setIdx}`}
-                          style={[
-                            styles.friendlyScoreInput,
-                            setDisabled && styles.friendlyScoreInputDisabled,
-                          ]}
-                          keyboardType="number-pad"
-                          maxLength={isTennisOrPadel ? (setIdx === 2 ? 2 : 1) : 2}
-                          value={setScores[setIdx].team2Games ? String(setScores[setIdx].team2Games) : ''}
-                          onChangeText={(value) => updateScore(setIdx, 'B', 'games', value)}
-                          editable={!setDisabled}
-                          placeholder=""
-                          placeholderTextColor="#D1D5DB"
-                        />
+                        <View key={`T2-${setIdx}`} style={styles.scoreInputWrapper}>
+                          <BottomSheetTextInput
+                            style={[
+                              styles.friendlyScoreInput,
+                              setDisabled && styles.friendlyScoreInputDisabled,
+                            ]}
+                            keyboardType="number-pad"
+                            maxLength={isTennisOrPadel ? (setIdx === 2 ? 2 : 1) : 2}
+                            value={setScores[setIdx].team2Games ? String(setScores[setIdx].team2Games) : ''}
+                            onChangeText={(value) => updateScore(setIdx, 'B', 'games', value)}
+                            editable={!setDisabled}
+                            placeholder=""
+                            placeholderTextColor="#D1D5DB"
+                          />
+                          {showTiebreak && (
+                            <View style={styles.tiebreakOverlay}>
+                              <BottomSheetTextInput
+                                style={styles.tiebreakOverlayInput}
+                                keyboardType="number-pad"
+                                maxLength={2}
+                                value={setScores[setIdx].team2Tiebreak ? String(setScores[setIdx].team2Tiebreak) : ''}
+                                onChangeText={(value) => updateScore(setIdx, 'B', 'tiebreak', value)}
+                                editable={!setDisabled}
+                                placeholder=""
+                                placeholderTextColor="#9CA3AF"
+                              />
+                            </View>
+                          )}
+                        </View>
                       );
                     })}
                   </View>
@@ -1522,6 +1554,7 @@ export const MatchResultSheet: React.FC<MatchResultSheetProps> = ({
                   <View style={styles.scoresColumn}>
                     {[0, 1, 2].map((setIdx) => {
                       const setDisabled = isSetDisabled(setIdx);
+                      const showTiebreak = needsTiebreak(setIdx);
                       return (
                         <View key={`A-${setIdx}`} style={styles.scoreInputWrapper}>
                           <BottomSheetTextInput
@@ -1535,6 +1568,20 @@ export const MatchResultSheet: React.FC<MatchResultSheetProps> = ({
                             onChangeText={(value) => updateScore(setIdx, 'A', 'games', value)}
                             editable={!setDisabled}
                           />
+                          {showTiebreak && (
+                            <View style={styles.tiebreakOverlay}>
+                              <BottomSheetTextInput
+                                style={styles.tiebreakOverlayInput}
+                                keyboardType="number-pad"
+                                maxLength={2}
+                                value={setScores[setIdx].team1Tiebreak ? String(setScores[setIdx].team1Tiebreak) : ''}
+                                onChangeText={(value) => updateScore(setIdx, 'A', 'tiebreak', value)}
+                                editable={!setDisabled}
+                                placeholder=""
+                                placeholderTextColor="#9CA3AF"
+                              />
+                            </View>
+                          )}
                         </View>
                       );
                     })}
@@ -1562,6 +1609,7 @@ export const MatchResultSheet: React.FC<MatchResultSheetProps> = ({
                   <View style={styles.scoresColumn}>
                     {[0, 1, 2].map((setIdx) => {
                       const setDisabled = isSetDisabled(setIdx);
+                      const showTiebreak = needsTiebreak(setIdx);
                       return (
                         <View key={`B-${setIdx}`} style={styles.scoreInputWrapper}>
                           <BottomSheetTextInput
@@ -1575,6 +1623,20 @@ export const MatchResultSheet: React.FC<MatchResultSheetProps> = ({
                             onChangeText={(value) => updateScore(setIdx, 'B', 'games', value)}
                             editable={!setDisabled}
                           />
+                          {showTiebreak && (
+                            <View style={styles.tiebreakOverlay}>
+                              <BottomSheetTextInput
+                                style={styles.tiebreakOverlayInput}
+                                keyboardType="number-pad"
+                                maxLength={2}
+                                value={setScores[setIdx].team2Tiebreak ? String(setScores[setIdx].team2Tiebreak) : ''}
+                                onChangeText={(value) => updateScore(setIdx, 'B', 'tiebreak', value)}
+                                editable={!setDisabled}
+                                placeholder=""
+                                placeholderTextColor="#9CA3AF"
+                              />
+                            </View>
+                          )}
                         </View>
                       );
                     })}
