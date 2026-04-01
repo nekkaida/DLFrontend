@@ -14,6 +14,7 @@ export default function CreateMatchPage() {
     sportType: (params.sportType as 'PICKLEBALL' | 'TENNIS' | 'PADEL') || 'PICKLEBALL',
     divisionId: params.divisionId as string | undefined,
     gameType: params.gameType as 'SINGLES' | 'DOUBLES' | undefined,
+    seasonId: params.seasonId as string | undefined,
   };
 
   const handleClose = () => {
