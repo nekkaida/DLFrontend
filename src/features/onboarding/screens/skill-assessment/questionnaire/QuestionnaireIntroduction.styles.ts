@@ -160,7 +160,7 @@ export const styles = StyleSheet.create({
     borderColor: '#4DABFE',
   },
   answerLaterButtonText: {
-    color: '#777777',
+    color: '#A04DFE',
     fontSize: scaleFontSize(isSmall ? 15 : 16),  // Smaller button text
     fontWeight: '600',
     fontFamily: 'Poppins',
