@@ -2,21 +2,20 @@
 
 import { useSession } from "@/lib/auth-client";
 import { Ionicons } from "@expo/vector-icons";
-import BottomSheet, {
+import {
+  BottomSheetModal,
   BottomSheetBackdrop,
+  BottomSheetFlatList,
+  BottomSheetTextInput,
   BottomSheetView,
 } from "@gorhom/bottom-sheet";
 import { formatDistanceToNow } from "date-fns";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   Animated,
-  FlatList,
   Image,
-  KeyboardAvoidingView,
-  Platform,
   StyleSheet,
   Text,
-  TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
@@ -28,7 +27,7 @@ import { processDisplayName } from "../utils/formatters";
 
 interface CommentsSheetProps {
   postId: string | null;
-  bottomSheetRef: React.RefObject<BottomSheet | null>;
+  bottomSheetRef: React.RefObject<BottomSheetModal | null>;
   onClose: () => void;
   onCommentCountChange: (postId: string, count: number) => void;
 }
@@ -180,21 +179,25 @@ export const CommentsSheet: React.FC<CommentsSheetProps> = ({
   );
 
   return (
-    <BottomSheet
+    <BottomSheetModal
       ref={bottomSheetRef}
-      index={-1}
-      snapPoints={["30%", "90%"]}
+      snapPoints={["55%", "90%"]}
       enablePanDownToClose
-      onClose={onClose}
+      onDismiss={onClose}
       backdropComponent={renderBackdrop}
+      keyboardBehavior="interactive"
+      keyboardBlurBehavior="restore"
+      android_keyboardInputMode="adjustResize"
     >
-      <BottomSheetView style={styles.container}>
-        <Text style={styles.title}>Comments</Text>
+      <BottomSheetView style={styles.sheetRoot}>
+        <BottomSheetView style={styles.container}>
+          <Text style={styles.title}>Comments</Text>
+        </BottomSheetView>
 
-        <FlatList
+        <BottomSheetFlatList
           data={comments}
           renderItem={renderComment}
-          keyExtractor={(item) => item.id}
+          keyExtractor={(item : any) => item.id}
           style={styles.list}
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
@@ -205,49 +208,48 @@ export const CommentsSheet: React.FC<CommentsSheetProps> = ({
           }
         />
 
-        <KeyboardAvoidingView
-          behavior={Platform.OS === "ios" ? "padding" : "height"}
-          keyboardVerticalOffset={100}
-        >
-          <View style={styles.inputContainer}>
-            <TextInput
-              style={styles.input}
-              placeholder="Add a comment..."
-              placeholderTextColor={feedTheme.colors.textTertiary}
-              value={inputText}
-              onChangeText={setInputText}
-              multiline
-              maxLength={200}
+        <BottomSheetView style={styles.inputContainer}>
+          <BottomSheetTextInput
+            style={styles.input}
+            placeholder="Add a comment..."
+            placeholderTextColor={feedTheme.colors.textTertiary}
+            value={inputText}
+            onChangeText={setInputText}
+            multiline
+            maxLength={200}
+          />
+          <TouchableOpacity
+            style={[
+              styles.sendButton,
+              !inputText.trim() && styles.sendButtonDisabled,
+            ]}
+            onPress={handleSubmit}
+            disabled={!inputText.trim() || isSubmitting}
+          >
+            <Ionicons
+              name="send"
+              size={20}
+              color={
+                inputText.trim()
+                  ? feedTheme.colors.primary
+                  : feedTheme.colors.textTertiary
+              }
             />
-            <TouchableOpacity
-              style={[
-                styles.sendButton,
-                !inputText.trim() && styles.sendButtonDisabled,
-              ]}
-              onPress={handleSubmit}
-              disabled={!inputText.trim() || isSubmitting}
-            >
-              <Ionicons
-                name="send"
-                size={20}
-                color={
-                  inputText.trim()
-                    ? feedTheme.colors.primary
-                    : feedTheme.colors.textTertiary
-                }
-              />
-            </TouchableOpacity>
-          </View>
-        </KeyboardAvoidingView>
+          </TouchableOpacity>
+        </BottomSheetView>
       </BottomSheetView>
-    </BottomSheet>
+    </BottomSheetModal>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
+  sheetRoot: {
     flex: 1,
+  },
+  container: {
     paddingHorizontal: feedTheme.spacing.screenPadding,
+    paddingTop: 4,
+    paddingBottom: 8,
   },
   title: {
     fontSize: 18,
@@ -258,6 +260,7 @@ const styles = StyleSheet.create({
   },
   list: {
     flex: 1,
+    paddingHorizontal: feedTheme.spacing.screenPadding,
   },
   listContent: {
     paddingBottom: 16,
@@ -315,6 +318,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "flex-end",
     paddingVertical: 12,
+    paddingHorizontal: feedTheme.spacing.screenPadding,
     borderTopWidth: 1,
     borderTopColor: feedTheme.colors.border,
   },

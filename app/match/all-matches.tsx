@@ -230,20 +230,15 @@ export default function AllMatchesScreen() {
 
       // Sort matches based on sortOption
       const now = new Date();
-      if (sortOption === 'soonest') {
-        // Sort all matches by date (earliest first) - shows matches closest to now first
-        filteredMatches = filteredMatches.sort((a, b) => {
-          const dateA = new Date(a.scheduledTime || a.matchDate || 0);
-          const dateB = new Date(b.scheduledTime || b.matchDate || 0);
-          return dateA.getTime() - dateB.getTime();
-        });
-      } else if (sortOption === 'date') {
-        // Sort all matches by date (earliest first)
-        filteredMatches = filteredMatches.sort((a, b) => {
-          const dateA = new Date(a.scheduledTime || a.matchDate || 0);
-          const dateB = new Date(b.scheduledTime || b.matchDate || 0);
-          return dateA.getTime() - dateB.getTime();
-        });
+      if (sortOption === 'soonest' || sortOption === 'date') {
+        // Future matches first (ascending), then past matches (most recent first)
+        const future = filteredMatches
+          .filter(m => new Date(m.scheduledTime || m.matchDate || 0) >= now)
+          .sort((a, b) => new Date(a.scheduledTime || a.matchDate || 0).getTime() - new Date(b.scheduledTime || b.matchDate || 0).getTime());
+        const past = filteredMatches
+          .filter(m => new Date(m.scheduledTime || m.matchDate || 0) < now)
+          .sort((a, b) => new Date(b.scheduledTime || b.matchDate || 0).getTime() - new Date(a.scheduledTime || a.matchDate || 0).getTime());
+        filteredMatches = [...future, ...past];
       } else if (sortOption === 'past') {
         // Show only past matches, most recent first
         filteredMatches = filteredMatches

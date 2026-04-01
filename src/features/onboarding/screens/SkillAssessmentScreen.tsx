@@ -175,6 +175,13 @@ const SkillAssessmentScreen = () => {
 
   // Navigation helpers
   const proceedToNext = useCallback(async () => {
+    // When launched from the dashboard (adding a new sport's DMR), skip the onboarding
+    // multi-sport loop and go straight back to the dashboard after assessment.
+    if (fromDashboard === 'true') {
+      router.replace('/user-dashboard');
+      return;
+    }
+
     if (currentSportIndex < selectedSports.length - 1) {
       const nextSport = selectedSports[currentSportIndex + 1];
       router.push(`/onboarding/skill-assessment?sport=${nextSport}&sportIndex=${currentSportIndex + 1}`);
@@ -193,7 +200,7 @@ const SkillAssessmentScreen = () => {
       }
       router.replace('/user-dashboard');
     }
-  }, [currentSportIndex, selectedSports, session.data?.user?.id]);
+  }, [fromDashboard, currentSportIndex, selectedSports, session.data?.user?.id]);
 
   // Backend save helper
   const saveToBackend = useCallback(async (sportName: string, responses: any) => {
@@ -338,21 +345,28 @@ const SkillAssessmentScreen = () => {
     }
   }, [padelQuestionnaire, data.skillAssessments, updateData, sport, currentSportIndex, fromDashboard, saveToBackend, proceedToNext]);
 
-  // Handle back button - only goes back within questionnaire, never navigates away
+  // Handle back button - go to previous visible question (never resets to Q1)
   const handleBack = useCallback(() => {
     // Clear pending answers when navigating back
     pendingAnswersRef.current = {};
 
     if (isComprehensive) {
-      // Only go back if we have history to go back to
-      if (state.questionHistory.length > 0) {
-        actions.goBackHistory();
-        console.log('📖 Going back to previous question page');
+      // Navigate by visible question index (mirrors complete-questionnaire.tsx)
+      const visibleQs = filterVisibleQuestions(state.questions, state.responses);
+      const currentQuestion = state.questions[state.currentQuestionIndex];
+      const currentVisibleIndex = visibleQs.findIndex(q => q.key === currentQuestion?.key);
+
+      if (currentVisibleIndex > 0) {
+        // Go to previous visible question
+        const prevVisibleQuestion = visibleQs[currentVisibleIndex - 1];
+        const prevIndexInAll = state.questions.findIndex(q => q.key === prevVisibleQuestion.key);
+        actions.setQuestionIndex(prevIndexInAll);
+        console.log('📖 Going back to previous question');
       }
-      // On first question, do nothing - back button should be hidden
+      // On first visible question, do nothing - back button is hidden (showBack={carouselDisplayIndex > 0})
     }
     // For simple dropdown, back button is not shown
-  }, [isComprehensive, state.questionHistory.length, actions]);
+  }, [isComprehensive, state.questions, state.currentQuestionIndex, state.responses, actions]);
 
   // Handle next question - simplified with stable questions array
   const proceedToNextQuestion = useCallback(async () => {

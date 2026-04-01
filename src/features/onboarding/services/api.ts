@@ -341,7 +341,7 @@ export class QuestionnaireAPI {
         console.log('📥 searchLocations: Response status:', response.status);
       }
 
-      return response.data;
+      return response.data?.data ?? response.data;
     } catch (error: any) {
       const errorMessage = error.response?.data?.error || error.response?.data?.message || error.message;
       if (__DEV__) {
@@ -366,7 +366,7 @@ export class QuestionnaireAPI {
         console.log('📥 reverseGeocode: Response status:', response.status);
       }
 
-      return response.data;
+      return response.data?.data ?? response.data;
     } catch (error: any) {
       const errorMessage = error.response?.data?.error || error.response?.data?.message || error.message;
       if (__DEV__) {

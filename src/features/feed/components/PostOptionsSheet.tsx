@@ -1,13 +1,13 @@
 // src/features/feed/components/PostOptionsSheet.tsx
 
-import React, { useCallback } from 'react';
+import React, { useCallback, useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Alert } from 'react-native';
-import BottomSheet, { BottomSheetBackdrop, BottomSheetView } from '@gorhom/bottom-sheet';
+import { BottomSheetModal, BottomSheetBackdrop, BottomSheetView } from '@gorhom/bottom-sheet';
 import { Ionicons } from '@expo/vector-icons';
 import { feedTheme } from '../theme';
 
 interface PostOptionsSheetProps {
-  bottomSheetRef: React.RefObject<BottomSheet | null>;
+  bottomSheetRef: React.RefObject<BottomSheetModal | null>;
   isOwnPost: boolean;
   onClose: () => void;
   onEdit: () => void;
@@ -47,13 +47,13 @@ export const PostOptionsSheet: React.FC<PostOptionsSheetProps> = ({
   );
 
   return (
-    <BottomSheet
+    <BottomSheetModal
       ref={bottomSheetRef}
-      index={-1}
-      snapPoints={[isOwnPost ? '25%' : '18%']}
+      enableDynamicSizing
       enablePanDownToClose
-      onClose={onClose}
+      onDismiss={onClose}
       backdropComponent={renderBackdrop}
+      handleIndicatorStyle={{ backgroundColor: feedTheme.colors.border }}
     >
       <BottomSheetView style={styles.container}>
         {isOwnPost ? (
@@ -75,15 +75,15 @@ export const PostOptionsSheet: React.FC<PostOptionsSheetProps> = ({
           </TouchableOpacity>
         )}
       </BottomSheetView>
-    </BottomSheet>
+    </BottomSheetModal>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
     paddingHorizontal: feedTheme.spacing.screenPadding,
     paddingTop: 8,
+    paddingBottom: 24,
   },
   option: {
     flexDirection: 'row',

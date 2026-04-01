@@ -9,12 +9,14 @@ interface ProfileHeaderWithCurveProps {
   onBack: () => void;
   onSettings?: () => void;
   showSettings?: boolean;
+  onMenuPress?: () => void;
 }
 
 export const ProfileHeaderWithCurve: React.FC<ProfileHeaderWithCurveProps> = ({
   onBack,
   onSettings,
   showSettings = true,
+  onMenuPress,
 }) => {
   const { width } = useWindowDimensions();
   const headerHeight = Math.max(96, Math.min(124, width * 0.28));
@@ -52,7 +54,21 @@ export const ProfileHeaderWithCurve: React.FC<ProfileHeaderWithCurveProps> = ({
               <Ionicons name="settings-outline" size={iconSize} color="#1f2937" />
             </Pressable>
           )}
-          {!showSettings && (
+          {!showSettings && onMenuPress && (
+            <Pressable
+              style={[styles.iconButton, { width: iconButtonSize, height: iconButtonSize, borderRadius: iconButtonSize / 2 }]}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                onMenuPress();
+              }}
+              accessible={true}
+              accessibilityLabel="More options"
+              accessibilityRole="button"
+            >
+              <Ionicons name="ellipsis-horizontal" size={iconSize} color="#1f2937" />
+            </Pressable>
+          )}
+          {!showSettings && !onMenuPress && (
             <View
               style={[
                 styles.iconButton,
