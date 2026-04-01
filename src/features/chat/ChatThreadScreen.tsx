@@ -308,6 +308,7 @@ export const ChatThreadScreen: React.FC<ChatThreadScreenProps> = ({ threadId, da
           division: currentThread.metadata?.divisionName || 'Division I',
           sportType: currentThread.sportType || 'PICKLEBALL',
           divisionId: currentThread.metadata?.divisionId || '',
+          gameType: currentThread.division?.gameType || '',
           threadId: currentThread.id,
         },
       });
@@ -439,7 +440,8 @@ export const ChatThreadScreen: React.FC<ChatThreadScreenProps> = ({ threadId, da
 
       const matchPayload: MatchPayload = {
         divisionId: currentThread.metadata?.divisionId,
-        matchType: divisionGameType || (isDoubles ? 'DOUBLES' : 'SINGLES'),
+        // #036: Use division gameType — never fall back to user's numberOfPlayers for league matches
+        matchType: divisionGameType || (currentThread.division?.gameType) || (isDoubles ? 'DOUBLES' : 'SINGLES'),
         format: 'STANDARD',
         matchDate: dateTimeString,
         deviceTimezone,
