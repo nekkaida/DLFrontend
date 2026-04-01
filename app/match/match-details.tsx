@@ -1535,11 +1535,9 @@ export default function JoinMatchScreen() {
       // For singles, opponent is anyone who is a participant but NOT the submitter
       return matchData.resultSubmittedById !== session?.user?.id;
     }
-    // For doubles, user can review if they are NOT on the submitter's team
-    // and they are a captain (only captains can approve)
-    const isCaptain = partnershipData.captainId === session?.user?.id;
-    // User is NOT the submitter's team if they're not the result submitter team
-    return isCaptain && !isResultSubmitter;
+    // For doubles, either partner on the opposing team can review
+    // Backend #037 BUG 7 ensures only one response per team is accepted
+    return !isResultSubmitter;
   })();
 
   // Keep legacy variables for backwards compatibility with submit flow (before result is submitted)
