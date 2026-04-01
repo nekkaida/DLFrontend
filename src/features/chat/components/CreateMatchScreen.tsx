@@ -36,6 +36,7 @@ interface LeagueInfo {
   division?: string;
   sportType: 'PICKLEBALL' | 'TENNIS' | 'PADEL';
   divisionId?: string;
+  gameType?: 'SINGLES' | 'DOUBLES';
 }
 
 interface CreateMatchScreenProps {
@@ -65,11 +66,15 @@ export const CreateMatchScreen: React.FC<CreateMatchScreenProps> = memo(({
 }) => {
   const insets = useSafeAreaInsets();
   
+  // Lock player count from division gameType for league matches
+  const isLeagueMatch = !!leagueInfo?.divisionId;
+  const lockedPlayerCount = leagueInfo?.gameType === 'DOUBLES' ? 4 : 2;
+
   const [formData, setFormData] = useState<MatchFormData>({
     date: '',
     time: '',
     duration: 2,
-    numberOfPlayers: 2,
+    numberOfPlayers: isLeagueMatch ? lockedPlayerCount : 2,
     location: '',
     fee: 'FREE',
     feeAmount: '0.00',
@@ -527,7 +532,8 @@ export const CreateMatchScreen: React.FC<CreateMatchScreenProps> = memo(({
             </View>
           </View>
 
-          {/* Number of Players */}
+          {/* Number of Players — hidden for league matches (auto-set from division type) */}
+          {!isLeagueMatch && (
           <View style={styles.section}>
             <Text style={styles.sectionLabel}>Number of players</Text>
             <View style={styles.playerCountRow}>
@@ -549,6 +555,7 @@ export const CreateMatchScreen: React.FC<CreateMatchScreenProps> = memo(({
               </View>
             </View>
           </View>
+          )}
 
           {/* Fee Toggle */}
           <View style={styles.section}>
