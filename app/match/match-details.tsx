@@ -2381,6 +2381,7 @@ export default function JoinMatchScreen() {
           sportType={sportType}
           seasonId={seasonId}
           mode={resultSheetMode}
+          matchStatus={getReliableStatus()}
           isFriendlyMatch={isFriendly}
           isWalkover={matchData.isWalkover}
           walkoverInfo={matchData.isWalkover ? {
