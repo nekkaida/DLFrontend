@@ -2213,8 +2213,8 @@ export const MatchResultSheet: React.FC<MatchResultSheetProps> = ({
           )}
         </View>
 
-        {/* Info Message - Hide for friendly matches in view mode and for completed matches */}
-        {mode !== 'submit' && !isFriendlyViewMode && !isFriendlyWithScoresViewMode && matchStatus !== 'COMPLETED' && (
+        {/* Info Message - Hide for friendly matches, completed matches, and walkover matches */}
+        {mode !== 'submit' && !isFriendlyViewMode && !isFriendlyWithScoresViewMode && matchStatus !== 'COMPLETED' && !isWalkover && (
           mode === 'disputed' ? (
             <View style={styles.disputedBanner}>
               <Ionicons name="alert-circle" size={20} color="#DC2626" />
