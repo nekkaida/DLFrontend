@@ -33,6 +33,7 @@ export const MatchResultSheet: React.FC<MatchResultSheetProps> = ({
   sportType,
   seasonId,
   mode = 'submit',
+  matchStatus,
   isFriendlyMatch = false,
   isWalkover = false,
   walkoverInfo,
@@ -2212,8 +2213,8 @@ export const MatchResultSheet: React.FC<MatchResultSheetProps> = ({
           )}
         </View>
 
-        {/* Info Message - Hide for friendly matches in view mode (both casual play and with scores) */}
-        {mode !== 'submit' && !isFriendlyViewMode && !isFriendlyWithScoresViewMode && (
+        {/* Info Message - Hide for friendly matches in view mode and for completed matches */}
+        {mode !== 'submit' && !isFriendlyViewMode && !isFriendlyWithScoresViewMode && matchStatus !== 'COMPLETED' && (
           mode === 'disputed' ? (
             <View style={styles.disputedBanner}>
               <Ionicons name="alert-circle" size={20} color="#DC2626" />
