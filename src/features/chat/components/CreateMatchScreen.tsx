@@ -70,7 +70,7 @@ export const CreateMatchScreen: React.FC<CreateMatchScreenProps> = memo(({
   
   // Lock player count from division gameType for league matches
   const isLeagueMatch = !!leagueInfo?.divisionId;
-  const lockedPlayerCount = leagueInfo?.gameType === 'DOUBLES' ? 4 : 2;
+  const lockedPlayerCount = leagueInfo?.gameType?.toUpperCase() === 'DOUBLES' ? 4 : 2;
 
   const [formData, setFormData] = useState<MatchFormData>({
     date: '',
@@ -95,7 +95,7 @@ export const CreateMatchScreen: React.FC<CreateMatchScreenProps> = memo(({
   // #037 BUG 1: Fetch partner info for doubles leagues
   const [partnerName, setPartnerName] = useState<string | null>(null);
   const [partnerLoading, setPartnerLoading] = useState(false);
-  const isDoublesLeague = isLeagueMatch && leagueInfo?.gameType === 'DOUBLES';
+  const isDoublesLeague = isLeagueMatch && leagueInfo?.gameType?.toUpperCase() === 'DOUBLES';
 
   useEffect(() => {
     if (!isDoublesLeague || !leagueInfo?.seasonId) return;
