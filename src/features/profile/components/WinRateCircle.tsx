@@ -1,8 +1,16 @@
-import React, { useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, ViewStyle, TextStyle, Animated, Easing } from 'react-native';
-import Svg, { Circle } from 'react-native-svg';
-import { theme } from '@core/theme/theme';
-import type { WinRateCircleProps } from '../types';
+import { theme } from "@core/theme/theme";
+import React, { useEffect, useRef } from "react";
+import {
+    Animated,
+    Easing,
+    StyleSheet,
+    Text,
+    TextStyle,
+    View,
+    ViewStyle,
+} from "react-native";
+import Svg, { Circle } from "react-native-svg";
+import type { WinRateCircleProps } from "../types";
 
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 
@@ -88,7 +96,7 @@ export const WinRateCircle: React.FC<WinRateCircleProps> = ({ winRate }) => {
       <Svg width={size} height={size}>
         {/* Background circle (losses) */}
         <Circle
-          stroke="#FF3B30"
+          stroke="#9CA3AF"
           fill="transparent"
           strokeWidth={strokeWidth}
           r={radius}
@@ -98,7 +106,7 @@ export const WinRateCircle: React.FC<WinRateCircleProps> = ({ winRate }) => {
         />
         {/* Win rate arc (animated) */}
         <AnimatedCircle
-          stroke="#34C759"
+          stroke="#3B82F6"
           fill="transparent"
           strokeWidth={strokeWidth}
           strokeDasharray={circumference}
@@ -111,7 +119,9 @@ export const WinRateCircle: React.FC<WinRateCircleProps> = ({ winRate }) => {
         />
       </Svg>
       <View style={styles.circleTextContainer as ViewStyle}>
-        <Text style={styles.circlePercentage as TextStyle}>{displayPercentage}%</Text>
+        <Text style={styles.circlePercentage as TextStyle}>
+          {displayPercentage}%
+        </Text>
         <Text style={styles.circleLabel as TextStyle}>Win Rate</Text>
       </View>
     </Animated.View>
@@ -120,17 +130,17 @@ export const WinRateCircle: React.FC<WinRateCircleProps> = ({ winRate }) => {
 
 const styles = StyleSheet.create({
   circleContainer: {
-    position: 'relative',
-    alignItems: 'center',
-    justifyContent: 'center',
+    position: "relative",
+    alignItems: "center",
+    justifyContent: "center",
   },
   circleTextContainer: {
-    position: 'absolute',
-    alignItems: 'center',
-    justifyContent: 'center',
+    position: "absolute",
+    alignItems: "center",
+    justifyContent: "center",
   },
   circlePercentage: {
-    fontSize: theme.typography.fontSize['2xl'],
+    fontSize: theme.typography.fontSize["2xl"],
     fontWeight: theme.typography.fontWeight.bold as any,
     color: theme.colors.neutral.gray[700],
     fontFamily: theme.typography.fontFamily.primary,
