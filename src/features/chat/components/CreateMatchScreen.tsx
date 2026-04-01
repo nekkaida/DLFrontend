@@ -3,6 +3,7 @@ import Slider from '@react-native-community/slider';
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import React, { useState, useEffect, useMemo, useCallback, memo } from 'react';
 import axiosInstance from '@/lib/endpoints';
+import { useSession } from '@/core/auth/auth-client';
 import {
   Modal,
   Platform,
@@ -67,7 +68,8 @@ export const CreateMatchScreen: React.FC<CreateMatchScreenProps> = memo(({
   onCreateMatch,
 }) => {
   const insets = useSafeAreaInsets();
-  
+  const { data: session } = useSession();
+
   // Lock player count from division gameType for league matches
   const isLeagueMatch = !!leagueInfo?.divisionId;
   const lockedPlayerCount = leagueInfo?.gameType?.toUpperCase() === 'DOUBLES' ? 4 : 2;
@@ -107,14 +109,16 @@ export const CreateMatchScreen: React.FC<CreateMatchScreenProps> = memo(({
           `/api/pairing/partnership/active/${leagueInfo.seasonId}`
         );
         const partnership = response.data?.data;
-        if (partnership) {
-          // Show the partner's name (the other person in the partnership)
-          const partnerUser = partnership.captain?.name || partnership.partner?.name;
-          const captainName = partnership.captain?.name;
-          const partnerMemberName = partnership.partner?.name;
-          // If we're the captain, show partner name. If we're the partner, show captain name.
-          setPartnerName(partnerMemberName || captainName || 'Partner');
+        if (partnership && partnership.status === 'ACTIVE') {
+          // Show the OTHER person's name (not the current user)
+          const currentUserId = session?.user?.id;
+          const isCaptain = partnership.captainId === currentUserId;
+          const otherPersonName = isCaptain
+            ? partnership.partner?.name
+            : partnership.captain?.name;
+          setPartnerName(otherPersonName || null);
         }
+        // INCOMPLETE partnerships (partner left) → show no partner
       } catch {
         // No partnership — will be caught by handleCreateMatch later
       } finally {
@@ -293,6 +297,12 @@ export const CreateMatchScreen: React.FC<CreateMatchScreenProps> = memo(({
 
     if (!formData.location || formData.location.trim() === '') {
       toast.error('Please enter a location');
+      return;
+    }
+
+    // Validate doubles partner exists for league matches
+    if (isDoublesLeague && !partnerName) {
+      toast.error('You need an active partner for doubles matches. Go to Team Pairing to find one.');
       return;
     }
 
