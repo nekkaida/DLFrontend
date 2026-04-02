@@ -450,6 +450,19 @@ export default function JoinMatchScreen() {
             walkoverReason: match.walkoverReason || null,
             walkover: match.walkover || null,
           });
+
+          // #040: Update participants from API (overrides stale URL params)
+          if (match.participants && match.participants.length > 0) {
+            const normalized = match.participants.map((p: any) => ({
+              userId: p.userId,
+              name: p.user?.name || p.name || 'Unknown Player',
+              image: p.user?.image || p.image || null,
+              role: p.role,
+              team: p.team,
+              invitationStatus: p.invitationStatus,
+            }));
+            setParticipantsWithDetails(normalized);
+          }
         }
       } catch (error) {
         if (__DEV__) console.error('Error fetching match data:', error);
@@ -474,8 +487,16 @@ export default function JoinMatchScreen() {
       // If this is our match, refresh participant details
       if (data.matchId === matchId) {
         if (data.participants) {
-          // Update participants with new data
-          fetchParticipantDetails();
+          // #040: Normalize and update participants directly from socket data
+          const normalized = data.participants.map((p: any) => ({
+            userId: p.userId,
+            name: p.user?.name || p.name || 'Unknown Player',
+            image: p.user?.image || p.image || null,
+            role: p.role,
+            team: p.team,
+            invitationStatus: p.invitationStatus,
+          }));
+          setParticipantsWithDetails(normalized);
           toast.success('Match updated - new player joined!');
         }
       }
@@ -1535,11 +1556,9 @@ export default function JoinMatchScreen() {
       // For singles, opponent is anyone who is a participant but NOT the submitter
       return matchData.resultSubmittedById !== session?.user?.id;
     }
-    // For doubles, user can review if they are NOT on the submitter's team
-    // and they are a captain (only captains can approve)
-    const isCaptain = partnershipData.captainId === session?.user?.id;
-    // User is NOT the submitter's team if they're not the result submitter team
-    return isCaptain && !isResultSubmitter;
+    // For doubles, either partner on the opposing team can review
+    // Backend #037 BUG 7 ensures only one response per team is accepted
+    return !isResultSubmitter;
   })();
 
   // Keep legacy variables for backwards compatibility with submit flow (before result is submitted)
@@ -2381,6 +2400,7 @@ export default function JoinMatchScreen() {
           sportType={sportType}
           seasonId={seasonId}
           mode={resultSheetMode}
+          matchStatus={getReliableStatus()}
           isFriendlyMatch={isFriendly}
           isWalkover={matchData.isWalkover}
           walkoverInfo={matchData.isWalkover ? {

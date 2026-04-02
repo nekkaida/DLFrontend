@@ -1,7 +1,9 @@
 import { Ionicons } from '@expo/vector-icons';
 import Slider from '@react-native-community/slider';
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
-import React, { useState, useMemo, useCallback, memo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, memo } from 'react';
+import axiosInstance from '@/lib/endpoints';
+import { useSession } from '@/core/auth/auth-client';
 import {
   Modal,
   Platform,
@@ -36,6 +38,8 @@ interface LeagueInfo {
   division?: string;
   sportType: 'PICKLEBALL' | 'TENNIS' | 'PADEL';
   divisionId?: string;
+  gameType?: 'SINGLES' | 'DOUBLES';
+  seasonId?: string;
 }
 
 interface CreateMatchScreenProps {
@@ -64,12 +68,17 @@ export const CreateMatchScreen: React.FC<CreateMatchScreenProps> = memo(({
   onCreateMatch,
 }) => {
   const insets = useSafeAreaInsets();
-  
+  const { data: session } = useSession();
+
+  // Lock player count from division gameType for league matches
+  const isLeagueMatch = !!leagueInfo?.divisionId;
+  const lockedPlayerCount = leagueInfo?.gameType?.toUpperCase() === 'DOUBLES' ? 4 : 2;
+
   const [formData, setFormData] = useState<MatchFormData>({
     date: '',
     time: '',
     duration: 2,
-    numberOfPlayers: 2,
+    numberOfPlayers: isLeagueMatch ? lockedPlayerCount : 2,
     location: '',
     fee: 'FREE',
     feeAmount: '0.00',
@@ -84,6 +93,41 @@ export const CreateMatchScreen: React.FC<CreateMatchScreenProps> = memo(({
   const [currentWeekStart, setCurrentWeekStart] = useState<Date>(startOfWeek(new Date(), { weekStartsOn: 1 }));
   const [isMonthView, setIsMonthView] = useState(false);
   const [currentMonth, setCurrentMonth] = useState<Date>(startOfMonth(new Date()));
+
+  // #037 BUG 1: Fetch partner info for doubles leagues
+  const [partnerName, setPartnerName] = useState<string | null>(null);
+  const [partnerLoading, setPartnerLoading] = useState(false);
+  const isDoublesLeague = isLeagueMatch && leagueInfo?.gameType?.toUpperCase() === 'DOUBLES';
+
+  useEffect(() => {
+    if (!isDoublesLeague || !leagueInfo?.seasonId) return;
+
+    const fetchPartner = async () => {
+      setPartnerLoading(true);
+      try {
+        const response = await axiosInstance.get(
+          `/api/pairing/partnership/active/${leagueInfo.seasonId}`
+        );
+        const partnership = response.data?.data;
+        if (partnership && partnership.status === 'ACTIVE') {
+          // Show the OTHER person's name (not the current user)
+          const currentUserId = session?.user?.id;
+          const isCaptain = partnership.captainId === currentUserId;
+          const otherPersonName = isCaptain
+            ? partnership.partner?.name
+            : partnership.captain?.name;
+          setPartnerName(otherPersonName || null);
+        }
+        // INCOMPLETE partnerships (partner left) → show no partner
+      } catch {
+        // No partnership — will be caught by handleCreateMatch later
+      } finally {
+        setPartnerLoading(false);
+      }
+    };
+
+    fetchPartner();
+  }, [isDoublesLeague, leagueInfo?.seasonId]);
 
   // Memoized sport-specific colors
   const sportColors = useMemo(() => {
@@ -253,6 +297,12 @@ export const CreateMatchScreen: React.FC<CreateMatchScreenProps> = memo(({
 
     if (!formData.location || formData.location.trim() === '') {
       toast.error('Please enter a location');
+      return;
+    }
+
+    // Validate doubles partner exists for league matches
+    if (isDoublesLeague && !partnerName) {
+      toast.error('You need an active partner for doubles matches. Go to Team Pairing to find one.');
       return;
     }
 
@@ -527,7 +577,8 @@ export const CreateMatchScreen: React.FC<CreateMatchScreenProps> = memo(({
             </View>
           </View>
 
-          {/* Number of Players */}
+          {/* Number of Players — hidden for league matches (auto-set from division type) */}
+          {!isLeagueMatch && (
           <View style={styles.section}>
             <Text style={styles.sectionLabel}>Number of players</Text>
             <View style={styles.playerCountRow}>
@@ -549,6 +600,26 @@ export const CreateMatchScreen: React.FC<CreateMatchScreenProps> = memo(({
               </View>
             </View>
           </View>
+          )}
+
+          {/* #037 BUG 1: Show partner info for doubles league matches */}
+          {isDoublesLeague && (
+          <View style={styles.section}>
+            <Text style={styles.sectionLabel}>Doubles Partner</Text>
+            <View style={styles.playerCountRow}>
+              <Ionicons name="people" size={moderateScale(22)} color={sportColors.background} />
+              <Text style={[styles.playerCountText, { flex: 1, marginLeft: moderateScale(12) }]}>
+                {partnerLoading ? 'Loading...' : partnerName ? `Playing with ${partnerName}` : 'No partner found — pair up first'}
+              </Text>
+              {partnerName && (
+                <Ionicons name="checkmark-circle" size={moderateScale(20)} color="#22C55E" />
+              )}
+              {!partnerName && !partnerLoading && (
+                <Ionicons name="alert-circle" size={moderateScale(20)} color="#EF4444" />
+              )}
+            </View>
+          </View>
+          )}
 
           {/* Fee Toggle */}
           <View style={styles.section}>
