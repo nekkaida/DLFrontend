@@ -67,6 +67,14 @@ export function resolveMatchStatus(context: StatusContext): ResolvedStatus {
         icon: 'time',
       };
 
+    case 'WALKOVER_PENDING':
+      return {
+        primary: { bg: '#FEF3C7', text: '#92400E', label: 'Walkover Pending' },
+        secondary: 'Awaiting dispute window',
+        actionHint: 'Opponent may dispute within 24h',
+        icon: 'flag',
+      };
+
     case 'DRAFT':
       return resolveDraftStatus(match);
 
