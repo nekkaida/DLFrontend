@@ -13,7 +13,7 @@ import { SeasonCardSkeleton } from '@/src/components/SeasonCardSkeleton';
 import { Category, CategoryService } from '@/src/features/dashboard-user/services/CategoryService';
 import { Season, SeasonService } from '@/src/features/dashboard-user/services/SeasonService';
 import { WaitlistService, WaitlistStatus } from '@/src/features/dashboard-user/services/WaitlistService';
-import { WaitlistBottomSheet, LeaveWaitlistDialog } from '@/src/features/waitlist/components';
+import { WaitlistBottomSheet, LeaveWaitlistDialog, RegisterInterestBottomSheet } from '@/src/features/waitlist/components';
 import { useUserPartnerships } from '@/src/features/pairing/hooks/useUserPartnerships';
 import { FiuuPaymentService } from '@/src/features/payments/services/FiuuPaymentService';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -71,6 +71,7 @@ export default function LeagueDetailsScreen({
   const [isJoiningWaitlist, setIsJoiningWaitlist] = React.useState<string | null>(null);
   const [waitlistBottomSheetSeasonId, setWaitlistBottomSheetSeasonId] = React.useState<string | null>(null);
   const [leaveWaitlistDialogSeasonId, setLeaveWaitlistDialogSeasonId] = React.useState<string | null>(null);
+  const [registerInterestBottomSheetSeasonId, setRegisterInterestBottomSheetSeasonId] = React.useState<string | null>(null);
   const hasInitializedSeasonsRef = React.useRef(false);
   const isManualRefreshRef = React.useRef(false);
   const insets = useSafeAreaInsets();
@@ -329,20 +330,20 @@ export default function LeagueDetailsScreen({
     };
   }, [isLoading, seasons, leagueId, error, updateSeasonsCache]);
 
-  // Fetch waitlist statuses for upcoming seasons
+  // Fetch waitlist statuses for upcoming and register-interest seasons
   React.useEffect(() => {
     const fetchWaitlistStatuses = async () => {
       console.log('[Waitlist:League] fetchWaitlistStatuses called, seasons:', seasons?.length);
       if (!seasons || seasons.length === 0) return;
 
-      const upcomingSeasons = seasons.filter(s => s.status === 'UPCOMING');
-      console.log('[Waitlist:League] Upcoming seasons:', upcomingSeasons.map(s => ({ id: s.id, name: s.name })));
-      if (upcomingSeasons.length === 0) return;
+      const relevantSeasons = seasons.filter(s => s.status === 'UPCOMING' || s.status === 'REGISTER_INTEREST');
+      console.log('[Waitlist:League] Relevant seasons:', relevantSeasons.map(s => ({ id: s.id, name: s.name, status: s.status })));
+      if (relevantSeasons.length === 0) return;
 
       const statusMap = new Map<string, WaitlistStatus>();
 
       await Promise.all(
-        upcomingSeasons.map(async (season) => {
+        relevantSeasons.map(async (season) => {
           try {
             console.log('[Waitlist:League] Fetching status for season:', season.id);
             const status = await WaitlistService.getStatus(season.id);
@@ -499,6 +500,34 @@ export default function LeagueDetailsScreen({
         setSelectedSeason(season);
         setShowPaymentOptions(true);
       }
+    }
+  };
+
+  const handleRegisterInterestPress = (seasonId: string) => {
+    if (!userId) return;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    const currentStatus = waitlistStatuses.get(seasonId);
+    if (currentStatus?.isWaitlisted) {
+      setLeaveWaitlistDialogSeasonId(seasonId);
+      return;
+    }
+    setRegisterInterestBottomSheetSeasonId(seasonId);
+  };
+
+  const handleConfirmRegisterInterest = async (seasonId: string) => {
+    try {
+      setIsJoiningWaitlist(seasonId);
+      const result = await WaitlistService.joinWaitlist(seasonId);
+      if (result.success) {
+        toast.success(`You've registered interest!`);
+        const status = await WaitlistService.getStatus(seasonId);
+        setWaitlistStatuses(prev => new Map(prev).set(seasonId, status));
+        setRegisterInterestBottomSheetSeasonId(null);
+      }
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to register interest');
+    } finally {
+      setIsJoiningWaitlist(null);
     }
   };
 
@@ -722,6 +751,7 @@ export default function LeagueDetailsScreen({
   const groupedSeasons = SeasonService.groupSeasonsByStatus(getFilteredSeasons());
   const currentSeasons = groupedSeasons.active;
   const upcomingSeasons = groupedSeasons.upcoming;
+  const registerInterestSeasons = groupedSeasons.registerInterest;
   const pastSeasons = groupedSeasons.finished;
 
   const formatSeasonDate = (date: string | Date): string => {
@@ -927,7 +957,7 @@ export default function LeagueDetailsScreen({
           return (
             <View style={styles.buttonRow}>
               <TouchableOpacity
-                style={[styles.viewMatchesButton, { backgroundColor: '#6B7280' }]}
+                style={[styles.viewMatchesButton, { backgroundColor: '#F2F2F2' }]}
                 onPress={() => handleJoinWaitlistPress(season.id)}
                 activeOpacity={0.8}
               >
@@ -1140,6 +1170,153 @@ export default function LeagueDetailsScreen({
           </View>
         </LinearGradient>
       </TouchableOpacity>
+    );
+  };
+
+  const getRegisterInterestAccentColor = (sportType: 'pickleball' | 'tennis' | 'padel'): string => {
+    switch (sportType) {
+      case 'tennis': return '#A2E047';
+      case 'padel': return '#4DABFE';
+      case 'pickleball':
+      default: return '#A04DFE';
+    }
+  };
+
+  const renderRegisterInterestCard = (season: Season) => {
+    const normalizedCategories = normalizeCategoriesFromSeason(season);
+    const seasonCategory = normalizedCategories && normalizedCategories.length > 0 ? normalizedCategories[0] : null;
+    const categoryDisplayName = seasonCategory ? seasonCategory.name || '' : '';
+    const gradientColors = getSeasonCardGradientColors(selectedSport);
+
+    const interestedStatus = waitlistStatuses.get(season.id);
+    const isProcessing = isJoiningWaitlist === season.id;
+    const isInterested = interestedStatus?.isWaitlisted ?? false;
+    const interestedCount = interestedStatus?.totalWaitlisted ?? season.registeredUserCount ?? 0;
+
+    const entryFee = formatEntryFee(season.entryFee);
+
+    return (
+      <LinearGradient
+        key={season.id}
+        colors={gradientColors}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 0, y: 1 }}
+        style={styles.registerInterestCardWrapper}
+      >
+      <View style={styles.registerInterestCard}>
+        {/* Header row: name + category pill + status badge */}
+        <View style={styles.seasonCardHeader}>
+          <Text style={styles.seasonTitle} numberOfLines={1}>{season.name}</Text>
+          <View style={[styles.seasonStatusBadge, { backgroundColor: 'rgba(255,255,255,0.15)', borderColor: 'rgba(255,255,255,0.3)' }]}>
+            <View style={[styles.seasonStatusDot, { backgroundColor: '#FFFFFF' }]} />
+            <Text style={[styles.seasonStatusText, { color: '#FFFFFF' }]}>Registering Interest</Text>
+          </View>
+        </View>
+        {categoryDisplayName ? (
+          <Text style={styles.categoryPlainText}>{categoryDisplayName}</Text>
+        ) : null}
+
+        {/* Date rows — only shown if dates exist */}
+        {season.startDate && season.endDate && (
+          <View style={styles.dateIconRow}>
+            <CalendarIcon width={16} height={16} />
+            <Text style={styles.dateText}>
+              {formatShortDate(season.startDate)} – {formatShortDate(season.endDate)}{' '}
+              {new Date(season.endDate as string).toLocaleDateString('en-GB', { year: 'numeric' })}
+            </Text>
+          </View>
+        )}
+
+        {season.regiDeadline && (
+          <View style={styles.dateIconRow}>
+            <CalendarMinusIcon width={16} height={16} />
+            <Text style={styles.dateText}>
+              Last registration: {formatSeasonDate(season.regiDeadline)}
+            </Text>
+          </View>
+        )}
+
+        {/* Interested count + avatars — centered */}
+        <TouchableOpacity
+          style={[styles.playersEntryRow, { justifyContent: 'center' }]}
+          onPress={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            router.push({
+              pathname: '/user-dashboard/players-list',
+              params: {
+                contextType: 'season',
+                contextId: season.id,
+                contextName: season.name,
+                sport: sport,
+                totalPlayers: interestedCount,
+              }
+            });
+          }}
+          activeOpacity={0.7}
+        >
+          <View style={[styles.playersLeft, { flex: 0, justifyContent: 'center' }]}>
+            {season.memberships && season.memberships.length > 0 && (
+              <View style={styles.avatarRow}>
+                {season.memberships.slice(0, 5).map((membership, index: number) => {
+                  if (!membership.user) return null;
+                  return (
+                    <View key={membership.id} style={[styles.seasonMemberProfilePicture, index > 0 && styles.seasonMemberProfilePictureOverlap]}>
+                      {membership.user.image ? (
+                        <Image source={{ uri: membership.user.image }} style={styles.seasonMemberProfileImage} />
+                      ) : (
+                        <View style={styles.defaultSeasonMemberProfileImage}>
+                          <Text style={styles.defaultSeasonMemberProfileText}>
+                            {membership.user.name?.charAt(0)?.toUpperCase() || 'U'}
+                          </Text>
+                        </View>
+                      )}
+                    </View>
+                  );
+                })}
+                {interestedCount > 5 && (
+                  <View style={[styles.seasonRemainingCount, styles.seasonMemberProfilePictureOverlap]}>
+                    <Text style={styles.seasonRemainingCountText}>+{interestedCount - 5}</Text>
+                  </View>
+                )}
+              </View>
+            )}
+            <Text style={styles.playerCountText}>
+              • {interestedCount} interested
+            </Text>
+          </View>
+          {season.paymentRequired && entryFee && (
+            <Text style={styles.entryFeeInlineText}>RM{entryFee} entry</Text>
+          )}
+        </TouchableOpacity>
+
+        {/* Register Interest / Leave button */}
+        <View style={styles.buttonRow}>
+          {isInterested ? (
+            <TouchableOpacity
+              style={[styles.viewMatchesButton, { backgroundColor: '#FFFFFF', flex: 1, borderWidth: 1.5, borderColor: '#E5E7EB' }]}
+              onPress={() => handleRegisterInterestPress(season.id)}
+              activeOpacity={0.8}
+              disabled={isProcessing}
+            >
+              <Text style={[styles.registerButtonText, { color: '#1F2937' }]}>
+                {isProcessing ? 'Leaving...' : 'Interested ✓ (Tap to Leave)'}
+              </Text>
+            </TouchableOpacity>
+          ) : (
+            <TouchableOpacity
+              style={[styles.viewMatchesButton, { backgroundColor: '#FFFFFF', flex: 1, borderWidth: 1.5, borderColor: '#1F2937' }]}
+              onPress={() => handleRegisterInterestPress(season.id)}
+              activeOpacity={0.8}
+              disabled={isProcessing}
+            >
+              <Text style={[styles.registerButtonText, { color: '#1F2937' }]}>
+                {isProcessing ? 'Registering...' : 'Register Interest'}
+              </Text>
+            </TouchableOpacity>
+          )}
+        </View>
+      </View>
+      </LinearGradient>
     );
   };
 
@@ -1769,12 +1946,20 @@ export default function LeagueDetailsScreen({
                 <SeasonCardSkeleton sport={sport} count={2} />
               ) : (
                 <>
+                  {/* Upcoming Seasons - shown ABOVE current season */}
+                  {(registerInterestSeasons.length > 0 || upcomingSeasons.length > 0) && (
+                    <View style={styles.seasonsSection}>
+                      <Text style={styles.sectionTitle}>Upcoming Seasons</Text>
+                      {registerInterestSeasons.map(renderRegisterInterestCard)}
+                      {upcomingSeasons.map(renderSeasonCard)}
+                    </View>
+                  )}
+
                   {/* Current Season */}
-                  {(currentSeasons.length > 0 || upcomingSeasons.length > 0) && (
+                  {currentSeasons.length > 0 && (
                     <View style={styles.seasonsSection}>
                       <Text style={styles.sectionTitle}>Current Season</Text>
                       {currentSeasons.map(renderSeasonCard)}
-                      {upcomingSeasons.map(renderSeasonCard)}
                     </View>
                   )}
 
@@ -1832,6 +2017,23 @@ export default function LeagueDetailsScreen({
             currentWaitlistCount={status?.totalWaitlisted || 0}
             sport={selectedSport}
             isLoading={isJoiningWaitlist === waitlistBottomSheetSeasonId}
+          />
+        );
+      })()}
+
+      {/* Register Interest Bottom Sheet */}
+      {registerInterestBottomSheetSeasonId && (() => {
+        const season = seasons.find((s: Season) => s.id === registerInterestBottomSheetSeasonId);
+        const status = waitlistStatuses.get(registerInterestBottomSheetSeasonId);
+        return (
+          <RegisterInterestBottomSheet
+            visible={true}
+            onClose={() => setRegisterInterestBottomSheetSeasonId(null)}
+            onConfirm={() => handleConfirmRegisterInterest(registerInterestBottomSheetSeasonId)}
+            seasonName={season?.name || ''}
+            interestedCount={status?.totalWaitlisted || 0}
+            sport={selectedSport}
+            isLoading={isJoiningWaitlist === registerInterestBottomSheetSeasonId}
           />
         );
       })()}
@@ -2654,5 +2856,33 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 20,
     // marginTop: 0,
     overflow: 'hidden',
+  },
+  // Register Interest card styles
+  registerInterestCardWrapper: {
+    borderRadius: 16,
+    padding: 2,
+    marginBottom: 12,
+  },
+  registerInterestCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 14,
+    padding: isSmallScreen ? 16 : 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  riCategoryPill: {
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    marginLeft: 8,
+    flexShrink: 0,
+  },
+  riCategoryPillText: {
+    fontSize: isSmallScreen ? 11 : 12,
+    fontWeight: '600',
+    color: '#FFFFFF',
   },
 });
