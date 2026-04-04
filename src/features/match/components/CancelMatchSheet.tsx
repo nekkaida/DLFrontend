@@ -174,7 +174,9 @@ export const CancelMatchSheet: React.FC<CancelMatchSheetProps> = ({
       <View style={styles.container}>
         <View style={styles.header}>
           <View style={styles.headerTitleContainer}>
-            <Text style={styles.headerTitle}>Cancel this match?</Text>
+            <Text style={styles.headerTitle}>
+              {hasOpponentJoined ? 'Cancel this match?' : 'Cancel this match?'}
+            </Text>
             <Text style={styles.headerSubtitle}>{matchDate} · {matchTime}</Text>
           </View>
           <TouchableOpacity onPress={onClose} style={styles.closeButton}>
@@ -183,31 +185,31 @@ export const CancelMatchSheet: React.FC<CancelMatchSheetProps> = ({
         </View>
         <BottomSheetScrollView
           showsVerticalScrollIndicator={false}
-          contentContainerStyle={{ flexGrow: 1, paddingBottom: insets.bottom + 16 }}
+          contentContainerStyle={{ paddingBottom: insets.bottom + 16 }}
         >
-          <View style={{ flex: 1, justifyContent: 'space-between' }}>
-            <View style={[styles.infoBanner, { marginTop: 24 }]}>
-              <Ionicons name="information-circle" size={20} color="#3B82F6" />
-              <Text style={styles.infoText}>
-                This match will be removed and no longer visible to anyone. If players have already joined, please let them know.
-              </Text>
-            </View>
-            <View style={styles.actionButtons}>
-              <TouchableOpacity style={styles.keepMatchButton} onPress={onClose} disabled={loading}>
-                <Text style={styles.keepMatchButtonText}>Keep Match</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.cancelMatchButton, loading && styles.buttonDisabled]}
-                onPress={handleSimpleCancel}
-                disabled={loading}
-              >
-                {loading ? (
-                  <ActivityIndicator color="#FFFFFF" />
-                ) : (
-                  <Text style={styles.cancelMatchButtonText}>Cancel Match</Text>
-                )}
-              </TouchableOpacity>
-            </View>
+          <View style={[styles.infoBanner, { marginTop: 24 }]}>
+            <Ionicons name="information-circle" size={20} color="#3B82F6" />
+            <Text style={styles.infoText}>
+              {hasOpponentJoined
+                ? 'This match will be removed. The players who joined will be notified.'
+                : 'This match will be removed and no longer visible to anyone.'}
+            </Text>
+          </View>
+          <View style={[styles.actionButtons, { marginTop: 24 }]}>
+            <TouchableOpacity style={styles.keepMatchButton} onPress={onClose} disabled={loading}>
+              <Text style={styles.keepMatchButtonText}>Keep Match</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.cancelMatchButton, loading && styles.buttonDisabled]}
+              onPress={handleSimpleCancel}
+              disabled={loading}
+            >
+              {loading ? (
+                <ActivityIndicator color="#FFFFFF" />
+              ) : (
+                <Text style={styles.cancelMatchButtonText}>Cancel Match</Text>
+              )}
+            </TouchableOpacity>
           </View>
         </BottomSheetScrollView>
       </View>
@@ -229,31 +231,29 @@ export const CancelMatchSheet: React.FC<CancelMatchSheetProps> = ({
         </View>
         <BottomSheetScrollView
           showsVerticalScrollIndicator={false}
-          contentContainerStyle={{ flexGrow: 1, paddingBottom: insets.bottom + 16 }}
+          contentContainerStyle={{ paddingBottom: insets.bottom + 16 }}
         >
-          <View style={{ flex: 1, justifyContent: 'space-between' }}>
-            <View style={[styles.infoBanner, { marginTop: 24 }]}>
-              <Ionicons name="information-circle" size={20} color="#3B82F6" />
-              <Text style={styles.infoText}>
-                You will be removed from this match. Please let the host know.
-              </Text>
-            </View>
-            <View style={styles.actionButtons}>
-              <TouchableOpacity style={styles.keepMatchButton} onPress={onClose} disabled={loading}>
-                <Text style={styles.keepMatchButtonText}>Stay</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.cancelMatchButton, loading && styles.buttonDisabled]}
-                onPress={handleSimpleCancel}
-                disabled={loading}
-              >
-                {loading ? (
-                  <ActivityIndicator color="#FFFFFF" />
-                ) : (
-                  <Text style={styles.cancelMatchButtonText}>Leave Match</Text>
-                )}
-              </TouchableOpacity>
-            </View>
+          <View style={[styles.infoBanner, { marginTop: 24 }]}>
+            <Ionicons name="information-circle" size={20} color="#3B82F6" />
+            <Text style={styles.infoText}>
+              You will be removed from this match. Please let the host know.
+            </Text>
+          </View>
+          <View style={[styles.actionButtons, { marginTop: 24 }]}>
+            <TouchableOpacity style={styles.keepMatchButton} onPress={onClose} disabled={loading}>
+              <Text style={styles.keepMatchButtonText}>Stay</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.cancelMatchButton, loading && styles.buttonDisabled]}
+              onPress={handleSimpleCancel}
+              disabled={loading}
+            >
+              {loading ? (
+                <ActivityIndicator color="#FFFFFF" />
+              ) : (
+                <Text style={styles.cancelMatchButtonText}>Leave Match</Text>
+              )}
+            </TouchableOpacity>
           </View>
         </BottomSheetScrollView>
       </View>
@@ -278,32 +278,30 @@ export const CancelMatchSheet: React.FC<CancelMatchSheetProps> = ({
 
         <BottomSheetScrollView
           showsVerticalScrollIndicator={false}
-          contentContainerStyle={{ flexGrow: 1, paddingBottom: insets.bottom + 16 }}
+          contentContainerStyle={{ paddingBottom: insets.bottom + 16 }}
         >
-          <View style={{ flex: 1, justifyContent: 'space-between' }}>
-            <View style={[styles.infoBanner, { marginTop: 24 }]}>
-              <Ionicons name="information-circle" size={20} color="#3B82F6" />
-              <Text style={styles.infoText}>
-                Since no opponent has joined yet, cancelling has no impact on anyone else.
-              </Text>
-            </View>
+          <View style={[styles.infoBanner, { marginTop: 24 }]}>
+            <Ionicons name="information-circle" size={20} color="#3B82F6" />
+            <Text style={styles.infoText}>
+              Since no opponent has joined yet, cancelling has no impact on anyone else.
+            </Text>
+          </View>
 
-            <View style={styles.actionButtons}>
-              <TouchableOpacity style={styles.keepMatchButton} onPress={onClose} disabled={loading}>
-                <Text style={styles.keepMatchButtonText}>Keep Match</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.cancelMatchButton, loading && styles.buttonDisabled]}
-                onPress={handleSimpleCancel}
-                disabled={loading}
-              >
-                {loading ? (
-                  <ActivityIndicator color="#FFFFFF" />
-                ) : (
-                  <Text style={styles.cancelMatchButtonText}>Cancel Match</Text>
-                )}
-              </TouchableOpacity>
-            </View>
+          <View style={[styles.actionButtons, { marginTop: 24 }]}>
+            <TouchableOpacity style={styles.keepMatchButton} onPress={onClose} disabled={loading}>
+              <Text style={styles.keepMatchButtonText}>Keep Match</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.cancelMatchButton, loading && styles.buttonDisabled]}
+              onPress={handleSimpleCancel}
+              disabled={loading}
+            >
+              {loading ? (
+                <ActivityIndicator color="#FFFFFF" />
+              ) : (
+                <Text style={styles.cancelMatchButtonText}>Cancel Match</Text>
+              )}
+            </TouchableOpacity>
           </View>
         </BottomSheetScrollView>
       </View>
