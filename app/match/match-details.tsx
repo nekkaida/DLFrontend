@@ -1685,9 +1685,40 @@ export default function JoinMatchScreen() {
           // Sort participants by team for doubles matches
           const team1Players = participantsWithDetails.filter(p => p.team === 'team1');
           const team2Players = participantsWithDetails.filter(p => p.team === 'team2');
+
+          // If the partner hasn't joined yet, create a placeholder so the slot shows
+          // the partner's name/avatar with a "Pending" badge instead of "Open slot"
+          const currentUserInTeam1 = team1Players.some(p => p.userId === session?.user?.id);
+          const currentUserInTeam2 = team2Players.some(p => p.userId === session?.user?.id);
+          const partnerAlreadyInList = partnerInfo.partnerId
+            ? participantsWithDetails.some(p => p.userId === partnerInfo.partnerId)
+            : false;
+
+          const partnerPlaceholder =
+            partnerInfo.hasPartner && partnerInfo.partnerId && !partnerAlreadyInList
+              ? {
+                  userId: partnerInfo.partnerId,
+                  name: partnerInfo.partnerName || 'Partner',
+                  image: partnerInfo.partnerImage || null,
+                  role: 'PLAYER' as const,
+                  team: currentUserInTeam1 ? 'team1' : 'team2',
+                  invitationStatus: 'PENDING',
+                }
+              : null;
+
           // Pad arrays to ensure 2 slots per team (null = empty slot)
-          const team1Slots = [...team1Players, null, null].slice(0, 2) as (typeof participantsWithDetails[0] | null)[];
-          const team2Slots = [...team2Players, null, null].slice(0, 2) as (typeof participantsWithDetails[0] | null)[];
+          const team1Raw: (typeof participantsWithDetails[0] | null)[] = [...team1Players, null, null].slice(0, 2);
+          const team2Raw: (typeof participantsWithDetails[0] | null)[] = [...team2Players, null, null].slice(0, 2);
+
+          if (partnerPlaceholder && currentUserInTeam1 && !team1Raw[1]) {
+            (team1Raw as any[])[1] = partnerPlaceholder;
+          }
+          if (partnerPlaceholder && currentUserInTeam2 && !team2Raw[1]) {
+            (team2Raw as any[])[1] = partnerPlaceholder;
+          }
+
+          const team1Slots = team1Raw;
+          const team2Slots = team2Raw;
 
           return (
         <View style={styles.participantsSection}>

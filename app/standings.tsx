@@ -190,6 +190,9 @@ export default function StandingsScreen() {
           wins: standing.wins || 0,
           losses: standing.losses || 0,
           points: standing.totalPoints || 0,
+          partnerId: standing.partnerId,
+          partnerName: standing.partnerName,
+          partnerImage: standing.partnerImage,
         }));
 
         const isDoubles = divData.division.gameType?.toLowerCase().includes('doubles') || false;

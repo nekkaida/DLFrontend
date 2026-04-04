@@ -1,46 +1,77 @@
 import { StandingsPlayer, StandingsTeam } from './types';
 
 /**
- * Groups players by matching stats for doubles display.
- * Players with identical points, wins, losses, and played counts are grouped as a team.
- * Only pairs (exactly 2 players) are grouped together.
+ * Groups players into teams for doubles display using partnership data.
+ * Each player's `partnerId` field identifies their doubles partner.
+ * Falls back to rank-adjacent pairing when no partnership data is available.
  */
 export function groupPlayersByTeam(players: StandingsPlayer[]): StandingsTeam[] {
   if (players.length === 0) return [];
 
-  const groups = new Map<string, StandingsPlayer[]>();
+  // When the backend returns partnership-based rows (doubles), each entry already
+  // contains both players — captain (playerId/name/image) and partner
+  // (partnerId/partnerName/partnerImage). Build one team directly per entry.
+  if (players[0].partnerName !== undefined || players[0].partnerImage !== undefined) {
+    return players.map((player) => {
+      const partnerPlayer: StandingsPlayer | null =
+        player.partnerId
+          ? {
+              playerId: player.partnerId,
+              name: player.partnerName || 'Unknown',
+              image: player.partnerImage,
+              rank: player.rank,
+              played: player.played,
+              wins: player.wins,
+              losses: player.losses,
+              points: player.points,
+            }
+          : null;
+      return {
+        rank: player.rank,
+        players: partnerPlayer ? [player, partnerPlayer] : [player],
+        played: player.played,
+        wins: player.wins,
+        losses: player.losses,
+        points: player.points,
+      };
+    });
+  }
 
-  // Group by stats key (points-wins-losses-played)
-  players.forEach((player) => {
-    const key = `${player.points}-${player.wins}-${player.losses}-${player.played}`;
-    if (!groups.has(key)) {
-      groups.set(key, []);
-    }
-    groups.get(key)!.push(player);
-  });
-
-  // Convert to StandingsTeam array
+  // Fallback: pair by partnerId within the player list (legacy / singles edge-case)
+  const paired = new Set<string>();
   const teams: StandingsTeam[] = [];
-  groups.forEach((teamPlayers) => {
-    // Sort players by rank first
-    const sortedPlayers = teamPlayers.sort((a, b) => a.rank - b.rank);
+  const playerMap = new Map<string, StandingsPlayer>();
+  players.forEach((p) => playerMap.set(p.playerId, p));
 
-    // Only create pairs (exactly 2 players per team)
-    // If there are more than 2 players with same stats, create separate teams
-    for (let i = 0; i < sortedPlayers.length; i += 2) {
-      const pair = sortedPlayers.slice(i, i + 2);
+  players.forEach((player) => {
+    if (paired.has(player.playerId)) return;
+
+    if (player.partnerId && playerMap.has(player.partnerId)) {
+      const partner = playerMap.get(player.partnerId)!;
+      paired.add(player.playerId);
+      paired.add(partner.playerId);
+      const pair = [player, partner].sort((a, b) => a.rank - b.rank);
       teams.push({
-        rank: Math.min(...pair.map((p) => p.rank)),
+        rank: pair[0].rank,
         players: pair,
-        played: pair[0].played,
-        wins: pair[0].wins,
-        losses: pair[0].losses,
-        points: pair[0].points,
+        played: Math.max(player.played, partner.played),
+        wins: Math.max(player.wins, partner.wins),
+        losses: Math.max(player.losses, partner.losses),
+        points: Math.max(player.points, partner.points),
+      });
+    } else {
+      paired.add(player.playerId);
+      teams.push({
+        rank: player.rank,
+        players: [player],
+        played: player.played,
+        wins: player.wins,
+        losses: player.losses,
+        points: player.points,
       });
     }
   });
 
-  // Sort by rank
   return teams.sort((a, b) => a.rank - b.rank);
 }
 

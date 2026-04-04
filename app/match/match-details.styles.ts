@@ -103,7 +103,7 @@ export const styles = StyleSheet.create({
   },
   playerAvatar: {
     width: scale(48),
-    height: verticalScale(48),
+    height: scale(48),
     borderRadius: moderateScale(24),
     overflow: 'hidden',
   },
