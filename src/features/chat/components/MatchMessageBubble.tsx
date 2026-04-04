@@ -491,9 +491,27 @@ export const MatchMessageBubble: React.FC<MatchMessageBubbleProps> = ({
   const displayName = firstName;
 
   // Calculate formatted start and end times
-  const startTime = matchData.time ? extractStartTime(matchData.time) : '12:00 PM';
-  const formattedStartTime = formatTime(startTime);
-  const formattedEndTime = calculateEndTime(startTime, matchData.duration || 2);
+  // Use matchData.date (ISO string) as primary source, fall back to matchData.time
+  const formattedStartTime = useMemo(() => {
+    if (matchData.date) {
+      try { return format(new Date(matchData.date), 'h:mm a'); } catch { /* fall through */ }
+    }
+    if (matchData.time) return formatTime(extractStartTime(matchData.time));
+    return '12:00 PM';
+  }, [matchData.date, matchData.time]);
+
+  const formattedEndTime = useMemo(() => {
+    const duration = matchData.duration || 2;
+    if (matchData.date) {
+      try {
+        const start = new Date(matchData.date);
+        const end = new Date(start.getTime() + duration * 60 * 60 * 1000);
+        return format(end, 'h:mm a');
+      } catch { /* fall through */ }
+    }
+    const startTime = matchData.time ? extractStartTime(matchData.time) : '12:00 PM';
+    return calculateEndTime(startTime, duration);
+  }, [matchData.date, matchData.time, matchData.duration]);
 
   // Fetch partner info when join modal is about to open for doubles matches
   // Navigate to join match page

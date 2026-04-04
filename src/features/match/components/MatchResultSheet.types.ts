@@ -49,6 +49,7 @@ export interface MatchResultSheetProps {
   sportType: string; // 'TENNIS', 'PADEL', 'PICKLEBALL'
   seasonId?: string;
   mode?: 'submit' | 'view' | 'review' | 'disputed'; // submit: add result, view: read-only, review: approve/dispute, disputed: view-only with banner
+  matchStatus?: string; // Match status (SCHEDULED, ONGOING, COMPLETED, etc.) — hides "awaiting confirmation" for completed matches
   isFriendlyMatch?: boolean; // Show casual play / friendly match toggle
   isWalkover?: boolean; // Whether this match was a walkover
   walkoverInfo?: {
