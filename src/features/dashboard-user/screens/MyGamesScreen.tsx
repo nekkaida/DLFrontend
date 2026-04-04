@@ -354,7 +354,7 @@ export default function MyGamesScreen({
     // Filter by Upcoming/Past tab
     if (upcomingPastTab === "UPCOMING") {
       filtered = filtered.filter((m) =>
-        ["OPEN", "SCHEDULED", "ONGOING", "IN_PROGRESS", "DRAFT"].includes(
+        ["OPEN", "SCHEDULED", "ONGOING", "IN_PROGRESS", "DRAFT", "WALKOVER_PENDING"].includes(
           m.status.toUpperCase(),
         ),
       );
