@@ -100,6 +100,9 @@ export default function JoinMatchScreen() {
       winningPlayerId: string;
       winningPlayer?: { id: string; name: string; image?: string };
       walkoverReasonDetail?: string;
+      reportedBy?: string;
+      isDisputed?: boolean;
+      disputeExpiresAt?: string;
     };
   }>({ createdById: null, resultSubmittedById: null, resultSubmittedAt: null, status: 'SCHEDULED', team1Score: null, team2Score: null, isDisputed: false, matchDate: null });
   
@@ -319,8 +322,7 @@ export default function JoinMatchScreen() {
 
   // Snap points for match result sheet
   const snapPoints = useMemo(() => ['75%', '90%'], []);
-  const initialSnapIndex = useMemo(() => 1, []); 
-  const cancelSnapPoints = useMemo(() => ['75%', '90%'], []);
+  const initialSnapIndex = useMemo(() => 1, []);
 
   // Handler to expand bottom sheet when friendly match tab is selected
   const handleExpandSheet = useCallback(() => {
@@ -411,66 +413,53 @@ export default function JoinMatchScreen() {
   }, []);
 
   // Fetch match data (createdById, resultSubmittedById, status)
-  useEffect(() => {
-    const fetchMatchData = async () => {
-      if (!matchId || !session?.user?.id) return;
-      
-      try {
-        const fetchPath = isFriendly
-          ? `/api/friendly/${matchId}`
-          : `/api/match/${matchId}`;
+  const fetchMatchData = useCallback(async () => {
+    if (!matchId || !session?.user?.id) return;
 
-        const response = await authenticatedFetch(fetchPath, {
-          cache: 'no-cache',
-        });
-        
-        if (response.ok) {
-          const data = await response.json();
-          const unwrapped = data?.data ?? data;
-          const match = unwrapped.match || unwrapped;
-          // Find this user's pending invitation ID (for direct accept)
-          if (match.invitations && session?.user?.id) {
-            const myInvite = match.invitations.find(
-              (inv: any) => inv.inviteeId === session.user.id && inv.status === 'PENDING'
-            );
-            setPendingInvitationId(myInvite?.id ?? null);
-          }
-          setMatchData({
-            createdById: match.createdById || null,
-            resultSubmittedById: match.resultSubmittedById || null,
-            resultSubmittedAt: match.resultSubmittedAt || null,
-            status: match.status || 'SCHEDULED',
-            team1Score: match.team1Score ?? match.playerScore ?? null,
-            team2Score: match.team2Score ?? match.opponentScore ?? null,
-            isDisputed: match.isDisputed || false,
-            matchDate: match.matchDate || match.scheduledStartTime || null,
-            genderRestriction: match.genderRestriction || null,
-            skillLevels: match.skillLevels || [],
-            isWalkover: match.isWalkover || false,
-            walkoverReason: match.walkoverReason || null,
-            walkover: match.walkover || null,
-          });
+    try {
+      const fetchPath = isFriendly
+        ? `/api/friendly/${matchId}`
+        : `/api/match/${matchId}`;
 
-          // #040: Update participants from API (overrides stale URL params)
-          if (match.participants && match.participants.length > 0) {
-            const normalized = match.participants.map((p: any) => ({
-              userId: p.userId,
-              name: p.user?.name || p.name || 'Unknown Player',
-              image: p.user?.image || p.image || null,
-              role: p.role,
-              team: p.team,
-              invitationStatus: p.invitationStatus,
-            }));
-            setParticipantsWithDetails(normalized);
-          }
+      const response = await authenticatedFetch(fetchPath, {
+        cache: 'no-cache',
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        const unwrapped = data?.data ?? data;
+        const match = unwrapped.match || unwrapped;
+        // Find this user's pending invitation ID (for direct accept)
+        if (match.invitations && session?.user?.id) {
+          const myInvite = match.invitations.find(
+            (inv: any) => inv.inviteeId === session.user.id && inv.status === 'PENDING'
+          );
+          setPendingInvitationId(myInvite?.id ?? null);
         }
-      } catch (error) {
-        if (__DEV__) console.error('Error fetching match data:', error);
+        setMatchData({
+          createdById: match.createdById || null,
+          resultSubmittedById: match.resultSubmittedById || null,
+          resultSubmittedAt: match.resultSubmittedAt || null,
+          status: match.status || 'SCHEDULED',
+          team1Score: match.team1Score ?? match.playerScore ?? null,
+          team2Score: match.team2Score ?? match.opponentScore ?? null,
+          isDisputed: match.isDisputed || false,
+          matchDate: match.matchDate || match.scheduledStartTime || null,
+          genderRestriction: match.genderRestriction || null,
+          skillLevels: match.skillLevels || [],
+          isWalkover: match.isWalkover || false,
+          walkoverReason: match.walkoverReason || null,
+          walkover: match.walkover || null,
+        });
       }
-    };
-    
-    fetchMatchData();
+    } catch (error) {
+      if (__DEV__) console.error('Error fetching match data:', error);
+    }
   }, [matchId, session?.user?.id, isFriendly]);
+
+  useEffect(() => {
+    fetchMatchData();
+  }, [fetchMatchData]);
 
   // Fetch partnership info for doubles
   useEffect(() => {
@@ -487,16 +476,8 @@ export default function JoinMatchScreen() {
       // If this is our match, refresh participant details
       if (data.matchId === matchId) {
         if (data.participants) {
-          // #040: Normalize and update participants directly from socket data
-          const normalized = data.participants.map((p: any) => ({
-            userId: p.userId,
-            name: p.user?.name || p.name || 'Unknown Player',
-            image: p.user?.image || p.image || null,
-            role: p.role,
-            team: p.team,
-            invitationStatus: p.invitationStatus,
-          }));
-          setParticipantsWithDetails(normalized);
+          // Update participants with new data
+          fetchParticipantDetails();
           toast.success('Match updated - new player joined!');
         }
       }
@@ -823,6 +804,13 @@ export default function JoinMatchScreen() {
     (p: any) =>
       p.userId !== matchData.createdById &&
       (p.invitationStatus === 'ACCEPTED' || p.invitationStatus === 'PENDING')
+  );
+
+  // Compact sheet height for simple cancellation flows (friendly or league with no opponent).
+  // Full height only needed when the reason-grid + impact-section flow is shown.
+  const cancelSnapPoints = useMemo(
+    () => (isFriendly || !hasOpponentJoined ? ['42%'] : ['75%', '90%']),
+    [isFriendly, hasOpponentJoined],
   );
 
   // Check if all slots are filled (ACCEPTED only — matches backend BUG 5 guard)
@@ -1556,9 +1544,11 @@ export default function JoinMatchScreen() {
       // For singles, opponent is anyone who is a participant but NOT the submitter
       return matchData.resultSubmittedById !== session?.user?.id;
     }
-    // For doubles, either partner on the opposing team can review
-    // Backend #037 BUG 7 ensures only one response per team is accepted
-    return !isResultSubmitter;
+    // For doubles, user can review if they are NOT on the submitter's team
+    // and they are a captain (only captains can approve)
+    const isCaptain = partnershipData.captainId === session?.user?.id;
+    // User is NOT the submitter's team if they're not the result submitter team
+    return isCaptain && !isResultSubmitter;
   })();
 
   // Keep legacy variables for backwards compatibility with submit flow (before result is submitted)
@@ -1596,6 +1586,11 @@ export default function JoinMatchScreen() {
     // If match is COMPLETED or WALKOVER_PENDING, everyone sees view mode
     if (status === 'COMPLETED' || status === 'FINISHED' || status === 'WALKOVER_PENDING') {
       return 'view';
+    }
+
+    // If match is CANCELLED, the non-cancelling participant can claim a walkover
+    if (status === 'CANCELLED' && isUserParticipant) {
+      return 'submit';
     }
 
     // If match is SCHEDULED and time has passed, any participant can submit
@@ -2178,8 +2173,8 @@ export default function JoinMatchScreen() {
           isLoading={isLoadingComments}
         />
 
-          {/* Report Section  - Waiting on updates from clients */}
-          <TouchableOpacity style={styles.reportButton}>
+          {/* Report Section – opens walkover claim form */}
+          <TouchableOpacity style={styles.reportButton} onPress={() => bottomSheetModalRef.current?.present()}>
             <Text style={styles.reportButtonText}>Report a problem</Text>
           </TouchableOpacity>
         </Animated.View>
@@ -2407,8 +2402,8 @@ export default function JoinMatchScreen() {
             reason: matchData.walkoverReason || '',
             defaultingPlayerName: matchData.walkover?.defaultingPlayer?.name || 'Opponent',
             reasonDetail: matchData.walkover?.walkoverReasonDetail,
-            reportedById: matchData.walkover?.reportedBy || matchData.walkoverRecordedById,
-            isDisputed: matchData.walkover?.isDisputed || false,
+            reportedById: matchData.walkover?.reportedBy,
+            isDisputed: matchData.walkover?.isDisputed ?? false,
             disputeExpiresAt: matchData.walkover?.disputeExpiresAt,
           } : undefined}
           matchComments={comments}
@@ -2450,6 +2445,8 @@ export default function JoinMatchScreen() {
           matchDate={date}
           matchTime={time}
           hasOpponentJoined={hasOpponentJoined}
+          isFriendly={isFriendly}
+          isHost={matchData.createdById === session?.user?.id}
           onClose={() => cancelSheetRef.current?.dismiss()}
           onCancel={handleCancelMatch}
         />
