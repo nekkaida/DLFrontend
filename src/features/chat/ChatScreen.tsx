@@ -8,24 +8,24 @@ import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { router } from "expo-router";
 import React, {
-    useCallback,
-    useEffect,
-    useMemo,
-    useRef,
-    useState,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
 } from "react";
 import {
-    Animated,
-    AppState,
-    AppStateStatus,
-    Keyboard,
-    Platform,
-    Pressable,
-    StatusBar,
-    StyleSheet,
-    Text,
-    TextInput,
-    View,
+  Animated,
+  AppState,
+  AppStateStatus,
+  Keyboard,
+  Platform,
+  Pressable,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ThreadList } from "./components/chat-list";
@@ -224,10 +224,10 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
       if (!isMountedRef.current) return;
 
       if (response?.data?.data) {
-        chatLogger.debug("Setting profile data:", response.data.data);
+        // chatLogger.debug("Setting profile data:", response.data.data);
         setProfileData(response.data.data);
       } else if (response?.data) {
-        chatLogger.debug("Setting profile data (direct):", response.data);
+        // chatLogger.debug("Setting profile data (direct):", response.data);
         setProfileData(response.data as ProfileData);
       } else {
         chatLogger.error("No profile data received");

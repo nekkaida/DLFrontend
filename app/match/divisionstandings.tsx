@@ -240,6 +240,9 @@ export default function DivisionStandingsScreen() {
         wins: standing.wins || 0,
         losses: standing.losses || 0,
         points: standing.totalPoints || 0,
+        partnerId: standing.partnerId,
+        partnerName: standing.partnerName,
+        partnerImage: standing.partnerImage,
       }));
 
       // Update the specific division
