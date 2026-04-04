@@ -1,9 +1,9 @@
-import React, { useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, Animated, Easing } from 'react-native';
-import * as Haptics from 'expo-haptics';
-import { theme } from '@core/theme/theme';
-import { InlineDropdown } from './InlineDropdown';
-import { WinRateCircle } from './WinRateCircle';
+import { theme } from "@core/theme/theme";
+import * as Haptics from "expo-haptics";
+import React, { useEffect, useRef } from "react";
+import { Animated, Easing, StyleSheet, Text, View } from "react-native";
+import { InlineDropdown } from "./InlineDropdown";
+import { WinRateCircle } from "./WinRateCircle";
 
 interface ProfileLeagueStatsCardProps {
   activeTab: string;
@@ -35,7 +35,10 @@ export const ProfileLeagueStatsCard: React.FC<ProfileLeagueStatsCardProps> = ({
 
   useEffect(() => {
     // Only animate if game type or sport tab changed
-    if (prevGameType.current !== selectedGameType || prevActiveTab.current !== activeTab) {
+    if (
+      prevGameType.current !== selectedGameType ||
+      prevActiveTab.current !== activeTab
+    ) {
       // Animate out
       Animated.parallel([
         Animated.timing(contentOpacity, {
@@ -104,34 +107,38 @@ export const ProfileLeagueStatsCard: React.FC<ProfileLeagueStatsCardProps> = ({
             <Text style={styles.emptyText}>There's nothing to see here</Text>
           </View>
         ) : (
-        <Animated.View
-          style={[
-            styles.winRateContainer,
-            {
-              opacity: contentOpacity,
-              transform: [{ translateY: contentTranslateY }],
-            },
-          ]}
-        >
-          <WinRateCircle winRate={winRate} />
           <Animated.View
             style={[
-              styles.winRateLegend,
+              styles.winRateContainer,
               {
-                transform: [{ scale: legendScale }],
+                opacity: contentOpacity,
+                transform: [{ translateY: contentTranslateY }],
               },
             ]}
           >
-            <View style={styles.legendItem}>
-              <View style={[styles.legendColor, { backgroundColor: '#34C759' }]} />
-              <Text style={styles.legendText}>Wins: {wins}</Text>
-            </View>
-            <View style={styles.legendItem}>
-              <View style={[styles.legendColor, { backgroundColor: '#FF3B30' }]} />
-              <Text style={styles.legendText}>Losses: {losses}</Text>
-            </View>
+            <WinRateCircle winRate={winRate} />
+            <Animated.View
+              style={[
+                styles.winRateLegend,
+                {
+                  transform: [{ scale: legendScale }],
+                },
+              ]}
+            >
+              <View style={styles.legendItem}>
+                <View
+                  style={[styles.legendColor, { backgroundColor: "#3B82F6" }]}
+                />
+                <Text style={styles.legendText}>Wins: {wins}</Text>
+              </View>
+              <View style={styles.legendItem}>
+                <View
+                  style={[styles.legendColor, { backgroundColor: "#9CA3AF" }]}
+                />
+                <Text style={styles.legendText}>Losses: {losses}</Text>
+              </View>
+            </Animated.View>
           </Animated.View>
-        </Animated.View>
         )}
       </View>
     </View>
@@ -144,12 +151,12 @@ const styles = StyleSheet.create({
     marginBottom: theme.spacing.sm,
   },
   leagueStatsContainer: {
-    backgroundColor: '#ffffff',
+    backgroundColor: "#ffffff",
     padding: theme.spacing.lg,
     paddingBottom: theme.spacing.xl * 2,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#f1f5f9',
+    borderColor: "#f1f5f9",
     shadowColor: theme.colors.neutral.black,
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.03,
@@ -157,29 +164,29 @@ const styles = StyleSheet.create({
     elevation: 1,
   },
   statsHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     marginBottom: theme.spacing.lg,
     paddingHorizontal: theme.spacing.sm,
   },
   skillLabel: {
-    color: '#111827',
+    color: "#111827",
     fontSize: 16,
     fontFamily: theme.typography.fontFamily.primary,
-    fontWeight: '600' as any,
+    fontWeight: "600" as any,
   },
   winRateContainer: {
-    alignItems: 'center',
+    alignItems: "center",
     gap: theme.spacing.md,
   },
   winRateLegend: {
-    flexDirection: 'row',
+    flexDirection: "row",
     gap: theme.spacing.md,
   },
   legendItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: theme.spacing.xs,
   },
   legendColor: {
@@ -194,13 +201,13 @@ const styles = StyleSheet.create({
   },
   emptyContainer: {
     paddingVertical: 32,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
   emptyText: {
     fontSize: 14,
     color: theme.colors.neutral.gray[400],
     fontFamily: theme.typography.fontFamily.primary,
-    fontStyle: 'italic',
+    fontStyle: "italic",
   },
 });

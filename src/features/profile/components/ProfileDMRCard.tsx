@@ -1,18 +1,18 @@
-import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import * as Haptics from 'expo-haptics';
-import { theme } from '@core/theme/theme';
-import { InlineDropdown } from './InlineDropdown';
-import { EloProgressGraph } from './EloProgressGraph';
-import { MatchDetailsBox } from './MatchDetailsBox';
-import type { GameData } from '../types';
+import { theme } from "@core/theme/theme";
+import * as Haptics from "expo-haptics";
+import React from "react";
+import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import type { GameData } from "../types";
+import { EloProgressGraph } from "./EloProgressGraph";
+import { InlineDropdown } from "./InlineDropdown";
+import { MatchDetailsBox } from "./MatchDetailsBox";
 
 interface ProfileDMRCardProps {
   activeTab: string;
   selectedGameType: string;
   gameTypeOptions: string[];
   onGameTypeSelect: (value: string) => void;
-  getRatingForType: (sport: string, type: 'singles' | 'doubles') => number;
+  getRatingForType: (sport: string, type: "singles" | "doubles") => number;
   eloData: GameData[];
   onPointPress: (game: GameData, index: number) => void;
   selectedMatch: any | null;
@@ -36,12 +36,14 @@ export const ProfileDMRCard: React.FC<ProfileDMRCardProps> = ({
   isOwnProfile = false,
   onGetDMR,
 }) => {
-  const sport = activeTab || 'pickleball';
-  const singlesRating = getRatingForType(sport, 'singles');
-  const doublesRating = getRatingForType(sport, 'doubles');
+  const sport = activeTab || "pickleball";
+  const singlesRating = getRatingForType(sport, "singles");
+  const doublesRating = getRatingForType(sport, "doubles");
   const hasNoRating = singlesRating === 0 && doublesRating === 0;
   // No real match history: eloData is only the questionnaire-based fallback point
-  const hasNoMatchData = eloData.length === 0 || (eloData.length === 1 && eloData[0]?.date === 'Current Rating');
+  const hasNoMatchData =
+    eloData.length === 0 ||
+    (eloData.length === 1 && eloData[0]?.date === "Current Rating");
 
   return (
     <View style={styles.skillLevelSection}>
@@ -57,7 +59,7 @@ export const ProfileDMRCard: React.FC<ProfileDMRCardProps> = ({
               <Text style={styles.dmrTypeLabel}>Singles</Text>
               <View style={styles.ratingCircleSmall}>
                 <Text style={styles.ratingTextSmall}>
-                  {singlesRating || '-'}
+                  {singlesRating || "-"}
                 </Text>
               </View>
             </View>
@@ -65,7 +67,7 @@ export const ProfileDMRCard: React.FC<ProfileDMRCardProps> = ({
               <Text style={styles.dmrTypeLabel}>Doubles</Text>
               <View style={styles.ratingCircleSmall}>
                 <Text style={styles.ratingTextSmall}>
-                  {doublesRating || '-'}
+                  {doublesRating || "-"}
                 </Text>
               </View>
             </View>
@@ -73,7 +75,7 @@ export const ProfileDMRCard: React.FC<ProfileDMRCardProps> = ({
         </View>
 
         {/* No-DMR state for own profile: show button to start questionnaire */}
-        {isOwnProfile && hasNoRating ? (
+        {isOwnProfile && hasNoRating && hasNoMatchData ? (
           <>
             <TouchableOpacity
               style={styles.getDmrButton}
@@ -82,7 +84,7 @@ export const ProfileDMRCard: React.FC<ProfileDMRCardProps> = ({
                 onGetDMR?.();
               }}
             >
-              <Text style={styles.getDmrButtonText}>Get your DMR rating  ›</Text>
+              <Text style={styles.getDmrButtonText}>Get your DMR rating ›</Text>
             </TouchableOpacity>
             <Text style={styles.getDmrSubtext}>
               Complete the skill questionnaire to unlock your rating.
@@ -105,12 +107,17 @@ export const ProfileDMRCard: React.FC<ProfileDMRCardProps> = ({
             {/* Match Details / Graph — placeholder when no matches played yet */}
             {hasNoMatchData ? (
               <View style={styles.noMatchDataContainer}>
-                <Text style={styles.noMatchDataText}>There's nothing to see here</Text>
+                <Text style={styles.noMatchDataText}>
+                  There's nothing to see here
+                </Text>
               </View>
             ) : (
               <>
                 {/* Match Details Box */}
-                <MatchDetailsBox match={selectedMatch} profileData={profileData} />
+                <MatchDetailsBox
+                  match={selectedMatch}
+                  profileData={profileData}
+                />
 
                 {/* ELO Progress Graph */}
                 <EloProgressGraph
@@ -133,12 +140,12 @@ const styles = StyleSheet.create({
     marginBottom: theme.spacing.sm,
   },
   dmrContainer: {
-    backgroundColor: '#ffffff',
+    backgroundColor: "#ffffff",
     padding: theme.spacing.lg,
     paddingBottom: theme.spacing.lg,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#f1f5f9',
+    borderColor: "#f1f5f9",
     shadowColor: theme.colors.neutral.black,
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.03,
@@ -147,26 +154,26 @@ const styles = StyleSheet.create({
   },
   getDmrButton: {
     borderWidth: 1.5,
-    borderColor: '#fea04d',
+    borderColor: "#fea04d",
     borderRadius: 24,
     paddingVertical: 12,
     paddingHorizontal: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     marginTop: theme.spacing.md,
     marginBottom: theme.spacing.sm,
   },
   getDmrButtonText: {
-    color: '#fea04d',
+    color: "#fea04d",
     fontSize: 15,
-    fontWeight: '600' as any,
+    fontWeight: "600" as any,
     fontFamily: theme.typography.fontFamily.primary,
   },
   getDmrSubtext: {
     color: theme.colors.neutral.gray[500],
     fontSize: 13,
     fontFamily: theme.typography.fontFamily.primary,
-    textAlign: 'center',
+    textAlign: "center",
     lineHeight: 18,
     marginBottom: theme.spacing.md,
   },
@@ -177,28 +184,28 @@ const styles = StyleSheet.create({
     color: theme.colors.neutral.gray[400],
     fontSize: 11,
     fontFamily: theme.typography.fontFamily.primary,
-    fontWeight: '400' as any,
+    fontWeight: "400" as any,
     lineHeight: 15,
   },
   dmrHeader: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "flex-start",
+    justifyContent: "space-between",
     marginBottom: theme.spacing.lg,
     paddingLeft: theme.spacing.md,
   },
   dmrRatingsRow: {
-    flexDirection: 'row',
+    flexDirection: "row",
     gap: theme.spacing.lg,
     marginRight: theme.spacing.md,
   },
   dmrItemVertical: {
-    alignItems: 'center',
+    alignItems: "center",
     gap: theme.spacing.sm,
   },
   dmrTypeLabel: {
     color: theme.colors.neutral.gray[600],
-    fontSize: theme.typography.fontSize.base,
+    fontSize: 13,
     fontFamily: theme.typography.fontFamily.primary,
     fontWeight: theme.typography.fontWeight.medium as any,
     marginBottom: theme.spacing.xs,
@@ -207,36 +214,36 @@ const styles = StyleSheet.create({
     width: 100,
     height: 100,
     borderRadius: 65,
-    backgroundColor: '#ffffff',
+    backgroundColor: "#ffffff",
     borderWidth: 1,
-    borderColor: '#fea04d',
-    justifyContent: 'center',
-    alignItems: 'center',
+    borderColor: "#fea04d",
+    justifyContent: "center",
+    alignItems: "center",
   },
   ratingTextSmall: {
-    color: '#000000',
+    color: "#000000",
     fontSize: 20,
-    fontWeight: '800' as any,
+    fontWeight: "800" as any,
     fontFamily: theme.typography.fontFamily.primary,
   },
   noMatchDataContainer: {
     paddingVertical: 48,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
   noMatchDataText: {
     color: theme.colors.neutral.gray[400],
     fontSize: 14,
     fontFamily: theme.typography.fontFamily.primary,
-    fontWeight: '500' as any,
+    fontWeight: "500" as any,
   },
   dropdownSection: {
     marginBottom: theme.spacing.md,
   },
   skillLabel: {
-    color: '#111827',
+    color: "#111827",
     fontSize: 16,
     fontFamily: theme.typography.fontFamily.primary,
-    fontWeight: '600' as any,
+    fontWeight: "600" as any,
   },
 });

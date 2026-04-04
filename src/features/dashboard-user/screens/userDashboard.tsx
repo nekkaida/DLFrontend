@@ -3,7 +3,7 @@ import PickleballLocationIcon from "@/assets/icons/pickleball-location.svg";
 import SearchIcon from "@/assets/icons/search-icon.svg";
 import TennisLocationIcon from "@/assets/icons/tennis-location.svg";
 import { useSession } from "@/lib/auth-client";
-import axiosInstance from "@/lib/endpoints";
+import axiosInstance, { endpoints } from "@/lib/endpoints";
 import { NavBar } from "@/shared/components/layout";
 import { SportSwitcher } from "@/shared/components/ui/SportSwitcher";
 import { DeuceLogo } from "@/src";
@@ -22,7 +22,6 @@ import {
 import { useNotifications } from "@/src/hooks/useNotifications";
 import NotificationBell from "@/src/shared/components/NotificationBell";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import { default as React, useCallback, useEffect } from "react";
@@ -42,9 +41,9 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useMyGamesStore } from "../stores/MyGamesStore";
 import MyGamesScreen from "./MyGamesScreen";
 import { FilterTab } from "./my-games";
-import { useMyGamesStore } from "../stores/MyGamesStore";
 
 const SPORT_CONFIG = {
   pickleball: {
@@ -124,8 +123,42 @@ export default function DashboardScreen() {
   // Chat unread count hook
   const chatUnreadCount = useUnreadCount();
 
-  // Pending invites count for My Games NavBar badge — written by MyGamesScreen, read here
-  const { pendingInviteCount: myGamesBadgeCount } = useMyGamesStore();
+  // Pending invites count for My Games NavBar badge
+  const { pendingInviteCount: myGamesBadgeCount, setPendingInviteCount } =
+    useMyGamesStore();
+
+  // Fetch pending invite counts at dashboard level so the badge shows on ALL tabs,
+  const fetchPendingInviteCount = useCallback(async () => {
+    if (!session?.user?.id) return;
+    try {
+      const [matchRes, seasonRes] = await Promise.allSettled([
+        axiosInstance.get(endpoints.match.getPendingInvitations),
+        axiosInstance.get("/api/pairing/season/invitations"),
+      ]);
+      const matchInvites =
+        matchRes.status === "fulfilled"
+          ? (matchRes.value.data?.data ?? matchRes.value.data ?? []).length
+          : 0;
+      const seasonReceived =
+        seasonRes.status === "fulfilled"
+          ? (seasonRes.value.data?.data?.received ??
+            seasonRes.value.data?.received ??
+            [])
+          : [];
+      const seasonInvites = seasonReceived.filter(
+        (i: any) => i.status === "PENDING",
+      ).length;
+      setPendingInviteCount(matchInvites + seasonInvites);
+    } catch {
+      // Silently ignore — badge will just stay at last known value
+    }
+  }, [session?.user?.id, setPendingInviteCount]);
+
+  useFocusEffect(
+    useCallback(() => {
+      fetchPendingInviteCount();
+    }, [fetchPendingInviteCount]),
+  );
 
   // Register socket event listeners at dashboard level for real-time updates
   // This ensures unread counts update even when not on the chat tab
@@ -157,7 +190,7 @@ export default function DashboardScreen() {
       }
       setSportLoaded(true);
     });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Persist sport selection whenever the user changes it
@@ -317,9 +350,7 @@ export default function DashboardScreen() {
       } else if (response?.data) {
         setProfileData(response.data);
       } else {
-        console.error(
-          "DashboardScreen: No profile data received",
-        );
+        console.error("DashboardScreen: No profile data received");
       }
     } catch (error) {
       console.error("DashboardScreen: Error fetching profile data:", error);
@@ -351,7 +382,12 @@ export default function DashboardScreen() {
   // Wait for persisted sport to load before rendering to avoid a flash
   if (!sportLoaded) {
     return (
-      <View style={[styles.container, { justifyContent: "center", alignItems: "center" }]}>
+      <View
+        style={[
+          styles.container,
+          { justifyContent: "center", alignItems: "center" },
+        ]}
+      >
         <ActivityIndicator size="large" color="#FEA04D" />
       </View>
     );
@@ -404,7 +440,6 @@ export default function DashboardScreen() {
 
           {/* Right: ? button and NotificationBell */}
           <View style={{ flexDirection: "row", alignItems: "center" }}>
-         
             {/* Commented out for this version */}
             {/* <TouchableOpacity
               style={{ marginRight: 10 }}
@@ -436,11 +471,12 @@ export default function DashboardScreen() {
     return (
       <View style={styles.container}>
         <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
-        <ChatScreen
+        <ChatScreen sport={selectedSport} chatUnreadCount={chatUnreadCount} />
+        <NavBar
           activeTab={activeTab}
           onTabPress={handleTabPress}
           sport={selectedSport}
-          chatUnreadCount={chatUnreadCount}
+          badgeCounts={{ chat: chatUnreadCount, myGames: myGamesBadgeCount }}
         />
       </View>
     );
@@ -539,11 +575,11 @@ export default function DashboardScreen() {
           {/* Center: DeuceLogo */}
           <View style={{ flex: 1, alignItems: "center", marginLeft: 40 }}>
             {/* <DeuceLogo width={40} height={40} /> */}
-          <SportSwitcher
-            currentSport={selectedSport}
-            availableSports={getUserSelectedSports()}
-            onSportChange={setSelectedSport}
-          />
+            <SportSwitcher
+              currentSport={selectedSport}
+              availableSports={getUserSelectedSports()}
+              onSportChange={setSelectedSport}
+            />
           </View>
 
           {/* Right: ? button and NotificationBell */}
@@ -565,7 +601,7 @@ export default function DashboardScreen() {
         </View>
         <View style={styles.contentContainer}>
           {/* <View style={styles.contentBox}> */}
-            <FriendlyScreen sport={selectedSport} />
+          <FriendlyScreen sport={selectedSport} />
           {/* </View> */}
         </View>
         <NavBar

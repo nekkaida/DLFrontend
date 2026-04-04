@@ -130,3 +130,19 @@ export const formatTimeRangeWithDuration = (dateString?: string, duration?: numb
 export const getMatchTime = (match: { matchDate?: string; scheduledStartTime?: string; scheduledTime?: string }): string | undefined => {
   return match.matchDate || match.scheduledStartTime || match.scheduledTime;
 };
+
+/**
+ * Returns true when the match's scheduled start time is in the past.
+ * Used to bucket non-terminal matches into the "Past" tab automatically
+ * without waiting for a backend status transition.
+ */
+export const isMatchPast = (match: { matchDate?: string; scheduledStartTime?: string; scheduledTime?: string }): boolean => {
+  const time = getMatchTime(match);
+  if (!time) return false;
+  try {
+    const matchDate = new Date(time);
+    return !isNaN(matchDate.getTime()) && matchDate.getTime() <= Date.now();
+  } catch {
+    return false;
+  }
+};

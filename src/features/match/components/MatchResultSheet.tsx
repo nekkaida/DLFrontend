@@ -127,6 +127,19 @@ export const MatchResultSheet: React.FC<MatchResultSheetProps> = ({
   const [showDisputeInput, setShowDisputeInput] = useState(false);
   const [disputeText, setDisputeText] = useState('');
 
+  // When a match is already cancelled, auto-open the walkover claim form
+  // so the affected player doesn't have to manually toggle anything.
+  useEffect(() => {
+    if (matchStatus?.toUpperCase() !== 'CANCELLED' || mode !== 'submit') return;
+    setDidntPlay(true);
+    // For singles, pre-select the opponent as the defaulting player
+    if (matchType === 'SINGLES' && currentUserId && players.length > 0) {
+      const opponentPlayer = players.find(p => p.id !== currentUserId);
+      const opponentTeam = opponentPlayer?.team === 'TEAM_A' ? 'A' : 'B';
+      setDefaultingTeam(opponentTeam);
+    }
+  }, [matchStatus, mode]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Separate players by team
   // First try to filter by team property, then fallback to splitting the array
   const teamAPlayersFiltered = players.filter(p => p.team === 'TEAM_A');

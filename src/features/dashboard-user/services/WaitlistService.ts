@@ -1,4 +1,25 @@
-import axiosInstance from '@/lib/endpoints';
+import axiosInstance from "@/lib/endpoints";
+
+/**
+ * Extracts a human-readable error message from an axios error.
+ * Handles both JSON and HTML Express error responses.
+ */
+function extractErrorMessage(error: any, fallback: string): string {
+  const data = error.response?.data;
+  if (data) {
+    if (typeof data === "object") {
+      return data.message || data.error || fallback;
+    }
+    if (typeof data === "string") {
+      // HTML error page: grab first line of <pre> before <br>
+      const match = data.match(/<pre>([\s\S]*?)(?:<br|<\/pre>)/);
+      if (match) {
+        return match[1].replace(/^(AppError|Error): /i, "").trim();
+      }
+    }
+  }
+  return error.message || fallback;
+}
 
 export interface WaitlistStatus {
   isWaitlisted: boolean;
@@ -25,36 +46,49 @@ export class WaitlistService {
    * Join waitlist for a season
    */
   static async joinWaitlist(seasonId: string): Promise<JoinWaitlistResult> {
-    console.log('[WaitlistService] joinWaitlist called for season:', seasonId);
+    console.log("[WaitlistService] joinWaitlist called for season:", seasonId);
     try {
-      const response = await axiosInstance.post(`/api/waitlist/${seasonId}/join`);
-      console.log('[WaitlistService] joinWaitlist response:', {
+      const response = await axiosInstance.post(
+        `/api/waitlist/${seasonId}/join`,
+      );
+      console.log("[WaitlistService] joinWaitlist response:", {
         status: response.status,
-        data: response.data
+        data: response.data,
       });
 
       // Handle wrapped response { success: true, data: {...} }
       if (response.data?.data) {
-        console.log('[WaitlistService] Unwrapping nested data from joinWaitlist response');
-        const result = { success: true, ...response.data.data } as JoinWaitlistResult;
-        console.log('[WaitlistService] Successfully joined waitlist for season:', seasonId, result);
+        console.log(
+          "[WaitlistService] Unwrapping nested data from joinWaitlist response",
+        );
+        const result = {
+          success: true,
+          ...response.data.data,
+        } as JoinWaitlistResult;
+        console.log(
+          "[WaitlistService] Successfully joined waitlist for season:",
+          seasonId,
+          result,
+        );
         return result;
       } else if (response.data) {
-        console.log('[WaitlistService] Successfully joined waitlist for season:', seasonId);
+        console.log(
+          "[WaitlistService] Successfully joined waitlist for season:",
+          seasonId,
+        );
         return response.data as JoinWaitlistResult;
       }
 
-      throw new Error('Invalid response from server');
+      throw new Error("Invalid response from server");
     } catch (error: any) {
-      console.error('[WaitlistService] Error joining waitlist:', {
+      console.error("[WaitlistService] Error joining waitlist:", {
         message: error.message,
         status: error.response?.status,
-        data: error.response?.data
+        data: error.response?.data,
       });
 
-      // Extract error message from response
-      const errorMessage = error.response?.data?.message || error.response?.data?.error || error.message || 'Failed to join waitlist';
-      throw new Error(errorMessage);
+      // Extract error message from response (handles JSON and HTML error pages)
+      throw new Error(extractErrorMessage(error, "Failed to join waitlist"));
     }
   }
 
@@ -62,35 +96,47 @@ export class WaitlistService {
    * Leave waitlist for a season
    */
   static async leaveWaitlist(seasonId: string): Promise<LeaveWaitlistResult> {
-    console.log('[WaitlistService] leaveWaitlist called for season:', seasonId);
+    console.log("[WaitlistService] leaveWaitlist called for season:", seasonId);
     try {
-      const response = await axiosInstance.delete(`/api/waitlist/${seasonId}/leave`);
-      console.log('[WaitlistService] leaveWaitlist response:', {
+      const response = await axiosInstance.delete(
+        `/api/waitlist/${seasonId}/leave`,
+      );
+      console.log("[WaitlistService] leaveWaitlist response:", {
         status: response.status,
-        data: response.data
+        data: response.data,
       });
 
       // Handle wrapped response { success: true, data: {...} }
       if (response.data?.data) {
-        console.log('[WaitlistService] Unwrapping nested data from leaveWaitlist response');
-        const result = { success: true, ...response.data.data } as LeaveWaitlistResult;
-        console.log('[WaitlistService] Successfully left waitlist for season:', seasonId);
+        console.log(
+          "[WaitlistService] Unwrapping nested data from leaveWaitlist response",
+        );
+        const result = {
+          success: true,
+          ...response.data.data,
+        } as LeaveWaitlistResult;
+        console.log(
+          "[WaitlistService] Successfully left waitlist for season:",
+          seasonId,
+        );
         return result;
       } else if (response.data) {
-        console.log('[WaitlistService] Successfully left waitlist for season:', seasonId);
+        console.log(
+          "[WaitlistService] Successfully left waitlist for season:",
+          seasonId,
+        );
         return response.data as LeaveWaitlistResult;
       }
 
-      throw new Error('Invalid response from server');
+      throw new Error("Invalid response from server");
     } catch (error: any) {
-      console.error('[WaitlistService] Error leaving waitlist:', {
+      console.error("[WaitlistService] Error leaving waitlist:", {
         message: error.message,
         status: error.response?.status,
-        data: error.response?.data
+        data: error.response?.data,
       });
 
-      const errorMessage = error.response?.data?.message || error.response?.data?.error || error.message || 'Failed to leave waitlist';
-      throw new Error(errorMessage);
+      throw new Error(extractErrorMessage(error, "Failed to leave waitlist"));
     }
   }
 
@@ -98,38 +144,42 @@ export class WaitlistService {
    * Get waitlist status for current user
    */
   static async getStatus(seasonId: string): Promise<WaitlistStatus> {
-    console.log('[WaitlistService] getStatus called for season:', seasonId);
+    console.log("[WaitlistService] getStatus called for season:", seasonId);
     try {
-      const response = await axiosInstance.get(`/api/waitlist/${seasonId}/status`);
-      console.log('[WaitlistService] getStatus response:', {
+      const response = await axiosInstance.get(
+        `/api/waitlist/${seasonId}/status`,
+      );
+      console.log("[WaitlistService] getStatus response:", {
         status: response.status,
-        data: response.data
+        data: response.data,
       });
 
       // Handle wrapped response { success: true, data: {...} }
       if (response.data?.data) {
-        console.log('[WaitlistService] Unwrapping nested data from response');
+        console.log("[WaitlistService] Unwrapping nested data from response");
         return response.data.data as WaitlistStatus;
       } else if (response.data) {
         // Fallback for flat response structure
         return response.data as WaitlistStatus;
       }
 
-      console.log('[WaitlistService] No data in response, returning default status');
+      console.log(
+        "[WaitlistService] No data in response, returning default status",
+      );
       // Return default status if no data
       return {
         isWaitlisted: false,
         position: null,
         totalWaitlisted: 0,
-        seasonStatus: 'UNKNOWN',
+        seasonStatus: "UNKNOWN",
         maxParticipants: null,
         waitlistEnabled: false,
       };
     } catch (error: any) {
-      console.error('[WaitlistService] Error getting waitlist status:', {
+      console.error("[WaitlistService] Error getting waitlist status:", {
         message: error.message,
         status: error.response?.status,
-        data: error.response?.data
+        data: error.response?.data,
       });
 
       // Return default status on error
@@ -137,7 +187,7 @@ export class WaitlistService {
         isWaitlisted: false,
         position: null,
         totalWaitlisted: 0,
-        seasonStatus: 'UNKNOWN',
+        seasonStatus: "UNKNOWN",
         maxParticipants: null,
         waitlistEnabled: false,
       };
@@ -148,7 +198,7 @@ export class WaitlistService {
    * Get position text for display
    */
   static getPositionText(position: number | null, total: number): string {
-    if (position === null) return '';
+    if (position === null) return "";
     return `#${position} of ${total}`;
   }
 

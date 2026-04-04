@@ -1,39 +1,54 @@
-import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import { router } from 'expo-router';
-import * as Haptics from 'expo-haptics';
-import { theme } from '@core/theme/theme';
-import { StandingsService, DivisionWithStandings } from '@/src/features/leagues/services/StandingsService';
-import { getSportColors, SportType } from '@/constants/SportsColor';
+import { getSportColors, SportType } from "@/constants/SportsColor";
+import {
+  DivisionWithStandings,
+  StandingsService,
+} from "@/src/features/leagues/services/StandingsService";
+import { theme } from "@core/theme/theme";
+import { Ionicons } from "@expo/vector-icons";
+import * as Haptics from "expo-haptics";
+import { router } from "expo-router";
+import React, { useEffect, useState } from "react";
+import {
+  ActivityIndicator,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
 
 interface PlayerDivisionStandingsProps {
   userId: string;
   showOnlyCurrentDivisions?: boolean;
-  sportFilter?: string;  // e.g., "Pickleball", "Tennis", "Padel"
-  gameTypeFilter?: string;  // e.g., "Singles", "Doubles" - only affects stats aggregation
-  onStatsCalculated?: (stats: { wins: number; losses: number; matchesPlayed: number }) => void;
+  sportFilter?: string; // e.g., "Pickleball", "Tennis", "Padel"
+  gameTypeFilter?: string; // e.g., "Singles", "Doubles" - only affects stats aggregation
+  onStatsCalculated?: (stats: {
+    wins: number;
+    losses: number;
+    matchesPlayed: number;
+  }) => void;
 }
 
 // Helper to get sport color
 const getSportColor = (sportType?: string): string => {
-  if (!sportType) return '#FEA04D'; // Default orange
+  if (!sportType) return "#FEA04D"; // Default orange
   return getSportColors(sportType as SportType).background;
 };
 
 // Normalize sport type for comparison (e.g., "PICKLEBALL" -> "Pickleball")
 const normalizeSportType = (sport?: string): string => {
-  if (!sport) return '';
+  if (!sport) return "";
   return sport.charAt(0).toUpperCase() + sport.slice(1).toLowerCase();
 };
 
 // Normalize game type for comparison (e.g., "SINGLES" -> "Singles")
 const normalizeGameType = (gameType?: string): string => {
-  if (!gameType) return '';
+  if (!gameType) return "";
   return gameType.charAt(0).toUpperCase() + gameType.slice(1).toLowerCase();
 };
 
-export const PlayerDivisionStandings: React.FC<PlayerDivisionStandingsProps> = ({
+export const PlayerDivisionStandings: React.FC<
+  PlayerDivisionStandingsProps
+> = ({
   userId,
   showOnlyCurrentDivisions = false, // Changed default to false to show all seasons
   sportFilter,
@@ -41,7 +56,9 @@ export const PlayerDivisionStandings: React.FC<PlayerDivisionStandingsProps> = (
   onStatsCalculated,
 }) => {
   const [isLoading, setIsLoading] = useState(true);
-  const [divisionsWithStandings, setDivisionsWithStandings] = useState<DivisionWithStandings[]>([]);
+  const [divisionsWithStandings, setDivisionsWithStandings] = useState<
+    DivisionWithStandings[]
+  >([]);
 
   useEffect(() => {
     if (userId) {
@@ -52,19 +69,36 @@ export const PlayerDivisionStandings: React.FC<PlayerDivisionStandingsProps> = (
   const fetchUserDivisions = async () => {
     try {
       setIsLoading(true);
-      console.log('🏆 PlayerDivisionStandings: Fetching divisions for user:', userId);
+      console.log(
+        "🏆 PlayerDivisionStandings: Fetching divisions for user:",
+        userId,
+      );
       const data = await StandingsService.getUserStandings(userId);
-      console.log('🏆 PlayerDivisionStandings: Received', data.length, 'divisions');
-      console.log('🏆 PlayerDivisionStandings: Division data:', JSON.stringify(data.map(d => ({
-        id: d.division.id,
-        name: d.division.name,
-        hasUserStanding: !!d.userStanding,
-        league: d.division.league?.name,
-        season: d.division.season?.name,
-      })), null, 2));
+      console.log(
+        "🏆 PlayerDivisionStandings: Received",
+        data.length,
+        "divisions",
+      );
+      console.log(
+        "🏆 PlayerDivisionStandings: Division data:",
+        JSON.stringify(
+          data.map((d) => ({
+            id: d.division.id,
+            name: d.division.name,
+            hasUserStanding: !!d.userStanding,
+            league: d.division.league?.name,
+            season: d.division.season?.name,
+          })),
+          null,
+          2,
+        ),
+      );
       setDivisionsWithStandings(data);
     } catch (error) {
-      console.error('🏆 PlayerDivisionStandings: Error fetching user divisions:', error);
+      console.error(
+        "🏆 PlayerDivisionStandings: Error fetching user divisions:",
+        error,
+      );
     } finally {
       setIsLoading(false);
     }
@@ -98,13 +132,19 @@ export const PlayerDivisionStandings: React.FC<PlayerDivisionStandingsProps> = (
       }
     });
 
-    onStatsCalculated({ wins: totalWins, losses: totalLosses, matchesPlayed: totalMatchesPlayed });
+    onStatsCalculated({
+      wins: totalWins,
+      losses: totalLosses,
+      matchesPlayed: totalMatchesPlayed,
+    });
   }, [divisionsWithStandings, sportFilter, gameTypeFilter, onStatsCalculated]);
 
   // Filter divisions by sport for display
   const filteredDivisions = divisionsWithStandings.filter((divisionData) => {
     if (!sportFilter) return true;
-    const divisionSport = normalizeSportType(divisionData.division.league?.sportType);
+    const divisionSport = normalizeSportType(
+      divisionData.division.league?.sportType,
+    );
     return divisionSport === sportFilter;
   });
 
@@ -113,19 +153,19 @@ export const PlayerDivisionStandings: React.FC<PlayerDivisionStandingsProps> = (
     const { division } = divisionData;
 
     // Default to PICKLEBALL if no sportType (matches other screens like LeagueDetailsScreen)
-    const sportType = division.league?.sportType || 'PICKLEBALL';
+    const sportType = division.league?.sportType || "PICKLEBALL";
 
     router.push({
-      pathname: '/standings' as any,
+      pathname: "/standings" as any,
       params: {
         seasonId: division.seasonId,
-        seasonName: division.season?.name || 'Season',
-        leagueId: division.leagueId || '',
-        leagueName: division.league?.name || 'League',
+        seasonName: division.season?.name || "Season",
+        leagueId: division.leagueId || "",
+        leagueName: division.league?.name || "League",
         sportType: sportType,
-        startDate: division.season?.startDate || '',
-        endDate: division.season?.endDate || '',
-      }
+        startDate: division.season?.startDate || "",
+        endDate: division.season?.endDate || "",
+      },
     });
   };
 
@@ -148,7 +188,9 @@ export const PlayerDivisionStandings: React.FC<PlayerDivisionStandingsProps> = (
         <View style={styles.emptyContainer}>
           <Ionicons name="trophy-outline" size={40} color="#9CA3AF" />
           <Text style={styles.emptyText}>
-            {sportFilter ? `No ${sportFilter} divisions yet` : 'Not in any divisions yet'}
+            {sportFilter
+              ? `No ${sportFilter} divisions yet`
+              : "Not in any divisions yet"}
           </Text>
         </View>
       </View>
@@ -165,8 +207,8 @@ export const PlayerDivisionStandings: React.FC<PlayerDivisionStandingsProps> = (
         if (!userStanding && showOnlyCurrentDivisions) return null;
 
         const sportColor = getSportColor(division.league?.sportType);
-        const leagueName = division.league?.name || 'League';
-        const seasonName = division.season?.name || 'Season';
+        const leagueName = division.league?.name || "League";
+        const seasonName = division.season?.name || "Season";
 
         return (
           <TouchableOpacity
@@ -183,7 +225,9 @@ export const PlayerDivisionStandings: React.FC<PlayerDivisionStandingsProps> = (
 
             {/* League & Season Context */}
             <View style={styles.contextRow}>
-              <View style={[styles.sportIndicator, { backgroundColor: sportColor }]} />
+              <View
+                style={[styles.sportIndicator, { backgroundColor: sportColor }]}
+              />
               <Text style={styles.contextText}>
                 {leagueName} · {seasonName}
               </Text>
@@ -193,23 +237,34 @@ export const PlayerDivisionStandings: React.FC<PlayerDivisionStandingsProps> = (
             {userStanding ? (
               <View style={styles.userStandingRow}>
                 <View style={styles.rankContainer}>
-                  <Text style={styles.rankText}>#{userStanding.rank || '-'}</Text>
+                  <Text style={styles.rankText}>
+                    #{userStanding.rank || "-"}
+                  </Text>
                 </View>
                 <View style={styles.statsContainer}>
                   <View style={styles.statItem}>
-                    <Text style={styles.statValue}>{userStanding.matchesPlayed}</Text>
+                    <Text style={[styles.statValue, styles.pointsText]}>
+                      {userStanding.totalPoints}
+                    </Text>
+                    <Text style={styles.statLabel}>pts</Text>
+                  </View>
+                  <View style={styles.statItem}>
+                    <Text style={styles.statValue}>
+                      {userStanding.matchesPlayed}
+                    </Text>
                     <Text style={styles.statLabel}>P</Text>
                   </View>
                   <View style={styles.statItem}>
-                    <Text style={[styles.statValue, styles.winText]}>{userStanding.wins}</Text>
+                    <Text style={[styles.statValue, styles.winText]}>
+                      {userStanding.wins}
+                    </Text>
                     <Text style={styles.statLabel}>W</Text>
                   </View>
                   <View style={styles.statItem}>
-                    <Text style={[styles.statValue, styles.lossText]}>{userStanding.losses}</Text>
+                    <Text style={[styles.statValue, styles.lossText]}>
+                      {userStanding.losses}
+                    </Text>
                     <Text style={styles.statLabel}>L</Text>
-                  </View>
-                  <View style={styles.statItem}>
-                    <Text style={[styles.statValue, styles.pointsText]}>{userStanding.totalPoints}pts</Text>
                   </View>
                 </View>
               </View>
@@ -232,64 +287,64 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontSize: 18,
-    fontWeight: '700' as const,
-    color: '#111827',
+    fontWeight: "700" as const,
+    color: "#111827",
     marginTop: theme.spacing.sm,
     marginBottom: theme.spacing.md,
     fontFamily: theme.typography.fontFamily.primary,
     letterSpacing: -0.3,
   },
   loadingContainer: {
-    backgroundColor: '#ffffff',
+    backgroundColor: "#ffffff",
     padding: theme.spacing.lg,
     borderRadius: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     minHeight: 100,
   },
   loadingText: {
     marginTop: theme.spacing.sm,
     fontSize: 14,
-    color: '#6B7280',
+    color: "#6B7280",
   },
   emptyContainer: {
-    backgroundColor: '#ffffff',
+    backgroundColor: "#ffffff",
     padding: theme.spacing.xl,
     borderRadius: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
   emptyText: {
     marginTop: theme.spacing.sm,
     fontSize: 14,
-    color: '#6B7280',
+    color: "#6B7280",
   },
   divisionCard: {
-    backgroundColor: '#ffffff',
+    backgroundColor: "#ffffff",
     borderRadius: 16,
     padding: theme.spacing.md,
     marginBottom: theme.spacing.md,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: "#E5E7EB",
   },
   divisionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     marginBottom: theme.spacing.sm,
   },
   divisionName: {
     fontSize: 16,
-    fontWeight: '700',
-    color: '#1A1C1E',
+    fontWeight: "700",
+    color: "#1A1C1E",
   },
   contextRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     marginBottom: theme.spacing.md,
     paddingBottom: theme.spacing.sm,
     borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
+    borderBottomColor: "#F3F4F6",
   },
   sportIndicator: {
     width: 8,
@@ -299,63 +354,63 @@ const styles = StyleSheet.create({
   },
   contextText: {
     fontSize: 13,
-    color: '#6B7280',
+    color: "#6B7280",
     flex: 1,
   },
   userStandingRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#F9FAFB',
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#F9FAFB",
     borderRadius: 12,
     padding: theme.spacing.md,
   },
   rankContainer: {
     width: 50,
-    alignItems: 'center',
+    alignItems: "center",
   },
   rankText: {
     fontSize: 18,
-    fontWeight: '700',
-    color: '#FEA04D',
+    fontWeight: "700",
+    color: "#FEA04D",
   },
   statsContainer: {
     flex: 1,
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-around",
+    alignItems: "center",
   },
   statItem: {
-    alignItems: 'center',
+    alignItems: "center",
   },
   statValue: {
     fontSize: 16,
-    fontWeight: '600',
-    color: '#1A1C1E',
+    fontWeight: "600",
+    color: "#1A1C1E",
   },
   statLabel: {
     fontSize: 11,
-    fontWeight: '500',
-    color: '#6B7280',
+    fontWeight: "500",
+    color: "#6B7280",
     marginTop: 2,
   },
   winText: {
-    color: '#34C759',
+    color: "#3B82F6",
   },
   lossText: {
-    color: '#FF3B30',
+    color: "#9CA3AF",
   },
   pointsText: {
-    color: '#FEA04D',
-    fontWeight: '700',
+    color: "#FEA04D",
+    fontWeight: "700",
   },
   noStandingRow: {
-    backgroundColor: '#F9FAFB',
+    backgroundColor: "#F9FAFB",
     borderRadius: 12,
     padding: theme.spacing.md,
-    alignItems: 'center',
+    alignItems: "center",
   },
   noStandingText: {
     fontSize: 13,
-    color: '#9CA3AF',
+    color: "#9CA3AF",
   },
 });

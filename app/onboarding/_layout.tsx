@@ -1,6 +1,6 @@
-import { Stack } from 'expo-router';
-import { OnboardingProvider } from '@features/onboarding';
-import { ErrorBoundary } from '@shared/components/layout';
+import { OnboardingProvider } from "@features/onboarding";
+import { ErrorBoundary } from "@shared/components/layout";
+import { Stack } from "expo-router";
 
 export default function OnboardingLayout() {
   return (
@@ -10,7 +10,7 @@ export default function OnboardingLayout() {
           screenOptions={{
             headerShown: false,
             gestureEnabled: true, // Re-enable swipe-back gesture
-            animation: 'default',
+            animation: "default",
           }}
         >
           <Stack.Screen name="personal-info" />
@@ -18,8 +18,14 @@ export default function OnboardingLayout() {
           <Stack.Screen name="game-select" />
           <Stack.Screen name="profile-picture" />
           <Stack.Screen name="dmr-intro" />
-          <Stack.Screen name="skill-assessment" options={{ gestureEnabled: false }} />
-          <Stack.Screen name="assessment-results" options={{ gestureEnabled: false }} />
+          <Stack.Screen
+            name="skill-assessment"
+            options={{ gestureEnabled: false }}
+          />
+          <Stack.Screen
+            name="assessment-results"
+            options={{ gestureEnabled: false }}
+          />
         </Stack>
       </OnboardingProvider>
     </ErrorBoundary>
