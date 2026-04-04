@@ -11,7 +11,7 @@ interface DarkThemeScorecardProps {
   sportColors: SportColors;
   isFriendly?: boolean;
   matchType?: string;
-  previewScale?: number; // Scale factor for text/content in preview mode
+  previewScale?: number;
 }
 
 export const DarkThemeScorecard: React.FC<DarkThemeScorecardProps> = ({

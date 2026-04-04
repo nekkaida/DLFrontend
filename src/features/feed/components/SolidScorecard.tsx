@@ -45,14 +45,28 @@ export const SolidScorecard: React.FC<SolidScorecardProps> = ({
   previewScale,
 }) => {
   return (
-    <View style={[styles.scorecardContainer, previewScale !== undefined && { aspectRatio: undefined, width: "100%", height: "100%" }]}>
+    <View
+      style={[
+        styles.scorecardContainer,
+        previewScale !== undefined && {
+          aspectRatio: undefined,
+          width: "100%",
+          height: "100%",
+        },
+      ]}
+    >
       {/* Sport Background Image */}
       <View style={styles.backgroundImage}>
         {getSportBackground(match.sport)}
       </View>
 
       {/* Content Overlay */}
-      <View style={[styles.contentContainer, previewScale !== undefined && { padding: 4 }]}>
+      <View
+        style={[
+          styles.contentContainer,
+          previewScale !== undefined && { padding: 4 },
+        ]}
+      >
         <ScoreCard
           match={match}
           sportColors={sportColors}
