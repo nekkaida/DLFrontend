@@ -39,6 +39,7 @@ import {
   formatMatchDate,
   formatMatchTime,
   getMatchTime,
+  isMatchPast,
   InvitationCard,
   Match,
   MatchCard,
@@ -343,32 +344,33 @@ export default function MyGamesScreen({
       return true;
     });
 
-    console.log(`[MyGamesScreen] Filtering matches`, {
-      totalMatches: matches.length,
-      activeTab,
-      upcomingPastTab,
-      beforeFiltering: filtered.length,
-      sportType,
-    });
-
-    // Filter by Upcoming/Past tab
+    // Filter by Upcoming/Past tab.
+    // DRAFT always stays Upcoming regardless of time.
+    // Terminal statuses always go to Past.
+    // All other non-terminal statuses use the scheduled start time:
+    //   - start time has passed => Past
+    //   - start time is in the future (or unknown) => Upcoming
     if (upcomingPastTab === "UPCOMING") {
-      filtered = filtered.filter((m) =>
-        ["OPEN", "SCHEDULED", "ONGOING", "IN_PROGRESS", "DRAFT"].includes(
-          m.status.toUpperCase(),
-        ),
-      );
+      filtered = filtered.filter((m) => {
+        const status = m.status.toUpperCase();
+        // DRAFT is always upcoming
+        if (status === "DRAFT") return true;
+        // Terminal statuses belong to Past
+        if (["COMPLETED", "FINISHED", "CANCELLED", "VOID", "UNFINISHED"].includes(status)) return false;
+        // Non-terminal: show in Upcoming only if start time hasn't passed yet
+        return !isMatchPast(m);
+      });
     } else if (upcomingPastTab === "PAST") {
-      filtered = filtered.filter((m) =>
-        ["COMPLETED", "FINISHED", "CANCELLED", "VOID", "UNFINISHED"].includes(
-          m.status.toUpperCase(),
-        ),
-      );
+      filtered = filtered.filter((m) => {
+        const status = m.status.toUpperCase();
+        // DRAFT never appears in Past
+        if (status === "DRAFT") return false;
+        // Terminal statuses always Past
+        if (["COMPLETED", "FINISHED", "CANCELLED", "VOID", "UNFINISHED"].includes(status)) return true;
+        // Non-terminal: Past only once start time has passed
+        return isMatchPast(m);
+      });
     }
-
-    console.log(`[MyGamesScreen] After time filtering: ${filtered.length} matches`, {
-      statuses: filtered.map(m => m.status),
-    });
 
     // Filter by ALL/LEAGUE/FRIENDLY tab
     if (activeTab === "LEAGUE") {
@@ -418,12 +420,6 @@ export default function MyGamesScreen({
         filters.status!.includes(m.status.toUpperCase()),
       );
     }
-
-    console.log(`[MyGamesScreen] Final filtered matches: ${filtered.length}`, {
-      activeTab,
-      upcomingPastTab,
-      matches: filtered.map(m => ({ id: m.id, status: m.status, sport: m.sport })),
-    });
 
     return filtered;
   }, [

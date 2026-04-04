@@ -1,7 +1,6 @@
 import { moderateScale, scale, verticalScale } from "@/core/utils/responsive";
 import { useSession } from "@/lib/auth-client";
 import axiosInstance from "@/lib/endpoints";
-import { NavBar } from "@/shared/components/layout";
 import { AnimatedFilterChip } from "@/shared/components/ui/AnimatedFilterChip";
 import { SegmentedControl } from "@/shared/components/ui/SegmentedControl";
 import { chatLogger } from "@/utils/logger";
@@ -9,24 +8,24 @@ import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { router } from "expo-router";
 import React, {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
+    useCallback,
+    useEffect,
+    useMemo,
+    useRef,
+    useState,
 } from "react";
 import {
-  Animated,
-  AppState,
-  AppStateStatus,
-  Keyboard,
-  Platform,
-  Pressable,
-  StatusBar,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
+    Animated,
+    AppState,
+    AppStateStatus,
+    Keyboard,
+    Platform,
+    Pressable,
+    StatusBar,
+    StyleSheet,
+    Text,
+    TextInput,
+    View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ThreadList } from "./components/chat-list";
@@ -75,15 +74,11 @@ interface AuthResponse {
 }
 
 interface ChatScreenProps {
-  activeTab?: number;
-  onTabPress?: (tabIndex: number) => void;
   sport?: "pickleball" | "tennis" | "padel";
   chatUnreadCount?: number;
 }
 
 export const ChatScreen: React.FC<ChatScreenProps> = ({
-  activeTab = 4,
-  onTabPress,
   sport = "pickleball",
   chatUnreadCount = 0,
 }) => {
@@ -533,14 +528,6 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
             />
           )}
         </Animated.View>
-        {onTabPress && (
-          <NavBar
-            activeTab={activeTab}
-            onTabPress={onTabPress}
-            sport={sport}
-            badgeCounts={{ chat: chatUnreadCount }}
-          />
-        )}
       </View>
     </View>
   );
