@@ -91,5 +91,6 @@ app/archive/
 
 package-lock.json
 
-google-services.json
+# Remind Zawad to share the json file 
+# google-services.json
 GoogleService-Info.plist
