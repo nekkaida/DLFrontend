@@ -698,7 +698,7 @@ export const MatchMessageBubble: React.FC<MatchMessageBubbleProps> = ({
   }, []);
 
   return (
-    <Animated.View layout={layoutTransition} style={styles.container}>
+    <Animated.View style={styles.container}>
       {/* Header with sender name and timestamp - outside card */}
       <View style={styles.headerRow}>
         <View style={styles.senderRow}>

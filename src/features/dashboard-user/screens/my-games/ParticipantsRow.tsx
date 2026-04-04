@@ -78,31 +78,45 @@ export function ParticipantsRow({ participants, matchType }: ParticipantsRowProp
 
   // For DOUBLES matches, group by team
   if (matchType === 'DOUBLES') {
-    const team1 = displayedParticipants.filter(p => p.team === 'team1');
-    const team2 = displayedParticipants.filter(p => p.team === 'team2');
+    const byTeam1 = displayedParticipants.filter(p => p.team === 'team1');
+    const byTeam2 = displayedParticipants.filter(p => p.team === 'team2');
 
-    // If no team data, fall back to default order (first 2 vs last 2)
-    const hasTeamData = team1.length > 0 || team2.length > 0;
+    // If no team data, split positionally (first 2 = team1, rest = team2)
+    const hasTeamData = byTeam1.length > 0 || byTeam2.length > 0;
+    const team1 = hasTeamData ? byTeam1 : displayedParticipants.slice(0, 2);
+    const team2 = hasTeamData ? byTeam2 : displayedParticipants.slice(2, 4);
 
-    if (hasTeamData) {
-      return (
-        <View style={styles.playersRow}>
-          {/* Team 1 */}
-          {team1.map(p => renderParticipant(p))}
+    const team1Empty = Math.max(0, 2 - team1.length);
+    const team2Empty = Math.max(0, 2 - team2.length);
 
-          {/* Divider between teams (if both teams have players) */}
-          {team1.length > 0 && team2.length > 0 && (
-            <View style={styles.teamDivider} />
-          )}
+    return (
+      <View style={styles.playersRow}>
+        {/* Team 1 */}
+        {team1.map(p => renderParticipant(p))}
+        {Array.from({ length: team1Empty }).map((_, i) => (
+          <View key={`t1-empty-${i}`} style={styles.playerColumn}>
+            <View style={styles.emptySlotCircle}>
+              <Ionicons name="person" size={24} color="#D1D5DB" />
+            </View>
+            <Text style={styles.emptySlotText}>Open</Text>
+          </View>
+        ))}
 
-          {/* Team 2 */}
-          {team2.map(p => renderParticipant(p))}
+        {/* Vertical divider — always shown for doubles */}
+        <View style={styles.teamDivider} />
 
-          {/* Empty slots */}
-          {renderEmptySlots()}
-        </View>
-      );
-    }
+        {/* Team 2 */}
+        {team2.map(p => renderParticipant(p))}
+        {Array.from({ length: team2Empty }).map((_, i) => (
+          <View key={`t2-empty-${i}`} style={styles.playerColumn}>
+            <View style={styles.emptySlotCircle}>
+              <Ionicons name="person" size={24} color="#D1D5DB" />
+            </View>
+            <Text style={styles.emptySlotText}>Open</Text>
+          </View>
+        ))}
+      </View>
+    );
   }
 
   // For SINGLES or DOUBLES without team data, render in order

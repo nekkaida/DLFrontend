@@ -12,6 +12,9 @@ export interface StandingsPlayer {
   wins: number;
   losses: number;
   points: number;
+  partnerId?: string;
+  partnerName?: string;
+  partnerImage?: string;
 }
 
 export interface StandingsTeam {

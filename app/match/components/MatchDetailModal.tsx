@@ -1,22 +1,16 @@
-import React, { useCallback, useMemo, useRef, useEffect } from 'react';
-import {
-  Image,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-} from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { moderateScale, scale, verticalScale } from "@/core/utils/responsive";
+import { Ionicons } from "@expo/vector-icons";
 import {
   BottomSheetBackdrop,
+  BottomSheetHandle,
   BottomSheetModal,
   BottomSheetScrollView,
-  BottomSheetHandle,
-} from '@gorhom/bottom-sheet';
-import { format } from 'date-fns';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { scale, verticalScale, moderateScale } from '@/core/utils/responsive';
-import { Match } from './types';
+} from "@gorhom/bottom-sheet";
+import { format } from "date-fns";
+import React, { useCallback, useEffect, useMemo, useRef } from "react";
+import { Image, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { Match } from "./types";
 
 interface MatchDetailModalProps {
   match: Match | null;
@@ -44,7 +38,7 @@ export const MatchDetailModal: React.FC<MatchDetailModalProps> = ({
 }) => {
   const insets = useSafeAreaInsets();
   const bottomSheetModalRef = useRef<BottomSheetModal>(null);
-  const snapPoints = useMemo(() => ['85%', '95%'], []);
+  const snapPoints = useMemo(() => ["85%", "95%"], []);
 
   useEffect(() => {
     if (visible && match) {
@@ -54,11 +48,14 @@ export const MatchDetailModal: React.FC<MatchDetailModalProps> = ({
     }
   }, [visible, match]);
 
-  const handleSheetChanges = useCallback((index: number) => {
-    if (index === -1) {
-      onClose();
-    }
-  }, [onClose]);
+  const handleSheetChanges = useCallback(
+    (index: number) => {
+      if (index === -1) {
+        onClose();
+      }
+    },
+    [onClose],
+  );
 
   const renderBackdrop = useCallback(
     (props: any) => (
@@ -70,16 +67,16 @@ export const MatchDetailModal: React.FC<MatchDetailModalProps> = ({
         onPress={() => bottomSheetModalRef.current?.dismiss()}
       />
     ),
-    []
+    [],
   );
 
   const isMatchFull = useMemo(() => {
     if (!match?.participants) return false;
     // Only count ACCEPTED participants — PENDING invitations don't fill the slot
     const acceptedCount = match.participants.filter(
-      p => p.invitationStatus === 'ACCEPTED'
+      (p) => p.invitationStatus === "ACCEPTED",
     ).length;
-    const maxSlots = match.matchType === 'DOUBLES' ? 4 : 2;
+    const maxSlots = match.matchType === "DOUBLES" ? 4 : 2;
     return acceptedCount >= maxSlots;
   }, [match]);
 
@@ -103,7 +100,10 @@ export const MatchDetailModal: React.FC<MatchDetailModalProps> = ({
     >
       <BottomSheetScrollView
         style={styles.modalContent}
-        contentContainerStyle={[styles.modalContentContainer, { paddingBottom: insets.bottom + 20 }]}
+        contentContainerStyle={[
+          styles.modalContentContainer,
+          { paddingBottom: insets.bottom + 20 },
+        ]}
         showsVerticalScrollIndicator={false}
       >
         {/* Header */}
@@ -113,14 +113,25 @@ export const MatchDetailModal: React.FC<MatchDetailModalProps> = ({
 
         {/* Match Type Badge */}
         <View style={styles.badgeContainer}>
-          <View style={[styles.typeBadge, { backgroundColor: '#F3F4F6' }]}>
+          <View style={[styles.typeBadge, { backgroundColor: "#F3F4F6" }]}>
             <Text style={styles.typeBadgeText}>
-              {match.matchType === 'DOUBLES' ? 'Doubles' : 'Singles'} Match
+              {match.matchType === "DOUBLES" ? "Doubles" : "Singles"} Match
             </Text>
           </View>
-          <View style={[styles.sportBadgeModal, { borderColor: sportColors.background }]}>
-            <Text style={[styles.sportBadgeModalText, { color: sportColors.background }]}>
-              {sportType.charAt(0).toUpperCase() + sportType.slice(1).toLowerCase()}
+          <View
+            style={[
+              styles.sportBadgeModal,
+              { borderColor: sportColors.background },
+            ]}
+          >
+            <Text
+              style={[
+                styles.sportBadgeModalText,
+                { color: sportColors.background },
+              ]}
+            >
+              {sportType.charAt(0).toUpperCase() +
+                sportType.slice(1).toLowerCase()}
             </Text>
           </View>
         </View>
@@ -130,24 +141,45 @@ export const MatchDetailModal: React.FC<MatchDetailModalProps> = ({
           <View style={styles.modalSection}>
             <Text style={styles.sectionTitle}>Players</Text>
             {(() => {
-              const accepted = match.participants.filter(p => p.invitationStatus === 'ACCEPTED');
-              const isDoubles = match.matchType === 'DOUBLES';
-              const renderPlayer = (p: typeof accepted[0], key: string | number) => (
+              // Show ACCEPTED and PENDING — mirrors MatchCard behaviour.
+              // PENDING = invited but not yet responded; DECLINED/EXPIRED = excluded.
+              const accepted = match.participants.filter(
+                (p) =>
+                  !p.invitationStatus ||
+                  p.invitationStatus === "ACCEPTED" ||
+                  p.invitationStatus === "PENDING",
+              );
+              const isDoubles = match.matchType === "DOUBLES";
+              const renderPlayer = (
+                p: (typeof accepted)[0],
+                key: string | number,
+              ) => (
                 <View key={key} style={styles.playerItem}>
                   {p.user.image ? (
-                    <Image source={{ uri: p.user.image }} style={styles.playerAvatar} />
+                    <Image
+                      source={{ uri: p.user.image }}
+                      style={styles.playerAvatar}
+                    />
                   ) : (
                     <View style={styles.playerAvatarPlaceholder}>
-                      <Text style={styles.playerAvatarText}>{p.user.name?.charAt(0).toUpperCase() || '?'}</Text>
+                      <Text style={styles.playerAvatarText}>
+                        {p.user.name?.charAt(0).toUpperCase() || "?"}
+                      </Text>
                     </View>
                   )}
-                  <Text style={styles.playerName} numberOfLines={1}>{p.user.name}</Text>
+                  <Text style={styles.playerName} numberOfLines={1}>
+                    {p.user.name}
+                  </Text>
                 </View>
               );
               const renderEmpty = (key: string | number) => (
                 <View key={key} style={styles.playerItem}>
                   <View style={styles.emptyPlayerSlot}>
-                    <Ionicons name="person-outline" size={moderateScale(20)} color="#9CA3AF" />
+                    <Ionicons
+                      name="person-outline"
+                      size={moderateScale(20)}
+                      color="#9CA3AF"
+                    />
                   </View>
                   <Text style={styles.emptySlotText}>Open slot</Text>
                 </View>
@@ -158,13 +190,17 @@ export const MatchDetailModal: React.FC<MatchDetailModalProps> = ({
                 return (
                   <View style={styles.teamsContainer}>
                     <View style={styles.teamGroup}>
-                      {team1.map(p => renderPlayer(p, p.user.id))}
-                      {Array.from({ length: Math.max(0, 2 - team1.length) }).map((_, i) => renderEmpty(`t1-${i}`))}
+                      {team1.map((p) => renderPlayer(p, p.user.id))}
+                      {Array.from({
+                        length: Math.max(0, 2 - team1.length),
+                      }).map((_, i) => renderEmpty(`t1-${i}`))}
                     </View>
                     <View style={styles.teamDivider} />
                     <View style={styles.teamGroup}>
-                      {team2.map(p => renderPlayer(p, p.user.id))}
-                      {Array.from({ length: Math.max(0, 2 - team2.length) }).map((_, i) => renderEmpty(`t2-${i}`))}
+                      {team2.map((p) => renderPlayer(p, p.user.id))}
+                      {Array.from({
+                        length: Math.max(0, 2 - team2.length),
+                      }).map((_, i) => renderEmpty(`t2-${i}`))}
                     </View>
                   </View>
                 );
@@ -172,8 +208,10 @@ export const MatchDetailModal: React.FC<MatchDetailModalProps> = ({
               const emptySlots = Math.max(0, 2 - accepted.length);
               return (
                 <View style={styles.playersContainer}>
-                  {accepted.map(p => renderPlayer(p, p.user.id))}
-                  {Array.from({ length: emptySlots }).map((_, i) => renderEmpty(`empty-${i}`))}
+                  {accepted.map((p) => renderPlayer(p, p.user.id))}
+                  {Array.from({ length: emptySlots }).map((_, i) =>
+                    renderEmpty(`empty-${i}`),
+                  )}
                 </View>
               );
             })()}
@@ -184,30 +222,47 @@ export const MatchDetailModal: React.FC<MatchDetailModalProps> = ({
         <View style={styles.modalSection}>
           <Text style={styles.sectionTitle}>Date & Time</Text>
           <View style={styles.infoRowModal}>
-            <Ionicons name="calendar-outline" size={moderateScale(20)} color="#86868B" />
+            <Ionicons
+              name="calendar-outline"
+              size={moderateScale(20)}
+              color="#86868B"
+            />
             <Text style={styles.infoTextModal}>
               {match.scheduledTime || match.matchDate
-                ? format(new Date(match.scheduledTime || match.matchDate!), 'EEEE, d MMMM yyyy')
-                : 'TBD'}
+                ? format(
+                    new Date(match.scheduledTime || match.matchDate!),
+                    "EEEE, d MMMM yyyy",
+                  )
+                : "TBD"}
             </Text>
           </View>
           <View style={styles.infoRowModal}>
-            <Ionicons name="time-outline" size={moderateScale(20)} color="#86868B" />
+            <Ionicons
+              name="time-outline"
+              size={moderateScale(20)}
+              color="#86868B"
+            />
             <Text style={styles.infoTextModal}>
               {(() => {
                 const dateString = match.scheduledTime || match.matchDate;
-                if (!dateString) return 'TBD';
+                if (!dateString) return "TBD";
                 const startDate = new Date(dateString);
                 const duration = match.duration || 2;
-                const endDate = new Date(startDate.getTime() + duration * 60 * 60 * 1000);
-                return `${format(startDate, 'h:mm a')} – ${format(endDate, 'h:mm a')}`;
+                const endDate = new Date(
+                  startDate.getTime() + duration * 60 * 60 * 1000,
+                );
+                return `${format(startDate, "h:mm a")} – ${format(endDate, "h:mm a")}`;
               })()}
             </Text>
           </View>
           <View style={styles.infoRowModal}>
-            <Ionicons name="hourglass-outline" size={moderateScale(20)} color="#86868B" />
+            <Ionicons
+              name="hourglass-outline"
+              size={moderateScale(20)}
+              color="#86868B"
+            />
             <Text style={styles.infoTextModal}>
-              {match.duration || 2} hour{(match.duration || 2) > 1 ? 's' : ''}
+              {match.duration || 2} hour{(match.duration || 2) > 1 ? "s" : ""}
             </Text>
           </View>
         </View>
@@ -216,9 +271,13 @@ export const MatchDetailModal: React.FC<MatchDetailModalProps> = ({
         <View style={styles.modalSection}>
           <Text style={styles.sectionTitle}>Location</Text>
           <View style={styles.infoRowModal}>
-            <Ionicons name="location-outline" size={moderateScale(20)} color="#86868B" />
+            <Ionicons
+              name="location-outline"
+              size={moderateScale(20)}
+              color="#86868B"
+            />
             <Text style={styles.infoTextModal}>
-              {match.location || match.venue || 'TBD'}
+              {match.location || match.venue || "TBD"}
             </Text>
           </View>
         </View>
@@ -226,20 +285,28 @@ export const MatchDetailModal: React.FC<MatchDetailModalProps> = ({
         {/* Court Status */}
         <View style={styles.modalSection}>
           <Text style={styles.sectionTitle}>Court Status</Text>
-          <View style={[
-            styles.statusBadge,
-            match.courtBooked ? styles.statusBadgeBooked : styles.statusBadgeNotBooked
-          ]}>
+          <View
+            style={[
+              styles.statusBadge,
+              match.courtBooked
+                ? styles.statusBadgeBooked
+                : styles.statusBadgeNotBooked,
+            ]}
+          >
             <Ionicons
               name={match.courtBooked ? "checkmark-circle" : "close-circle"}
               size={moderateScale(18)}
               color={match.courtBooked ? "#16A34A" : "#DC2626"}
             />
-            <Text style={[
-              styles.statusText,
-              match.courtBooked ? styles.statusTextBooked : styles.statusTextNotBooked
-            ]}>
-              Court {match.courtBooked ? 'booked' : 'not booked'}
+            <Text
+              style={[
+                styles.statusText,
+                match.courtBooked
+                  ? styles.statusTextBooked
+                  : styles.statusTextNotBooked,
+              ]}
+            >
+              Court {match.courtBooked ? "booked" : "not booked"}
             </Text>
           </View>
         </View>
@@ -254,17 +321,20 @@ export const MatchDetailModal: React.FC<MatchDetailModalProps> = ({
                 const fee = match.fee;
                 const feeAmount = match.feeAmount;
 
-                if (fee === 'FREE' || !fee) {
-                  return 'Free';
-                } else if (fee === 'SPLIT' && feeAmount) {
+                if (fee === "FREE" || !fee) {
+                  return "Free";
+                } else if (fee === "SPLIT" && feeAmount) {
                   const totalAmount = Number(feeAmount);
-                  const numPlayers = match.matchType === 'DOUBLES' ? 4 : 2;
-                  const perPlayer = numPlayers > 0 ? (totalAmount / numPlayers).toFixed(2) : '0.00';
+                  const numPlayers = match.matchType === "DOUBLES" ? 4 : 2;
+                  const perPlayer =
+                    numPlayers > 0
+                      ? (totalAmount / numPlayers).toFixed(2)
+                      : "0.00";
                   return `Split · Est. RM${perPlayer} per player`;
-                } else if (fee === 'FIXED' && feeAmount) {
+                } else if (fee === "FIXED" && feeAmount) {
                   return `Fixed · RM${Number(feeAmount).toFixed(2)} per player`;
                 }
-                return 'Free';
+                return "Free";
               })()}
             </Text>
           </View>
@@ -284,15 +354,24 @@ export const MatchDetailModal: React.FC<MatchDetailModalProps> = ({
             style={[
               styles.joinMatchButton,
               {
-                backgroundColor: isUserInMatch || isMatchFull ? '#9CA3AF' : sportColors.background
-              }
+                backgroundColor:
+                  isUserInMatch || isMatchFull
+                    ? "#9CA3AF"
+                    : sportColors.background,
+              },
             ]}
             activeOpacity={isUserInMatch || isMatchFull ? 1 : 0.8}
             disabled={isUserInMatch || isJoining || isMatchFull}
             onPress={() => onJoinMatch(match)}
           >
             <Text style={styles.joinMatchButtonText}>
-              {isJoining ? 'Loading...' : isUserInMatch ? 'Already Joined' : isMatchFull ? 'Match Full' : 'Join Match'}
+              {isJoining
+                ? "Loading..."
+                : isUserInMatch
+                  ? "Already Joined"
+                  : isMatchFull
+                    ? "Match Full"
+                    : "Join Match"}
             </Text>
           </TouchableOpacity>
         </View>
@@ -306,7 +385,7 @@ const styles = StyleSheet.create({
     paddingTop: verticalScale(8),
   },
   bottomSheetBackground: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: "#FFFFFF",
     borderTopLeftRadius: moderateScale(20),
     borderTopRightRadius: moderateScale(20),
   },
@@ -318,16 +397,16 @@ const styles = StyleSheet.create({
     paddingTop: verticalScale(8),
   },
   modalHeader: {
-    alignItems: 'center',
+    alignItems: "center",
     marginBottom: verticalScale(24),
   },
   modalTitle: {
     fontSize: moderateScale(22),
-    fontWeight: '700',
-    color: '#111827',
+    fontWeight: "700",
+    color: "#111827",
   },
   badgeContainer: {
-    flexDirection: 'row',
+    flexDirection: "row",
     gap: scale(8),
     marginBottom: verticalScale(20),
   },
@@ -338,52 +417,52 @@ const styles = StyleSheet.create({
   },
   typeBadgeText: {
     fontSize: moderateScale(13),
-    fontWeight: '600',
-    color: '#374151',
+    fontWeight: "600",
+    color: "#374151",
   },
   sportBadgeModal: {
     paddingHorizontal: scale(12),
     paddingVertical: verticalScale(6),
     borderRadius: moderateScale(12),
     borderWidth: 1.5,
-    backgroundColor: 'transparent',
+    backgroundColor: "transparent",
   },
   sportBadgeModalText: {
     fontSize: moderateScale(13),
-    fontWeight: '600',
+    fontWeight: "600",
   },
   modalSection: {
     marginBottom: verticalScale(20),
   },
   sectionTitle: {
     fontSize: moderateScale(13),
-    fontWeight: '600',
-    color: '#9CA3AF',
-    textTransform: 'uppercase',
+    fontWeight: "600",
+    color: "#9CA3AF",
+    textTransform: "uppercase",
     letterSpacing: 0.5,
     marginBottom: verticalScale(8),
   },
   teamsContainer: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
+    flexDirection: "row",
+    alignItems: "flex-start",
   },
   teamGroup: {
-    flexDirection: 'row',
+    flexDirection: "row",
     gap: scale(12),
   },
   teamDivider: {
     width: 1,
-    alignSelf: 'stretch',
-    backgroundColor: '#E2E2E2',
+    alignSelf: "stretch",
+    backgroundColor: "#E2E2E2",
     marginHorizontal: scale(8),
   },
   playersContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
+    flexDirection: "row",
+    flexWrap: "wrap",
     gap: scale(16),
   },
   playerItem: {
-    alignItems: 'center',
+    alignItems: "center",
     width: scale(70),
   },
   playerAvatar: {
@@ -396,100 +475,100 @@ const styles = StyleSheet.create({
     width: moderateScale(48),
     height: moderateScale(48),
     borderRadius: moderateScale(24),
-    backgroundColor: '#E8B4BC',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: "#E8B4BC",
+    justifyContent: "center",
+    alignItems: "center",
     marginBottom: verticalScale(6),
   },
   playerAvatarText: {
-    color: '#FFFFFF',
+    color: "#FFFFFF",
     fontSize: moderateScale(18),
-    fontWeight: '700',
+    fontWeight: "700",
   },
   playerName: {
     fontSize: moderateScale(12),
-    fontWeight: '500',
-    color: '#111827',
-    textAlign: 'center',
+    fontWeight: "500",
+    color: "#111827",
+    textAlign: "center",
   },
   emptyPlayerSlot: {
     width: moderateScale(48),
     height: moderateScale(48),
     borderRadius: moderateScale(24),
     borderWidth: 2,
-    borderColor: '#E5E7EB',
-    borderStyle: 'dashed',
-    justifyContent: 'center',
-    alignItems: 'center',
+    borderColor: "#E5E7EB",
+    borderStyle: "dashed",
+    justifyContent: "center",
+    alignItems: "center",
     marginBottom: verticalScale(6),
   },
   emptySlotText: {
     fontSize: moderateScale(12),
-    fontWeight: '500',
-    color: '#9CA3AF',
-    textAlign: 'center',
+    fontWeight: "500",
+    color: "#9CA3AF",
+    textAlign: "center",
   },
   infoRowModal: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     marginBottom: verticalScale(8),
   },
   infoTextModal: {
     fontSize: moderateScale(15),
-    color: '#86868B',
+    color: "#86868B",
     marginLeft: scale(10),
   },
   costIcon: {
     fontSize: moderateScale(15),
-    fontWeight: '500',
-    color: '#86868B',
+    fontWeight: "500",
+    color: "#86868B",
     width: scale(20),
   },
   statusBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     paddingHorizontal: scale(12),
     paddingVertical: verticalScale(8),
     borderRadius: moderateScale(8),
-    alignSelf: 'flex-start',
+    alignSelf: "flex-start",
   },
   statusBadgeBooked: {
-    backgroundColor: '#F0FDF4',
+    backgroundColor: "#F0FDF4",
   },
   statusBadgeNotBooked: {
-    backgroundColor: '#FEF2F2',
+    backgroundColor: "#FEF2F2",
   },
   statusText: {
     fontSize: moderateScale(14),
-    fontWeight: '600',
+    fontWeight: "600",
     marginLeft: scale(6),
   },
   statusTextBooked: {
-    color: '#16A34A',
+    color: "#16A34A",
   },
   statusTextNotBooked: {
-    color: '#DC2626',
+    color: "#DC2626",
   },
   notesText: {
     fontSize: moderateScale(14),
-    color: '#86868B',
+    color: "#86868B",
     lineHeight: verticalScale(20),
   },
   joinButtonContainer: {
     marginTop: verticalScale(12),
     paddingTop: verticalScale(16),
     borderTopWidth: 1,
-    borderTopColor: '#E5E7EB',
+    borderTopColor: "#E5E7EB",
   },
   joinMatchButton: {
     paddingVertical: verticalScale(14),
     borderRadius: moderateScale(12),
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
   joinMatchButtonText: {
     fontSize: moderateScale(16),
-    fontWeight: '600',
-    color: '#FFFFFF',
+    fontWeight: "600",
+    color: "#FFFFFF",
   },
 });
