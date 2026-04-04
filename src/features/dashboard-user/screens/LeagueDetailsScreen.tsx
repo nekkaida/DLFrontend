@@ -2,7 +2,6 @@ import BackButtonIcon from "@/assets/icons/back-button.svg";
 import LeagueInfoIcon from "@/assets/icons/league-info.svg";
 import CalendarMinusIcon from "@/assets/icons/season-details/calendar-minus.svg";
 import CalendarIcon from "@/assets/icons/season-details/calendar.svg";
-import { ManageTeamButton } from "@/features/pairing/components";
 import { useActivePartnership } from "@/features/pairing/hooks";
 import { useSession } from "@/lib/auth-client";
 import axiosInstance from "@/lib/endpoints";
@@ -1528,7 +1527,7 @@ export default function LeagueDetailsScreen({
             {/* Bottom action row */}
             {renderBottomRow()}
 
-            {/* ManageTeam button (doubles) */}
+            {/* ManageTeam button (doubles) REMOVED
             {showManageTeam && partnership && (
               <View style={{ marginTop: 8 }}>
                 <ManageTeamButton
@@ -1536,7 +1535,7 @@ export default function LeagueDetailsScreen({
                   partnershipId={partnership.id}
                 />
               </View>
-            )}
+            )} */}
           </View>,
         )}
       </TouchableOpacity>
