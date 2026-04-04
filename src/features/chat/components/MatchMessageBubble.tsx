@@ -412,7 +412,7 @@ export const MatchMessageBubble: React.FC<MatchMessageBubbleProps> = ({
   // Check if match is already completed (has result)
   const isMatchCompleted = React.useMemo(() => {
     const status = (matchData as any).status?.toUpperCase();
-    return status === 'COMPLETED' || status === 'FINISHED';
+    return status === 'COMPLETED' || status === 'FINISHED' || status === 'WALKOVER_PENDING';
   }, [(matchData as any).status]);
 
   // Check if match is full (all slots taken) — uses live enrichedMatchData when available so

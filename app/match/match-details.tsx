@@ -984,6 +984,11 @@ export default function JoinMatchScreen() {
           statusText = 'Finished';
         }
         break;
+      case 'WALKOVER_PENDING':
+        badgeColor = '#FEF3C7';  // Amber background
+        textColor = '#92400E';   // Amber text
+        statusText = 'Pending Dispute';
+        break;
       case 'CANCELLED':
         badgeColor = '#FEE2E2';
         textColor = '#991B1B';
@@ -2163,7 +2168,7 @@ export default function JoinMatchScreen() {
           isFriendly={isFriendly}
           comments={comments}
           isUserParticipant={isUserParticipant}
-          canComment={['ONGOING', 'COMPLETED', 'UNFINISHED', 'FINISHED'].includes(
+          canComment={['ONGOING', 'COMPLETED', 'UNFINISHED', 'FINISHED', 'WALKOVER_PENDING'].includes(
             getReliableStatus().toUpperCase()
           )}
           currentUserId={session?.user?.id}
@@ -2221,8 +2226,8 @@ export default function JoinMatchScreen() {
                 );
               }
 
-              // Match COMPLETED - Show "View Scores" and "Share to Feed" buttons
-              if (status === 'COMPLETED' || status === 'FINISHED') {
+              // Match COMPLETED or WALKOVER_PENDING - Show "View Scores" and "Share to Feed" buttons
+              if (status === 'COMPLETED' || status === 'FINISHED' || status === 'WALKOVER_PENDING') {
                 return (
                   <View style={styles.completedMatchButtons}>
                     <TouchableOpacity

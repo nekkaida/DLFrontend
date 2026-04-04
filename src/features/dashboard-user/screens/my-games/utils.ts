@@ -24,6 +24,8 @@ export const getStatusColor = (status: string, matchTime?: string, isDisputed?: 
       }
       // ONGOING means result submitted, awaiting confirmation
       return { bg: '#FEF3C7', text: '#92400E', label: 'Pending Confirmation' };
+    case 'WALKOVER_PENDING':
+      return { bg: '#FEF3C7', text: '#92400E', label: 'Walkover Pending' };
   }
 
   // For scheduled/open matches, calculate time-based status
