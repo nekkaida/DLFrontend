@@ -116,12 +116,16 @@ export default function RootLayout() {
 
   // Set up global JS error handler for crash reporting
   useEffect(() => {
-    if (!__DEV__ && typeof ErrorUtils !== "undefined") {
-      const defaultHandler = ErrorUtils.getGlobalHandler();
-      ErrorUtils.setGlobalHandler((error: Error, isFatal?: boolean) => {
-        reportJSError(error, isFatal ?? false);
-        defaultHandler(error, isFatal);
-      });
+    try {
+      if (!__DEV__ && typeof ErrorUtils !== 'undefined' && ErrorUtils?.getGlobalHandler) {
+        const defaultHandler = ErrorUtils.getGlobalHandler();
+        ErrorUtils.setGlobalHandler((error: Error, isFatal?: boolean) => {
+          reportJSError(error, isFatal ?? false);
+          defaultHandler(error, isFatal);
+        });
+      }
+    } catch {
+      // ErrorUtils not available in this runtime — skip crash handler setup
     }
   }, []);
 
