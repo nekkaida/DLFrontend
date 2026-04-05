@@ -1,7 +1,6 @@
 import { moderateScale, scale, verticalScale } from "@/core/utils/responsive";
 import { useSession } from "@/lib/auth-client";
 import axiosInstance from "@/lib/endpoints";
-import { NavBar } from "@/shared/components/layout";
 import { AnimatedFilterChip } from "@/shared/components/ui/AnimatedFilterChip";
 import { SegmentedControl } from "@/shared/components/ui/SegmentedControl";
 import { chatLogger } from "@/utils/logger";
@@ -75,15 +74,11 @@ interface AuthResponse {
 }
 
 interface ChatScreenProps {
-  activeTab?: number;
-  onTabPress?: (tabIndex: number) => void;
   sport?: "pickleball" | "tennis" | "padel";
   chatUnreadCount?: number;
 }
 
 export const ChatScreen: React.FC<ChatScreenProps> = ({
-  activeTab = 4,
-  onTabPress,
   sport = "pickleball",
   chatUnreadCount = 0,
 }) => {
@@ -229,10 +224,10 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
       if (!isMountedRef.current) return;
 
       if (response?.data?.data) {
-        chatLogger.debug("Setting profile data:", response.data.data);
+        // chatLogger.debug("Setting profile data:", response.data.data);
         setProfileData(response.data.data);
       } else if (response?.data) {
-        chatLogger.debug("Setting profile data (direct):", response.data);
+        // chatLogger.debug("Setting profile data (direct):", response.data);
         setProfileData(response.data as ProfileData);
       } else {
         chatLogger.error("No profile data received");
@@ -533,14 +528,6 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
             />
           )}
         </Animated.View>
-        {onTabPress && (
-          <NavBar
-            activeTab={activeTab}
-            onTabPress={onTabPress}
-            sport={sport}
-            badgeCounts={{ chat: chatUnreadCount }}
-          />
-        )}
       </View>
     </View>
   );

@@ -1,33 +1,35 @@
-import React, { useState, useMemo, useCallback } from 'react';
+import { authClient } from "@/lib/auth-client";
+import { usePushNotifications } from "@/src/hooks/usePushNotifications";
+import { navigateAndClearStack, setLogoutInProgress } from "@core/navigation";
+import { theme } from "@core/theme/theme";
+import { Ionicons } from "@expo/vector-icons";
+import Constants from "expo-constants";
+import * as Haptics from "expo-haptics";
+import { LinearGradient } from "expo-linear-gradient";
+import { router } from "expo-router";
+import React, { useCallback, useMemo, useState } from "react";
 import {
-  StyleSheet,
-  View,
-  ScrollView,
-  Text,
-  Pressable,
-  Switch,
+  ActivityIndicator,
   Alert,
   Platform,
-  ActivityIndicator,
-  ViewStyle,
-  TextStyle,
+  Pressable,
+  ScrollView,
   StyleProp,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { LinearGradient } from 'expo-linear-gradient';
-import { Ionicons } from '@expo/vector-icons';
-import Constants from 'expo-constants';
-import { theme } from '@core/theme/theme';
-import { router } from 'expo-router';
-import * as Haptics from 'expo-haptics';
-import { toast } from 'sonner-native';
-import { authClient } from '@/lib/auth-client';
-import { usePushNotifications } from '@/src/hooks/usePushNotifications';
-import { navigateAndClearStack, setLogoutInProgress } from '@core/navigation';
-import { useSettings } from '../hooks/useSettings';
-import DeleteAccountModal from '../components/DeleteAccountModal';
+  StyleSheet,
+  Switch,
+  Text,
+  TextStyle,
+  View,
+  ViewStyle,
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { toast } from "sonner-native";
+import DeleteAccountModal from "../components/DeleteAccountModal";
+import { useSettings } from "../hooks/useSettings";
 
-const triggerHaptic = async (style: Haptics.ImpactFeedbackStyle = Haptics.ImpactFeedbackStyle.Light) => {
+const triggerHaptic = async (
+  style: Haptics.ImpactFeedbackStyle = Haptics.ImpactFeedbackStyle.Light,
+) => {
   try {
     await Haptics.impactAsync(style);
   } catch {
@@ -39,7 +41,7 @@ const triggerHaptic = async (style: Haptics.ImpactFeedbackStyle = Haptics.Impact
 const BackgroundGradient = () => {
   return (
     <LinearGradient
-      colors={[theme.colors.primary, '#FFF5EE', theme.colors.neutral.white]}
+      colors={[theme.colors.primary, "#FFF5EE", theme.colors.neutral.white]}
       locations={[0, 0.4, 1.0]}
       style={styles.backgroundGradient as ViewStyle}
       start={{ x: 0.5, y: 0 }}
@@ -53,7 +55,7 @@ interface SettingItem {
   id: string;
   title: string;
   subtitle?: string;
-  type: 'toggle' | 'navigate' | 'action';
+  type: "toggle" | "navigate" | "action";
   icon: keyof typeof Ionicons.glyphMap;
   value?: boolean;
   action?: () => void;
@@ -67,187 +69,201 @@ interface SettingSection {
 }
 
 export default function SettingsScreen() {
-  const version = Constants.expoConfig?.version ?? '1.0.0';
+  const version = Constants.expoConfig?.version ?? "1.0.0";
   const { cleanup: cleanupPushNotifications } = usePushNotifications();
-  const { settings, isLoading, loadError, updateSetting, retryLoad } = useSettings();
+  const { settings, isLoading, loadError, updateSetting, retryLoad } =
+    useSettings();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [isDeleteModalVisible, setIsDeleteModalVisible] = useState(false);
 
   // Timeout wrapper to prevent async operations from hanging indefinitely
-  const withTimeout = useCallback(<T,>(promise: Promise<T>, ms: number, fallbackMessage: string): Promise<T | null> => {
-    return Promise.race([
-      promise,
-      new Promise<null>((resolve) => {
-        setTimeout(() => {
-          if (__DEV__) console.warn(fallbackMessage);
-          resolve(null);
-        }, ms);
-      }),
-    ]);
-  }, []);
+  const withTimeout = useCallback(
+    <T,>(
+      promise: Promise<T>,
+      ms: number,
+      fallbackMessage: string,
+    ): Promise<T | null> => {
+      return Promise.race([
+        promise,
+        new Promise<null>((resolve) => {
+          setTimeout(() => {
+            if (__DEV__) console.warn(fallbackMessage);
+            resolve(null);
+          }, ms);
+        }),
+      ]);
+    },
+    [],
+  );
 
   const handleLogout = useCallback(() => {
     if (settings.hapticFeedback) {
       triggerHaptic(Haptics.ImpactFeedbackStyle.Medium);
     }
 
-    Alert.alert(
-      'Sign Out',
-      'Are you sure you want to sign out?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Sign Out',
-          style: 'destructive',
-          onPress: async () => {
-            if (isLoggingOut) return;
-            setIsLoggingOut(true);
-            // Signal globally so NavigationInterceptor blocks protected routes immediately
-            // This prevents the brief "glimpse" of protected content during session teardown
-            setLogoutInProgress(true);
+    Alert.alert("Sign Out", "Are you sure you want to sign out?", [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Sign Out",
+        style: "destructive",
+        onPress: async () => {
+          if (isLoggingOut) return;
+          setIsLoggingOut(true);
+          // Signal globally so NavigationInterceptor blocks protected routes immediately
+          // This prevents the brief "glimpse" of protected content during session teardown
+          setLogoutInProgress(true);
 
-            try {
-              // Clean up push notifications with timeout (don't block logout if this hangs)
-              await withTimeout(
-                cleanupPushNotifications(),
-                5000,
-                'Push notification cleanup timed out, continuing logout...'
-              );
+          try {
+            // Clean up push notifications with timeout (don't block logout if this hangs)
+            await withTimeout(
+              cleanupPushNotifications(),
+              5000,
+              "Push notification cleanup timed out, continuing logout...",
+            );
 
-              // Sign out from better-auth with timeout
-              await withTimeout(
-                authClient.signOut(),
-                5000,
-                'Auth signOut timed out, continuing cleanup...'
-              );
+            // Sign out from better-auth with timeout
+            await withTimeout(
+              authClient.signOut(),
+              5000,
+              "Auth signOut timed out, continuing cleanup...",
+            );
 
-              // signOut() above already clears the real SecureStore keys
-              // (deuceleague_cookie, deuceleague_session_data) via the
-              // expo client's init hook. No manual key deletion needed.
+            // signOut() above already clears the real SecureStore keys
+            // (deuceleague_cookie, deuceleague_session_data) via the
+            // expo client's init hook. No manual key deletion needed.
 
-              toast.success('Signed Out', {
-                description: 'You have been successfully signed out.',
-              });
+            toast.success("Signed Out", {
+              description: "You have been successfully signed out.",
+            });
 
-              navigateAndClearStack('/login');
-              // Clear logout flag after navigation (brief delay for stack to settle)
-              setTimeout(() => setLogoutInProgress(false), 500);
-            } catch (error) {
-              if (__DEV__) console.error('Logout error:', error);
-              setLogoutInProgress(false);
-              toast.error('Error', {
-                description: 'Failed to sign out. Please try again.',
-              });
-            } finally {
-              setIsLoggingOut(false);
-            }
-          },
+            navigateAndClearStack("/login");
+            // Clear logout flag after navigation (brief delay for stack to settle)
+            setTimeout(() => setLogoutInProgress(false), 500);
+          } catch (error) {
+            if (__DEV__) console.error("Logout error:", error);
+            setLogoutInProgress(false);
+            toast.error("Error", {
+              description: "Failed to sign out. Please try again.",
+            });
+          } finally {
+            setIsLoggingOut(false);
+          }
         },
-      ]
-    );
-  }, [settings.hapticFeedback, isLoggingOut, cleanupPushNotifications, withTimeout]);
+      },
+    ]);
+  }, [
+    settings.hapticFeedback,
+    isLoggingOut,
+    cleanupPushNotifications,
+    withTimeout,
+  ]);
 
   // Memoize settingSections to prevent recreation on every render
-  const settingSections: SettingSection[] = useMemo(() => [
-    {
-      id: 'account',
-      title: 'Account',
-      items: [
-        {
-          id: 'profile',
-          title: 'Edit Profile',
-          subtitle: 'Update your personal information',
-          type: 'navigate',
-          icon: 'person-outline',
-          action: () => router.push('/edit-profile'),
-        },
-        {
-          id: 'privacy',
-          title: 'Change Password',
-          subtitle: 'Update your account password',
-          type: 'navigate',
-          icon: 'lock-closed-outline',
-          action: () => router.push('/privacyPolicy'),
-        },
-      ],
-    },
-    {
-      id: 'preferences',
-      title: 'Preferences',
-      items: [
-        {
-          id: 'notifications',
-          title: 'Push Notifications',
-          subtitle: 'Receive match updates and news',
-          type: 'toggle',
-          icon: 'notifications-outline',
-          value: settings.notifications,
-        },
-        {
-          id: 'matchReminders',
-          title: 'Match Reminders',
-          subtitle: 'Get reminded about upcoming matches',
-          type: 'toggle',
-          icon: 'time-outline',
-          value: settings.matchReminders,
-        },
-      ],
-    },
-    {
-      id: 'support',
-      title: 'Support & About',
-      items: [
-        {
-          id: 'help',
-          title: 'Help Center',
-          subtitle: 'Get help and support',
-          type: 'navigate',
-          icon: 'help-circle-outline',
-          action: () => router.push('/help'),
-        },
-        {
-          id: 'feedback',
-          title: 'Send Feedback',
-          subtitle: 'Share your thoughts with us',
-          type: 'navigate',
-          icon: 'chatbubble-outline',
-          action: () => router.push('/feedback'),
-        },
-        {
-          id: 'about',
-          title: 'About Deuce',
-          subtitle: `Version ${version}`,
-          type: 'navigate',
-          icon: 'information-circle-outline',
-          action: () => router.push('/about'),
-        },
-      ],
-    },
-    {
-      id: 'account_actions',
-      title: 'Account Actions',
-      items: [
-        {
-          id: 'logout',
-          title: 'Sign Out',
-          subtitle: isLoggingOut ? 'Signing out...' : 'Sign out of your account',
-          type: 'action',
-          icon: 'log-out-outline',
-          action: handleLogout,
-          iconColor: theme.colors.semantic?.error || '#EF4444',
-        },
-        {
-          id: 'delete_account',
-          title: 'Delete Account',
-          subtitle: 'Permanently delete your account and data',
-          type: 'action',
-          icon: 'trash-outline',
-          action: () => setIsDeleteModalVisible(true),
-          iconColor: theme.colors.semantic?.error || '#EF4444',
-        },
-      ],
-    },
-  ], [settings, isLoggingOut, version, handleLogout]);
+  const settingSections: SettingSection[] = useMemo(
+    () => [
+      {
+        id: "account",
+        title: "Account",
+        items: [
+          {
+            id: "profile",
+            title: "Edit Profile",
+            subtitle: "Update your personal information",
+            type: "navigate",
+            icon: "person-outline",
+            action: () => router.push("/edit-profile"),
+          },
+          {
+            id: "privacy",
+            title: "Change Password",
+            subtitle: "Update your account password",
+            type: "navigate",
+            icon: "lock-closed-outline",
+            action: () => router.push("/privacyPolicy"),
+          },
+        ],
+      },
+      {
+        id: "preferences",
+        title: "Preferences",
+        items: [
+          {
+            id: "notifications",
+            title: "Push Notifications",
+            subtitle: "Receive match updates and news",
+            type: "toggle",
+            icon: "notifications-outline",
+            value: settings.notifications,
+          },
+          {
+            id: "matchReminders",
+            title: "Match Reminders",
+            subtitle: "Get reminded about upcoming matches",
+            type: "toggle",
+            icon: "time-outline",
+            value: settings.matchReminders,
+          },
+        ],
+      },
+      {
+        id: "support",
+        title: "Support & About",
+        items: [
+          {
+            id: "help",
+            title: "Help Center",
+            subtitle: "Get help and support",
+            type: "navigate",
+            icon: "help-circle-outline",
+            action: () => router.push("/help"),
+          },
+          {
+            id: "feedback",
+            title: "Send Feedback",
+            subtitle: "Share your thoughts with us",
+            type: "navigate",
+            icon: "chatbubble-outline",
+            action: () => router.push("/feedback"),
+          },
+          {
+            id: "about",
+            title: "About Deuce",
+            subtitle: `Version ${version}`,
+            type: "navigate",
+            icon: "information-circle-outline",
+            action: () => router.push("/about"),
+          },
+        ],
+      },
+      {
+        id: "account_actions",
+        title: "Account Actions",
+        items: [
+          {
+            id: "logout",
+            title: "Sign Out",
+            subtitle: isLoggingOut
+              ? "Signing out..."
+              : "Sign out of your account",
+            type: "action",
+            icon: "log-out-outline",
+            action: handleLogout,
+            iconColor: theme.colors.semantic?.error || "#EF4444",
+          },
+          {
+            id: "delete_account",
+            title: "Delete Account",
+            subtitle: "Permanently delete your account and data",
+            type: "action",
+            icon: "trash-outline",
+            action: () => setIsDeleteModalVisible(true),
+            iconColor: theme.colors.semantic?.error || "#EF4444",
+          },
+        ],
+      },
+    ],
+    [settings, isLoggingOut, version, handleLogout],
+  );
 
   const renderSettingItem = (item: SettingItem) => {
     // Fix: Don't handle toggle in Pressable - let Switch handle it to prevent double-update race condition
@@ -255,7 +271,7 @@ export default function SettingsScreen() {
       if (isLoading || isLoggingOut) return;
 
       // Only handle non-toggle items - Switch handles toggle items via onValueChange
-      if (item.type !== 'toggle' && item.action) {
+      if (item.type !== "toggle" && item.action) {
         if (settings.hapticFeedback) {
           await triggerHaptic(Haptics.ImpactFeedbackStyle.Light);
         }
@@ -264,20 +280,20 @@ export default function SettingsScreen() {
     };
 
     const getAccessibilityHint = () => {
-      if (item.type === 'toggle') {
-        return `Double tap to ${item.value ? 'disable' : 'enable'} ${item.title.toLowerCase()}`;
+      if (item.type === "toggle") {
+        return `Double tap to ${item.value ? "disable" : "enable"} ${item.title.toLowerCase()}`;
       }
       return `Double tap to ${item.title.toLowerCase()}`;
     };
 
-    const isDisabled = isLoading || (item.id === 'logout' && isLoggingOut);
+    const isDisabled = isLoading || (item.id === "logout" && isLoggingOut);
 
     return (
       <Pressable
         key={item.id}
         style={({ pressed }): StyleProp<ViewStyle> => [
           styles.settingItem as ViewStyle,
-          { opacity: pressed || isDisabled ? 0.7 : 1 }
+          { opacity: pressed || isDisabled ? 0.7 : 1 },
         ]}
         onPress={handlePress}
         disabled={isDisabled}
@@ -286,16 +302,18 @@ export default function SettingsScreen() {
         accessibilityLabel={item.title}
         accessibilityHint={getAccessibilityHint()}
         accessibilityState={
-          item.type === 'toggle'
+          item.type === "toggle"
             ? { checked: item.value, disabled: isDisabled }
             : { disabled: isDisabled }
         }
       >
         <View style={styles.settingLeft as ViewStyle}>
-          <View style={[
-            styles.settingIcon as ViewStyle,
-            item.iconColor && { backgroundColor: `${item.iconColor}15` }
-          ]}>
+          <View
+            style={[
+              styles.settingIcon as ViewStyle,
+              item.iconColor && { backgroundColor: `${item.iconColor}15` },
+            ]}
+          >
             <Ionicons
               name={item.icon}
               size={20}
@@ -303,39 +321,50 @@ export default function SettingsScreen() {
             />
           </View>
           <View style={styles.settingText as ViewStyle}>
-            <Text style={[
-              styles.settingTitle as TextStyle,
-              item.iconColor && { color: item.iconColor }
-            ]}>
+            <Text
+              style={[
+                styles.settingTitle as TextStyle,
+                item.iconColor && { color: item.iconColor },
+              ]}
+            >
               {item.title}
             </Text>
             {item.subtitle && (
-              <Text style={styles.settingSubtitle as TextStyle}>{item.subtitle}</Text>
+              <Text style={styles.settingSubtitle as TextStyle}>
+                {item.subtitle}
+              </Text>
             )}
           </View>
         </View>
 
         <View style={styles.settingRight as ViewStyle}>
-          {item.type === 'toggle' ? (
+          {item.type === "toggle" ? (
             isLoading ? (
               <ActivityIndicator size="small" color={theme.colors.primary} />
             ) : (
               <Switch
                 value={item.value}
-                onValueChange={(value) => updateSetting(item.id as keyof typeof settings, value)}
+                onValueChange={(value) =>
+                  updateSetting(item.id as keyof typeof settings, value)
+                }
                 trackColor={{
                   false: theme.colors.neutral.gray[200],
                   true: `${theme.colors.primary}40`,
                 }}
-                thumbColor={item.value ? theme.colors.primary : theme.colors.neutral.white}
+                thumbColor={
+                  item.value ? theme.colors.primary : theme.colors.neutral.white
+                }
                 ios_backgroundColor={theme.colors.neutral.gray[200]}
                 disabled={isLoading}
                 accessibilityLabel={`${item.title} toggle`}
-                accessibilityHint={`Currently ${item.value ? 'enabled' : 'disabled'}`}
+                accessibilityHint={`Currently ${item.value ? "enabled" : "disabled"}`}
               />
             )
-          ) : item.id === 'logout' && isLoggingOut ? (
-            <ActivityIndicator size="small" color={item.iconColor || theme.colors.primary} />
+          ) : item.id === "logout" && isLoggingOut ? (
+            <ActivityIndicator
+              size="small"
+              color={item.iconColor || theme.colors.primary}
+            />
           ) : (
             <Ionicons
               name="chevron-forward"
@@ -367,7 +396,11 @@ export default function SettingsScreen() {
             accessibilityLabel="Go back"
             accessibilityRole="button"
           >
-            <Ionicons name="arrow-back" size={24} color={theme.colors.neutral.white} />
+            <Ionicons
+              name="arrow-back"
+              size={24}
+              color={theme.colors.neutral.white}
+            />
           </Pressable>
 
           <Text style={styles.headerTitle as TextStyle}>Settings</Text>
@@ -375,24 +408,30 @@ export default function SettingsScreen() {
           <View style={styles.headerSpacer as ViewStyle} />
         </View>
 
-        {/* Error Banner - with live region for screen reader announcements */}
-        {loadError && (
-          <View accessibilityLiveRegion="polite">
-            <Pressable
-              style={styles.errorBanner as ViewStyle}
-              onPress={retryLoad}
-              accessible={true}
-              accessibilityRole="button"
-              accessibilityLabel="Error: Failed to load settings. Tap to retry."
-              accessibilityHint="Double tap to retry loading your settings"
-            >
-              <Ionicons name="alert-circle" size={20} color={theme.colors.semantic?.error || '#EF4444'} />
-              <Text style={styles.errorText as TextStyle}>
-                Failed to load settings. Tap to retry.
-              </Text>
-            </Pressable>
-          </View>
-        )}
+        {/* Error Banner - always mounted to keep native child index stable */}
+        <View
+          accessibilityLiveRegion="polite"
+          style={{ display: loadError ? "flex" : "none" }}
+          collapsable={false}
+        >
+          <Pressable
+            style={styles.errorBanner as ViewStyle}
+            onPress={retryLoad}
+            accessible={!!loadError}
+            accessibilityRole="button"
+            accessibilityLabel="Error: Failed to load settings. Tap to retry."
+            accessibilityHint="Double tap to retry loading your settings"
+          >
+            <Ionicons
+              name="alert-circle"
+              size={20}
+              color={theme.colors.semantic?.error || "#EF4444"}
+            />
+            <Text style={styles.errorText as TextStyle}>
+              Failed to load settings. Tap to retry.
+            </Text>
+          </Pressable>
+        </View>
 
         <ScrollView
           style={styles.scrollView as ViewStyle}
@@ -423,7 +462,9 @@ export default function SettingsScreen() {
 
           {/* Footer */}
           <View style={styles.footer as ViewStyle}>
-            <Text style={styles.footerText as TextStyle}>Version {version}</Text>
+            <Text style={styles.footerText as TextStyle}>
+              Version {version}
+            </Text>
           </View>
         </ScrollView>
       </SafeAreaView>
@@ -438,14 +479,14 @@ export default function SettingsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: "#FFFFFF",
   },
   backgroundGradient: {
-    position: 'absolute',
+    position: "absolute",
     top: 0,
     left: 0,
     right: 0,
-    height: '50%',
+    height: "50%",
     zIndex: 0,
   },
   safeArea: {
@@ -453,33 +494,33 @@ const styles = StyleSheet.create({
     zIndex: 1,
   },
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     paddingHorizontal: theme.spacing.lg,
     paddingVertical: theme.spacing.md,
-    backgroundColor: 'transparent',
+    backgroundColor: "transparent",
   },
   backButton: {
     width: 44,
     height: 44,
     borderRadius: 22,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
   },
   headerTitle: {
     fontSize: theme.typography.fontSize.xl,
-    fontWeight: theme.typography.fontWeight.heavy as TextStyle['fontWeight'],
-    color: '#FFFFFF',
+    fontWeight: theme.typography.fontWeight.heavy as TextStyle["fontWeight"],
+    color: "#FFFFFF",
     fontFamily: theme.typography.fontFamily.primary,
   },
   headerSpacer: {
     width: 44,
   },
   errorBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#FEF2F2',
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#FEF2F2",
     marginHorizontal: theme.spacing.lg,
     marginBottom: theme.spacing.md,
     padding: theme.spacing.md,
@@ -489,12 +530,12 @@ const styles = StyleSheet.create({
   errorText: {
     flex: 1,
     fontSize: theme.typography.fontSize.sm,
-    color: '#991B1B',
+    color: "#991B1B",
     fontFamily: theme.typography.fontFamily.primary,
   },
   scrollView: {
     flex: 1,
-    backgroundColor: 'transparent',
+    backgroundColor: "transparent",
   },
   scrollContent: {
     paddingBottom: theme.spacing.xl,
@@ -504,7 +545,7 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontSize: theme.typography.fontSize.lg,
-    fontWeight: theme.typography.fontWeight.bold as TextStyle['fontWeight'],
+    fontWeight: theme.typography.fontWeight.bold as TextStyle["fontWeight"],
     color: theme.colors.neutral.gray[700],
     fontFamily: theme.typography.fontFamily.primary,
     marginBottom: theme.spacing.md,
@@ -527,15 +568,15 @@ const styles = StyleSheet.create({
     }),
   },
   settingItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     paddingVertical: theme.spacing.lg,
     paddingHorizontal: theme.spacing.lg,
   },
   settingLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     flex: 1,
   },
   settingIcon: {
@@ -543,8 +584,8 @@ const styles = StyleSheet.create({
     height: 36,
     borderRadius: 18,
     backgroundColor: theme.colors.neutral.gray[50],
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     marginRight: theme.spacing.md,
   },
   settingText: {
@@ -552,7 +593,7 @@ const styles = StyleSheet.create({
   },
   settingTitle: {
     fontSize: theme.typography.fontSize.base,
-    fontWeight: theme.typography.fontWeight.semibold as TextStyle['fontWeight'],
+    fontWeight: theme.typography.fontWeight.semibold as TextStyle["fontWeight"],
     color: theme.colors.neutral.gray[700],
     fontFamily: theme.typography.fontFamily.primary,
     marginBottom: 2,
@@ -572,13 +613,13 @@ const styles = StyleSheet.create({
     marginLeft: theme.spacing.lg + 36 + theme.spacing.md,
   },
   footer: {
-    alignItems: 'center',
+    alignItems: "center",
     paddingVertical: theme.spacing.xl,
     paddingHorizontal: theme.spacing.lg,
   },
   footerText: {
     fontSize: theme.typography.fontSize.lg,
-    fontWeight: theme.typography.fontWeight.bold as TextStyle['fontWeight'],
+    fontWeight: theme.typography.fontWeight.bold as TextStyle["fontWeight"],
     color: theme.colors.neutral.gray[700],
     fontFamily: theme.typography.fontFamily.primary,
     marginBottom: theme.spacing.xs,

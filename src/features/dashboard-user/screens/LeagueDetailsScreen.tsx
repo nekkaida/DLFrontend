@@ -1,49 +1,78 @@
-import BackButtonIcon from '@/assets/icons/back-button.svg';
-import LeagueInfoIcon from '@/assets/icons/league-info.svg';
-import CalendarIcon from '@/assets/icons/season-details/calendar.svg';
-import CalendarMinusIcon from '@/assets/icons/season-details/calendar-minus.svg';
-import { Ionicons } from '@expo/vector-icons';
-import { ManageTeamButton } from '@/features/pairing/components';
-import { useActivePartnership } from '@/features/pairing/hooks';
-import { useSession } from '@/lib/auth-client';
-import axiosInstance from '@/lib/endpoints';
-import { NavBar } from '@/shared/components/layout';
-import { SportSwitcher } from '@/shared/components/ui/SportSwitcher';
-import { SeasonCardSkeleton } from '@/src/components/SeasonCardSkeleton';
-import { Category, CategoryService } from '@/src/features/dashboard-user/services/CategoryService';
-import { Season, SeasonService } from '@/src/features/dashboard-user/services/SeasonService';
-import { WaitlistService, WaitlistStatus } from '@/src/features/dashboard-user/services/WaitlistService';
-import { WaitlistBottomSheet, LeaveWaitlistDialog } from '@/src/features/waitlist/components';
-import { useUserPartnerships } from '@/src/features/pairing/hooks/useUserPartnerships';
-import { FiuuPaymentService } from '@/src/features/payments/services/FiuuPaymentService';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useFocusEffect } from '@react-navigation/native';
-import * as Haptics from 'expo-haptics';
-import { LinearGradient } from 'expo-linear-gradient';
-import { router } from 'expo-router';
-import React from 'react';
-import { ActivityIndicator, Dimensions, Image, Modal, RefreshControl, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import BackButtonIcon from "@/assets/icons/back-button.svg";
+import LeagueInfoIcon from "@/assets/icons/league-info.svg";
+import CalendarMinusIcon from "@/assets/icons/season-details/calendar-minus.svg";
+import CalendarIcon from "@/assets/icons/season-details/calendar.svg";
+import { useActivePartnership } from "@/features/pairing/hooks";
+import { useSession } from "@/lib/auth-client";
+import axiosInstance from "@/lib/endpoints";
+import { NavBar } from "@/shared/components/layout";
+import { SportSwitcher } from "@/shared/components/ui/SportSwitcher";
+import { SeasonCardSkeleton } from "@/src/components/SeasonCardSkeleton";
+import { useUnreadCount } from "@/src/features/chat/hooks/useUnreadCount";
+import {
+  Category,
+  CategoryService,
+} from "@/src/features/dashboard-user/services/CategoryService";
+import {
+  Season,
+  SeasonService,
+} from "@/src/features/dashboard-user/services/SeasonService";
+import {
+  WaitlistService,
+  WaitlistStatus,
+} from "@/src/features/dashboard-user/services/WaitlistService";
+import { useMyGamesStore } from "@/src/features/dashboard-user/stores/MyGamesStore";
+import { useUserPartnerships } from "@/src/features/pairing/hooks/useUserPartnerships";
+import { FiuuPaymentService } from "@/src/features/payments/services/FiuuPaymentService";
+import {
+  LeaveWaitlistDialog,
+  RegisterInterestBottomSheet,
+  WaitlistBottomSheet,
+} from "@/src/features/waitlist/components";
+import { Ionicons } from "@expo/vector-icons";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useFocusEffect } from "@react-navigation/native";
+import * as Haptics from "expo-haptics";
+import { LinearGradient } from "expo-linear-gradient";
+import { router } from "expo-router";
+import React from "react";
+import {
+  ActivityIndicator,
+  Dimensions,
+  Image,
+  Modal,
+  RefreshControl,
+  ScrollView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
 import Animated, {
   Extrapolation,
   interpolate,
   useAnimatedScrollHandler,
   useAnimatedStyle,
   useSharedValue,
-  withSpring
-} from 'react-native-reanimated';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { toast } from 'sonner-native';
-import { PaymentOptionsBottomSheet } from '../components';
-import { useLeagueData } from '../hooks/useLeagueData';
-import { useSeasonSelection } from '../hooks/useSeasonSelection';
-import { useUserProfile } from '../hooks/useUserProfile';
-import { formatEntryFee } from '../utils/formatEntryFee';
-import { normalizeCategoriesFromSeason } from '../utils/categoryNormalization';
-import { checkQuestionnaireStatus, getSeasonSport } from '../utils/questionnaireCheck';
+  withSpring,
+} from "react-native-reanimated";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { toast } from "sonner-native";
+import { PaymentOptionsBottomSheet } from "../components";
+import { useLeagueData } from "../hooks/useLeagueData";
+import { useSeasonSelection } from "../hooks/useSeasonSelection";
+import { useUserProfile } from "../hooks/useUserProfile";
+import { normalizeCategoriesFromSeason } from "../utils/categoryNormalization";
+import { formatEntryFee } from "../utils/formatEntryFee";
+import {
+  checkQuestionnaireStatus,
+  getSeasonSport,
+} from "../utils/questionnaireCheck";
 
-const { width } = Dimensions.get('window');
+const { width } = Dimensions.get("window");
 
-const LEAGUE_SEASONS_CACHE_KEY_PREFIX = 'league_seasons_summary_';
+const LEAGUE_SEASONS_CACHE_KEY_PREFIX = "league_seasons_summary_";
 
 const isSmallScreen = width < 375;
 const isTablet = width > 768;
@@ -51,26 +80,40 @@ const isTablet = width > 768;
 interface LeagueDetailsScreenProps {
   leagueId: string;
   leagueName?: string;
-  sport?: 'pickleball' | 'tennis' | 'padel';
+  sport?: "pickleball" | "tennis" | "padel";
 }
 
 export default function LeagueDetailsScreen({
   leagueId,
-  leagueName = 'League',
-  sport = 'pickleball'
+  leagueName = "League",
+  sport = "pickleball",
 }: LeagueDetailsScreenProps) {
   const { data: session } = useSession();
+  const chatUnreadCount = useUnreadCount();
+  const { pendingInviteCount: myGamesBadgeCount } = useMyGamesStore();
   const [activeTab, setActiveTab] = React.useState(2);
   const [showPaymentOptions, setShowPaymentOptions] = React.useState(false);
   const [isProcessingPayment, setIsProcessingPayment] = React.useState(false);
-  const [selectedSport, setSelectedSport] = React.useState<'pickleball' | 'tennis' | 'padel'>('pickleball');
+  const [selectedSport, setSelectedSport] = React.useState<
+    "pickleball" | "tennis" | "padel"
+  >("pickleball");
   const [isRefreshing, setIsRefreshing] = React.useState(false);
   const [showSeasonsSkeleton, setShowSeasonsSkeleton] = React.useState(false);
   const [showRulesModal, setShowRulesModal] = React.useState(false);
-  const [waitlistStatuses, setWaitlistStatuses] = React.useState<Map<string, WaitlistStatus>>(new Map());
-  const [isJoiningWaitlist, setIsJoiningWaitlist] = React.useState<string | null>(null);
-  const [waitlistBottomSheetSeasonId, setWaitlistBottomSheetSeasonId] = React.useState<string | null>(null);
-  const [leaveWaitlistDialogSeasonId, setLeaveWaitlistDialogSeasonId] = React.useState<string | null>(null);
+  const [waitlistStatuses, setWaitlistStatuses] = React.useState<
+    Map<string, WaitlistStatus>
+  >(new Map());
+  const [isJoiningWaitlist, setIsJoiningWaitlist] = React.useState<
+    string | null
+  >(null);
+  const [waitlistBottomSheetSeasonId, setWaitlistBottomSheetSeasonId] =
+    React.useState<string | null>(null);
+  const [leaveWaitlistDialogSeasonId, setLeaveWaitlistDialogSeasonId] =
+    React.useState<string | null>(null);
+  const [
+    registerInterestBottomSheetSeasonId,
+    setRegisterInterestBottomSheetSeasonId,
+  ] = React.useState<string | null>(null);
   const hasInitializedSeasonsRef = React.useRef(false);
   const isManualRefreshRef = React.useRef(false);
   const insets = useSafeAreaInsets();
@@ -79,83 +122,98 @@ export default function LeagueDetailsScreen({
   const userId = session?.user?.id;
 
   // Track user's registered season IDs (fetched from membership API)
-  const [userRegisteredSeasonIds, setUserRegisteredSeasonIds] = React.useState<Set<string>>(new Set());
+  const [userRegisteredSeasonIds, setUserRegisteredSeasonIds] = React.useState<
+    Set<string>
+  >(new Set());
 
   // Use custom hook for user profile and gender management
-  const { profileData, userGender, fetchProfileData, fetchUserGender } = useUserProfile(userId);
+  const { profileData, userGender, fetchProfileData, fetchUserGender } =
+    useUserProfile(userId);
 
   // Helper function to check if a category is visible - all categories are now visible to all users
-  const isCategoryVisibleToUser = React.useCallback((category: any): boolean => {
-    return category !== null && category !== undefined;
-  }, []);
+  const isCategoryVisibleToUser = React.useCallback(
+    (category: any): boolean => {
+      return category !== null && category !== undefined;
+    },
+    [],
+  );
 
   // Helper function to check if user can JOIN a category based on gender restrictions
-  const canUserJoinCategory = React.useCallback((category: any): boolean => {
-    if (!category) return false;
+  const canUserJoinCategory = React.useCallback(
+    (category: any): boolean => {
+      if (!category) return false;
 
-    const genderCategory = category.gender_category?.toUpperCase() || category.genderCategory?.toUpperCase();
-    const genderRestriction = category.genderRestriction?.toUpperCase();
-    const categoryGender = genderCategory || genderRestriction;
-    const isDoubles = CategoryService.getEffectiveGameType(category, 'SINGLES') === 'DOUBLES';
+      const genderCategory =
+        category.gender_category?.toUpperCase() ||
+        category.genderCategory?.toUpperCase();
+      const genderRestriction = category.genderRestriction?.toUpperCase();
+      const categoryGender = genderCategory || genderRestriction;
+      const isDoubles =
+        CategoryService.getEffectiveGameType(category, "SINGLES") === "DOUBLES";
 
-    // If user gender is not yet loaded, allow joining (will be validated on backend)
-    if (!userGender) {
-      return true;
-    }
+      // If user gender is not yet loaded, allow joining (will be validated on backend)
+      if (!userGender) {
+        return true;
+      }
 
-    const normalizedUserGender = userGender.toUpperCase();
+      const normalizedUserGender = userGender.toUpperCase();
 
-    // OPEN categories allow all genders - check this FIRST
-    if (categoryGender === 'OPEN') {
-      return true;
-    }
+      // OPEN categories allow all genders - check this FIRST
+      if (categoryGender === "OPEN") {
+        return true;
+      }
 
-    if (normalizedUserGender === 'FEMALE') {
-      if (categoryGender === 'FEMALE' || categoryGender === 'WOMEN') return true;
-      if (categoryGender === 'MIXED' && isDoubles) return true;
+      if (normalizedUserGender === "FEMALE") {
+        if (categoryGender === "FEMALE" || categoryGender === "WOMEN")
+          return true;
+        if (categoryGender === "MIXED" && isDoubles) return true;
+        return false;
+      }
+
+      if (normalizedUserGender === "MALE") {
+        if (categoryGender === "MALE" || categoryGender === "MEN") return true;
+        if (categoryGender === "MIXED" && isDoubles) return true;
+        return false;
+      }
+
       return false;
-    }
-
-    if (normalizedUserGender === 'MALE') {
-      if (categoryGender === 'MALE' || categoryGender === 'MEN') return true;
-      if (categoryGender === 'MIXED' && isDoubles) return true;
-      return false;
-    }
-
-    return false;
-  }, [userGender]);
+    },
+    [userGender],
+  );
 
   // Use custom hook for league data management
-  const { league, seasons, categories, isLoading, error, fetchAllData } = useLeagueData(
-    leagueId,
-    userGender,
-    isCategoryVisibleToUser
-  );
+  const { league, seasons, categories, isLoading, error, fetchAllData } =
+    useLeagueData(leagueId, userGender, isCategoryVisibleToUser);
 
   // Sorted categories: Open Singles → User gender Singles → User gender Doubles → Mixed Doubles → Restricted Singles 🔒 → Restricted Doubles 🔒
   // Computed BEFORE useSeasonSelection so the hook uses the sorted order for the default pill selection
   const sortedCategories = React.useMemo(() => {
     const getCategoryOrder = (category: any): number => {
-      const genderCategory = category.gender_category?.toUpperCase() || category.genderCategory?.toUpperCase();
+      const genderCategory =
+        category.gender_category?.toUpperCase() ||
+        category.genderCategory?.toUpperCase();
       const genderRestriction = category.genderRestriction?.toUpperCase();
       const categoryGender = genderCategory || genderRestriction;
-      const isDoubles = CategoryService.getEffectiveGameType(category, 'SINGLES') === 'DOUBLES';
+      const isDoubles =
+        CategoryService.getEffectiveGameType(category, "SINGLES") === "DOUBLES";
       const g = userGender?.toUpperCase();
 
-      if (categoryGender === 'OPEN' && !isDoubles) return 0;   // Open Singles
-      if (categoryGender === 'OPEN' && isDoubles) return 0.5;  // Open Doubles
+      if (categoryGender === "OPEN" && !isDoubles) return 0; // Open Singles
+      if (categoryGender === "OPEN" && isDoubles) return 0.5; // Open Doubles
 
       if (g) {
         const isUserGender =
-          (g === 'MALE' && (categoryGender === 'MALE' || categoryGender === 'MEN')) ||
-          (g === 'FEMALE' && (categoryGender === 'FEMALE' || categoryGender === 'WOMEN'));
-        if (isUserGender && !isDoubles) return 1;  // User's gender Singles
-        if (isUserGender && isDoubles) return 2;   // User's gender Doubles
-        if (categoryGender === 'MIXED' && isDoubles) return 3; // Mixed Doubles
-        if (!isDoubles) return 4;                  // Restricted Singles 🔒
-        return 5;                                  // Restricted Doubles 🔒
+          (g === "MALE" &&
+            (categoryGender === "MALE" || categoryGender === "MEN")) ||
+          (g === "FEMALE" &&
+            (categoryGender === "FEMALE" || categoryGender === "WOMEN"));
+        if (isUserGender && !isDoubles) return 1; // User's gender Singles
+        if (isUserGender && isDoubles) return 2; // User's gender Doubles
+        if (categoryGender === "MIXED" && isDoubles) return 3; // Mixed Doubles
+        if (!isDoubles) return 4; // Restricted Singles 🔒
+        return 5; // Restricted Doubles 🔒
       }
-      if (categoryGender === 'MIXED') return 3;
+      if (categoryGender === "MIXED") return 3;
       return isDoubles ? 5 : 4;
     };
     return [...categories]
@@ -164,10 +222,16 @@ export default function LeagueDetailsScreen({
   }, [categories, userGender]);
 
   // Use custom hook for season selection management (pass sortedCategories so default pill = Open Singles)
-  const { selectedCategoryId, setSelectedCategoryId, selectedSeason, setSelectedSeason } = useSeasonSelection(sortedCategories);
+  const {
+    selectedCategoryId,
+    setSelectedCategoryId,
+    selectedSeason,
+    setSelectedSeason,
+  } = useSeasonSelection(sortedCategories);
 
   // Use custom hook for user partnerships management
-  const { partnerships, loading: partnershipsLoading } = useUserPartnerships(userId);
+  const { partnerships, loading: partnershipsLoading } =
+    useUserPartnerships(userId);
 
   // Animated scroll value for collapsing header (using reanimated for native thread performance)
   const scrollY = useSharedValue(0);
@@ -198,13 +262,15 @@ export default function LeagueDetailsScreen({
   }, [isLoading]);
 
   // Constants for header animation
-  const TOP_HEADER_HEIGHT = STATUS_BAR_HEIGHT + (isSmallScreen ? 36 : isTablet ? 44 : 40);
+  const TOP_HEADER_HEIGHT =
+    STATUS_BAR_HEIGHT + (isSmallScreen ? 36 : isTablet ? 44 : 40);
   const HEADER_MAX_HEIGHT = 180; // Full header height
   const HEADER_MIN_HEIGHT = 80; // Collapsed header height
   const HEADER_SCROLL_DISTANCE = HEADER_MAX_HEIGHT - HEADER_MIN_HEIGHT;
   const COLLAPSE_START_THRESHOLD = 40; // Start collapsing after scrolling 50px
-  const COLLAPSE_END_THRESHOLD = COLLAPSE_START_THRESHOLD + HEADER_SCROLL_DISTANCE; // End of collapse range
-  
+  const COLLAPSE_END_THRESHOLD =
+    COLLAPSE_START_THRESHOLD + HEADER_SCROLL_DISTANCE; // End of collapse range
+
   // Set selected sport based on route param
   React.useEffect(() => {
     setSelectedSport(sport);
@@ -226,15 +292,23 @@ export default function LeagueDetailsScreen({
 
   // Function to fetch user's registered season IDs
   const fetchUserRegisteredSeasons = React.useCallback(async () => {
-    console.log('🔍 LeagueDetails: fetchUserRegisteredSeasons called, userId:', userId);
+    console.log(
+      "🔍 LeagueDetails: fetchUserRegisteredSeasons called, userId:",
+      userId,
+    );
     if (!userId) {
-      console.log('🔍 LeagueDetails: No userId, skipping membership fetch');
+      console.log("🔍 LeagueDetails: No userId, skipping membership fetch");
       return;
     }
     try {
-      console.log('🔍 LeagueDetails: Fetching memberships from /api/season/membership/me');
-      const response = await axiosInstance.get('/api/season/membership/me');
-      console.log('🔍 LeagueDetails: Raw response:', JSON.stringify(response.data, null, 2));
+      console.log(
+        "🔍 LeagueDetails: Fetching memberships from /api/season/membership/me",
+      );
+      const response = await axiosInstance.get("/api/season/membership/me");
+      console.log(
+        "🔍 LeagueDetails: Raw response:",
+        JSON.stringify(response.data, null, 2),
+      );
 
       // Parse the response - backend returns { success: true, data: [...] }
       let memberships: any[] = [];
@@ -246,23 +320,36 @@ export default function LeagueDetailsScreen({
         memberships = response;
       }
 
-      console.log('🔍 LeagueDetails: Parsed memberships:', memberships.length);
-      const seasonIds = new Set<string>(memberships.map((m: any) => m.seasonId).filter(Boolean));
-      console.log('🔍 LeagueDetails: Season IDs user is registered for:', Array.from(seasonIds));
+      console.log("🔍 LeagueDetails: Parsed memberships:", memberships.length);
+      const seasonIds = new Set<string>(
+        memberships.map((m: any) => m.seasonId).filter(Boolean),
+      );
+      console.log(
+        "🔍 LeagueDetails: Season IDs user is registered for:",
+        Array.from(seasonIds),
+      );
       setUserRegisteredSeasonIds(seasonIds);
     } catch (error) {
-      console.error('❌ LeagueDetails: Error fetching user memberships:', error);
+      console.error(
+        "❌ LeagueDetails: Error fetching user memberships:",
+        error,
+      );
     }
   }, [userId]);
 
   // Fetch user's registered season IDs on mount
   React.useEffect(() => {
-    console.log('🔍 LeagueDetails: useEffect for fetchUserRegisteredSeasons triggered');
+    console.log(
+      "🔍 LeagueDetails: useEffect for fetchUserRegisteredSeasons triggered",
+    );
     fetchUserRegisteredSeasons();
   }, [fetchUserRegisteredSeasons]);
 
-  const filterCategoriesByGender = (categories: Category[], userGender: string | null): Category[] => {
-    return categories.filter(category => isCategoryVisibleToUser(category));
+  const filterCategoriesByGender = (
+    categories: Category[],
+    userGender: string | null,
+  ): Category[] => {
+    return categories.filter((category) => isCategoryVisibleToUser(category));
   };
 
   // Smart skeleton: Update cache with current seasons summary
@@ -273,11 +360,14 @@ export default function LeagueDetailsScreen({
       const cacheKey = `${LEAGUE_SEASONS_CACHE_KEY_PREFIX}${leagueId}`;
       const newSummary = {
         count: seasons.length,
-        seasonIds: seasons.map(s => s.id).sort().join(','),
+        seasonIds: seasons
+          .map((s) => s.id)
+          .sort()
+          .join(","),
       };
       await AsyncStorage.setItem(cacheKey, JSON.stringify(newSummary));
     } catch (error) {
-      console.error('Error updating seasons cache:', error);
+      console.error("Error updating seasons cache:", error);
     }
   }, [leagueId, seasons]);
 
@@ -315,7 +405,7 @@ export default function LeagueDetailsScreen({
           setShowSeasonsSkeleton(false);
         }
       } catch (error) {
-        console.error('Error in skeleton display logic:', error);
+        console.error("Error in skeleton display logic:", error);
         if (isMounted) {
           setShowSeasonsSkeleton(false); // Fail gracefully
         }
@@ -329,32 +419,58 @@ export default function LeagueDetailsScreen({
     };
   }, [isLoading, seasons, leagueId, error, updateSeasonsCache]);
 
-  // Fetch waitlist statuses for upcoming seasons
+  // Fetch waitlist statuses for upcoming and register-interest seasons
   React.useEffect(() => {
     const fetchWaitlistStatuses = async () => {
-      console.log('[Waitlist:League] fetchWaitlistStatuses called, seasons:', seasons?.length);
+      console.log(
+        "[Waitlist:League] fetchWaitlistStatuses called, seasons:",
+        seasons?.length,
+      );
       if (!seasons || seasons.length === 0) return;
 
-      const upcomingSeasons = seasons.filter(s => s.status === 'UPCOMING');
-      console.log('[Waitlist:League] Upcoming seasons:', upcomingSeasons.map(s => ({ id: s.id, name: s.name })));
-      if (upcomingSeasons.length === 0) return;
+      const relevantSeasons = seasons.filter(
+        (s) => s.status === "UPCOMING" || s.status === "REGISTER_INTEREST",
+      );
+      console.log(
+        "[Waitlist:League] Relevant seasons:",
+        relevantSeasons.map((s) => ({
+          id: s.id,
+          name: s.name,
+          status: s.status,
+        })),
+      );
+      if (relevantSeasons.length === 0) return;
 
       const statusMap = new Map<string, WaitlistStatus>();
 
       await Promise.all(
-        upcomingSeasons.map(async (season) => {
+        relevantSeasons.map(async (season) => {
           try {
-            console.log('[Waitlist:League] Fetching status for season:', season.id);
+            console.log(
+              "[Waitlist:League] Fetching status for season:",
+              season.id,
+            );
             const status = await WaitlistService.getStatus(season.id);
-            console.log('[Waitlist:League] Status for', season.name, ':', status);
+            console.log(
+              "[Waitlist:League] Status for",
+              season.name,
+              ":",
+              status,
+            );
             statusMap.set(season.id, status);
           } catch (err) {
-            console.error(`[Waitlist:League] Error fetching waitlist status for season ${season.id}:`, err);
+            console.error(
+              `[Waitlist:League] Error fetching waitlist status for season ${season.id}:`,
+              err,
+            );
           }
-        })
+        }),
       );
 
-      console.log('[Waitlist:League] Setting waitlistStatuses, count:', statusMap.size);
+      console.log(
+        "[Waitlist:League] Setting waitlistStatuses, count:",
+        statusMap.size,
+      );
       setWaitlistStatuses(statusMap);
     };
 
@@ -376,64 +492,70 @@ export default function LeagueDetailsScreen({
       headerEntryTranslateY.value = withSpring(0, springConfig);
 
       // Info card animation (delayed by 80ms)
-      timeouts.push(setTimeout(() => {
-        infoCardEntryOpacity.value = withSpring(1, springConfig);
-        infoCardEntryTranslateY.value = withSpring(0, springConfig);
-      }, staggerDelay));
+      timeouts.push(
+        setTimeout(() => {
+          infoCardEntryOpacity.value = withSpring(1, springConfig);
+          infoCardEntryTranslateY.value = withSpring(0, springConfig);
+        }, staggerDelay),
+      );
 
       // Categories animation (delayed by 160ms)
-      timeouts.push(setTimeout(() => {
-        categoriesEntryOpacity.value = withSpring(1, springConfig);
-        categoriesEntryTranslateY.value = withSpring(0, springConfig);
-      }, staggerDelay * 2));
+      timeouts.push(
+        setTimeout(() => {
+          categoriesEntryOpacity.value = withSpring(1, springConfig);
+          categoriesEntryTranslateY.value = withSpring(0, springConfig);
+        }, staggerDelay * 2),
+      );
 
       // Seasons animation (delayed by 240ms)
-      timeouts.push(setTimeout(() => {
-        seasonsEntryOpacity.value = withSpring(1, springConfig);
-        seasonsEntryTranslateY.value = withSpring(0, springConfig);
-      }, staggerDelay * 3));
+      timeouts.push(
+        setTimeout(() => {
+          seasonsEntryOpacity.value = withSpring(1, springConfig);
+          seasonsEntryTranslateY.value = withSpring(0, springConfig);
+        }, staggerDelay * 3),
+      );
     }
 
     return () => {
-      timeouts.forEach(timeout => clearTimeout(timeout));
+      timeouts.forEach((timeout) => clearTimeout(timeout));
     };
   }, [isLoading, error, league]);
 
   const handleTabPress = (tabIndex: number) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setActiveTab(tabIndex);
-    
+
     // Navigate based on tab index
     // Tab indices: 0=Connect, 1=Friendly, 2=Leagues, 3=My Games, 4=Chat
     if (tabIndex === 0) {
       // Navigate to Connect
       router.push({
-        pathname: '/user-dashboard' as any,
-        params: { view: 'connect', sport: selectedSport }
+        pathname: "/user-dashboard" as any,
+        params: { view: "connect", sport: selectedSport },
       });
     } else if (tabIndex === 1) {
       // Navigate to Friendly
       router.push({
-        pathname: '/user-dashboard' as any,
-        params: { view: 'friendly', sport: selectedSport }
+        pathname: "/user-dashboard" as any,
+        params: { view: "friendly", sport: selectedSport },
       });
     } else if (tabIndex === 2) {
       // Navigate to Leagues (main dashboard)
       router.push({
-        pathname: '/user-dashboard' as any,
-        params: { view: 'dashboard', sport: selectedSport }
+        pathname: "/user-dashboard" as any,
+        params: { view: "dashboard", sport: selectedSport },
       });
     } else if (tabIndex === 3) {
       // Navigate to My Games
       router.push({
-        pathname: '/user-dashboard' as any,
-        params: { view: 'myGames', sport: selectedSport }
+        pathname: "/user-dashboard" as any,
+        params: { view: "myGames", sport: selectedSport },
       });
     } else if (tabIndex === 4) {
       // Navigate to Chat
       router.push({
-        pathname: '/user-dashboard' as any,
-        params: { view: 'chat', sport: selectedSport }
+        pathname: "/user-dashboard" as any,
+        params: { view: "chat", sport: selectedSport },
       });
     }
   };
@@ -445,51 +567,59 @@ export default function LeagueDetailsScreen({
 
   const handleRegisterPress = (season: Season) => {
     // Determine the season's sport type
-    const seasonSport = getSeasonSport(season) || sport || 'pickleball';
-    
+    const seasonSport = getSeasonSport(season) || sport || "pickleball";
+
     // Check if user has completed questionnaire for this sport
     if (profileData) {
-      const questionnaireStatus = checkQuestionnaireStatus(profileData, seasonSport);
-      
-      if (!questionnaireStatus.hasSelectedSport || !questionnaireStatus.hasCompletedQuestionnaire) {
+      const questionnaireStatus = checkQuestionnaireStatus(
+        profileData,
+        seasonSport,
+      );
+
+      if (
+        !questionnaireStatus.hasSelectedSport ||
+        !questionnaireStatus.hasCompletedQuestionnaire
+      ) {
         // User hasn't selected/completed questionnaire for this sport
         // Navigate to complete questionnaire screen
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
         router.push({
-          pathname: '/user-dashboard/complete-questionnaire' as any,
+          pathname: "/user-dashboard/complete-questionnaire" as any,
           params: {
             sport: seasonSport,
             seasonId: season.id,
-            leagueId: leagueId || '',
-            returnPath: 'league-details'
-          }
+            leagueId: leagueId || "",
+            returnPath: "league-details",
+          },
         });
         return;
       }
     }
-    
+
     // Check if this is a doubles season by checking category name
     const normalizedCategories = normalizeCategoriesFromSeason(season);
-    const isDoublesSeason = normalizedCategories.some(cat => 
-      cat?.name?.toLowerCase().includes('doubles') || 
-      cat?.matchFormat?.toLowerCase().includes('doubles') || 
-      (cat as any)?.game_type === 'DOUBLES'
+    const isDoublesSeason = normalizedCategories.some(
+      (cat) =>
+        cat?.name?.toLowerCase().includes("doubles") ||
+        cat?.matchFormat?.toLowerCase().includes("doubles") ||
+        (cat as any)?.game_type === "DOUBLES",
     );
-    
+
     if (isDoublesSeason) {
       // Navigate to doubles team pairing screen
       router.push({
-        pathname: '/user-dashboard/doubles-team-pairing' as any,
+        pathname: "/user-dashboard/doubles-team-pairing" as any,
         params: {
           seasonId: season.id,
           seasonName: season.name,
           leagueId: leagueId,
-          sport: seasonSport
-        }
+          sport: seasonSport,
+        },
       });
     } else {
       // Check if payment is required for this season
-      const isFreeEntry = !season.paymentRequired || !season.entryFee || season.entryFee === 0;
+      const isFreeEntry =
+        !season.paymentRequired || !season.entryFee || season.entryFee === 0;
 
       if (isFreeEntry) {
         // Free season - register directly without payment flow
@@ -502,101 +632,138 @@ export default function LeagueDetailsScreen({
     }
   };
 
+  const handleRegisterInterestPress = (seasonId: string) => {
+    if (!userId) return;
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    const currentStatus = waitlistStatuses.get(seasonId);
+    if (currentStatus?.isWaitlisted) {
+      setLeaveWaitlistDialogSeasonId(seasonId);
+      return;
+    }
+    setRegisterInterestBottomSheetSeasonId(seasonId);
+  };
+
+  const handleConfirmRegisterInterest = async (seasonId: string) => {
+    try {
+      setIsJoiningWaitlist(seasonId);
+      const result = await WaitlistService.joinWaitlist(seasonId);
+      if (result.success) {
+        toast.success(`You've registered interest!`);
+        const status = await WaitlistService.getStatus(seasonId);
+        setWaitlistStatuses((prev) => new Map(prev).set(seasonId, status));
+        setRegisterInterestBottomSheetSeasonId(null);
+      }
+    } catch (err: any) {
+      toast.error(err.message || "Failed to register interest");
+    } finally {
+      setIsJoiningWaitlist(null);
+    }
+  };
+
   const handleJoinWaitlistPress = (seasonId: string) => {
-    console.log('[Waitlist:League] handleJoinWaitlistPress called:', { seasonId, userId });
+    console.log("[Waitlist:League] handleJoinWaitlistPress called:", {
+      seasonId,
+      userId,
+    });
     if (!userId) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
 
     const currentStatus = waitlistStatuses.get(seasonId);
-    console.log('[Waitlist:League] Current status for season:', currentStatus);
+    console.log("[Waitlist:League] Current status for season:", currentStatus);
 
     // If already on waitlist, show leave confirmation dialog
     if (currentStatus?.isWaitlisted) {
-      console.log('[Waitlist:League] User on waitlist, showing leave dialog');
+      console.log("[Waitlist:League] User on waitlist, showing leave dialog");
       setLeaveWaitlistDialogSeasonId(seasonId);
       return;
     }
 
     // Show join waitlist bottom sheet
-    console.log('[Waitlist:League] Showing join bottom sheet');
+    console.log("[Waitlist:League] Showing join bottom sheet");
     setWaitlistBottomSheetSeasonId(seasonId);
   };
 
   const handleConfirmJoinWaitlist = async (seasonId: string) => {
-    console.log('[Waitlist:League] handleConfirmJoinWaitlist called:', seasonId);
+    console.log(
+      "[Waitlist:League] handleConfirmJoinWaitlist called:",
+      seasonId,
+    );
     try {
       setIsJoiningWaitlist(seasonId);
       const result = await WaitlistService.joinWaitlist(seasonId);
-      console.log('[Waitlist:League] Join result:', result);
+      console.log("[Waitlist:League] Join result:", result);
 
       if (result.success) {
         toast.success(`You're #${result.position} on the waitlist!`);
         // Refresh waitlist status
         const status = await WaitlistService.getStatus(seasonId);
-        console.log('[Waitlist:League] Updated status:', status);
-        setWaitlistStatuses(prev => new Map(prev).set(seasonId, status));
+        console.log("[Waitlist:League] Updated status:", status);
+        setWaitlistStatuses((prev) => new Map(prev).set(seasonId, status));
         setWaitlistBottomSheetSeasonId(null);
       }
     } catch (err: any) {
-      console.error('[Waitlist:League] Error joining:', err);
-      toast.error(err.message || 'Failed to join waitlist');
+      console.error("[Waitlist:League] Error joining:", err);
+      toast.error(err.message || "Failed to join waitlist");
     } finally {
       setIsJoiningWaitlist(null);
     }
   };
 
   const handleLeaveWaitlist = async (seasonId: string) => {
-    console.log('[Waitlist:League] handleLeaveWaitlist called:', seasonId);
+    console.log("[Waitlist:League] handleLeaveWaitlist called:", seasonId);
     try {
       setIsJoiningWaitlist(seasonId);
       const result = await WaitlistService.leaveWaitlist(seasonId);
-      console.log('[Waitlist:League] Leave result:', result);
+      console.log("[Waitlist:League] Leave result:", result);
 
       if (result.success) {
-        toast.success('You have left the waitlist');
+        toast.success("You have left the waitlist");
         // Refresh to get latest status
         const status = await WaitlistService.getStatus(seasonId);
-        console.log('[Waitlist:League] Updated status:', status);
-        setWaitlistStatuses(prev => new Map(prev).set(seasonId, status));
+        console.log("[Waitlist:League] Updated status:", status);
+        setWaitlistStatuses((prev) => new Map(prev).set(seasonId, status));
         setLeaveWaitlistDialogSeasonId(null);
       }
     } catch (err: any) {
-      console.error('[Waitlist:League] Error leaving:', err);
-      toast.error(err.message || 'Failed to leave waitlist');
+      console.error("[Waitlist:League] Error leaving:", err);
+      toast.error(err.message || "Failed to leave waitlist");
     } finally {
       setIsJoiningWaitlist(null);
     }
   };
 
   // Helper to convert Date | string | undefined to string for router params
-  const dateToParamString = (date: string | Date | undefined): string | undefined => {
+  const dateToParamString = (
+    date: string | Date | undefined,
+  ): string | undefined => {
     if (!date) return undefined;
-    if (typeof date === 'string') return date;
+    if (typeof date === "string") return date;
     return Number.isNaN(date.getTime()) ? undefined : date.toISOString();
   };
 
   const handleViewStandingsPress = (season: Season) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    
+
     // Get category info for display
     const normalizedCategories = normalizeCategoriesFromSeason(season);
-    const seasonCategory = normalizedCategories && normalizedCategories.length > 0 
-      ? normalizedCategories[0] 
-      : null;
-    const categoryDisplayName = seasonCategory ? seasonCategory.name || '' : '';
-    
+    const seasonCategory =
+      normalizedCategories && normalizedCategories.length > 0
+        ? normalizedCategories[0]
+        : null;
+    const categoryDisplayName = seasonCategory ? seasonCategory.name || "" : "";
+
     router.push({
-      pathname: '/standings' as any,
+      pathname: "/standings" as any,
       params: {
         seasonId: season.id,
         seasonName: season.name,
         leagueId: leagueId,
         leagueName: league?.name || leagueName,
         categoryName: categoryDisplayName,
-        sportType: selectedSport?.toUpperCase() || 'PICKLEBALL',
+        sportType: selectedSport?.toUpperCase() || "PICKLEBALL",
         startDate: dateToParamString(season.startDate),
         endDate: dateToParamString(season.endDate),
-      }
+      },
     });
   };
 
@@ -607,7 +774,7 @@ export default function LeagueDetailsScreen({
 
   const handlePayNow = async (season: Season) => {
     if (!userId) {
-      toast.error('You must be logged in to continue');
+      toast.error("You must be logged in to continue");
       return;
     }
 
@@ -615,31 +782,37 @@ export default function LeagueDetailsScreen({
 
     try {
       setIsProcessingPayment(true);
-      console.log('Starting FIUU payment for season:', season.id);
-      const checkout = await FiuuPaymentService.createCheckout(season.id, userId);
-      const payload = encodeURIComponent(JSON.stringify({
-        ...checkout,
-        returnTo: {
-          pathname: '/user-dashboard/league-details',
-          params: {
-            leagueId: leagueId,
-            leagueName: league?.name || leagueName,
-            sport: sport || 'pickleball'
+      console.log("Starting FIUU payment for season:", season.id);
+      const checkout = await FiuuPaymentService.createCheckout(
+        season.id,
+        userId,
+      );
+      const payload = encodeURIComponent(
+        JSON.stringify({
+          ...checkout,
+          returnTo: {
+            pathname: "/user-dashboard/league-details",
+            params: {
+              leagueId: leagueId,
+              leagueName: league?.name || leagueName,
+              sport: sport || "pickleball",
+            },
+            dismissCount: 1, // Go back 1 screen: fiuu-checkout -> league-details
           },
-          dismissCount: 1 // Go back 1 screen: fiuu-checkout -> league-details
-        }
-      }));
+        }),
+      );
 
       // Close payment options sheet before navigating
       setShowPaymentOptions(false);
 
       router.push({
-        pathname: '/payments/fiuu-checkout',
+        pathname: "/payments/fiuu-checkout",
         params: { payload },
       });
     } catch (error: any) {
-      console.error('Error launching FIUU payment:', error);
-      const message = error?.message || 'Unable to start payment. Please try again.';
+      console.error("Error launching FIUU payment:", error);
+      const message =
+        error?.message || "Unable to start payment. Please try again.";
       toast.error(message);
     } finally {
       setIsProcessingPayment(false);
@@ -648,133 +821,190 @@ export default function LeagueDetailsScreen({
 
   const handlePayLater = async (season: Season) => {
     if (!userId) {
-      toast.error('You must be logged in to register');
+      toast.error("You must be logged in to register");
       return;
     }
 
     if (!SeasonService.isRegistrationOpen(season)) {
-      toast.error('Registration deadline has passed for this season');
+      toast.error("Registration deadline has passed for this season");
       return;
     }
 
     try {
-      console.log('Registering user for season (Pay Later):', season.id);
-      const success = await SeasonService.registerForSeason(season.id, userId, true);
+      console.log("Registering user for season (Pay Later):", season.id);
+      const success = await SeasonService.registerForSeason(
+        season.id,
+        userId,
+        true,
+      );
 
       if (success) {
-        console.log('User registered successfully');
-        toast.success('Registered successfully!');
+        console.log("User registered successfully");
+        toast.success("Registered successfully!");
         fetchAllData(); // Refresh data
       } else {
-        console.warn('Registration failed');
-        toast.error('Registration failed. Please try again.');
+        console.warn("Registration failed");
+        toast.error("Registration failed. Please try again.");
       }
     } catch (err) {
-      console.error('Error registering:', err);
-      toast.error('An error occurred while registering.');
+      console.error("Error registering:", err);
+      toast.error("An error occurred while registering.");
     }
   };
 
   // Get filtered seasons for selected category (no longer filtered by gender - all users see all seasons)
   const getFilteredSeasons = () => {
-
     let filtered = seasons;
 
     // Only filter out seasons with no categories
-    filtered = filtered.filter(season => {
+    filtered = filtered.filter((season) => {
       const normalizedCategories = normalizeCategoriesFromSeason(season);
-      const hasCategories = normalizedCategories && normalizedCategories.length > 0;
-      
+      const hasCategories =
+        normalizedCategories && normalizedCategories.length > 0;
+
       if (!hasCategories) {
-        console.log(`   Filtering out season ${season.id} (${season.name}) - no categories`);
+        console.log(
+          `   Filtering out season ${season.id} (${season.name}) - no categories`,
+        );
       }
-      
+
       return hasCategories;
     });
-    
+
     // Filter by selected category if one is selected
     if (selectedCategoryId) {
-      filtered = filtered.filter(season => {
+      filtered = filtered.filter((season) => {
         const normalizedCategories = normalizeCategoriesFromSeason(season);
-        const seasonCategoryIds = normalizedCategories.map(c => c?.id).filter(Boolean);
+        const seasonCategoryIds = normalizedCategories
+          .map((c) => c?.id)
+          .filter(Boolean);
         const matches = seasonCategoryIds.includes(selectedCategoryId);
-        
+
         // console.log(`   Season ${season.name} categories:`, seasonCategoryIds, 'matches selected:', matches);
-        
+
         return matches;
       });
-    }    
+    }
     return filtered;
   };
 
   // Get current selected category
-  const selectedCategory = categories.find(cat => cat.id === selectedCategoryId);
+  const selectedCategory = categories.find(
+    (cat) => cat.id === selectedCategoryId,
+  );
   const isDoublesCategory = selectedCategory
-    ? CategoryService.getEffectiveGameType(selectedCategory, 'SINGLES') === 'DOUBLES'
+    ? CategoryService.getEffectiveGameType(selectedCategory, "SINGLES") ===
+      "DOUBLES"
     : false;
 
   const { partnership } = useActivePartnership(
     isDoublesCategory && selectedSeason ? selectedSeason.id : null,
-    userId
+    userId,
   );
 
   // Group seasons by status
-  const groupedSeasons = SeasonService.groupSeasonsByStatus(getFilteredSeasons());
+  const groupedSeasons =
+    SeasonService.groupSeasonsByStatus(getFilteredSeasons());
   const currentSeasons = groupedSeasons.active;
   const upcomingSeasons = groupedSeasons.upcoming;
+  const registerInterestSeasons = groupedSeasons.registerInterest;
   const pastSeasons = groupedSeasons.finished;
 
   const formatSeasonDate = (date: string | Date): string => {
-    const dateObj = typeof date === 'string' ? new Date(date) : date;
+    const dateObj = typeof date === "string" ? new Date(date) : date;
     if (Number.isNaN(dateObj.getTime())) {
-      return 'Date TBD';
+      return "Date TBD";
     }
-    return dateObj.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
+    return dateObj.toLocaleDateString("en-GB", {
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+    });
   };
 
   // Short date: "25 Feb" (no year)
   const formatShortDate = (date: string | Date): string => {
-    const dateObj = typeof date === 'string' ? new Date(date) : date;
-    if (Number.isNaN(dateObj.getTime())) return 'TBD';
-    return dateObj.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+    const dateObj = typeof date === "string" ? new Date(date) : date;
+    if (Number.isNaN(dateObj.getTime())) return "TBD";
+    return dateObj.toLocaleDateString("en-GB", {
+      day: "numeric",
+      month: "short",
+    });
   };
 
   const renderSeasonCard = (season: Season) => {
     const entryFee = formatEntryFee(season.entryFee);
-    const userMembership = season.memberships?.find((m: any) => m.userId === userId);
+    const userMembership = season.memberships?.find(
+      (m: any) => m.userId === userId,
+    );
+    const waitlistStatus = waitlistStatuses.get(season.id);
     // Check both membership data from season AND the separately fetched user memberships
-    const isUserRegistered = !!userMembership || userRegisteredSeasonIds.has(season.id);
+    const isUserRegistered =
+      !!userMembership || userRegisteredSeasonIds.has(season.id);
 
-    console.log(`🔍 Season ${season.name}: userMembership=${!!userMembership}, inRegisteredIds=${userRegisteredSeasonIds.has(season.id)}, isUserRegistered=${isUserRegistered}`);
+    console.log(
+      `🔍 Season ${season.name}: userMembership=${!!userMembership}, inRegisteredIds=${userRegisteredSeasonIds.has(season.id)}, isUserRegistered=${isUserRegistered}`,
+    );
 
     // Get category info
     const normalizedCategories = normalizeCategoriesFromSeason(season);
-    const isDoublesSeason = normalizedCategories.some(cat =>
-      cat?.name?.toLowerCase().includes('doubles') ||
-      cat?.matchFormat?.toLowerCase().includes('doubles') ||
-      (cat as any)?.game_type === 'DOUBLES'
+    const isDoublesSeason = normalizedCategories.some(
+      (cat) =>
+        cat?.name?.toLowerCase().includes("doubles") ||
+        cat?.matchFormat?.toLowerCase().includes("doubles") ||
+        (cat as any)?.game_type === "DOUBLES",
     );
-    const canJoin = normalizedCategories.some(cat => canUserJoinCategory(cat));
+    const canJoin = normalizedCategories.some((cat) =>
+      canUserJoinCategory(cat),
+    );
     const isRegistrationOpen = SeasonService.isRegistrationOpen(season);
-    console.log(`🔍 Season ${season.name}: isRegistrationOpen=${isRegistrationOpen}, status=${season.status}, regiDeadline=${season.regiDeadline}`);
+    const displayPlayerCount =
+      season.status === "UPCOMING"
+        ? (waitlistStatus?.totalWaitlisted ??
+          season._count?.memberships ??
+          season.registeredUserCount ??
+          0)
+        : (season._count?.memberships ?? season.registeredUserCount ?? 0);
+    const isUserInMembershipList = (season.memberships || []).some(
+      (m: any) => m.userId === userId,
+    );
+    const currentUserAvatarUri =
+      session?.user?.image ||
+      (session?.user as any)?.avatar ||
+      (session?.user as any)?.profileImage;
+    const currentUserInitial =
+      session?.user?.name?.charAt(0)?.toUpperCase() || "U";
+    const shouldShowCurrentUserWaitlistAvatar =
+      season.status === "UPCOMING" &&
+      !!waitlistStatus?.isWaitlisted &&
+      !isUserInMembershipList;
+    console.log(
+      `🔍 Season ${season.name}: isRegistrationOpen=${isRegistrationOpen}, status=${season.status}, regiDeadline=${season.regiDeadline}`,
+    );
 
     // Check if user has partnership for this season
     const hasPartnership = partnerships.has(season.id);
     const partnership = partnerships.get(season.id);
-    const showManageTeam = isDoublesSeason && hasPartnership && isUserRegistered;
-    const seasonCategory = normalizedCategories && normalizedCategories.length > 0
-      ? normalizedCategories[0]
-      : null;
-    const categoryDisplayName = seasonCategory ? seasonCategory.name || '' : '';
+    const showManageTeam =
+      isDoublesSeason && hasPartnership && isUserRegistered;
+    const seasonCategory =
+      normalizedCategories && normalizedCategories.length > 0
+        ? normalizedCategories[0]
+        : null;
+    const categoryDisplayName = seasonCategory ? seasonCategory.name || "" : "";
 
     // ── Bottom action row builder ──────────────────────────────────────────
     const renderBottomRow = () => {
       // Doubles-specific overrides first
-      if (isDoublesSeason && userMembership && userMembership.status === 'PENDING') {
+      if (
+        isDoublesSeason &&
+        userMembership &&
+        userMembership.status === "PENDING"
+      ) {
         return (
           <View style={styles.buttonRow}>
             <TouchableOpacity
-              style={[styles.viewMatchesButton, { backgroundColor: '#FEA04D' }]}
+              style={[styles.viewMatchesButton, { backgroundColor: "#FEA04D" }]}
               onPress={() => handleRegisterPress(season)}
               activeOpacity={0.8}
             >
@@ -783,11 +1013,15 @@ export default function LeagueDetailsScreen({
           </View>
         );
       }
-      if (isDoublesSeason && userMembership && userMembership.status === 'REMOVED') {
+      if (
+        isDoublesSeason &&
+        userMembership &&
+        userMembership.status === "REMOVED"
+      ) {
         return (
           <View style={styles.buttonRow}>
             <TouchableOpacity
-              style={[styles.viewMatchesButton, { backgroundColor: '#FEA04D' }]}
+              style={[styles.viewMatchesButton, { backgroundColor: "#FEA04D" }]}
               onPress={() => handleRegisterPress(season)}
               activeOpacity={0.8}
             >
@@ -806,14 +1040,24 @@ export default function LeagueDetailsScreen({
             return (
               <View style={styles.buttonRow}>
                 <View style={styles.divisionPendingPill}>
-                  <Text style={styles.divisionPendingPillText}>⏳ Division assignment pending</Text>
+                  <Text style={styles.divisionPendingPillText}>
+                    ⏳ Division assignment pending
+                  </Text>
                 </View>
                 <TouchableOpacity
                   style={styles.helpIconButton}
-                  onPress={() => toast.info("You've registered for this season! You'll be notified once admin assigns you to a division.")}
+                  onPress={() =>
+                    toast.info(
+                      "You've registered for this season! You'll be notified once admin assigns you to a division.",
+                    )
+                  }
                   activeOpacity={0.7}
                 >
-                  <Ionicons name="help-circle-outline" size={22} color="#9CA3AF" />
+                  <Ionicons
+                    name="help-circle-outline"
+                    size={22}
+                    color="#9CA3AF"
+                  />
                 </TouchableOpacity>
               </View>
             );
@@ -826,14 +1070,20 @@ export default function LeagueDetailsScreen({
                 onPress={() => {
                   Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                   router.push({
-                    pathname: '/match/all-matches' as any,
+                    pathname: "/match/all-matches" as any,
                     params: {
                       divisionId: userMembership.divisionId,
                       sportType: (selectedSport || sport).toUpperCase(),
                       leagueName: league?.name || leagueName,
                       seasonName: season.name,
-                      gameType: seasonCategory?.matchFormat || (seasonCategory as any)?.game_type || '',
-                      genderCategory: seasonCategory?.genderRestriction || (seasonCategory as any)?.gender_category || '',
+                      gameType:
+                        seasonCategory?.matchFormat ||
+                        (seasonCategory as any)?.game_type ||
+                        "",
+                      genderCategory:
+                        seasonCategory?.genderRestriction ||
+                        (seasonCategory as any)?.gender_category ||
+                        "",
                     },
                   });
                 }}
@@ -841,7 +1091,10 @@ export default function LeagueDetailsScreen({
               >
                 <Text style={styles.registerButtonText}>View Matches</Text>
               </TouchableOpacity>
-              <TouchableOpacity onPress={() => handleViewStandingsPress(season)} activeOpacity={0.7}>
+              <TouchableOpacity
+                onPress={() => handleViewStandingsPress(season)}
+                activeOpacity={0.7}
+              >
                 <Text style={styles.viewStandingsLink}>View Standings</Text>
               </TouchableOpacity>
             </View>
@@ -851,8 +1104,8 @@ export default function LeagueDetailsScreen({
         return (
           <View style={styles.buttonRow}>
             <TouchableOpacity
-              style={[styles.viewMatchesButton, { backgroundColor: '#9CA3AF' }]}
-              onPress={() => toast.info('You are registered for this season.')}
+              style={[styles.viewMatchesButton, { backgroundColor: "#9CA3AF" }]}
+              onPress={() => toast.info("You are registered for this season.")}
               activeOpacity={0.8}
             >
               <Text style={styles.registerButtonText}>Joined</Text>
@@ -862,7 +1115,7 @@ export default function LeagueDetailsScreen({
       }
 
       // Not registered — ACTIVE season
-      if (season.status === 'ACTIVE') {
+      if (season.status === "ACTIVE") {
         if (!isRegistrationOpen) {
           // Registration closed — View Standings replaces the grey "Registration Closed" button
           return (
@@ -873,7 +1126,9 @@ export default function LeagueDetailsScreen({
               >
                 <Text style={styles.viewStandingsLink}>View Standings</Text>
               </TouchableOpacity>
-              <Text style={styles.registrationClosedText}>Registration{'\n'}closed</Text>
+              <Text style={styles.registrationClosedText}>
+                Registration{"\n"}closed
+              </Text>
             </View>
           );
         }
@@ -884,9 +1139,14 @@ export default function LeagueDetailsScreen({
             <View style={styles.buttonRow}>
               <View style={styles.genderRestrictedPill}>
                 <Ionicons name="lock-closed" size={13} color="#86868B" />
-                <Text style={styles.genderRestrictedPillText}>Gender restricted</Text>
+                <Text style={styles.genderRestrictedPillText}>
+                  Gender restricted
+                </Text>
               </View>
-              <TouchableOpacity onPress={() => handleViewStandingsPress(season)} activeOpacity={0.7}>
+              <TouchableOpacity
+                onPress={() => handleViewStandingsPress(season)}
+                activeOpacity={0.7}
+              >
                 <Text style={styles.viewStandingsLink}>View Standings →</Text>
               </TouchableOpacity>
             </View>
@@ -901,19 +1161,27 @@ export default function LeagueDetailsScreen({
             >
               <Text style={styles.registerButtonText}>Join Season</Text>
             </TouchableOpacity>
-            <Text style={styles.registrationOpenText}>Registration{'\n'}open</Text>
+            <Text style={styles.registrationOpenText}>
+              Registration{"\n"}open
+            </Text>
           </View>
         );
       }
 
       // UPCOMING season
-      if (season.status === 'UPCOMING') {
+      if (season.status === "UPCOMING") {
         if (!canJoin) {
           return (
-            <View style={styles.buttonRow}>
+            <View style={[styles.buttonRow, styles.centeredButtonRow]}>
               <TouchableOpacity
-                style={[styles.viewMatchesButton, { backgroundColor: '#B2B2B2' }]}
-                onPress={() => toast.info('This season is restricted to a different gender')}
+                style={[
+                  styles.viewMatchesButton,
+                  styles.compactActionButton,
+                  { backgroundColor: "#B2B2B2" },
+                ]}
+                onPress={() =>
+                  toast.info("This season is restricted to a different gender")
+                }
                 activeOpacity={0.8}
               >
                 <Text style={styles.registerButtonText}>View Only</Text>
@@ -921,27 +1189,36 @@ export default function LeagueDetailsScreen({
             </View>
           );
         }
-        const waitlistStatus = waitlistStatuses.get(season.id);
         const isProcessing = isJoiningWaitlist === season.id;
         if (waitlistStatus?.isWaitlisted) {
           return (
-            <View style={styles.buttonRow}>
+            <View style={[styles.buttonRow, styles.centeredButtonRow]}>
               <TouchableOpacity
-                style={[styles.viewMatchesButton, { backgroundColor: '#6B7280' }]}
+                style={[
+                  styles.viewMatchesButton,
+                  styles.compactActionButton,
+                  { backgroundColor: "#F2F2F2" },
+                ]}
                 onPress={() => handleJoinWaitlistPress(season.id)}
                 activeOpacity={0.8}
               >
-                <Text style={styles.registerButtonText}>Leave Waitlist (#{waitlistStatus.position})</Text>
+                <Text style={styles.registerButtonText}>
+                  Leave Waitlist (#{waitlistStatus.position})
+                </Text>
               </TouchableOpacity>
             </View>
           );
         }
         if (waitlistStatus && WaitlistService.isWaitlistFull(waitlistStatus)) {
           return (
-            <View style={styles.buttonRow}>
+            <View style={[styles.buttonRow, styles.centeredButtonRow]}>
               <TouchableOpacity
-                style={[styles.viewMatchesButton, { backgroundColor: '#B2B2B2' }]}
-                onPress={() => toast.info('The waitlist is currently full')}
+                style={[
+                  styles.viewMatchesButton,
+                  styles.compactActionButton,
+                  { backgroundColor: "#B2B2B2" },
+                ]}
+                onPress={() => toast.info("The waitlist is currently full")}
                 activeOpacity={0.8}
               >
                 <Text style={styles.registerButtonText}>Waitlist Full</Text>
@@ -950,14 +1227,18 @@ export default function LeagueDetailsScreen({
           );
         }
         return (
-          <View style={styles.buttonRow}>
+          <View style={[styles.buttonRow, styles.centeredButtonRow]}>
             <TouchableOpacity
-              style={[styles.viewMatchesButton, { backgroundColor: '#F2F2F2' }]}
+              style={[
+                styles.viewMatchesButton,
+                styles.compactActionButton,
+                { backgroundColor: "#F2F2F2" },
+              ]}
               onPress={() => handleJoinWaitlistPress(season.id)}
               activeOpacity={0.8}
             >
-              <Text style={[styles.registerButtonText, { color: '#374151' }]}>
-                {isProcessing ? 'Joining...' : 'Join Waitlist'}
+              <Text style={[styles.registerButtonText, { color: "#374151" }]}>
+                {isProcessing ? "Joining..." : "Join Waitlist"}
               </Text>
             </TouchableOpacity>
           </View>
@@ -967,7 +1248,10 @@ export default function LeagueDetailsScreen({
       // FINISHED or default
       return (
         <View style={styles.buttonRow}>
-          <TouchableOpacity onPress={() => handleViewStandingsPress(season)} activeOpacity={0.7}>
+          <TouchableOpacity
+            onPress={() => handleViewStandingsPress(season)}
+            activeOpacity={0.7}
+          >
             <Text style={styles.viewStandingsLink}>View Standings</Text>
           </TouchableOpacity>
         </View>
@@ -977,8 +1261,27 @@ export default function LeagueDetailsScreen({
 
     // End-year for the date range
     const endYear = season.endDate
-      ? new Date(season.endDate).toLocaleDateString('en-GB', { year: 'numeric' })
-      : '';
+      ? new Date(season.endDate).toLocaleDateString("en-GB", {
+          year: "numeric",
+        })
+      : "";
+
+    const renderSeasonContainer = (children: React.ReactNode) => {
+      if (season.status === "ACTIVE") {
+        return (
+          <LinearGradient
+            colors={getSeasonCardGradientColors(sport)}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 0, y: 1 }}
+            style={styles.seasonCardWrapper}
+          >
+            {children}
+          </LinearGradient>
+        );
+      }
+
+      return <View style={styles.seasonCardPlainWrapper}>{children}</View>;
+    };
 
     return (
       <TouchableOpacity
@@ -986,62 +1289,101 @@ export default function LeagueDetailsScreen({
         onPress={() => {
           Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
           // Closed-registration ACTIVE seasons and past seasons → go straight to standings
-          if (!isUserRegistered && !isRegistrationOpen && season.status === 'ACTIVE') {
+          if (
+            !isUserRegistered &&
+            !isRegistrationOpen &&
+            season.status === "ACTIVE"
+          ) {
             handleViewStandingsPress(season);
             return;
           }
           router.push({
-            pathname: '/user-dashboard/season-details' as any,
+            pathname: "/user-dashboard/season-details" as any,
             params: {
               seasonId: season.id,
               seasonName: season.name,
               leagueId: leagueId,
-              sport: sport
-            }
+              sport: sport,
+            },
           });
         }}
         activeOpacity={0.9}
       >
-        <LinearGradient
-          colors={getSeasonCardGradientColors(sport)}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 0, y: 1 }}
-          style={styles.seasonCardWrapper}
-        >
+        {renderSeasonContainer(
           <View style={styles.seasonCard}>
             {/* Header: season name + status pill */}
             <View style={styles.seasonCardHeader}>
               <Text style={styles.seasonTitle}>{season.name}</Text>
               {(() => {
                 const now = new Date();
-                let label = 'Registration Open';
-                let dotColor = '#22C55E';
-                let bgColor = '#F0FDF4';
-                let textColor = '#16A34A';
-                let borderColor = '#BBF7D0';
-                if (season.startDate && new Date(season.startDate) <= now) {
-                  label = 'In Progress';
-                  dotColor = '#3B82F6';
-                  bgColor = '#EFF6FF';
-                  textColor = '#3B82F6';
-                  borderColor = '#BFDBFE';
-                } else if (season.regiDeadline && new Date(season.regiDeadline) < now) {
-                  label = 'Registration Closed';
-                  dotColor = '#EF4444';
-                  bgColor = '#FEF2F2';
-                  textColor = '#EF4444';
-                  borderColor = '#FECACA';
-                } else if (season.regiDeadline && new Date(season.regiDeadline) <= new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000)) {
-                  label = 'Closing Soon';
-                  dotColor = '#F59E0B';
-                  bgColor = '#FFFBEB';
-                  textColor = '#D97706';
-                  borderColor = '#FDE68A';
+                const seasonStartDate = season.startDate
+                  ? new Date(season.startDate)
+                  : null;
+                const registrationDeadlineDate = season.regiDeadline
+                  ? new Date(season.regiDeadline)
+                  : null;
+                const isUpcomingBeforeStart =
+                  season.status === "UPCOMING" &&
+                  !!seasonStartDate &&
+                  seasonStartDate > now;
+
+                let label: string | null = null;
+                let dotColor = "#22C55E";
+                let bgColor = "#F0FDF4";
+                let textColor = "#16A34A";
+                let borderColor = "#BBF7D0";
+
+                if (seasonStartDate && seasonStartDate <= now) {
+                  label = "In Progress";
+                  dotColor = "#3B82F6";
+                  bgColor = "#EFF6FF";
+                  textColor = "#3B82F6";
+                  borderColor = "#BFDBFE";
+                } else if (
+                  registrationDeadlineDate &&
+                  registrationDeadlineDate < now
+                ) {
+                  label = "Registration Closed";
+                  dotColor = "#EF4444";
+                  bgColor = "#FEF2F2";
+                  textColor = "#EF4444";
+                  borderColor = "#FECACA";
+                } else if (
+                  registrationDeadlineDate &&
+                  registrationDeadlineDate <=
+                    new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000)
+                ) {
+                  label = "Closing Soon";
+                  dotColor = "#F59E0B";
+                  bgColor = "#FFFBEB";
+                  textColor = "#D97706";
+                  borderColor = "#FDE68A";
+                } else if (!isUpcomingBeforeStart && isRegistrationOpen) {
+                  label = "Registration Open";
                 }
+
+                if (!label) {
+                  return null;
+                }
+
                 return (
-                  <View style={[styles.seasonStatusBadge, { backgroundColor: bgColor, borderColor }]}>
-                    <View style={[styles.seasonStatusDot, { backgroundColor: dotColor }]} />
-                    <Text style={[styles.seasonStatusText, { color: textColor }]}>{label}</Text>
+                  <View
+                    style={[
+                      styles.seasonStatusBadge,
+                      { backgroundColor: bgColor, borderColor },
+                    ]}
+                  >
+                    <View
+                      style={[
+                        styles.seasonStatusDot,
+                        { backgroundColor: dotColor },
+                      ]}
+                    />
+                    <Text
+                      style={[styles.seasonStatusText, { color: textColor }]}
+                    >
+                      {label}
+                    </Text>
                   </View>
                 );
               })()}
@@ -1049,7 +1391,9 @@ export default function LeagueDetailsScreen({
 
             {/* Category as plain grey secondary text */}
             {categoryDisplayName ? (
-              <Text style={styles.categoryPlainText}>{categoryDisplayName}</Text>
+              <Text style={styles.categoryPlainText}>
+                {categoryDisplayName}
+              </Text>
             ) : null}
 
             {/* Date row: 📅 25 Feb – 30 Apr 2026 */}
@@ -1057,7 +1401,8 @@ export default function LeagueDetailsScreen({
               <View style={styles.dateIconRow}>
                 <CalendarIcon width={16} height={16} />
                 <Text style={styles.dateText}>
-                  {formatShortDate(season.startDate)} – {formatShortDate(season.endDate)} {endYear}
+                  {formatShortDate(season.startDate)} –{" "}
+                  {formatShortDate(season.endDate)} {endYear}
                 </Text>
               </View>
             )}
@@ -1080,77 +1425,393 @@ export default function LeagueDetailsScreen({
                 onPress={() => {
                   Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                   router.push({
-                    pathname: '/user-dashboard/players-list',
+                    pathname: "/user-dashboard/players-list",
                     params: {
-                      contextType: 'season',
+                      contextType: "season",
                       contextId: season.id,
                       contextName: season.name,
                       sport: sport,
-                      totalPlayers: season._count?.memberships || season.registeredUserCount || 0,
-                    }
+                      totalPlayers: displayPlayerCount,
+                    },
                   });
                 }}
                 activeOpacity={0.7}
               >
                 {season.memberships && season.memberships.length > 0 && (
                   <View style={styles.avatarRow}>
-                    {season.memberships.slice(0, 5).map((membership, index: number) => {
-                      if (!membership.user) return null;
-                      return (
-                        <View key={membership.id} style={[styles.seasonMemberProfilePicture, index > 0 && styles.seasonMemberProfilePictureOverlap]}>
-                          {membership.user.image ? (
-                            <Image source={{ uri: membership.user.image }} style={styles.seasonMemberProfileImage} />
-                          ) : (
-                            <View style={styles.defaultSeasonMemberProfileImage}>
-                              <Text style={styles.defaultSeasonMemberProfileText}>
-                                {membership.user.name?.charAt(0)?.toUpperCase() || 'U'}
-                              </Text>
-                            </View>
-                          )}
-                        </View>
-                      );
-                    })}
-                    {season._count?.memberships && season._count.memberships > 5 && (
-                      <View style={[styles.seasonRemainingCount, styles.seasonMemberProfilePictureOverlap]}>
-                        <Text style={styles.seasonRemainingCountText}>+{season._count.memberships - 5}</Text>
+                    {season.memberships
+                      .slice(0, 5)
+                      .map((membership, index: number) => {
+                        if (!membership.user) return null;
+                        return (
+                          <View
+                            key={membership.id}
+                            style={[
+                              styles.seasonMemberProfilePicture,
+                              index > 0 &&
+                                styles.seasonMemberProfilePictureOverlap,
+                            ]}
+                          >
+                            {membership.user.image ? (
+                              <Image
+                                source={{ uri: membership.user.image }}
+                                style={styles.seasonMemberProfileImage}
+                              />
+                            ) : (
+                              <View
+                                style={styles.defaultSeasonMemberProfileImage}
+                              >
+                                <Text
+                                  style={styles.defaultSeasonMemberProfileText}
+                                >
+                                  {membership.user.name
+                                    ?.charAt(0)
+                                    ?.toUpperCase() || "U"}
+                                </Text>
+                              </View>
+                            )}
+                          </View>
+                        );
+                      })}
+                    {displayPlayerCount > 5 && (
+                      <View
+                        style={[
+                          styles.seasonRemainingCount,
+                          styles.seasonMemberProfilePictureOverlap,
+                        ]}
+                      >
+                        <Text style={styles.seasonRemainingCountText}>
+                          +{displayPlayerCount - 5}
+                        </Text>
+                      </View>
+                    )}
+                  </View>
+                )}
+                {shouldShowCurrentUserWaitlistAvatar && (
+                  <View
+                    style={[
+                      styles.seasonMemberProfilePicture,
+                      season.memberships &&
+                        season.memberships.length > 0 &&
+                        styles.seasonMemberProfilePictureOverlap,
+                    ]}
+                  >
+                    {currentUserAvatarUri ? (
+                      <Image
+                        source={{ uri: currentUserAvatarUri }}
+                        style={styles.seasonMemberProfileImage}
+                      />
+                    ) : (
+                      <View style={styles.defaultSeasonMemberProfileImage}>
+                        <Text style={styles.defaultSeasonMemberProfileText}>
+                          {currentUserInitial}
+                        </Text>
                       </View>
                     )}
                   </View>
                 )}
                 <Text style={styles.playerCountText}>
-                  • {season._count?.memberships || season.registeredUserCount || 0} player{(season._count?.memberships || season.registeredUserCount || 0) !== 1 ? 's' : ''}
+                  • {displayPlayerCount} player
+                  {displayPlayerCount !== 1 ? "s" : ""}
                 </Text>
               </TouchableOpacity>
 
               {/* Right: entry fee */}
               {season.paymentRequired && entryFee && (
-                <Text style={styles.entryFeeInlineText}>RM{entryFee} entry</Text>
+                <Text style={styles.entryFeeInlineText}>
+                  RM{entryFee} entry
+                </Text>
               )}
             </View>
 
             {/* Bottom action row */}
             {renderBottomRow()}
 
-            {/* ManageTeam button (doubles) */}
+            {/* ManageTeam button (doubles) REMOVED
             {showManageTeam && partnership && (
               <View style={{ marginTop: 8 }}>
-                <ManageTeamButton seasonId={season.id} partnershipId={partnership.id} />
+                <ManageTeamButton
+                  seasonId={season.id}
+                  partnershipId={partnership.id}
+                />
               </View>
+            )} */}
+          </View>,
+        )}
+      </TouchableOpacity>
+    );
+  };
+
+  const getRegisterInterestAccentColor = (
+    sportType: "pickleball" | "tennis" | "padel",
+  ): string => {
+    switch (sportType) {
+      case "tennis":
+        return "#A2E047";
+      case "padel":
+        return "#4DABFE";
+      case "pickleball":
+      default:
+        return "#A04DFE";
+    }
+  };
+
+  const getRegisterInterestButtonTintColor = (
+    sportType: "pickleball" | "tennis" | "padel",
+  ): string => {
+    switch (sportType) {
+      case "tennis":
+        return "#EAF7D8";
+      case "padel":
+        return "#E3F1FF";
+      case "pickleball":
+      default:
+        return "#F4EAFE";
+    }
+  };
+
+  const renderRegisterInterestCard = (season: Season) => {
+    const normalizedCategories = normalizeCategoriesFromSeason(season);
+    const seasonCategory =
+      normalizedCategories && normalizedCategories.length > 0
+        ? normalizedCategories[0]
+        : null;
+    const categoryDisplayName = seasonCategory ? seasonCategory.name || "" : "";
+
+    const interestedStatus = waitlistStatuses.get(season.id);
+    const isProcessing = isJoiningWaitlist === season.id;
+    const isInterested = interestedStatus?.isWaitlisted ?? false;
+    const interestedCount =
+      interestedStatus?.totalWaitlisted ?? season.registeredUserCount ?? 0;
+    const isUserInMembershipList = (season.memberships || []).some(
+      (m: any) => m.userId === userId,
+    );
+    const currentUserAvatarUri =
+      session?.user?.image ||
+      (session?.user as any)?.avatar ||
+      (session?.user as any)?.profileImage;
+    const currentUserInitial =
+      session?.user?.name?.charAt(0)?.toUpperCase() || "U";
+    const shouldShowCurrentUserInterestedAvatar =
+      isInterested && !isUserInMembershipList;
+    const registerInterestButtonTint =
+      getRegisterInterestButtonTintColor(selectedSport);
+    const registerInterestButtonBorder =
+      getRegisterInterestAccentColor(selectedSport);
+
+    const entryFee = formatEntryFee(season.entryFee);
+
+    return (
+      <View key={season.id} style={styles.registerInterestCardWrapper}>
+        <View style={styles.registerInterestCard}>
+          {/* Header row: name + category pill + status badge */}
+          <View style={styles.seasonCardHeader}>
+            <Text style={styles.seasonTitle} numberOfLines={1}>
+              {season.name}
+            </Text>
+            <View
+              style={[
+                styles.seasonStatusBadge,
+                {
+                  backgroundColor: "rgba(255,255,255,0.15)",
+                  borderColor: "rgba(255,255,255,0.3)",
+                },
+              ]}
+            >
+              <View
+                style={[styles.seasonStatusDot, { backgroundColor: "#FFFFFF" }]}
+              />
+              <Text style={[styles.seasonStatusText, { color: "#FFFFFF" }]}>
+                Registering Interest
+              </Text>
+            </View>
+          </View>
+          {categoryDisplayName ? (
+            <Text style={styles.categoryPlainText}>{categoryDisplayName}</Text>
+          ) : null}
+
+          {/* Date rows — only shown if dates exist */}
+          {season.startDate && season.endDate && (
+            <View style={styles.dateIconRow}>
+              <CalendarIcon width={16} height={16} />
+              <Text style={styles.dateText}>
+                {formatShortDate(season.startDate)} –{" "}
+                {formatShortDate(season.endDate)}{" "}
+                {new Date(season.endDate as string).toLocaleDateString(
+                  "en-GB",
+                  { year: "numeric" },
+                )}
+              </Text>
+            </View>
+          )}
+
+          {season.regiDeadline && (
+            <View style={styles.dateIconRow}>
+              <CalendarMinusIcon width={16} height={16} />
+              <Text style={styles.dateText}>
+                Last registration: {formatSeasonDate(season.regiDeadline)}
+              </Text>
+            </View>
+          )}
+
+          {/* Interested count + avatars — centered */}
+          <TouchableOpacity
+            style={[styles.playersEntryRow, { justifyContent: "center" }]}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              router.push({
+                pathname: "/user-dashboard/players-list",
+                params: {
+                  contextType: "season",
+                  contextId: season.id,
+                  contextName: season.name,
+                  sport: sport,
+                  totalPlayers: interestedCount,
+                },
+              });
+            }}
+            activeOpacity={0.7}
+          >
+            <View
+              style={[
+                styles.playersLeft,
+                { flex: 0, justifyContent: "center" },
+              ]}
+            >
+              {season.memberships && season.memberships.length > 0 && (
+                <View style={styles.avatarRow}>
+                  {season.memberships
+                    .slice(0, 5)
+                    .map((membership, index: number) => {
+                      if (!membership.user) return null;
+                      return (
+                        <View
+                          key={membership.id}
+                          style={[
+                            styles.seasonMemberProfilePicture,
+                            index > 0 &&
+                              styles.seasonMemberProfilePictureOverlap,
+                          ]}
+                        >
+                          {membership.user.image ? (
+                            <Image
+                              source={{ uri: membership.user.image }}
+                              style={styles.seasonMemberProfileImage}
+                            />
+                          ) : (
+                            <View
+                              style={styles.defaultSeasonMemberProfileImage}
+                            >
+                              <Text
+                                style={styles.defaultSeasonMemberProfileText}
+                              >
+                                {membership.user.name
+                                  ?.charAt(0)
+                                  ?.toUpperCase() || "U"}
+                              </Text>
+                            </View>
+                          )}
+                        </View>
+                      );
+                    })}
+                  {interestedCount > 5 && (
+                    <View
+                      style={[
+                        styles.seasonRemainingCount,
+                        styles.seasonMemberProfilePictureOverlap,
+                      ]}
+                    >
+                      <Text style={styles.seasonRemainingCountText}>
+                        +{interestedCount - 5}
+                      </Text>
+                    </View>
+                  )}
+                </View>
+              )}
+              {shouldShowCurrentUserInterestedAvatar && (
+                <View
+                  style={[
+                    styles.seasonMemberProfilePicture,
+                    season.memberships &&
+                      season.memberships.length > 0 &&
+                      styles.seasonMemberProfilePictureOverlap,
+                  ]}
+                >
+                  {currentUserAvatarUri ? (
+                    <Image
+                      source={{ uri: currentUserAvatarUri }}
+                      style={styles.seasonMemberProfileImage}
+                    />
+                  ) : (
+                    <View style={styles.defaultSeasonMemberProfileImage}>
+                      <Text style={styles.defaultSeasonMemberProfileText}>
+                        {currentUserInitial}
+                      </Text>
+                    </View>
+                  )}
+                </View>
+              )}
+              <Text style={styles.playerCountText}>
+                • {interestedCount} interested
+              </Text>
+            </View>
+            {season.paymentRequired && entryFee && (
+              <Text style={styles.entryFeeInlineText}>RM{entryFee} entry</Text>
+            )}
+          </TouchableOpacity>
+
+          {/* Register Interest / Leave button */}
+          <View style={[styles.buttonRow, styles.centeredButtonRow]}>
+            {isInterested ? (
+              <TouchableOpacity
+                style={[
+                  styles.viewMatchesButton,
+                  styles.compactActionButton,
+                  // { backgroundColor: registerInterestButtonTint }
+                  { backgroundColor: "#F2F2F2" },
+                ]}
+                onPress={() => handleRegisterInterestPress(season.id)}
+                activeOpacity={0.8}
+                disabled={isProcessing}
+              >
+                <Text style={[styles.registerButtonText, { color: "#1F2937" }]}>
+                  {isProcessing ? "Leaving..." : "Remove Interest"}
+                </Text>
+              </TouchableOpacity>
+            ) : (
+              <TouchableOpacity
+                style={[
+                  styles.viewMatchesButton,
+                  styles.compactActionButton,
+                  { backgroundColor: "#F2F2F2" },
+                ]}
+                onPress={() => handleRegisterInterestPress(season.id)}
+                activeOpacity={0.8}
+                disabled={isProcessing}
+              >
+                <Text style={[styles.registerButtonText, { color: "#1F2937" }]}>
+                  {isProcessing ? "Registering..." : "Register Interest"}
+                </Text>
+              </TouchableOpacity>
             )}
           </View>
-        </LinearGradient>
-      </TouchableOpacity>
+        </View>
+      </View>
     );
   };
 
   const renderPastSeasonCard = (season: Season) => {
     const normalizedCategories = normalizeCategoriesFromSeason(season);
-    const seasonCategory = normalizedCategories && normalizedCategories.length > 0 ? normalizedCategories[0] : null;
-    const categoryDisplayName = seasonCategory ? seasonCategory.name || '' : '';
+    const seasonCategory =
+      normalizedCategories && normalizedCategories.length > 0
+        ? normalizedCategories[0]
+        : null;
+    const categoryDisplayName = seasonCategory ? seasonCategory.name || "" : "";
 
-    const dateRange = season.startDate && season.endDate
-      ? `${formatSeasonDate(season.startDate)} – ${formatSeasonDate(season.endDate)}`
-      : null;
+    const dateRange =
+      season.startDate && season.endDate
+        ? `${formatSeasonDate(season.startDate)} – ${formatSeasonDate(season.endDate)}`
+        : null;
 
     return (
       <TouchableOpacity
@@ -1167,28 +1828,45 @@ export default function LeagueDetailsScreen({
             <Text style={styles.seasonTitle}>{season.name}</Text>
             {(() => {
               const now = new Date();
-              let label = 'Finished';
-              let dotColor = '#9CA3AF';
-              let bgColor = '#F3F4F6';
-              let textColor = '#6B7280';
-              let borderColor = '#E5E7EB';
+              let label = "Finished";
+              let dotColor = "#9CA3AF";
+              let bgColor = "#F3F4F6";
+              let textColor = "#6B7280";
+              let borderColor = "#E5E7EB";
               if (season.startDate && new Date(season.startDate) > now) {
-                label = 'Registration Open';
-                dotColor = '#22C55E';
-                bgColor = '#F0FDF4';
-                textColor = '#16A34A';
-                borderColor = '#BBF7D0';
-              } else if (season.startDate && new Date(season.startDate) <= now && season.endDate && new Date(season.endDate) > now) {
-                label = 'In Progress';
-                dotColor = '#3B82F6';
-                bgColor = '#EFF6FF';
-                textColor = '#3B82F6';
-                borderColor = '#BFDBFE';
+                label = "Registration Open";
+                dotColor = "#22C55E";
+                bgColor = "#F0FDF4";
+                textColor = "#16A34A";
+                borderColor = "#BBF7D0";
+              } else if (
+                season.startDate &&
+                new Date(season.startDate) <= now &&
+                season.endDate &&
+                new Date(season.endDate) > now
+              ) {
+                label = "In Progress";
+                dotColor = "#3B82F6";
+                bgColor = "#EFF6FF";
+                textColor = "#3B82F6";
+                borderColor = "#BFDBFE";
               }
               return (
-                <View style={[styles.seasonStatusBadge, { backgroundColor: bgColor, borderColor }]}>
-                  <View style={[styles.seasonStatusDot, { backgroundColor: dotColor }]} />
-                  <Text style={[styles.seasonStatusText, { color: textColor }]}>{label}</Text>
+                <View
+                  style={[
+                    styles.seasonStatusBadge,
+                    { backgroundColor: bgColor, borderColor },
+                  ]}
+                >
+                  <View
+                    style={[
+                      styles.seasonStatusDot,
+                      { backgroundColor: dotColor },
+                    ]}
+                  />
+                  <Text style={[styles.seasonStatusText, { color: textColor }]}>
+                    {label}
+                  </Text>
                 </View>
               );
             })()}
@@ -1210,38 +1888,66 @@ export default function LeagueDetailsScreen({
           {/* Profile pictures */}
           {season.memberships && season.memberships.length > 0 && (
             <TouchableOpacity
-              style={[styles.seasonProfilePicturesContainer, { justifyContent: 'flex-start', marginBottom: 12 }]}
+              style={[
+                styles.seasonProfilePicturesContainer,
+                { justifyContent: "flex-start", marginBottom: 12 },
+              ]}
               onPress={() => {
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                 router.push({
-                  pathname: '/user-dashboard/players-list',
+                  pathname: "/user-dashboard/players-list",
                   params: {
-                    contextType: 'season', contextId: season.id, contextName: season.name,
-                    sport: sport, totalPlayers: season._count?.memberships || season.registeredUserCount || 0,
-                  }
+                    contextType: "season",
+                    contextId: season.id,
+                    contextName: season.name,
+                    sport: sport,
+                    totalPlayers:
+                      season._count?.memberships ||
+                      season.registeredUserCount ||
+                      0,
+                  },
                 });
               }}
               activeOpacity={0.7}
             >
-              {season.memberships.slice(0, 6).map((membership, index: number) => {
-                if (!membership.user) return null;
-                return (
-                  <View key={membership.id} style={[styles.seasonMemberProfilePicture, index > 0 && styles.seasonMemberProfilePictureOverlap]}>
-                    {membership.user.image ? (
-                      <Image source={{ uri: membership.user.image }} style={styles.seasonMemberProfileImage} />
-                    ) : (
-                      <View style={styles.defaultSeasonMemberProfileImage}>
-                        <Text style={styles.defaultSeasonMemberProfileText}>
-                          {membership.user.name?.charAt(0)?.toUpperCase() || 'U'}
-                        </Text>
-                      </View>
-                    )}
-                  </View>
-                );
-              })}
+              {season.memberships
+                .slice(0, 6)
+                .map((membership, index: number) => {
+                  if (!membership.user) return null;
+                  return (
+                    <View
+                      key={membership.id}
+                      style={[
+                        styles.seasonMemberProfilePicture,
+                        index > 0 && styles.seasonMemberProfilePictureOverlap,
+                      ]}
+                    >
+                      {membership.user.image ? (
+                        <Image
+                          source={{ uri: membership.user.image }}
+                          style={styles.seasonMemberProfileImage}
+                        />
+                      ) : (
+                        <View style={styles.defaultSeasonMemberProfileImage}>
+                          <Text style={styles.defaultSeasonMemberProfileText}>
+                            {membership.user.name?.charAt(0)?.toUpperCase() ||
+                              "U"}
+                          </Text>
+                        </View>
+                      )}
+                    </View>
+                  );
+                })}
               {season._count?.memberships && season._count.memberships > 6 && (
-                <View style={[styles.seasonRemainingCount, styles.seasonMemberProfilePictureOverlap]}>
-                  <Text style={styles.seasonRemainingCountText}>+{season._count.memberships - 6}</Text>
+                <View
+                  style={[
+                    styles.seasonRemainingCount,
+                    styles.seasonMemberProfilePictureOverlap,
+                  ]}
+                >
+                  <Text style={styles.seasonRemainingCountText}>
+                    +{season._count.memberships - 6}
+                  </Text>
                 </View>
               )}
             </TouchableOpacity>
@@ -1249,7 +1955,10 @@ export default function LeagueDetailsScreen({
 
           {/* Bottom: View Standings link + Ended badge */}
           <View style={styles.pastCardFooter}>
-            <TouchableOpacity onPress={() => handleViewStandingsPress(season)} activeOpacity={0.7}>
+            <TouchableOpacity
+              onPress={() => handleViewStandingsPress(season)}
+              activeOpacity={0.7}
+            >
               <Text style={styles.pastViewStandingsText}>View Standings</Text>
             </TouchableOpacity>
             <Text style={styles.pastEndedBadge}>Ended</Text>
@@ -1260,62 +1969,68 @@ export default function LeagueDetailsScreen({
   };
 
   const getSportConfig = () => {
-    if (selectedSport === 'tennis') {
+    if (selectedSport === "tennis") {
       return {
-        gradient: ['#B3CFBC', '#FFFFFF'] as const,
-        color: '#008000',
-        name: 'Tennis'
+        gradient: ["#B3CFBC", "#FFFFFF"] as const,
+        color: "#008000",
+        name: "Tennis",
       };
     }
-    if (selectedSport === 'padel') {
+    if (selectedSport === "padel") {
       return {
-        gradient: ['#4DABFE', '#FFFFFF'] as const,
-        color: '#4DABFE',
-        name: 'Padel'
+        gradient: ["#4DABFE", "#FFFFFF"] as const,
+        color: "#4DABFE",
+        name: "Padel",
       };
     }
     return {
-      gradient: ['#B98FAF', '#FFFFFF'] as const,
-      color: '#A04DFE',
-      name: 'Pickleball'
+      gradient: ["#B98FAF", "#FFFFFF"] as const,
+      color: "#A04DFE",
+      name: "Pickleball",
     };
   };
 
   const sportConfig = getSportConfig();
 
-  const getHeaderGradientColors = (sport: 'pickleball' | 'tennis' | 'padel'): [string, string] => {
+  const getHeaderGradientColors = (
+    sport: "pickleball" | "tennis" | "padel",
+  ): [string, string] => {
     switch (sport) {
-      case 'tennis':
-        return ['#A2E047', '#587A27'];
-      case 'padel':
-        return ['#4DABFE', '#2E6698'];
-      case 'pickleball':
+      case "tennis":
+        return ["#A2E047", "#587A27"];
+      case "padel":
+        return ["#4DABFE", "#2E6698"];
+      case "pickleball":
       default:
-        return ['#A04DFE', '#602E98'];
+        return ["#A04DFE", "#602E98"];
     }
   };
 
-  const getSeasonCardGradientColors = (sport: 'pickleball' | 'tennis' | 'padel'): [string, string] => {
+  const getSeasonCardGradientColors = (
+    sport: "pickleball" | "tennis" | "padel",
+  ): [string, string] => {
     switch (sport) {
-      case 'tennis':
-        return ['#A2E047', '#FEA04D'];
-      case 'padel':
-        return ['#4DABFE', '#FEA04D'];
-      case 'pickleball':
+      case "tennis":
+        return ["#A2E047", "#FEA04D"];
+      case "padel":
+        return ["#4DABFE", "#FEA04D"];
+      case "pickleball":
       default:
-        return ['#A04DFE', '#FEA04D'];
+        return ["#A04DFE", "#FEA04D"];
     }
   };
 
-  const getCategoryChipGradientColors = (sport: 'pickleball' | 'tennis' | 'padel'): [string, string] => {
+  const getCategoryChipGradientColors = (
+    sport: "pickleball" | "tennis" | "padel",
+  ): [string, string] => {
     switch (sport) {
-      case 'tennis':
-        return ['#A2E047', '#729E32'];
-      case 'padel':
-        return ['#4DABFE', '#377FBF'];
-      case 'pickleball':
+      case "tennis":
+        return ["#A2E047", "#729E32"];
+      case "padel":
+        return ["#4DABFE", "#377FBF"];
+      case "pickleball":
       default:
-        return ['#A04DFE', '#602E98'];
+        return ["#A04DFE", "#602E98"];
     }
   };
 
@@ -1327,12 +2042,14 @@ export default function LeagueDetailsScreen({
   // Refresh profile data when screen comes into focus (e.g., after completing questionnaire)
   useFocusEffect(
     React.useCallback(() => {
-      console.log('🔍 LeagueDetails: useFocusEffect triggered');
+      console.log("🔍 LeagueDetails: useFocusEffect triggered");
       const refreshData = async () => {
         // Fetch profile data first (which also updates gender)
         await fetchProfileData();
         // Refresh user's registered seasons
-        console.log('🔍 LeagueDetails: useFocusEffect calling fetchUserRegisteredSeasons');
+        console.log(
+          "🔍 LeagueDetails: useFocusEffect calling fetchUserRegisteredSeasons",
+        );
         await fetchUserRegisteredSeasons();
         // Then refresh league/season data to show updated membership status
         if (leagueId) {
@@ -1341,7 +2058,7 @@ export default function LeagueDetailsScreen({
       };
       refreshData();
       // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [fetchProfileData, fetchUserRegisteredSeasons, leagueId, fetchAllData])
+    }, [fetchProfileData, fetchUserRegisteredSeasons, leagueId, fetchAllData]),
   );
 
   // Set selected sport based on route param
@@ -1361,7 +2078,7 @@ export default function LeagueDetailsScreen({
       await fetchUserRegisteredSeasons();
       await fetchAllData();
     } catch (error) {
-      console.error('Error refreshing data:', error);
+      console.error("Error refreshing data:", error);
     } finally {
       setIsRefreshing(false);
       isManualRefreshRef.current = false; // Clear manual refresh flag
@@ -1375,7 +2092,7 @@ export default function LeagueDetailsScreen({
       scrollY.value,
       [0, COLLAPSE_START_THRESHOLD, COLLAPSE_END_THRESHOLD],
       [HEADER_MAX_HEIGHT, HEADER_MAX_HEIGHT, HEADER_MIN_HEIGHT],
-      Extrapolation.CLAMP
+      Extrapolation.CLAMP,
     );
     return { height };
   });
@@ -1383,15 +2100,23 @@ export default function LeagueDetailsScreen({
   const leagueNameAnimatedStyle = useAnimatedStyle(() => {
     const opacity = interpolate(
       scrollY.value,
-      [0, COLLAPSE_START_THRESHOLD, COLLAPSE_START_THRESHOLD + (HEADER_SCROLL_DISTANCE * 0.7)],
+      [
+        0,
+        COLLAPSE_START_THRESHOLD,
+        COLLAPSE_START_THRESHOLD + HEADER_SCROLL_DISTANCE * 0.7,
+      ],
       [1, 1, 0],
-      Extrapolation.CLAMP
+      Extrapolation.CLAMP,
     );
     const scale = interpolate(
       scrollY.value,
-      [0, COLLAPSE_START_THRESHOLD, COLLAPSE_START_THRESHOLD + (HEADER_SCROLL_DISTANCE * 0.7)],
+      [
+        0,
+        COLLAPSE_START_THRESHOLD,
+        COLLAPSE_START_THRESHOLD + HEADER_SCROLL_DISTANCE * 0.7,
+      ],
       [1, 1, 0.8],
-      Extrapolation.CLAMP
+      Extrapolation.CLAMP,
     );
     return { opacity, transform: [{ scale }] };
   });
@@ -1399,15 +2124,23 @@ export default function LeagueDetailsScreen({
   const infoContainerAnimatedStyle = useAnimatedStyle(() => {
     const opacity = interpolate(
       scrollY.value,
-      [0, COLLAPSE_START_THRESHOLD, COLLAPSE_START_THRESHOLD + (HEADER_SCROLL_DISTANCE * 0.5)],
+      [
+        0,
+        COLLAPSE_START_THRESHOLD,
+        COLLAPSE_START_THRESHOLD + HEADER_SCROLL_DISTANCE * 0.5,
+      ],
       [1, 1, 0],
-      Extrapolation.CLAMP
+      Extrapolation.CLAMP,
     );
     const translateY = interpolate(
       scrollY.value,
-      [0, COLLAPSE_START_THRESHOLD, COLLAPSE_START_THRESHOLD + (HEADER_SCROLL_DISTANCE * 0.5)],
+      [
+        0,
+        COLLAPSE_START_THRESHOLD,
+        COLLAPSE_START_THRESHOLD + HEADER_SCROLL_DISTANCE * 0.5,
+      ],
       [0, 0, -20],
-      Extrapolation.CLAMP
+      Extrapolation.CLAMP,
     );
     return { opacity, transform: [{ translateY }] };
   });
@@ -1415,9 +2148,13 @@ export default function LeagueDetailsScreen({
   const collapsedLeagueNameAnimatedStyle = useAnimatedStyle(() => {
     const opacity = interpolate(
       scrollY.value,
-      [0, COLLAPSE_START_THRESHOLD + (HEADER_SCROLL_DISTANCE * 0.7), COLLAPSE_END_THRESHOLD],
+      [
+        0,
+        COLLAPSE_START_THRESHOLD + HEADER_SCROLL_DISTANCE * 0.7,
+        COLLAPSE_END_THRESHOLD,
+      ],
       [0, 0, 1],
-      Extrapolation.CLAMP
+      Extrapolation.CLAMP,
     );
     return { opacity };
   });
@@ -1425,9 +2162,13 @@ export default function LeagueDetailsScreen({
   const collapsedPlayerCountAnimatedStyle = useAnimatedStyle(() => {
     const opacity = interpolate(
       scrollY.value,
-      [0, COLLAPSE_START_THRESHOLD + (HEADER_SCROLL_DISTANCE * 0.5), COLLAPSE_END_THRESHOLD],
+      [
+        0,
+        COLLAPSE_START_THRESHOLD + HEADER_SCROLL_DISTANCE * 0.5,
+        COLLAPSE_END_THRESHOLD,
+      ],
       [0, 0, 1],
-      Extrapolation.CLAMP
+      Extrapolation.CLAMP,
     );
     return { opacity };
   });
@@ -1463,7 +2204,7 @@ export default function LeagueDetailsScreen({
 
   const scrollHandler = useAnimatedScrollHandler({
     onScroll: (event) => {
-      'worklet';
+      "worklet";
       scrollY.value = event.contentOffset.y;
     },
   });
@@ -1471,343 +2212,435 @@ export default function LeagueDetailsScreen({
   return (
     <View style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
-      
+
       {/* Header with profile picture, sport switcher */}
       <View style={[styles.headerContainer, { paddingTop: STATUS_BAR_HEIGHT }]}>
-        <TouchableOpacity 
+        <TouchableOpacity
           style={styles.headerProfilePicture}
           onPress={() => {
             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-            router.push('/profile');
+            router.push("/profile");
           }}
         >
-            {(profileData?.image || session?.user?.image) ? (
-              <Image 
-                source={{ uri: profileData?.image || session?.user?.image }}
-                style={styles.headerProfileImage}
+          {profileData?.image || session?.user?.image ? (
+            <Image
+              source={{ uri: profileData?.image || session?.user?.image }}
+              style={styles.headerProfileImage}
             />
           ) : (
             <View style={styles.defaultHeaderAvatarContainer}>
               <Text style={styles.defaultHeaderAvatarText}>
-                {(profileData?.name || session?.user?.name)?.charAt(0)?.toUpperCase() || 'U'}
+                {(profileData?.name || session?.user?.name)
+                  ?.charAt(0)
+                  ?.toUpperCase() || "U"}
               </Text>
             </View>
           )}
         </TouchableOpacity>
-        
+
         <SportSwitcher
           currentSport={selectedSport}
           availableSports={getUserSelectedSports()}
           onSportChange={(newSport) => {
             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
             router.push({
-              pathname: '/user-dashboard' as any,
-              params: { sport: newSport }
+              pathname: "/user-dashboard" as any,
+              params: { sport: newSport },
             });
           }}
         />
-        
+
         <View style={styles.headerRight} />
       </View>
 
       <View style={styles.contentContainer}>
         <View style={styles.contentBox}>
-        {isLoading && userGender === undefined ? (
-          // Only show full-page spinner when BOTH loading AND no gender
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color={sportConfig.color} />
-            <Text style={styles.loadingText}>Loading league details...</Text>
-          </View>
-        ) : error ? (
-          <View style={styles.errorContainer}>
-            <Text style={styles.errorText}>{error}</Text>
-            <TouchableOpacity style={styles.retryButton} onPress={fetchAllData}>
-              <Text style={styles.retryButtonText}>Retry</Text>
-            </TouchableOpacity>
-          </View>
-        ) : (
-          <>
-            <Animated.View
-              style={[
-                styles.gradientHeaderContainer,
-                headerAnimatedStyle,
-                headerEntryAnimatedStyle,
-              ]}
-            >
-              <LinearGradient
-                colors={getHeaderGradientColors(sport)}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-                style={[styles.leagueHeaderGradient, { flex: 1 }]}
+          {isLoading && userGender === undefined ? (
+            // Only show full-page spinner when BOTH loading AND no gender
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="large" color={sportConfig.color} />
+              <Text style={styles.loadingText}>Loading league details...</Text>
+            </View>
+          ) : error ? (
+            <View style={styles.errorContainer}>
+              <Text style={styles.errorText}>{error}</Text>
+              <TouchableOpacity
+                style={styles.retryButton}
+                onPress={fetchAllData}
               >
-                <View style={styles.leagueHeaderContent}>
-                  <View style={styles.topRow}>
-                    <View style={styles.backButtonContainer}>
-                      <TouchableOpacity 
-                        style={styles.backButtonIcon}
-                        onPress={() => {
-                          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                          router.back();
-                        }}
-                      >
-                        <BackButtonIcon width={12} height={19} />
-                      </TouchableOpacity>
-                    </View>
-                    <Animated.View
-                      style={[
-                        styles.leagueNameContainer,
-                        leagueNameAnimatedStyle,
-                      ]}
-                    >
-                      <Text style={styles.leagueName} numberOfLines={2}>{league?.name || leagueName}</Text>
-                    </Animated.View>
-                    {/* Collapsed header content */}
-                    <Animated.View
-                      style={[
-                        styles.collapsedHeaderContent,
-                        collapsedLeagueNameAnimatedStyle,
-                      ]}
-                    >
-                      <Text style={styles.collapsedLeagueName} numberOfLines={1}>
-                        {league?.name || leagueName}
-                      </Text>
-                      {currentSeasons.length > 0 && (
-                        <Text style={styles.collapsedSeasonName} numberOfLines={1}>
-                          {currentSeasons[0].name}
-                        </Text>
-                      )}
+                <Text style={styles.retryButtonText}>Retry</Text>
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <>
+              <Animated.View
+                style={[
+                  styles.gradientHeaderContainer,
+                  headerAnimatedStyle,
+                  headerEntryAnimatedStyle,
+                ]}
+              >
+                <LinearGradient
+                  colors={getHeaderGradientColors(sport)}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={[styles.leagueHeaderGradient, { flex: 1 }]}
+                >
+                  <View style={styles.leagueHeaderContent}>
+                    <View style={styles.topRow}>
+                      <View style={styles.backButtonContainer}>
+                        <TouchableOpacity
+                          style={styles.backButtonIcon}
+                          onPress={() => {
+                            Haptics.impactAsync(
+                              Haptics.ImpactFeedbackStyle.Light,
+                            );
+                            router.back();
+                          }}
+                        >
+                          <BackButtonIcon width={12} height={19} />
+                        </TouchableOpacity>
+                      </View>
                       <Animated.View
                         style={[
-                          styles.collapsedPlayerCountContainer,
-                          collapsedPlayerCountAnimatedStyle,
+                          styles.leagueNameContainer,
+                          leagueNameAnimatedStyle,
                         ]}
                       >
-                        <View style={styles.statusCircle} />
-                        <Text style={styles.collapsedPlayerCount}>
-                          {league?.totalSeasonMemberships || 0} players
+                        <Text style={styles.leagueName} numberOfLines={2}>
+                          {league?.name || leagueName}
                         </Text>
                       </Animated.View>
-                    </Animated.View>
-                  </View>
-                  <Animated.View
-                    style={[
-                      styles.leagueInfoContainer,
-                      infoContainerAnimatedStyle,
-                    ]}
-                  >
-                    <View style={styles.playerCountContainer}>
-                      <View style={styles.statusCircle} />
-                      <Text style={styles.playerCount}>
-                        {league?.totalSeasonMemberships || 0} players
-                      </Text>
-                    </View>
-                    
-                    {/* Profile pictures */}
-                    {league?.memberships && league.memberships.length > 0 && (
-                      <TouchableOpacity
-                        style={styles.profilePicturesContainer}
-                        onPress={() => {
-                          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                          router.push({
-                            pathname: '/user-dashboard/players-list',
-                            params: {
-                              contextType: 'league',
-                              contextId: leagueId,
-                              contextName: league?.name || leagueName,
-                              sport: sport,
-                              totalPlayers: league?.totalSeasonMemberships || league?._count?.memberships || 0,
-                            }
-                          });
-                        }}
-                        activeOpacity={0.7}
+                      {/* Collapsed header content */}
+                      <Animated.View
+                        style={[
+                          styles.collapsedHeaderContent,
+                          collapsedLeagueNameAnimatedStyle,
+                        ]}
                       >
-                        {league.memberships.slice(0, 6).map((membership: any, index: number) => {
-                          if (!membership.user) return null;
-                          return (
-                            <View key={membership.id} style={[styles.memberProfilePicture, index > 0 && styles.memberProfilePictureOverlap]}>
-                              {membership.user.image ? (
-                                <Image
-                                  source={{ uri: membership.user.image }}
-                                  style={styles.memberProfileImage}
-                                />
-                              ) : (
-                                <View style={styles.defaultMemberProfileImage}>
-                                  <Text style={styles.defaultMemberProfileText}>
-                                    {membership.user.name?.charAt(0)?.toUpperCase() || 'U'}
-                                  </Text>
-                                </View>
-                              )}
-                            </View>
-                          );
-                        })}
-                        {league._count?.memberships && league._count.memberships > 6 && (
-                          <View style={[styles.remainingCount, styles.memberProfilePictureOverlap]}>
-                            <Text style={styles.remainingCountText}>
-                              +{league._count.memberships - 6}
-                            </Text>
-                          </View>
+                        <Text
+                          style={styles.collapsedLeagueName}
+                          numberOfLines={1}
+                        >
+                          {league?.name || leagueName}
+                        </Text>
+                        {currentSeasons.length > 0 && (
+                          <Text
+                            style={styles.collapsedSeasonName}
+                            numberOfLines={1}
+                          >
+                            {currentSeasons[0].name}
+                          </Text>
                         )}
-                      </TouchableOpacity>
-                    )}
-                  </Animated.View>
-                </View>
-              </LinearGradient>
-            </Animated.View>
-
-            <Animated.ScrollView
-              style={styles.scrollContainer}
-              contentContainerStyle={styles.scrollContent}
-              showsVerticalScrollIndicator={true}
-              onScroll={scrollHandler}
-              scrollEventThrottle={16}
-              refreshControl={
-                <RefreshControl
-                  refreshing={isRefreshing}
-                  onRefresh={onRefresh}
-                  tintColor={sportConfig.color}
-                  colors={[sportConfig.color]}
-                />
-              }
-            >
-            <View style={{ height: HEADER_MAX_HEIGHT }} />
-            {/* League Info Card */}
-            <Animated.View style={infoCardEntryAnimatedStyle}>
-              <View style={styles.leagueInfoCard}>
-                <View style={styles.leagueInfoContent}>
-                  <LeagueInfoIcon width={43} height={43} style={styles.leagueInfoIcon} />
-                  <View style={styles.leagueInfoTextContainer}>
-                    <Text style={styles.leagueInfoTitle}>Info & Rules</Text>
-                    <Text style={styles.leagueInfoText}>
-                      {league?.description || 'This is a friendly, competitive flex league. Join a league to meet new players in your area, stay active, and level up your game. All adult players are welcome to join!'}
-                    </Text>
-                  </View>
-                </View>
-                {league?.rules ? (
-                  <>
-                    <View style={styles.rulesInfoDivider} />
-                    <TouchableOpacity
-                      style={styles.viewRulesButton}
-                      onPress={() => setShowRulesModal(true)}
-                      activeOpacity={0.7}
+                        <Animated.View
+                          style={[
+                            styles.collapsedPlayerCountContainer,
+                            collapsedPlayerCountAnimatedStyle,
+                          ]}
+                        >
+                          <View style={styles.statusCircle} />
+                          <Text style={styles.collapsedPlayerCount}>
+                            {league?.totalSeasonMemberships || 0} players
+                          </Text>
+                        </Animated.View>
+                      </Animated.View>
+                    </View>
+                    <Animated.View
+                      style={[
+                        styles.leagueInfoContainer,
+                        infoContainerAnimatedStyle,
+                      ]}
                     >
-                      <Text style={styles.viewRulesText}>View League Rules →</Text>
-                    </TouchableOpacity>
-                  </>
-                ) : null}
-              </View>
-            </Animated.View>
+                      <View style={styles.playerCountContainer}>
+                        <View style={styles.statusCircle} />
+                        <Text style={styles.playerCount}>
+                          {league?.totalSeasonMemberships || 0} players
+                        </Text>
+                      </View>
 
-            {/* League Rules Modal */}
-            <Modal
-              visible={showRulesModal}
-              animationType="slide"
-              transparent
-              onRequestClose={() => setShowRulesModal(false)}
-            >
-              <View style={styles.rulesModalOverlay}>
-                <View style={styles.rulesModalContainer}>
-                  <View style={styles.rulesModalHeader}>
-                    <Text style={styles.rulesModalTitle}>League Rules</Text>
-                    <TouchableOpacity onPress={() => setShowRulesModal(false)} activeOpacity={0.7}>
-                      <Text style={styles.rulesModalClose}>✕</Text>
-                    </TouchableOpacity>
-                  </View>
-                  <ScrollView style={styles.rulesModalScroll} showsVerticalScrollIndicator={false}>
-                    <Text style={styles.rulesModalText}>{league?.rules}</Text>
-                  </ScrollView>
-                </View>
-              </View>
-            </Modal>
-
-            {/* Category Filter Buttons */}
-            {categories.length > 0 && (
-              <Animated.View style={categoriesEntryAnimatedStyle}>
-                <View style={styles.categoriesContainer}>
-                  <View style={styles.categoryButtons}>
-                    {sortedCategories.map((category) => {
-                      const displayName = CategoryService.getCategoryDisplayName(
-                        category,
-                        CategoryService.getEffectiveGameType(category, 'SINGLES')
-                      );
-                      const isSelected = selectedCategoryId === category.id;
-                      const isRestricted = !canUserJoinCategory(category);
-
-                      return (
+                      {/* Profile pictures */}
+                      {league?.memberships && league.memberships.length > 0 && (
                         <TouchableOpacity
-                          key={category.id}
-                          style={[styles.categoryButton, isSelected && styles.categoryButtonSelected]}
+                          style={styles.profilePicturesContainer}
                           onPress={() => {
-                            handleCategoryPress(category.id);
+                            Haptics.impactAsync(
+                              Haptics.ImpactFeedbackStyle.Light,
+                            );
+                            router.push({
+                              pathname: "/user-dashboard/players-list",
+                              params: {
+                                contextType: "league",
+                                contextId: leagueId,
+                                contextName: league?.name || leagueName,
+                                sport: sport,
+                                totalPlayers:
+                                  league?.totalSeasonMemberships ||
+                                  league?._count?.memberships ||
+                                  0,
+                              },
+                            });
                           }}
                           activeOpacity={0.7}
                         >
-                          {isSelected && (
-                            <Text style={styles.tickIcon}>✓</Text>
-                          )}
-                          <Text style={[styles.categoryButtonText, isSelected && styles.categoryButtonTextSelected]}>
-                            {displayName}
-                          </Text>
-                          {isRestricted && (
-                            <Ionicons
-                              name="lock-closed"
-                              size={12}
-                              color={isSelected ? '#FEA04D' : '#9CA3AF'}
-                              style={{ marginLeft: 4 }}
-                            />
-                          )}
+                          {league.memberships
+                            .slice(0, 6)
+                            .map((membership: any, index: number) => {
+                              if (!membership.user) return null;
+                              return (
+                                <View
+                                  key={membership.id}
+                                  style={[
+                                    styles.memberProfilePicture,
+                                    index > 0 &&
+                                      styles.memberProfilePictureOverlap,
+                                  ]}
+                                >
+                                  {membership.user.image ? (
+                                    <Image
+                                      source={{ uri: membership.user.image }}
+                                      style={styles.memberProfileImage}
+                                    />
+                                  ) : (
+                                    <View
+                                      style={styles.defaultMemberProfileImage}
+                                    >
+                                      <Text
+                                        style={styles.defaultMemberProfileText}
+                                      >
+                                        {membership.user.name
+                                          ?.charAt(0)
+                                          ?.toUpperCase() || "U"}
+                                      </Text>
+                                    </View>
+                                  )}
+                                </View>
+                              );
+                            })}
+                          {league._count?.memberships &&
+                            league._count.memberships > 6 && (
+                              <View
+                                style={[
+                                  styles.remainingCount,
+                                  styles.memberProfilePictureOverlap,
+                                ]}
+                              >
+                                <Text style={styles.remainingCountText}>
+                                  +{league._count.memberships - 6}
+                                </Text>
+                              </View>
+                            )}
                         </TouchableOpacity>
-                      );
-                    })}
+                      )}
+                    </Animated.View>
                   </View>
-                </View>
+                </LinearGradient>
               </Animated.View>
-            )}
 
-            {/* Season Cards Section - Show skeleton OR content */}
-            <Animated.View style={seasonsEntryAnimatedStyle}>
-              {showSeasonsSkeleton ? (
-                <SeasonCardSkeleton sport={sport} count={2} />
-              ) : (
-                <>
-                  {/* Current Season */}
-                  {(currentSeasons.length > 0 || upcomingSeasons.length > 0) && (
-                    <View style={styles.seasonsSection}>
-                      <Text style={styles.sectionTitle}>Current Season</Text>
-                      {currentSeasons.map(renderSeasonCard)}
-                      {upcomingSeasons.map(renderSeasonCard)}
+              <Animated.ScrollView
+                style={styles.scrollContainer}
+                contentContainerStyle={styles.scrollContent}
+                showsVerticalScrollIndicator={true}
+                onScroll={scrollHandler}
+                scrollEventThrottle={16}
+                refreshControl={
+                  <RefreshControl
+                    refreshing={isRefreshing}
+                    onRefresh={onRefresh}
+                    tintColor={sportConfig.color}
+                    colors={[sportConfig.color]}
+                  />
+                }
+              >
+                <View style={{ height: HEADER_MAX_HEIGHT }} />
+                {/* League Info Card */}
+                <Animated.View style={infoCardEntryAnimatedStyle}>
+                  <View style={styles.leagueInfoCard}>
+                    <View style={styles.leagueInfoContent}>
+                      <LeagueInfoIcon
+                        width={43}
+                        height={43}
+                        style={styles.leagueInfoIcon}
+                      />
+                      <View style={styles.leagueInfoTextContainer}>
+                        <Text style={styles.leagueInfoTitle}>Info & Rules</Text>
+                        <Text style={styles.leagueInfoText}>
+                          {league?.description ||
+                            "This is a friendly, competitive flex league. Join a league to meet new players in your area, stay active, and level up your game. All adult players are welcome to join!"}
+                        </Text>
+                      </View>
                     </View>
+                    {league?.rules ? (
+                      <>
+                        <View style={styles.rulesInfoDivider} />
+                        <TouchableOpacity
+                          style={styles.viewRulesButton}
+                          onPress={() => setShowRulesModal(true)}
+                          activeOpacity={0.7}
+                        >
+                          <Text style={styles.viewRulesText}>
+                            View League Rules →
+                          </Text>
+                        </TouchableOpacity>
+                      </>
+                    ) : null}
+                  </View>
+                </Animated.View>
+
+                {/* League Rules Modal */}
+                <Modal
+                  visible={showRulesModal}
+                  animationType="slide"
+                  transparent
+                  onRequestClose={() => setShowRulesModal(false)}
+                >
+                  <View style={styles.rulesModalOverlay}>
+                    <View style={styles.rulesModalContainer}>
+                      <View style={styles.rulesModalHeader}>
+                        <Text style={styles.rulesModalTitle}>League Rules</Text>
+                        <TouchableOpacity
+                          onPress={() => setShowRulesModal(false)}
+                          activeOpacity={0.7}
+                        >
+                          <Text style={styles.rulesModalClose}>✕</Text>
+                        </TouchableOpacity>
+                      </View>
+                      <ScrollView
+                        style={styles.rulesModalScroll}
+                        showsVerticalScrollIndicator={false}
+                      >
+                        <Text style={styles.rulesModalText}>
+                          {league?.rules}
+                        </Text>
+                      </ScrollView>
+                    </View>
+                  </View>
+                </Modal>
+
+                {/* Category Filter Buttons */}
+                {categories.length > 0 && (
+                  <Animated.View style={categoriesEntryAnimatedStyle}>
+                    <View style={styles.categoriesContainer}>
+                      <View style={styles.categoryButtons}>
+                        {sortedCategories.map((category) => {
+                          const displayName =
+                            CategoryService.getCategoryDisplayName(
+                              category,
+                              CategoryService.getEffectiveGameType(
+                                category,
+                                "SINGLES",
+                              ),
+                            );
+                          const isSelected = selectedCategoryId === category.id;
+                          const isRestricted = !canUserJoinCategory(category);
+
+                          return (
+                            <TouchableOpacity
+                              key={category.id}
+                              style={[
+                                styles.categoryButton,
+                                isSelected && styles.categoryButtonSelected,
+                              ]}
+                              onPress={() => {
+                                handleCategoryPress(category.id);
+                              }}
+                              activeOpacity={0.7}
+                            >
+                              {isSelected && (
+                                <Text style={styles.tickIcon}>✓</Text>
+                              )}
+                              <Text
+                                style={[
+                                  styles.categoryButtonText,
+                                  isSelected &&
+                                    styles.categoryButtonTextSelected,
+                                ]}
+                              >
+                                {displayName}
+                              </Text>
+                              {isRestricted && (
+                                <Ionicons
+                                  name="lock-closed"
+                                  size={12}
+                                  color={isSelected ? "#FEA04D" : "#9CA3AF"}
+                                  style={{ marginLeft: 4 }}
+                                />
+                              )}
+                            </TouchableOpacity>
+                          );
+                        })}
+                      </View>
+                    </View>
+                  </Animated.View>
+                )}
+
+                {/* Season Cards Section - Show skeleton OR content */}
+                <Animated.View style={seasonsEntryAnimatedStyle}>
+                  {showSeasonsSkeleton ? (
+                    <SeasonCardSkeleton sport={sport} count={2} />
+                  ) : (
+                    <>
+                      {/* Upcoming Seasons - shown ABOVE current season */}
+                      {(registerInterestSeasons.length > 0 ||
+                        upcomingSeasons.length > 0) && (
+                        <View style={styles.seasonsSection}>
+                          <Text style={styles.sectionTitle}>
+                            Upcoming Seasons
+                          </Text>
+                          {registerInterestSeasons.map(
+                            renderRegisterInterestCard,
+                          )}
+                          {upcomingSeasons.map(renderSeasonCard)}
+                        </View>
+                      )}
+
+                      {/* Current Season */}
+                      {currentSeasons.length > 0 && (
+                        <View style={styles.seasonsSection}>
+                          <Text style={styles.sectionTitle}>
+                            Current Season
+                          </Text>
+                          {currentSeasons.map(renderSeasonCard)}
+                        </View>
+                      )}
+
+                      {/* Past Seasons */}
+                      {pastSeasons.length > 0 && (
+                        <View style={styles.seasonsSection}>
+                          <Text style={styles.sectionTitle}>Past Seasons</Text>
+                          {pastSeasons.map(renderPastSeasonCard)}
+                        </View>
+                      )}
+
+                      {/* Empty state */}
+                      {categories.length === 0 ||
+                      (currentSeasons.length === 0 &&
+                        upcomingSeasons.length === 0 &&
+                        pastSeasons.length === 0) ? (
+                        <View style={styles.emptyContainer}>
+                          <Text style={styles.emptyText}>
+                            {categories.length === 0
+                              ? "There are currently no seasons available for this league."
+                              : selectedCategoryId
+                                ? "There are currently no seasons available for this category."
+                                : "There are currently no seasons available for this league."}
+                          </Text>
+                        </View>
+                      ) : null}
+                    </>
                   )}
-
-                  {/* Past Seasons */}
-                  {pastSeasons.length > 0 && (
-                    <View style={styles.seasonsSection}>
-                      <Text style={styles.sectionTitle}>Past Seasons</Text>
-                      {pastSeasons.map(renderPastSeasonCard)}
-                    </View>
-                  )}
-
-                  {/* Empty state */}
-                  {categories.length === 0 || (currentSeasons.length === 0 && upcomingSeasons.length === 0 && pastSeasons.length === 0) ? (
-                    <View style={styles.emptyContainer}>
-                      <Text style={styles.emptyText}>
-                        {categories.length === 0
-                          ? 'There are currently no seasons available for this league.'
-                          : selectedCategoryId
-                            ? 'There are currently no seasons available for this category.'
-                            : 'There are currently no seasons available for this league.'}
-                      </Text>
-                    </View>
-                  ) : null}
-                </>
-              )}
-            </Animated.View>
-            </Animated.ScrollView>
-          </>
-        )}
+                </Animated.View>
+              </Animated.ScrollView>
+            </>
+          )}
         </View>
       </View>
-      
-      <NavBar activeTab={activeTab} onTabPress={handleTabPress} sport={selectedSport} />
+
+      <NavBar
+        activeTab={activeTab}
+        onTabPress={handleTabPress}
+        sport={selectedSport}
+        badgeCounts={{ chat: chatUnreadCount, myGames: myGamesBadgeCount }}
+      />
 
       <PaymentOptionsBottomSheet
         visible={showPaymentOptions}
@@ -1820,38 +2653,74 @@ export default function LeagueDetailsScreen({
       />
 
       {/* Waitlist Bottom Sheet */}
-      {waitlistBottomSheetSeasonId && (() => {
-        const season = seasons.find((s: Season) => s.id === waitlistBottomSheetSeasonId);
-        const status = waitlistStatuses.get(waitlistBottomSheetSeasonId);
-        return (
-          <WaitlistBottomSheet
-            visible={true}
-            onClose={() => setWaitlistBottomSheetSeasonId(null)}
-            onJoin={() => handleConfirmJoinWaitlist(waitlistBottomSheetSeasonId)}
-            seasonName={season?.name || ''}
-            currentWaitlistCount={status?.totalWaitlisted || 0}
-            sport={selectedSport}
-            isLoading={isJoiningWaitlist === waitlistBottomSheetSeasonId}
-          />
-        );
-      })()}
+      {waitlistBottomSheetSeasonId &&
+        (() => {
+          const season = seasons.find(
+            (s: Season) => s.id === waitlistBottomSheetSeasonId,
+          );
+          const status = waitlistStatuses.get(waitlistBottomSheetSeasonId);
+          return (
+            <WaitlistBottomSheet
+              visible={true}
+              onClose={() => setWaitlistBottomSheetSeasonId(null)}
+              onJoin={() =>
+                handleConfirmJoinWaitlist(waitlistBottomSheetSeasonId)
+              }
+              seasonName={season?.name || ""}
+              currentWaitlistCount={status?.totalWaitlisted || 0}
+              sport={selectedSport}
+              isLoading={isJoiningWaitlist === waitlistBottomSheetSeasonId}
+            />
+          );
+        })()}
+
+      {/* Register Interest Bottom Sheet */}
+      {registerInterestBottomSheetSeasonId &&
+        (() => {
+          const season = seasons.find(
+            (s: Season) => s.id === registerInterestBottomSheetSeasonId,
+          );
+          const status = waitlistStatuses.get(
+            registerInterestBottomSheetSeasonId,
+          );
+          return (
+            <RegisterInterestBottomSheet
+              visible={true}
+              onClose={() => setRegisterInterestBottomSheetSeasonId(null)}
+              onConfirm={() =>
+                handleConfirmRegisterInterest(
+                  registerInterestBottomSheetSeasonId,
+                )
+              }
+              seasonName={season?.name || ""}
+              interestedCount={status?.totalWaitlisted || 0}
+              sport={selectedSport}
+              isLoading={
+                isJoiningWaitlist === registerInterestBottomSheetSeasonId
+              }
+            />
+          );
+        })()}
 
       {/* Leave Waitlist Dialog */}
-      {leaveWaitlistDialogSeasonId && (() => {
-        const season = seasons.find((s: Season) => s.id === leaveWaitlistDialogSeasonId);
-        const status = waitlistStatuses.get(leaveWaitlistDialogSeasonId);
-        return (
-          <LeaveWaitlistDialog
-            visible={true}
-            onClose={() => setLeaveWaitlistDialogSeasonId(null)}
-            onConfirm={() => handleLeaveWaitlist(leaveWaitlistDialogSeasonId)}
-            position={status?.position || 0}
-            seasonName={season?.name || ''}
-            sport={selectedSport}
-            isLoading={isJoiningWaitlist === leaveWaitlistDialogSeasonId}
-          />
-        );
-      })()}
+      {leaveWaitlistDialogSeasonId &&
+        (() => {
+          const season = seasons.find(
+            (s: Season) => s.id === leaveWaitlistDialogSeasonId,
+          );
+          const status = waitlistStatuses.get(leaveWaitlistDialogSeasonId);
+          return (
+            <LeaveWaitlistDialog
+              visible={true}
+              onClose={() => setLeaveWaitlistDialogSeasonId(null)}
+              onConfirm={() => handleLeaveWaitlist(leaveWaitlistDialogSeasonId)}
+              position={status?.position || 0}
+              seasonName={season?.name || ""}
+              sport={selectedSport}
+              isLoading={isJoiningWaitlist === leaveWaitlistDialogSeasonId}
+            />
+          );
+        })()}
     </View>
   );
 }
@@ -1859,10 +2728,10 @@ export default function LeagueDetailsScreen({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: "#FFFFFF",
   },
   backgroundGradient: {
-    position: 'absolute',
+    position: "absolute",
     top: 0,
     left: 0,
     right: 0,
@@ -1883,7 +2752,7 @@ const styles = StyleSheet.create({
     height: 20,
   },
   gradientHeaderContainer: {
-    position: 'absolute',
+    position: "absolute",
     top: 0,
     left: 0,
     right: 0,
@@ -1891,36 +2760,36 @@ const styles = StyleSheet.create({
   },
   loadingContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
   },
   loadingText: {
     marginTop: 12,
     fontSize: 14,
-    color: '#6B7280',
+    color: "#6B7280",
   },
   errorContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     padding: 24,
   },
   errorText: {
     fontSize: 16,
-    color: '#DC2626',
-    textAlign: 'center',
+    color: "#DC2626",
+    textAlign: "center",
     marginBottom: 16,
   },
   retryButton: {
-    backgroundColor: '#DC2626',
+    backgroundColor: "#DC2626",
     paddingHorizontal: 24,
     paddingVertical: 12,
     borderRadius: 8,
   },
   retryButtonText: {
-    color: '#FFFFFF',
+    color: "#FFFFFF",
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   leagueHeaderGradient: {
     borderRadius: 0,
@@ -1932,100 +2801,100 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   topRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
+    flexDirection: "row",
+    alignItems: "flex-start",
     marginTop: 2,
     gap: 12,
   },
   backButtonContainer: {
     width: 40,
     height: 40,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
   },
   backButtonIcon: {
-    width: '100%',
-    height: '100%',
-    justifyContent: 'center',
-    alignItems: 'center',
+    width: "100%",
+    height: "100%",
+    justifyContent: "center",
+    alignItems: "center",
     marginBottom: 4,
   },
   leagueNameContainer: {
     flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     paddingRight: 52, // Offset to balance the back button width + gap
   },
   collapsedHeaderContent: {
-    position: 'absolute',
+    position: "absolute",
     left: 52, // Start after back button
     right: 0,
-    alignItems: 'flex-start',
-    justifyContent: 'center',
+    alignItems: "flex-start",
+    justifyContent: "center",
     top: 0,
     bottom: 0,
     paddingLeft: 12,
   },
   leagueInfoContainer: {
-    alignItems: 'center',
-    width: '100%',
+    alignItems: "center",
+    width: "100%",
   },
   leagueName: {
     fontSize: isSmallScreen ? 18 : isTablet ? 22 : 20,
-    fontWeight: '700',
-    color: '#FDFDFD',
-    textAlign: 'center',
+    fontWeight: "700",
+    color: "#FDFDFD",
+    textAlign: "center",
     marginBottom: 8,
   },
   collapsedLeagueName: {
     fontSize: isSmallScreen ? 16 : 18,
-    fontWeight: '700',
-    color: '#FDFDFD',
-    textAlign: 'left',
+    fontWeight: "700",
+    color: "#FDFDFD",
+    textAlign: "left",
     marginBottom: 4,
   },
   collapsedPlayerCountContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'flex-start',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "flex-start",
   },
   collapsedPlayerCount: {
     fontSize: isSmallScreen ? 12 : 13,
-    color: '#FDFDFD',
-    fontWeight: '600',
+    color: "#FDFDFD",
+    fontWeight: "600",
   },
   playerCountContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
     marginBottom: 12,
   },
   statusCircle: {
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: '#6EC531',
+    backgroundColor: "#6EC531",
     marginRight: 8,
   },
   playerCount: {
     fontSize: isSmallScreen ? 13 : 14,
-    color: '#FDFDFD',
-    fontWeight: '600',
-    textAlign: 'center',
+    color: "#FDFDFD",
+    fontWeight: "600",
+    textAlign: "center",
   },
   profilePicturesContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexWrap: 'wrap',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    flexWrap: "wrap",
   },
   // Header profile picture
   headerProfilePicture: {
     width: 48,
     height: 48,
     borderRadius: 24,
-    overflow: 'hidden',
-    shadowColor: '#000',
+    overflow: "hidden",
+    shadowColor: "#000",
     shadowOffset: {
       width: 0,
       height: 2,
@@ -2043,23 +2912,23 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: '#6de9a0',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: "#6de9a0",
+    justifyContent: "center",
+    alignItems: "center",
   },
   defaultHeaderAvatarText: {
-    color: '#FFFFFF',
+    color: "#FFFFFF",
     fontSize: 18,
-    fontWeight: 'bold',
-    fontFamily: 'System',
+    fontWeight: "bold",
+    fontFamily: "System",
   },
   // Member profile pictures in gradient header
   memberProfilePicture: {
     width: 36,
     height: 36,
     borderRadius: 18,
-    overflow: 'hidden',
-    shadowColor: '#000',
+    overflow: "hidden",
+    shadowColor: "#000",
     shadowOffset: {
       width: 0,
       height: 2,
@@ -2080,43 +2949,43 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: '#6de9a0',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: "#6de9a0",
+    justifyContent: "center",
+    alignItems: "center",
   },
   defaultMemberProfileText: {
-    color: '#FFFFFF',
+    color: "#FFFFFF",
     fontSize: 14,
-    fontWeight: 'bold',
+    fontWeight: "bold",
   },
   remainingCount: {
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: '#FFFFFF',
-    justifyContent: 'center',
-    alignItems: 'center',
-    overflow: 'hidden',
+    backgroundColor: "#FFFFFF",
+    justifyContent: "center",
+    alignItems: "center",
+    overflow: "hidden",
   },
   remainingCountText: {
-    color: '#1C1A1A',
+    color: "#1C1A1A",
     fontSize: 11,
-    fontWeight: '700',
+    fontWeight: "700",
   },
   leagueInfoCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: "#FFFFFF",
     borderRadius: 16,
     padding: isSmallScreen ? 16 : 20,
     marginBottom: 24,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
     shadowRadius: 8,
     elevation: 2,
   },
   leagueInfoContent: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
+    flexDirection: "row",
+    alignItems: "flex-start",
     gap: 16,
   },
   leagueInfoIcon: {
@@ -2127,59 +2996,59 @@ const styles = StyleSheet.create({
   },
   leagueInfoTitle: {
     fontSize: isSmallScreen ? 16 : 18,
-    fontWeight: '600',
-    color: '#1A1C1E',
+    fontWeight: "600",
+    color: "#1A1C1E",
     marginBottom: 8,
   },
   leagueInfoText: {
     fontSize: isSmallScreen ? 13 : 14,
-    color: '#747477',
+    color: "#747477",
     lineHeight: 20,
   },
   rulesInfoDivider: {
     height: 0.5,
-    backgroundColor: '#E0E0E0',
+    backgroundColor: "#E0E0E0",
     marginTop: 12,
     marginHorizontal: -20,
   },
   viewRulesButton: {
     paddingTop: 10,
     paddingBottom: 2,
-    alignSelf: 'flex-start',
+    alignSelf: "flex-start",
   },
   viewRulesText: {
     fontSize: isSmallScreen ? 12 : 13,
-    color: '#86868B',
-    fontWeight: '400',
+    color: "#86868B",
+    fontWeight: "400",
   },
   rulesModalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.45)',
-    justifyContent: 'flex-end',
+    backgroundColor: "rgba(0,0,0,0.45)",
+    justifyContent: "flex-end",
   },
   rulesModalContainer: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: "#FFFFFF",
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     padding: 24,
     paddingBottom: 40,
-    maxHeight: '75%',
+    maxHeight: "75%",
   },
   rulesModalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     marginBottom: 16,
   },
   rulesModalTitle: {
     fontSize: 18,
-    fontWeight: '700',
-    color: '#1A1C1E',
+    fontWeight: "700",
+    color: "#1A1C1E",
   },
   rulesModalClose: {
     fontSize: 18,
-    color: '#86868B',
-    fontWeight: '400',
+    color: "#86868B",
+    fontWeight: "400",
     padding: 4,
   },
   rulesModalScroll: {
@@ -2187,7 +3056,7 @@ const styles = StyleSheet.create({
   },
   rulesModalText: {
     fontSize: 14,
-    color: '#4B5563',
+    color: "#4B5563",
     lineHeight: 22,
   },
   categoriesContainer: {
@@ -2195,60 +3064,60 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontSize: isSmallScreen ? 16 : isTablet ? 20 : 18,
-    fontWeight: '700',
-    color: '#1A1C1E',
+    fontWeight: "700",
+    color: "#1A1C1E",
     marginBottom: 12,
   },
   categoryButtons: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
+    flexDirection: "row",
+    flexWrap: "wrap",
     gap: 8,
   },
   categoryButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#EAEAEA',
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#EAEAEA",
     borderRadius: 8,
     paddingHorizontal: 12,
     paddingVertical: 8,
   },
   categoryButtonSelected: {
-    backgroundColor: '#2C2C2C',
+    backgroundColor: "#2C2C2C",
   },
   categoryButtonText: {
     fontSize: isSmallScreen ? 13 : 14,
-    color: '#606060',
-    fontWeight: '400',
+    color: "#606060",
+    fontWeight: "400",
   },
   categoryButtonTextSelected: {
-    color: '#F5F5F5',
-    fontWeight: '600',
+    color: "#F5F5F5",
+    fontWeight: "600",
   },
   tickIcon: {
     fontSize: 14,
-    color: '#FEA04D',
-    fontWeight: 'bold',
+    color: "#FEA04D",
+    fontWeight: "bold",
     marginRight: 6,
   },
   seasonsSection: {
     marginBottom: 24,
   },
   pastSeasonCardWrapper: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: "#FFFFFF",
     borderRadius: 14,
     padding: isSmallScreen ? 14 : 16,
     marginBottom: 12,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.04,
     shadowRadius: 4,
     elevation: 1,
     borderWidth: 1,
-    borderColor: '#F0F0F0',
+    borderColor: "#F0F0F0",
   },
   pastDateRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     marginBottom: 12,
     gap: 6,
   },
@@ -2257,62 +3126,65 @@ const styles = StyleSheet.create({
   },
   pastDateText: {
     fontSize: isSmallScreen ? 12 : 13,
-    color: '#6B7280',
-    fontWeight: '400',
+    color: "#6B7280",
+    fontWeight: "400",
   },
   pastCardFooter: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     marginTop: 4,
   },
   pastViewStandingsText: {
     fontSize: isSmallScreen ? 13 : 14,
-    color: '#FEA04D',
-    fontWeight: '500',
+    color: "#FEA04D",
+    fontWeight: "500",
   },
   pastEndedBadge: {
     fontSize: 12,
-    color: '#EF4444',
-    fontWeight: '500',
+    color: "#EF4444",
+    fontWeight: "500",
   },
   pastCategoryChip: {
     borderRadius: 10,
     paddingHorizontal: 12,
     paddingVertical: 8,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: "#F3F4F6",
   },
   pastCategoryChipText: {
     fontSize: isSmallScreen ? 12 : 13,
-    fontWeight: '600',
-    color: '#9CA3AF',
+    fontWeight: "600",
+    color: "#9CA3AF",
   },
   seasonCardWrapper: {
     borderRadius: 16,
     padding: 2,
     marginBottom: 12,
   },
+  seasonCardPlainWrapper: {
+    marginBottom: 12,
+  },
   seasonCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: "#FFFFFF",
     borderRadius: 14,
     padding: isSmallScreen ? 16 : 20,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.05,
     shadowRadius: 4,
     elevation: 2,
   },
   seasonCardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     marginBottom: 12,
   },
   seasonTitle: {
     flex: 1,
     fontSize: isSmallScreen ? 16 : 18,
-    fontWeight: '700',
-    color: '#1A1C1E',
+    fontWeight: "700",
+    color: "#1A1C1E",
   },
   categoryChip: {
     borderRadius: 10,
@@ -2321,18 +3193,18 @@ const styles = StyleSheet.create({
   },
   categoryChipText: {
     fontSize: isSmallScreen ? 12 : 13,
-    fontWeight: '600',
-    color: '#F9F9F9',
+    fontWeight: "600",
+    color: "#F9F9F9",
   },
   categoryPlainText: {
     fontSize: isSmallScreen ? 12 : 13,
-    fontWeight: '500',
-    color: '#86868B',
+    fontWeight: "500",
+    color: "#86868B",
     marginBottom: 6,
   },
   seasonStatusBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 20,
@@ -2346,7 +3218,7 @@ const styles = StyleSheet.create({
   },
   seasonStatusText: {
     fontSize: isSmallScreen ? 10 : 11,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   dateRow: {
     marginTop: 8,
@@ -2354,28 +3226,28 @@ const styles = StyleSheet.create({
   },
   dateText: {
     fontSize: isSmallScreen ? 12 : 13,
-    fontWeight: '500',
-    color: '#2B2929',
+    fontWeight: "500",
+    color: "#2B2929",
   },
   dateTextBold: {
-    fontWeight: '700',
+    fontWeight: "700",
   },
   seasonPlayerCountContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
     marginBottom: 8,
   },
   seasonPlayerCount: {
     fontSize: isSmallScreen ? 13 : 14,
-    fontWeight: '400',
-    color: '#1A1C1E',
+    fontWeight: "400",
+    color: "#1A1C1E",
   },
   seasonProfilePicturesContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexWrap: 'wrap',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    flexWrap: "wrap",
     marginBottom: 12,
   },
   // Smaller profile pictures for season cards
@@ -2383,8 +3255,8 @@ const styles = StyleSheet.create({
     width: 28,
     height: 28,
     borderRadius: 14,
-    overflow: 'hidden',
-    shadowColor: '#000',
+    overflow: "hidden",
+    shadowColor: "#000",
     shadowOffset: {
       width: 0,
       height: 2,
@@ -2405,55 +3277,55 @@ const styles = StyleSheet.create({
     width: 28,
     height: 28,
     borderRadius: 14,
-    backgroundColor: '#6de9a0',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: "#6de9a0",
+    justifyContent: "center",
+    alignItems: "center",
   },
   defaultSeasonMemberProfileText: {
-    color: '#FFFFFF',
+    color: "#FFFFFF",
     fontSize: 12,
-    fontWeight: 'bold',
+    fontWeight: "bold",
   },
   seasonRemainingCount: {
     width: 28,
     height: 28,
     borderRadius: 14,
-    backgroundColor: '#FFFFFF',
-    justifyContent: 'center',
-    alignItems: 'center',
-    overflow: 'hidden',
+    backgroundColor: "#FFFFFF",
+    justifyContent: "center",
+    alignItems: "center",
+    overflow: "hidden",
   },
   seasonRemainingCountText: {
-    color: '#1C1A1A',
+    color: "#1C1A1A",
     fontSize: 9,
-    fontWeight: '700',
+    fontWeight: "700",
   },
   seasonDetails: {
     marginBottom: 12,
     gap: 4,
   },
   detailRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
   },
   detailText: {
     fontSize: 14,
-    color: '#2B2929',
+    color: "#2B2929",
   },
   entryFeeContainer: {
     marginBottom: 12,
   },
   entryFeeText: {
     fontSize: 14,
-    color: '#2B2929',
+    color: "#2B2929",
   },
   entryFeeAmount: {
-    color: '#2B2929',
+    color: "#2B2929",
   },
   buttonRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     marginTop: 12,
     gap: 8,
   },
@@ -2461,56 +3333,55 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     paddingVertical: 12,
     paddingHorizontal: 24,
-    alignItems: 'center',
+    alignItems: "center",
   },
   seasonCardButtons: {
-    flexDirection: 'row',
+    flexDirection: "row",
     gap: 10,
   },
-  primaryButton: {
-  },
+  primaryButton: {},
   manageTeamButton: {
     flex: 0.85,
-    backgroundColor: 'transparent',
+    backgroundColor: "transparent",
     borderWidth: 1.5,
-    borderColor: '#FEA04D',
+    borderColor: "#FEA04D",
     borderRadius: 8,
     paddingVertical: 10,
     paddingHorizontal: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
     gap: 6,
   },
   manageTeamButtonText: {
-    fontFamily: 'Inter',
+    fontFamily: "Inter",
     fontSize: 14,
-    fontWeight: '600',
-    color: '#FEA04D',
+    fontWeight: "600",
+    color: "#FEA04D",
   },
   registrationOpenText: {
     fontSize: 12,
-    fontWeight: '400',
-    fontStyle: 'italic',
-    color: '#34C759',
-    textAlign: 'right',
+    fontWeight: "400",
+    fontStyle: "italic",
+    color: "#34C759",
+    textAlign: "right",
   },
   registrationClosedText: {
     fontSize: 12,
-    fontWeight: '400',
-    fontStyle: 'italic',
-    color: '#EF4444',
-    textAlign: 'right',
+    fontWeight: "400",
+    fontStyle: "italic",
+    color: "#EF4444",
+    textAlign: "right",
   },
   registerButtonText: {
     fontSize: 14,
-    fontWeight: '600',
-    color: '#2B2929',
+    fontWeight: "600",
+    color: "#2B2929",
   },
   // New season card styles
   dateIconRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 6,
     marginBottom: 6,
   },
@@ -2518,50 +3389,59 @@ const styles = StyleSheet.create({
     fontSize: 13,
   },
   playersEntryRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     marginTop: 10,
     marginBottom: 4,
   },
   playersLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 6,
     flex: 1,
   },
   avatarRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
   },
   playerCountText: {
     fontSize: isSmallScreen ? 12 : 13,
-    color: '#6B7280',
-    fontWeight: '500',
+    color: "#6B7280",
+    fontWeight: "500",
   },
   entryFeeInlineText: {
     fontSize: isSmallScreen ? 12 : 13,
-    color: '#6B7280',
-    fontWeight: '600',
+    color: "#6B7280",
+    fontWeight: "600",
   },
   viewMatchesButton: {
     flex: 1,
-    backgroundColor: '#F09433',
+    backgroundColor: "#F09433",
     borderRadius: 12,
     paddingVertical: 11,
     paddingHorizontal: 16,
-    alignItems: 'center',
+    alignItems: "center",
+  },
+  compactActionButton: {
+    flex: 0,
+    width: "60%",
+    minWidth: 180,
+    maxWidth: 280,
+  },
+  centeredButtonRow: {
+    justifyContent: "center",
   },
   viewStandingsLink: {
     fontSize: 14,
-    fontWeight: '500',
-    color: '#F09433',
-    textAlign: 'right',
+    fontWeight: "500",
+    color: "#F09433",
+    textAlign: "right",
   },
   genderRestrictedPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#F0F0F0',
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#F0F0F0",
     borderRadius: 20,
     paddingVertical: 8,
     paddingHorizontal: 14,
@@ -2569,90 +3449,117 @@ const styles = StyleSheet.create({
   },
   genderRestrictedPillText: {
     fontSize: 13,
-    fontWeight: '500',
-    color: '#86868B',
+    fontWeight: "500",
+    color: "#86868B",
   },
   divisionPendingPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#FFF4E0',
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#FFF4E0",
     borderRadius: 20,
     paddingVertical: 8,
     paddingHorizontal: 14,
     borderWidth: 1,
-    borderColor: '#E89A2A',
+    borderColor: "#E89A2A",
     flex: 1,
   },
   divisionPendingPillText: {
     fontSize: 13,
-    fontWeight: '500',
-    color: '#E89A2A',
+    fontWeight: "500",
+    color: "#E89A2A",
   },
   helpIconButton: {
     width: 36,
     height: 36,
     borderRadius: 18,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
   collapsedSeasonName: {
     fontSize: 12,
-    color: 'rgba(255,255,255,0.8)',
-    fontWeight: '400',
+    color: "rgba(255,255,255,0.8)",
+    fontWeight: "400",
     marginBottom: 2,
   },
   emptyContainer: {
     padding: 24,
-    alignItems: 'center',
+    alignItems: "center",
   },
   emptyText: {
     fontSize: 14,
-    color: '#9CA3AF',
-    textAlign: 'center',
+    color: "#9CA3AF",
+    textAlign: "center",
   },
   emptySubtext: {
     fontSize: 12,
-    color: '#9CA3AF',
-    textAlign: 'center',
+    color: "#9CA3AF",
+    textAlign: "center",
     marginTop: 8,
   },
   headerContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    width: '100%',
-    backgroundColor: '#FFFFFF',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    width: "100%",
+    backgroundColor: "#FFFFFF",
     paddingHorizontal: isSmallScreen ? 16 : isTablet ? 24 : 20,
     paddingVertical: isSmallScreen ? 4 : isTablet ? 8 : 6,
     minHeight: isSmallScreen ? 36 : isTablet ? 44 : 40,
   },
   headerRight: {
     width: 48,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
   defaultAvatarContainer: {
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: '#6de9a0',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: "#6de9a0",
+    justifyContent: "center",
+    alignItems: "center",
   },
   defaultAvatarText: {
-    color: '#FFFFFF',
+    color: "#FFFFFF",
     fontSize: 18,
-    fontWeight: 'bold',
-    fontFamily: 'System',
+    fontWeight: "bold",
+    fontFamily: "System",
   },
   contentBox: {
     flex: 1,
-    backgroundColor: '#F6FAFC',
+    backgroundColor: "#F6FAFC",
     borderWidth: 1,
-    borderColor: '#D5D5D5',
+    borderColor: "#D5D5D5",
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     // marginTop: 0,
-    overflow: 'hidden',
+    overflow: "hidden",
+  },
+  // Register Interest card styles
+  registerInterestCardWrapper: {
+    padding: 0,
+    marginBottom: 12,
+  },
+  registerInterestCard: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 14,
+    padding: isSmallScreen ? 16 : 20,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  riCategoryPill: {
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    marginLeft: 8,
+    flexShrink: 0,
+  },
+  riCategoryPillText: {
+    fontSize: isSmallScreen ? 11 : 12,
+    fontWeight: "600",
+    color: "#FFFFFF",
   },
 });

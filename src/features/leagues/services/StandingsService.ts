@@ -20,6 +20,9 @@ export interface StandingEntry {
   previousRank: number;
   rankChange: number;
   userId?: string;
+  partnerId?: string;
+  partnerName?: string;
+  partnerImage?: string;
   user?: {
     id: string;
     name: string;

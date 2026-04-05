@@ -51,6 +51,9 @@ export interface MatchData {
     winningPlayerId: string;
     winningPlayer?: { id: string; name: string; image?: string };
     walkoverReasonDetail?: string;
+    reportedById?: string;
+    isDisputed?: boolean;
+    disputeExpiresAt?: string;
   };
 }
 

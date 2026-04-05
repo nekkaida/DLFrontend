@@ -2,6 +2,7 @@ import { getSportColors, SportType } from "@/constants/SportsColor";
 import { useSession } from "@/lib/auth-client";
 import axiosInstance, { endpoints } from "@/lib/endpoints";
 import { MatchCardSkeleton } from "@/src/components/MatchCardSkeleton";
+import { useSeasonInvitations } from "@/src/features/community/hooks/useSeasonInvitations";
 import { AnimatedFilterChip } from "@/src/shared/components/ui/AnimatedFilterChip";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -26,7 +27,6 @@ import {
   View,
 } from "react-native";
 import { useMyGamesStore } from "../stores/MyGamesStore";
-import { useSeasonInvitations } from "@/src/features/community/hooks/useSeasonInvitations";
 
 // Cache key for match summary
 const MATCH_SUMMARY_CACHE_KEY = "my_matches_summary";
@@ -40,6 +40,7 @@ import {
   formatMatchTime,
   getMatchTime,
   InvitationCard,
+  isMatchPast,
   Match,
   MatchCard,
   MatchInvitation,
@@ -68,9 +69,11 @@ export default function MyGamesScreen({
   const sportColors = getSportColors(sportType);
   // Sport-specific dark color for Invites pill (per Figma)
   const invitesColor =
-    sportType === 'TENNIS' ? '#587A27' :
-    sportType === 'PADEL'  ? '#2E6698' :
-                             '#602E98'; // Pickleball / default
+    sportType === "TENNIS"
+      ? "#587A27"
+      : sportType === "PADEL"
+        ? "#2E6698"
+        : "#602E98"; // Pickleball / default
   const filterBottomSheetRef = useRef<FilterBottomSheetRef>(null);
 
   // Entry animation values
@@ -108,7 +111,7 @@ export default function MyGamesScreen({
     if (!session?.user?.id) return false;
 
     try {
-      const response = await axiosInstance.get('/api/match/my/summary');
+      const response = await axiosInstance.get("/api/match/my/summary");
       const newSummary = response.data?.data ?? response.data;
 
       const cachedSummaryStr = await AsyncStorage.getItem(
@@ -147,7 +150,9 @@ export default function MyGamesScreen({
   const fetchMyMatches = useCallback(
     async (isManualRefresh = false) => {
       if (!session?.user?.id) {
-        console.log(`[MyGamesScreen] No session or user ID available`, { session });
+        console.log(`[MyGamesScreen] No session or user ID available`, {
+          session,
+        });
         return;
       }
 
@@ -185,7 +190,12 @@ export default function MyGamesScreen({
         const finalMatches = Array.isArray(matchesData) ? matchesData : [];
         setMatches(finalMatches);
       } catch (error: any) {
-        console.error("Error fetching my matches:", error?.response?.status, error?.response?.data, error?.message);
+        console.error(
+          "Error fetching my matches:",
+          error?.response?.status,
+          error?.response?.data,
+          error?.message,
+        );
         setMatches([]);
       } finally {
         setRefreshing(false);
@@ -201,7 +211,10 @@ export default function MyGamesScreen({
       return;
     }
 
-    console.log(`[MyGamesScreen] Fetching pending invitations for user:`, session.user.id);
+    console.log(
+      `[MyGamesScreen] Fetching pending invitations for user:`,
+      session.user.id,
+    );
 
     try {
       const response = await axiosInstance.get(
@@ -264,7 +277,8 @@ export default function MyGamesScreen({
   ]);
 
   // Listen for refresh signal from match-details (after submit/confirm/join/cancel)
-  const { shouldRefresh, clearRefresh, setPendingInviteCount } = useMyGamesStore();
+  const { shouldRefresh, clearRefresh, setPendingInviteCount } =
+    useMyGamesStore();
 
   useEffect(() => {
     if (shouldRefresh) {
@@ -273,7 +287,13 @@ export default function MyGamesScreen({
       fetchSeasonInvitations();
       clearRefresh();
     }
-  }, [shouldRefresh, clearRefresh, fetchMyMatches, fetchPendingInvitations, fetchSeasonInvitations]);
+  }, [
+    shouldRefresh,
+    clearRefresh,
+    fetchMyMatches,
+    fetchPendingInvitations,
+    fetchSeasonInvitations,
+  ]);
 
   const onRefresh = () => {
     setRefreshing(true);
@@ -343,32 +363,43 @@ export default function MyGamesScreen({
       return true;
     });
 
-    console.log(`[MyGamesScreen] Filtering matches`, {
-      totalMatches: matches.length,
-      activeTab,
-      upcomingPastTab,
-      beforeFiltering: filtered.length,
-      sportType,
-    });
-
-    // Filter by Upcoming/Past tab
+    // Filter by Upcoming/Past tab.
+    // DRAFT always stays Upcoming regardless of time.
+    // Terminal statuses always go to Past.
+    // All other non-terminal statuses use the scheduled start time:
+    //   - start time has passed => Past
+    //   - start time is in the future (or unknown) => Upcoming
     if (upcomingPastTab === "UPCOMING") {
-      filtered = filtered.filter((m) =>
-        ["OPEN", "SCHEDULED", "ONGOING", "IN_PROGRESS", "DRAFT", "WALKOVER_PENDING"].includes(
-          m.status.toUpperCase(),
-        ),
-      );
+      filtered = filtered.filter((m) => {
+        const status = m.status.toUpperCase();
+        // DRAFT is always upcoming
+        if (status === "DRAFT") return true;
+        // Terminal statuses belong to Past
+        if (
+          ["COMPLETED", "FINISHED", "CANCELLED", "VOID", "UNFINISHED"].includes(
+            status,
+          )
+        )
+          return false;
+        // Non-terminal: show in Upcoming only if start time hasn't passed yet
+        return !isMatchPast(m);
+      });
     } else if (upcomingPastTab === "PAST") {
-      filtered = filtered.filter((m) =>
-        ["COMPLETED", "FINISHED", "CANCELLED", "VOID", "UNFINISHED"].includes(
-          m.status.toUpperCase(),
-        ),
-      );
+      filtered = filtered.filter((m) => {
+        const status = m.status.toUpperCase();
+        // DRAFT never appears in Past
+        if (status === "DRAFT") return false;
+        // Terminal statuses always Past
+        if (
+          ["COMPLETED", "FINISHED", "CANCELLED", "VOID", "UNFINISHED"].includes(
+            status,
+          )
+        )
+          return true;
+        // Non-terminal: Past only once start time has passed
+        return isMatchPast(m);
+      });
     }
-
-    console.log(`[MyGamesScreen] After time filtering: ${filtered.length} matches`, {
-      statuses: filtered.map(m => m.status),
-    });
 
     // Filter by ALL/LEAGUE/FRIENDLY tab
     if (activeTab === "LEAGUE") {
@@ -419,12 +450,6 @@ export default function MyGamesScreen({
       );
     }
 
-    console.log(`[MyGamesScreen] Final filtered matches: ${filtered.length}`, {
-      activeTab,
-      upcomingPastTab,
-      matches: filtered.map(m => ({ id: m.id, status: m.status, sport: m.sport })),
-    });
-
     return filtered;
   }, [
     matches,
@@ -452,7 +477,9 @@ export default function MyGamesScreen({
   // Total pending invites count for the badge on the Invites chip
   const totalPendingInvites = useMemo(() => {
     const matchInvites = filteredInvitations?.length ?? 0;
-    const seasonInvites = seasonInvitations?.received?.filter(i => i.status === 'PENDING')?.length ?? 0;
+    const seasonInvites =
+      seasonInvitations?.received?.filter((i) => i.status === "PENDING")
+        ?.length ?? 0;
     return matchInvites + seasonInvites;
   }, [filteredInvitations, seasonInvitations]);
 
@@ -602,7 +629,7 @@ export default function MyGamesScreen({
               inactiveTextColor="#86868B"
               inactiveBackgroundColor="rgba(255, 255, 255, 0.78)"
               style={{ paddingVertical: 10, paddingHorizontal: 20 }}
-              textStyle={{ fontSize: 18, fontWeight: '700' }}
+              textStyle={{ fontSize: 18, fontWeight: "700" }}
             />
             <AnimatedFilterChip
               label="League"
@@ -613,7 +640,7 @@ export default function MyGamesScreen({
               inactiveTextColor="#86868B"
               inactiveBackgroundColor="rgba(255, 255, 255, 0.78)"
               style={{ paddingVertical: 10, paddingHorizontal: 20 }}
-              textStyle={{ fontSize: 18, fontWeight: '700' }}
+              textStyle={{ fontSize: 18, fontWeight: "700" }}
             />
             <AnimatedFilterChip
               label="Friendly"
@@ -624,7 +651,7 @@ export default function MyGamesScreen({
               inactiveTextColor="#86868B"
               inactiveBackgroundColor="rgba(255, 255, 255, 0.78)"
               style={{ paddingVertical: 10, paddingHorizontal: 20 }}
-              textStyle={{ fontSize: 18, fontWeight: '700' }}
+              textStyle={{ fontSize: 18, fontWeight: "700" }}
             />
             <AnimatedFilterChip
               label="Invites"
@@ -636,7 +663,7 @@ export default function MyGamesScreen({
               inactiveTextColor="#86868B"
               inactiveBackgroundColor="rgba(255, 255, 255, 0.78)"
               style={{ paddingVertical: 10, paddingHorizontal: 20 }}
-              textStyle={{ fontSize: 18, fontWeight: '700' }}
+              textStyle={{ fontSize: 18, fontWeight: "700" }}
             />
           </View>
         </View>
@@ -649,14 +676,19 @@ export default function MyGamesScreen({
             <TouchableOpacity
               style={[
                 localStyles.tab,
-                upcomingPastTab === "UPCOMING" && { borderBottomColor: sportColors.background },
+                upcomingPastTab === "UPCOMING" && {
+                  borderBottomColor: sportColors.background,
+                },
               ]}
               onPress={() => setUpcomingPastTab("UPCOMING")}
             >
               <Text
                 style={[
                   localStyles.tabText,
-                  upcomingPastTab === "UPCOMING" && { color: sportColors.background, fontWeight: '700' },
+                  upcomingPastTab === "UPCOMING" && {
+                    color: sportColors.background,
+                    fontWeight: "700",
+                  },
                 ]}
               >
                 Upcoming
@@ -665,14 +697,19 @@ export default function MyGamesScreen({
             <TouchableOpacity
               style={[
                 localStyles.tab,
-                upcomingPastTab === "PAST" && { borderBottomColor: sportColors.background },
+                upcomingPastTab === "PAST" && {
+                  borderBottomColor: sportColors.background,
+                },
               ]}
               onPress={() => setUpcomingPastTab("PAST")}
             >
               <Text
                 style={[
                   localStyles.tabText,
-                  upcomingPastTab === "PAST" && { color: sportColors.background, fontWeight: '700' },
+                  upcomingPastTab === "PAST" && {
+                    color: sportColors.background,
+                    fontWeight: "700",
+                  },
                 ]}
               >
                 Past
@@ -713,9 +750,13 @@ export default function MyGamesScreen({
                   <>
                     <View style={inviteStyles.sectionHeader}>
                       <Ionicons name="mail" size={14} color="#6B7280" />
-                      <Text style={inviteStyles.sectionTitle}>Match Invites</Text>
+                      <Text style={inviteStyles.sectionTitle}>
+                        Match Invites
+                      </Text>
                       <View style={inviteStyles.countBadge}>
-                        <Text style={inviteStyles.countText}>{filteredInvitations.length}</Text>
+                        <Text style={inviteStyles.countText}>
+                          {filteredInvitations.length}
+                        </Text>
                       </View>
                     </View>
                     {filteredInvitations.map((item) => (
@@ -731,47 +772,67 @@ export default function MyGamesScreen({
                 )}
 
                 {/* ── Partnership Invitations ── */}
-                {(seasonInvitations?.received?.filter(i => i.status === 'PENDING')?.length ?? 0) > 0 && (
+                {(seasonInvitations?.received?.filter(
+                  (i) => i.status === "PENDING",
+                )?.length ?? 0) > 0 && (
                   <>
-                    <View style={[inviteStyles.sectionHeader, (filteredInvitations?.length ?? 0) > 0 && { marginTop: 8 }]}>
+                    <View
+                      style={[
+                        inviteStyles.sectionHeader,
+                        (filteredInvitations?.length ?? 0) > 0 && {
+                          marginTop: 8,
+                        },
+                      ]}
+                    >
                       <Ionicons name="people" size={14} color="#6B7280" />
-                      <Text style={inviteStyles.sectionTitle}>Partnership Invites</Text>
-                      <View style={[inviteStyles.countBadge, { backgroundColor: '#EDE9FE' }]}>
-                        <Text style={[inviteStyles.countText, { color: '#A04DFE' }]}>
-                          {seasonInvitations.received.filter(i => i.status === 'PENDING').length}
+                      <Text style={inviteStyles.sectionTitle}>
+                        Partnership Invites
+                      </Text>
+                      <View
+                        style={[
+                          inviteStyles.countBadge,
+                          { backgroundColor: "#EDE9FE" },
+                        ]}
+                      >
+                        <Text
+                          style={[inviteStyles.countText, { color: "#A04DFE" }]}
+                        >
+                          {
+                            seasonInvitations.received.filter(
+                              (i) => i.status === "PENDING",
+                            ).length
+                          }
                         </Text>
                       </View>
                     </View>
                     {seasonInvitations.received
-                      .filter(i => i.status === 'PENDING')
+                      .filter((i) => i.status === "PENDING")
                       .map((item) => (
                         <SeasonInvitationCard
                           key={item.id}
                           invitation={item as any}
-                          currentUserId={session?.user?.id ?? ''}
+                          currentUserId={session?.user?.id ?? ""}
                           actionLoading={seasonInviteActionLoading}
                           onAccept={acceptSeasonInvitation}
                           onDeny={denySeasonInvitation}
                         />
-                      ))
-                    }
+                      ))}
                   </>
                 )}
 
                 {/* Empty state when no invites at all */}
                 {(filteredInvitations?.length ?? 0) === 0 &&
-                  (seasonInvitations?.received?.filter(i => i.status === 'PENDING')?.length ?? 0) === 0 &&
-                  renderEmptyInvitationsState()
-                }
+                  (seasonInvitations?.received?.filter(
+                    (i) => i.status === "PENDING",
+                  )?.length ?? 0) === 0 &&
+                  renderEmptyInvitationsState()}
               </ScrollView>
             ) : (
               <FlatList
                 data={filteredMatches || []}
                 renderItem={({ item }) => {
                   if (!item) return null;
-                  return (
-                    <MatchCard match={item} onPress={handleMatchPress} />
-                  );
+                  return <MatchCard match={item} onPress={handleMatchPress} />;
                 }}
                 keyExtractor={(item) => item?.id || Math.random().toString()}
                 contentContainerStyle={styles.listContent}
@@ -873,29 +934,29 @@ const localStyles = StyleSheet.create({
 
 const inviteStyles = StyleSheet.create({
   sectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 6,
     paddingHorizontal: 16,
     marginBottom: 10,
   },
   sectionTitle: {
     fontSize: 13,
-    fontWeight: '600',
-    color: '#6B7280',
-    textTransform: 'uppercase',
+    fontWeight: "600",
+    color: "#6B7280",
+    textTransform: "uppercase",
     letterSpacing: 0.5,
     flex: 1,
   },
   countBadge: {
-    backgroundColor: '#F3F4F6',
+    backgroundColor: "#F3F4F6",
     borderRadius: 10,
     paddingHorizontal: 7,
     paddingVertical: 2,
   },
   countText: {
     fontSize: 12,
-    fontWeight: '700',
-    color: '#374151',
+    fontWeight: "700",
+    color: "#374151",
   },
 });

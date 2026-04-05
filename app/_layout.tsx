@@ -1,63 +1,60 @@
-import { useColorScheme } from '@/hooks/useColorScheme';
-import { authClient, useSession } from '@/lib/auth-client';
-import { socketService } from '@/lib/socket-service';
-import { useChatStore } from '@/src/features/chat/stores/ChatStore';
-import { NavigationInterceptor } from '@core/navigation/NavigationInterceptor';
-import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
-import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
-import { Stack } from 'expo-router';
-import { StatusBar } from 'expo-status-bar';
-import * as WebBrowser from 'expo-web-browser';
-import { useEffect } from 'react';
-import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { KeyboardProvider } from 'react-native-keyboard-controller';
-import { SafeAreaProvider } from 'react-native-safe-area-context';
-import 'react-native-reanimated';
-import { Toaster } from 'sonner-native';
-import { usePushNotifications } from '@/src/hooks/usePushNotifications';
-import { configureGoogleSignIn } from '@/lib/google-signin';
-import { ErrorBoundary } from '@shared/components/layout';
-import { reportRenderError, reportJSError } from '@/src/services/crashReporter';
+import { useColorScheme } from "@/hooks/useColorScheme";
+import { authClient, useSession } from "@/lib/auth-client";
+import { configureGoogleSignIn } from "@/lib/google-signin";
+import { socketService } from "@/lib/socket-service";
+import { useChatStore } from "@/src/features/chat/stores/ChatStore";
+import { usePushNotifications } from "@/src/hooks/usePushNotifications";
+import { reportJSError, reportRenderError } from "@/src/services/crashReporter";
+import { NavigationInterceptor } from "@core/navigation/NavigationInterceptor";
+import { BottomSheetModalProvider } from "@gorhom/bottom-sheet";
+import {
+  DarkTheme,
+  DefaultTheme,
+  ThemeProvider,
+} from "@react-navigation/native";
+import { ErrorBoundary } from "@shared/components/layout";
+import { useFonts } from "expo-font";
+import { Stack } from "expo-router";
+import { StatusBar } from "expo-status-bar";
+import * as WebBrowser from "expo-web-browser";
+import { useEffect } from "react";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
+import { KeyboardProvider } from "react-native-keyboard-controller";
+import "react-native-reanimated";
+import { SafeAreaProvider } from "react-native-safe-area-context";
+import { Toaster } from "sonner-native";
 
-// ErrorUtils is a React Native runtime global (like __DEV__), not an exported module.
-// Importing it from 'react-native' compiles but is undefined at runtime → crashes production.
-declare const ErrorUtils: {
-  getGlobalHandler: () => (error: Error, isFatal?: boolean) => void;
-  setGlobalHandler: (handler: (error: Error, isFatal?: boolean) => void) => void;
-};
+// Initialize Google Sign-In and clean up OAuth sessions AFTER React has mounted
+// This prevents Hermes GC crashes when native modules throw exceptions during module load
+useEffect(() => {
+  try {
+    configureGoogleSignIn();
+  } catch (error) {
+    // Non-fatal - Google Sign-In will just not work, but app won't crash
+    console.warn("Failed to configure Google Sign-In:", error);
+  }
 
-// IMPORTANT: Do NOT call configureGoogleSignIn() or maybeCompleteAuthSession() synchronously
-// at module load time. This causes a crash on iOS when the native modules throw exceptions
-// during initialization - Hermes' GC gets corrupted when TurboModule tries to convert
-// NSException to JS error. These are now called inside useEffect in RootLayout.
+  try {
+    WebBrowser.maybeCompleteAuthSession();
+  } catch (error) {
+    // Non-fatal - stale OAuth sessions may remain, but app won't crash
+    console.warn("Failed to complete auth session:", error);
+  }
+}, []);
+
+// Clean up any stale OAuth sessions from previous app launches
+// This MUST be called before any OAuth flow to prevent invalid state errors
+WebBrowser.maybeCompleteAuthSession();
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
   const { data: session } = useSession();
-  // Font loading disabled - SpaceMono not used in the app
-  // If you need custom fonts, add them to app.json under expo.fonts instead
-  const loaded = true;
+  const [loaded] = useFonts({
+    SpaceMono: require("../assets/fonts/SpaceMono-Regular.ttf"),
+  });
 
   // Initialize push notifications (auto-registers when user is authenticated)
   usePushNotifications();
-
-  // Initialize Google Sign-In and clean up OAuth sessions AFTER React has mounted
-  // This prevents Hermes GC crashes when native modules throw exceptions during module load
-  useEffect(() => {
-    try {
-      configureGoogleSignIn();
-    } catch (error) {
-      // Non-fatal - Google Sign-In will just not work, but app won't crash
-      console.warn('Failed to configure Google Sign-In:', error);
-    }
-
-    try {
-      WebBrowser.maybeCompleteAuthSession();
-    } catch (error) {
-      // Non-fatal - stale OAuth sessions may remain, but app won't crash
-      console.warn('Failed to complete auth session:', error);
-    }
-  }, []);
 
   // Initialize socket connection and load threads when user is authenticated
   useEffect(() => {
@@ -65,37 +62,43 @@ export default function RootLayout() {
 
     const initSocket = async () => {
       if (session?.user?.id) {
-        console.log('🔌 RootLayout: User authenticated, initializing socket connection...');
+        console.log(
+          "🔌 RootLayout: User authenticated, initializing socket connection...",
+        );
 
         // Small delay to ensure session cookie is fully synced to SecureStore
         // This prevents race conditions during initial auth flow (e.g., after email verification)
-        await new Promise(resolve => setTimeout(resolve, 300));
+        await new Promise((resolve) => setTimeout(resolve, 300));
 
         if (cancelled) return;
 
         // Verify the session cookie is available before attempting socket connection
         const cookies = authClient.getCookie();
         if (!cookies) {
-          console.log('⚠️ RootLayout: Session cookie not yet available, deferring socket connection');
+          console.log(
+            "⚠️ RootLayout: Session cookie not yet available, deferring socket connection",
+          );
           return;
         }
 
         try {
           await socketService.connect();
           if (cancelled) return;
-          console.log('✅ RootLayout: Socket connection initialized');
+          console.log("✅ RootLayout: Socket connection initialized");
 
           // Load threads early so useChatSocketEvents can join rooms
           // This ensures real-time updates work from app startup
           const { loadThreads } = useChatStore.getState();
           await loadThreads(session.user.id);
-          console.log('✅ RootLayout: Threads loaded for real-time updates');
+          console.log("✅ RootLayout: Threads loaded for real-time updates");
         } catch (error) {
           // Socket connection failures are non-fatal - app can work without real-time updates
-          console.error('❌ RootLayout: Failed to initialize socket:', error);
+          console.error("❌ RootLayout: Failed to initialize socket:", error);
         }
       } else {
-        console.log('👤 RootLayout: No user session, skipping socket initialization');
+        console.log(
+          "👤 RootLayout: No user session, skipping socket initialization",
+        );
       }
     };
 
@@ -105,7 +108,7 @@ export default function RootLayout() {
     return () => {
       cancelled = true;
       if (session?.user?.id) {
-        console.log('🔌 RootLayout: Disconnecting socket on unmount');
+        console.log("🔌 RootLayout: Disconnecting socket on unmount");
         socketService.disconnect();
       }
     };
@@ -113,7 +116,7 @@ export default function RootLayout() {
 
   // Set up global JS error handler for crash reporting
   useEffect(() => {
-    if (!__DEV__ && typeof ErrorUtils !== 'undefined') {
+    if (!__DEV__ && typeof ErrorUtils !== "undefined") {
       const defaultHandler = ErrorUtils.getGlobalHandler();
       ErrorUtils.setGlobalHandler((error: Error, isFatal?: boolean) => {
         reportJSError(error, isFatal ?? false);
@@ -131,126 +134,128 @@ export default function RootLayout() {
     <SafeAreaProvider>
       <GestureHandlerRootView style={{ flex: 1 }}>
         <KeyboardProvider>
-        <BottomSheetModalProvider>
-          <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-            <ErrorBoundary onError={reportRenderError}>
-            <NavigationInterceptor>
-            <Stack
-            screenOptions={{
-              gestureEnabled: true,
-              headerShown: false,
-              presentation: 'card',
-            }}
-          >
-        <Stack.Screen 
-          name="index" 
-          options={{ 
-            headerShown: false,
-            gestureEnabled: true,
-          }} 
-        />
-        <Stack.Screen 
-          name="dev" 
-          options={{ 
-            headerShown: false,
-            gestureEnabled: true,
-          }} 
-        />
-        <Stack.Screen 
-          name="login" 
-          options={{ 
-            headerShown: false,
-            gestureEnabled: true,
-          }} 
-        />
-        <Stack.Screen 
-          name="register" 
-          options={{ 
-            headerShown: false,
-            gestureEnabled: true,
-          }} 
-        />
-        <Stack.Screen 
-          name="resetPassword" 
-          options={{ 
-            headerShown: false,
-            gestureEnabled: true,
-          }} 
-        />
-        <Stack.Screen 
-          name="verifyEmail" 
-          options={{ 
-            headerShown: false,
-            gestureEnabled: true,
-          }} 
-        />
-        <Stack.Screen 
-          name="onboarding" 
-          options={{ 
-            headerShown: false,
-            gestureEnabled: false,
-          }} 
-        />
-        <Stack.Screen 
-          name="user-dashboard" 
-          options={{ 
-            headerShown: false,
-            gestureEnabled: false,
-            animation: 'none',
-          }} 
-        />
-        <Stack.Screen 
-          name="profile" 
-          options={{ 
-            headerShown: false,
-            gestureEnabled: true,
-          }} 
-        />
-        <Stack.Screen 
-          name="edit-profile" 
-          options={{ 
-            headerShown: false,
-            gestureEnabled: true,
-          }} 
-        />
-        <Stack.Screen 
-          name="settings" 
-          options={{ 
-            headerShown: false,
-            gestureEnabled: true,
-          }} 
-        />
-        <Stack.Screen
-          name="match-history"
-          options={{
-            headerShown: false,
-            gestureEnabled: true,
-          }}
-        />
-        <Stack.Screen
-          name="notifications"
-          options={{
-            headerShown: false,
-            gestureEnabled: true,
-          }}
-        />
-        <Stack.Screen name="+not-found" />
-        <Stack.Screen
-          name="chat/new-message"
-          options={{
-            presentation: 'modal',
-            headerShown: false,
-            gestureEnabled: true,
-            animation: 'slide_from_bottom',
-          }}
-        />
-        </Stack>
-            </NavigationInterceptor>
-            </ErrorBoundary>
-            <StatusBar style="auto" />
-            <Toaster />
-          </ThemeProvider>
-        </BottomSheetModalProvider>
+          <BottomSheetModalProvider>
+            <ThemeProvider
+              value={colorScheme === "dark" ? DarkTheme : DefaultTheme}
+            >
+              <ErrorBoundary onError={reportRenderError}>
+                <NavigationInterceptor>
+                  <Stack
+                    screenOptions={{
+                      gestureEnabled: true,
+                      headerShown: false,
+                      presentation: "card",
+                    }}
+                  >
+                    <Stack.Screen
+                      name="index"
+                      options={{
+                        headerShown: false,
+                        gestureEnabled: true,
+                      }}
+                    />
+                    <Stack.Screen
+                      name="dev"
+                      options={{
+                        headerShown: false,
+                        gestureEnabled: true,
+                      }}
+                    />
+                    <Stack.Screen
+                      name="login"
+                      options={{
+                        headerShown: false,
+                        gestureEnabled: true,
+                      }}
+                    />
+                    <Stack.Screen
+                      name="register"
+                      options={{
+                        headerShown: false,
+                        gestureEnabled: true,
+                      }}
+                    />
+                    <Stack.Screen
+                      name="resetPassword"
+                      options={{
+                        headerShown: false,
+                        gestureEnabled: true,
+                      }}
+                    />
+                    <Stack.Screen
+                      name="verifyEmail"
+                      options={{
+                        headerShown: false,
+                        gestureEnabled: true,
+                      }}
+                    />
+                    <Stack.Screen
+                      name="onboarding"
+                      options={{
+                        headerShown: false,
+                        gestureEnabled: false,
+                      }}
+                    />
+                    <Stack.Screen
+                      name="user-dashboard"
+                      options={{
+                        headerShown: false,
+                        gestureEnabled: false,
+                        animation: "none",
+                      }}
+                    />
+                    <Stack.Screen
+                      name="profile"
+                      options={{
+                        headerShown: false,
+                        gestureEnabled: true,
+                      }}
+                    />
+                    <Stack.Screen
+                      name="edit-profile"
+                      options={{
+                        headerShown: false,
+                        gestureEnabled: true,
+                      }}
+                    />
+                    <Stack.Screen
+                      name="settings"
+                      options={{
+                        headerShown: false,
+                        gestureEnabled: true,
+                      }}
+                    />
+                    <Stack.Screen
+                      name="match-history"
+                      options={{
+                        headerShown: false,
+                        gestureEnabled: true,
+                      }}
+                    />
+                    <Stack.Screen
+                      name="notifications"
+                      options={{
+                        headerShown: false,
+                        gestureEnabled: true,
+                      }}
+                    />
+                    <Stack.Screen name="+not-found" />
+                    <Stack.Screen
+                      name="chat/new-message"
+                      options={{
+                        presentation: "modal",
+                        headerShown: false,
+                        gestureEnabled: true,
+                        animation: "slide_from_bottom",
+                      }}
+                    />
+                  </Stack>
+                </NavigationInterceptor>
+              </ErrorBoundary>
+              <StatusBar style="auto" />
+              <Toaster />
+            </ThemeProvider>
+          </BottomSheetModalProvider>
         </KeyboardProvider>
       </GestureHandlerRootView>
     </SafeAreaProvider>

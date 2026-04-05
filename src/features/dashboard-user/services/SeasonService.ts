@@ -29,7 +29,7 @@ export interface Season {
   registeredUserCount: number;
   
   // Bools
-  status: 'UPCOMING' | 'ACTIVE' | 'FINISHED' | 'CANCELLED';
+  status: 'UPCOMING' | 'ACTIVE' | 'REGISTER_INTEREST' | 'FINISHED' | 'CANCELLED';
   isActive: boolean;
   paymentRequired: boolean;
   promoCodeSupported: boolean;
@@ -259,10 +259,12 @@ static async registerForSeason(seasonId: string, userId?: string, payLater: bool
   static groupSeasonsByStatus(seasons: Season[]): {
     active: Season[];
     upcoming: Season[];
+    registerInterest: Season[];
     finished: Season[];
   } {
     const active: Season[] = [];
     const upcoming: Season[] = [];
+    const registerInterest: Season[] = [];
     const finished: Season[] = [];
     const now = new Date();
 
@@ -274,12 +276,14 @@ static async registerForSeason(seasonId: string, userId?: string, payLater: bool
         finished.push(season);
       } else if (season.status === 'ACTIVE') {
         active.push(season);
+      } else if (season.status === 'REGISTER_INTEREST') {
+        registerInterest.push(season);
       } else if (season.status === 'UPCOMING') {
         upcoming.push(season);
       }
     });
 
-    return { active, upcoming, finished };
+    return { active, upcoming, registerInterest, finished };
   }
 
   /**
