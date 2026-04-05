@@ -24,27 +24,17 @@ import "react-native-reanimated";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { Toaster } from "sonner-native";
 
-// Initialize Google Sign-In and clean up OAuth sessions AFTER React has mounted
-// This prevents Hermes GC crashes when native modules throw exceptions during module load
-useEffect(() => {
-  try {
-    configureGoogleSignIn();
-  } catch (error) {
-    // Non-fatal - Google Sign-In will just not work, but app won't crash
-    console.warn("Failed to configure Google Sign-In:", error);
-  }
+// ErrorUtils is a React Native runtime global (like __DEV__), not an exported module.
+// The declare tells TypeScript it exists; the runtime guard handles cases where it doesn't.
+declare const ErrorUtils: {
+  getGlobalHandler: () => (error: Error, isFatal?: boolean) => void;
+  setGlobalHandler: (handler: (error: Error, isFatal?: boolean) => void) => void;
+};
 
-  try {
-    WebBrowser.maybeCompleteAuthSession();
-  } catch (error) {
-    // Non-fatal - stale OAuth sessions may remain, but app won't crash
-    console.warn("Failed to complete auth session:", error);
-  }
-}, []);
-
-// Clean up any stale OAuth sessions from previous app launches
-// This MUST be called before any OAuth flow to prevent invalid state errors
-WebBrowser.maybeCompleteAuthSession();
+// IMPORTANT: Do NOT call configureGoogleSignIn() or maybeCompleteAuthSession() at module
+// load time. This causes a crash on iOS when native modules throw exceptions during
+// initialization — Hermes' GC gets corrupted when TurboModule tries to convert
+// NSException to JS error. These are called inside useEffect in RootLayout.
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
@@ -55,6 +45,20 @@ export default function RootLayout() {
 
   // Initialize push notifications (auto-registers when user is authenticated)
   usePushNotifications();
+
+  // Initialize Google Sign-In and clean up stale OAuth sessions
+  useEffect(() => {
+    try {
+      configureGoogleSignIn();
+    } catch (error) {
+      console.warn("Failed to configure Google Sign-In:", error);
+    }
+    try {
+      WebBrowser.maybeCompleteAuthSession();
+    } catch (error) {
+      console.warn("Failed to complete auth session:", error);
+    }
+  }, []);
 
   // Initialize socket connection and load threads when user is authenticated
   useEffect(() => {
@@ -116,12 +120,16 @@ export default function RootLayout() {
 
   // Set up global JS error handler for crash reporting
   useEffect(() => {
-    if (!__DEV__ && typeof ErrorUtils !== "undefined") {
-      const defaultHandler = ErrorUtils.getGlobalHandler();
-      ErrorUtils.setGlobalHandler((error: Error, isFatal?: boolean) => {
-        reportJSError(error, isFatal ?? false);
-        defaultHandler(error, isFatal);
-      });
+    try {
+      if (!__DEV__ && typeof ErrorUtils !== 'undefined' && ErrorUtils?.getGlobalHandler) {
+        const defaultHandler = ErrorUtils.getGlobalHandler();
+        ErrorUtils.setGlobalHandler((error: Error, isFatal?: boolean) => {
+          reportJSError(error, isFatal ?? false);
+          defaultHandler(error, isFatal);
+        });
+      }
+    } catch {
+      // ErrorUtils not available in this runtime — skip crash handler setup
     }
   }, []);
 
